@@ -2,9 +2,12 @@
 authors = ["Andrew T. Polonsky"]
 language = "en"
 multilingual = false
-src = "src"
+src = "docs/userguide/src"
 title = "pyTriBeam User Guide"
 logo = "src/logos/logo_color.png"
+
+[build]
+build-dir = "docs/userguide/book"
 
 [preprocessor.cmdrun]
 

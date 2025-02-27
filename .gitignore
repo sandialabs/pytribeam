@@ -21,6 +21,9 @@ coverage_reports/
 logs/
 docs/api/
 docs/userguide/book/
+local_page_content.md
+# tests/
+# src/
 
 # Documentation output directories (keep these if you want to build locally)
 # docs/api/
