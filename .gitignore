@@ -21,7 +21,7 @@ coverage_reports/
 logs/
 docs/api/
 docs/userguide/book/
-local_page_content.md
+gh-pages_content_guide.md
 # tests/
 # src/
 
