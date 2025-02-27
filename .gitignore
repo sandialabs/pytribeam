@@ -1,3 +1,12 @@
+# gh-pages stuff (need to build locally from main)
+badges/
+coverage_reports/
+logs/
+docs/api/
+docs/userguide/book/
+# tests/
+# src/
+
 # Python cache files
 __pycache__/
 *.py[cod]
@@ -14,16 +23,6 @@ venv.bak/
 *.egg-info/
 dist/
 build/
-
-# gh-pages stuff (need to build locally from main)
-badges/
-coverage_reports/
-logs/
-docs/api/
-docs/userguide/book/
-gh-pages_content_guide.md
-# tests/
-# src/
 
 # Documentation output directories (keep these if you want to build locally)
 # docs/api/
