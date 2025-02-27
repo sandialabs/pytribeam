@@ -63,7 +63,7 @@ def pytribeam():
     print(CLI_DOCS)
 
 
-def module_info() -> str:
+def module_info() -> None:
     """
     Prints the module version and the yml_schema_version.
 
@@ -77,8 +77,7 @@ def module_info() -> str:
 
     Returns
     -------
-    ver : str
-        The version of the module.
+    None
     """
 
     # ver = pkg_resources.require("recon3d")[0].version
@@ -88,10 +87,12 @@ def module_info() -> str:
     laser_api_version = cs.Constants().laser_api_version
     yml_schema_version = cs.Constants().yml_schema_version
     print(f"{module_name} module version: v{ver}")
-    print(f"  .yml schema version: v{yml_schema_version}")
-    print(f"  Thermo Fisher Autoscript version: v{autoscript_version}")
-    print(f"  Laser API version: v{laser_api_version}")
-    return ver
+    print(f"  Maximum supported .yml schema version: v{yml_schema_version}")
+    print(
+        f"  Maximum supported Thermo Fisher Autoscript version: v{autoscript_version}"
+    )
+    print(f"  Maximum supported Laser API version: v{laser_api_version}")
+    return None
 
 
 def launch_gui():
