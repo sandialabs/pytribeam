@@ -1,0 +1,8 @@
+# Ignore all HTML files
+# *.html
+
+# Ignore XML coverage report if you don't want to track it
+# *.xml
+
+# Ignore any temporary files or directories
+*.tmp
