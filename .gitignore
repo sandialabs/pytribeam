@@ -4,8 +4,6 @@ coverage_reports/
 logs/
 docs/api/
 docs/userguide/book/
-# tests/
-# src/
 
 # Python cache files
 __pycache__/
