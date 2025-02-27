@@ -42,7 +42,7 @@ git commit -m "Update gh-pages branch to reflect current main branch"
 
 And finally push your commit:
 ```sh
-git push
+git push -f origin gh-pages
 ```
 
 
