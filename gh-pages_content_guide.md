@@ -14,7 +14,15 @@ From here you can checkout and reset the gh-pages branch:
 git checkout -B gh-pages
 ```
 
-Now modify the top of the .gitignore file so that we can save the built content from this by changing the top lines from this:
+Now build the various pages by following the sections below:
+
+- [userguide](#userguide)
+- [api-docs](#api-docs)
+- [test_coverage](#test-coverage)
+- [linting](#lint-logs)
+- [versioning](#versioning)
+
+Once all the new build content is added, modify the top of the .gitignore file by changing the top lines from this:
 ```
 # gh-pages stuff (need to build locally from main)
 badges/
