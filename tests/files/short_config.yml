@@ -1,0 +1,22 @@
+---
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 400
+
+image_test:
+  # step_general:
+  step_type           : "image"
+  # step_specific:
+  beam_type           : "electron"
+  auto_cb             : True
+  dwell_time_us       : 0.45
+
+image_test_2:
+  # step_general:
+  step_type           : "image"
+  # step_specific:
+  beam_type           : "ion"
+  auto_cb             : True
+  dwell_time_us       : 0.5

@@ -1,0 +1,36 @@
+---
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 2
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost #string
+  connection_port: null #int
+  EBSD_OEM: null #Oxford, EDAX, or null
+  EDS_OEM: null
+  exp_dir: null
+  h5_log_name: "log"
+  step_count: 1
+
+steps:
+  custom_test:
+    step_general:
+      step_number: 1
+      step_type: custom
+      frequency: 1
+      stage:
+        rotation_side:    fsl_mill
+        initial_position:
+          x_mm:   1.0
+          y_mm:   2.0
+          z_mm:   5.0
+          r_deg:  -50.0
+          t_deg:  0.0
+    # step_specific:
+    script_path: 
+    executable_path: C:/Program Files/Enthought/Python/envs/AutoScript/python.exe
+

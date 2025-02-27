@@ -1,0 +1,92 @@
+config_file_version: 1.0
+general:
+  EBSD_OEM: null
+  EDS_OEM: null
+  connection_host: localhost
+  connection_port: null
+  exp_dir: C:\Users\apolon\Codebases\pytribeam\tests\files\temp
+  h5_log_name: log
+  max_slice_num: 2
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  slice_thickness_um: 2.0
+  stage_angular_tol_deg: 0.02
+  stage_translational_tol_um: 0.5
+  step_count: 2
+steps:
+  image_test:
+    beam:
+      current_na: 5.0
+      current_tol_na: 0.5
+      dynamic_focus: false
+      hfw_mm: 0.9
+      tilt_correction: false
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.5
+      working_dist_mm: 4.093
+    bit_depth: 8
+    detector:
+      auto_cb:
+        height: null
+        left: null
+        top: null
+        width: null
+      brightness: 0.2
+      contrast: 0.3
+      mode: SecondaryElectrons
+      type: ETD
+    scan:
+      dwell_time_us: 1.0
+      resolution: 768x512
+      rotation_deg: 180.0
+    step_general:
+      frequency: 1
+      stage:
+        initial_position:
+          r_deg: -50.0
+          t_deg: 0.0
+          x_mm: 1.0
+          y_mm: 2.0
+          z_mm: 5.0
+        rotation_side: fsl_mill
+      step_number: 1
+      step_type: image
+  image_test2:
+    beam:
+      current_na: 5.0
+      current_tol_na: 0.5
+      dynamic_focus: false
+      hfw_mm: 0.9
+      tilt_correction: false
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.5
+      working_dist_mm: 4.093
+    bit_depth: 8
+    detector:
+      auto_cb:
+        height: null
+        left: null
+        top: null
+        width: null
+      brightness: 0.2
+      contrast: 0.3
+      mode: SecondaryElectrons
+      type: ETD
+    scan:
+      dwell_time_us: 1.0
+      resolution: 768x512
+      rotation_deg: 180.0
+    step_general:
+      frequency: 1
+      stage:
+        initial_position:
+          r_deg: 0.0
+          t_deg: 30.0
+          x_mm: 1.0
+          y_mm: 2.0
+          z_mm: 5.0
+        rotation_side: fsl_mill
+      step_number: 2
+      step_type: image

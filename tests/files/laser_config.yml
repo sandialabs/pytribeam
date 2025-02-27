@@ -1,0 +1,61 @@
+---
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 400
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost #string
+  connection_port: null #int
+  EBSD_OEM: Oxford #Oxford, EDAX, or null
+  EDS_OEM: Oxford
+  exp_dir: null
+  h5_log_name: "log"
+  step_count: 1
+
+steps:
+  laser_test:
+    step_general:
+      step_number: 1
+      step_type: laser
+      frequency: 1
+      stage:
+        rotation_side:    fsl_mill
+        initial_position:
+          x_mm:   0.0
+          y_mm:   0.0
+          z_mm:   0.0
+          r_deg:  0.0
+          t_deg:  30.0
+    # step_specific:
+    pulse:
+      wavelength_nm: 515 #515 or 1030 only, not capable of switching yet 
+      divider: 2 
+      energy_uj: 5.0 
+      polarization: vertical
+    objective_position_mm: 2.5
+    beam_shift:
+      x_um: 0.0
+      y_um: 0.0
+    pattern:
+      type: #can only use one type
+        box:
+          passes: 3
+          size_x_um: 200.0
+          size_y_um: 100.0
+          pitch_x_um: 2.0
+          pitch_y_um: 3.0
+          scan_type: serpentine #serpentine or raster
+          coordinate_ref: uppercenter #center, uppercenter, or upperleft
+        line: 
+          passes: #3
+          size_um: #200.0
+          pitch_um: #2.0
+          scan_type: #single #single or lap
+      rotation_deg: 0.0
+      mode: fine #can only use fine or coarse
+      pulses_per_pixel: 2 #only matters for fine
+      pixel_dwell_ms: 0.5  #only matters for coarse

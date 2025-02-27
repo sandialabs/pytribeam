@@ -1,0 +1,12 @@
+[book]
+authors = ["Andrew T. Polonsky"]
+language = "en"
+multilingual = false
+src = "src"
+title = "pyTriBeam User Guide"
+logo = "src/logos/logo_color.png"
+
+[preprocessor.cmdrun]
+
+[preprocessor.katex]
+after = ["links"]

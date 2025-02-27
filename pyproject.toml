@@ -1,0 +1,62 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pytribeam"
+authors = [
+  { name="Andrew Polonsky", email="apolon@sandia.gov" },
+  { name="Chad Hovey", email="chovey@sandia.gov" },
+  { name="James Lamb", email="jlamb@ucsb.edu" },
+]
+description = "automated data collection on TriBeam tools"
+readme = "README.md"
+requires-python = "==3.8.12"
+dependencies = [
+    "black",
+    "pytest",
+    "pytest-cov",
+    "schema",
+]
+version = '0.0.1'
+
+[project.optional-dependencies]
+dev = [
+    "black",
+    #"docstr-coverage",
+    #"docutils<0.18,>=0.14",
+    "flake8",
+    #"jinja2",
+    #"nbsphinx",
+    #"pdbp",
+    'pycodestyle',
+    "pytest==8.3.3",
+    "pytest-cov==5.0.0",
+    "pdoc",
+]
+
+ci_cd = [
+    "dev", 
+    "anybadge",
+    "pylint",
+    "docstr-coverage",
+]
+
+[docstr-coverage]
+ignore = [
+    "tests/",
+    "src/pytribeam/GUI/",
+]
+
+[project.urls]
+documentation = 'https://gitlab-ex.sandia.gov/tribeam/pytribeam/'
+repository = 'https://gitlab-ex.sandia.gov/tribeam/pytribeam'
+
+# CLI Entry Points
+# https://setuptools.pypa.io/en/latest/userguide/entry_point.html
+[project.scripts]
+pytribeam="pytribeam.command_line:pytribeam"
+pytribeam_info ="pytribeam.command_line:module_info"
+pytribeam_gui="pytribeam.command_line:launch_gui"
+pytribeam_exp="pytribeam.command_line:run_experiment"
+

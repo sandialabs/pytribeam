@@ -1,0 +1,51 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# gh-pages stuff (need to build locally from main)
+badges/
+coverage_reports/
+logs/
+docs/api/
+docs/userguide/book/
+
+# Documentation output directories (keep these if you want to build locally)
+# docs/api/
+# docs/userguide/book/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+# *.log
+
+# Test results
+*.coverage*
+# *.cover
+# nosetests.xml
+# coverage.xml
+# *.hypothesis/
+
+# Other files to ignore
+*.sqlite3
+*.db

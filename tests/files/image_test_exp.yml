@@ -1,0 +1,101 @@
+---
+config_file_version: 1.0
+
+general:
+  EBSD_OEM: null
+  EDS_OEM: null
+  connection_host: localhost
+  connection_port: null
+  exp_dir: null
+  h5_log_name: log
+  max_slice_num: 2
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  slice_thickness_um: 2.0
+  stage_angular_tol_deg: 0.02
+  stage_translational_tol_um: 0.5
+  step_count: 2
+
+steps:
+  image_test:
+    step_general:
+      step_number: 1
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side:    fsl_mill
+        initial_position:
+          x_mm:   1.0
+          y_mm:   2.0
+          z_mm:   5.0
+          r_deg:  -50.0
+          t_deg:  0.0
+    # step_specific:
+    beam:
+      type:             electron
+      voltage_kv:       5.0
+      voltage_tol_kv:   0.5
+      current_na:       5.0
+      current_tol_na:   0.5
+      hfw_mm:           0.9
+      working_dist_mm:  4.093
+      dynamic_focus:    False
+      tilt_correction:  False
+    detector:
+      type:             ETD
+      mode:             SecondaryElectrons
+      brightness:       0.2 
+      contrast:         0.3 
+      # auto_cb cannot be combined with fixed brightness/contrast
+      auto_cb: 
+        left:           null
+        top:            null
+        width:          null
+        height:         null
+    scan:
+      rotation_deg:     180.0
+      dwell_time_us:    1.0
+      resolution:       "768x512"
+    bit_depth:          8
+  
+  image_test2:
+    step_general:
+      step_number: 2
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side:    fsl_mill
+        initial_position:
+          x_mm:   1.0
+          y_mm:   2.0
+          z_mm:   5.0
+          r_deg:  0.0
+          t_deg:  30.0
+    # step_specific:
+    beam:
+      type:             electron
+      voltage_kv:       5.0
+      voltage_tol_kv:   0.5
+      current_na:       5.0
+      current_tol_na:   0.5
+      hfw_mm:           0.9
+      working_dist_mm:  4.093
+      dynamic_focus:    False
+      tilt_correction:  False
+    detector:
+      type:             ETD
+      mode:             SecondaryElectrons
+      brightness:       0.2 
+      contrast:         0.3 
+      # auto_cb cannot be combined with fixed brightness/contrast
+      auto_cb: 
+        left:           null
+        top:            null
+        width:          null
+        height:         null
+    scan:
+      rotation_deg:     180.0
+      dwell_time_us:    1.0
+      resolution:       "768x512"
+    bit_depth:          8
+    

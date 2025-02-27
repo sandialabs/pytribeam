@@ -1,0 +1,20 @@
+# DEFAULT_COLOR = '#333'
+# ACCENT_COLOR1 = '#00baff'
+# ACCENT_COLOR2 = '#ff00ff'
+DEFAULT_COLOR = "#eeeeee"
+ACCENT_COLOR1 = "#e7e614"
+ACCENT_COLOR2 = "#92278f"
+ACCENT_COLOR3 = "#ed1c24"
+GREEN = "#2d9546"
+RED = "#ed1c24"
+YELLOW = "#f7e615"
+BLACK = "#000"
+TERMINAL_COLOR = "#333"
+
+HEADER_FONT = ("Segoe UI", 15, "bold")
+SUBHEADER_FONT = ("Segoe UI", 13, "bold")
+FONT = ("Segoe UI", 11)
+FONT_BOLD = ("Segoe UI", 11, "bold")
+FONT_ITALIC = ("Segoe UI", 11, "italic")
+MENU_FONT = ("Segoe UI", 9)
+TIP_FONT = ("Segoe UI", 9)

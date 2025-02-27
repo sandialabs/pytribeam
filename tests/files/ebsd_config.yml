@@ -1,0 +1,60 @@
+---
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 400
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost #string
+  connection_port: null #int
+  EBSD_OEM: Oxford #Oxford, EDAX, or null
+  EDS_OEM: Oxford
+  exp_dir: null
+  h5_log_name: "log"
+  step_count: 1
+
+steps:
+  ebsd_test:
+    step_general:
+      step_number: 1
+      step_type: ebsd
+      frequency: 1
+      stage:
+        rotation_side:    fsl_mill
+        initial_position:
+          x_mm:   1.0
+          y_mm:   2.0
+          z_mm:   5.0
+          r_deg:  -50.0
+          t_deg:  0.0
+    # step_specific:
+    concurrent_EDS: True
+    beam:
+      type:             electron
+      voltage_kv:       5.0
+      voltage_tol_kv:   0.5
+      current_na:       5.0
+      current_tol_na:   0.5
+      hfw_mm:           0.9
+      working_dist_mm:  4.093
+      dynamic_focus:    True
+      tilt_correction:  True
+    detector:
+      type:             ETD
+      mode:             SecondaryElectrons
+      brightness:       0.2 
+      contrast:         0.3 
+      # auto_cb cannot be combined with fixed brightness/contrast
+      auto_cb: 
+        left:           null
+        top:            null
+        width:          null
+        height:         null
+    scan:
+      rotation_deg:     0.0
+      dwell_time_us:    1.0
+      resolution:       "768x512"
+    bit_depth:          8
