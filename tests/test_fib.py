@@ -96,7 +96,7 @@ def rectangle_pattern(microscope: tbt.Microscope):
         image=ion_image(microscope=microscope),
         mill_beam=mill_beam(),
         pattern=tbt.FIBPattern(
-            application=tbt.FIBApplication.SI,
+            application="Si",
             type=tbt.FIBPatternType.RECTANGLE,
             geometry=tbt.FIBRectanglePattern(
                 center_um=tbt.Point(
@@ -119,7 +119,7 @@ def regular_cross_section_pattern(microscope: tbt.Microscope):
         image=ion_image(microscope=microscope),
         mill_beam=mill_beam(),
         pattern=tbt.FIBPattern(
-            application=tbt.FIBApplication.AL,
+            application="Al",
             type=tbt.FIBPatternType.REGULAR_CROSS_SECTION,
             geometry=tbt.FIBRegularCrossSection(
                 center_um=tbt.Point(
@@ -142,7 +142,7 @@ def cleaning_cross_section_pattern(microscope: tbt.Microscope):
         image=ion_image(microscope=microscope),
         mill_beam=mill_beam(),
         pattern=tbt.FIBPattern(
-            application=tbt.FIBApplication.AL,
+            application="Al",
             type=tbt.FIBPatternType.CLEANING_CROSS_SECTION,
             geometry=tbt.FIBCleaningCrossSection(
                 center_um=tbt.Point(
@@ -170,11 +170,9 @@ def test_prepare_milling():
         application=fib_settings.pattern.application,
     )
 
-    class dummy_enum(Enum):
-        INVALID: str = "invalid"
 
     with pytest.raises(ValueError) as err:
-        fib.prepare_milling(microscope=microscope, application=dummy_enum.INVALID)
+        fib.prepare_milling(microscope=microscope, application="invalid")
     assert err.type == ValueError
     assert (
         err.value.args[0]
@@ -187,7 +185,7 @@ def test_prepare_milling():
 def validate_box_pattern(pattern: tbt.FIBBoxPattern, fib_settings: tbt.FIBSettings):
     assert pattern.scan_direction == fib_settings.pattern.geometry.scan_direction.value
     assert pattern.scan_type == fib_settings.pattern.geometry.scan_type.value
-    assert pattern.application_file == fib_settings.pattern.application.value
+    assert pattern.application_file == fib_settings.pattern.application
     assert pattern.center_x == pytest.approx(
         fib_settings.pattern.geometry.center_um.x * Conversions.UM_TO_M,
         abs=0.005,
@@ -318,7 +316,7 @@ def stream_pattern(
         image=ion_image(microscope=microscope),
         mill_beam=mill_beam(),
         pattern=tbt.FIBPattern(
-            application=tbt.FIBApplication.SI,
+            application="Si",
             type=tbt.FIBPatternType.SELECTED_AREA,
             geometry=tbt.FIBStreamPattern(
                 dwell_us=1.0,

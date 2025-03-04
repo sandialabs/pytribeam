@@ -30,7 +30,10 @@ def test_dir() -> str:
 @ut.run_on_microscope_machine
 def test_active_laser_settings():
     """tests reading of active laser settings and its component functions"""
-    factory.active_laser_settings()
+    microscope = tbt.Microscope()
+    microscope.connect("localhost")
+
+    factory.active_laser_settings(microscope=microscope)
 
 
 @ut.run_on_standalone_machine
@@ -518,7 +521,7 @@ def test_fib(test_dir):
             ),
         ),
         pattern=tbt.FIBPattern(
-            application=tbt.FIBApplication.SI_CCS,
+            application="Si-ccs",
             type=tbt.FIBPatternType.RECTANGLE,
             geometry=tbt.FIBRectanglePattern(
                 center_um=tbt.Point(x=5.11, y=0.0),

@@ -70,6 +70,7 @@ def test_run_image_experiment(monkeypatch):
     ut.remove_directory(temp_dir)
 
 
+# TODO test actual output from script
 @pytest.mark.skipif(
     not any(
         platform.uname().node.lower() in machine.lower()

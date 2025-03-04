@@ -206,6 +206,8 @@ def test_insert_retract_EBSD():
         angular_deg=0.5,
     )
 
+    stage.home_stage(microscope=microscope, stage_tolerance=stage_tolerance)
+    
     prepare_stage_test_tilt(
         microscope=microscope,
         stage_tolerance=stage_tolerance,
