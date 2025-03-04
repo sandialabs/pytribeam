@@ -103,19 +103,28 @@ def _(
     slice_number: int,
 ) -> bool:
     # run script
+    aa = 2
+    # dump out .yml with experiment info
+    slice_info_path = Path.joinpath(general_settings.exp_dir, "slice_info.yml")
+    db = {"exp_dir": str(general_settings.exp_dir), "slice_number": slice_number}
+    ut.dict_to_yml(db=db, file_path=slice_info_path)
+
     output = subprocess.run(
         [step_settings.executable_path, step_settings.script_path],
         capture_output=True,
     )
     stdout, stderr = output.stdout.decode("utf-8"), output.stderr.decode("utf-8")
     if stdout:
-        print(stdout)
-    if stderr:
-        print(stderr)
+        print(f"\nCustom script output: {stdout}\n")
+
     if output.returncode != 0:
+        if stderr:
+            print(f"\nCustom script errors: {stderr}\n")
         raise ValueError(
             f"Subprocess call for script {step_settings.script_path} using executable {step_settings.executable_path} did not execute correctly."
         )
+
+    slice_info_path.unlink()
     return True
 
 
@@ -133,6 +142,17 @@ def _(
     devices.insert_EBSD(microscope=microscope)
     if step_settings.enable_eds:
         devices.insert_EDS(microscope=microscope)
+
+    # measure and log specimen current
+    found_current_na = devices.specimen_current(microscope=microscope)
+    log.specimen_current(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=cs.Constants.specimen_current_dataset_name,
+        specimen_current_na=found_current_na,
+    )
 
     # take image
     img.image_operation(
@@ -174,6 +194,17 @@ def _(
 
     # insert detector
     devices.insert_EDS(microscope=microscope)
+
+    # measure and log specimen current
+    found_current_na = devices.specimen_current(microscope=microscope)
+    log.specimen_current(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=cs.Constants.specimen_current_dataset_name,
+        specimen_current_na=found_current_na,
+    )
 
     # take image
     img.image_operation(

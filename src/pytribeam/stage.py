@@ -492,17 +492,31 @@ def move_to_position(
     # stop visualization on CCD
     devices.CCD_pause(microscope=microscope)
 
-    # check if completed
+    # check if completed #TODO clean this with a loop
     if not move_completed(
         microscope=microscope,
         target_position=target_position,
         stage_tolerance=stage_tolerance,
     ):
-        current_position = factory.active_stage_position_settings(microscope=microscope)
-        error_message = _bad_axes_message(
-            target_position, current_position, stage_tolerance
+        # Try again
+        move_stage(
+            microscope=microscope,
+            target_position=target_position,
+            stage_tolerance=stage_tolerance,
         )
-        raise SystemError(error_message)
+        # check if completed
+        if not move_completed(
+            microscope=microscope,
+            target_position=target_position,
+            stage_tolerance=stage_tolerance,
+        ):
+            current_position = factory.active_stage_position_settings(
+                microscope=microscope
+            )
+            error_message = _bad_axes_message(
+                target_position, current_position, stage_tolerance
+            )
+            raise SystemError(error_message)
 
     return True
 

@@ -130,6 +130,7 @@ def insert_EBSD(
         )
     if ebsd_cam_status != tbt.RetractableDeviceState.INSERTED:
         print("\tInserting EBSD Camera...")
+        # TODO change to constants
         minutes_to_wait = 3
         timeout = minutes_to_wait * 60  # seconds
         waittime = 4  # seconds
@@ -310,8 +311,8 @@ def retract_EBSD(microscope: tbt.Microscope) -> bool:
         )
         map_status = tbt.MapStatus(external.EBSD_MappingStatus())
         # first check if mapping is finished properly
-        minutes_to_wait = 5
-        timeout = minutes_to_wait * 60  # seconds
+        minutes_to_wait = 5  # TODO set constant
+        timeout = minutes_to_wait * 60  # seconds #TODO
         cameraokconfirmations = 3  # synchronization issue with EDAX, try to get map completed 3x before continuing
         waittime = 10  # seconds
         if map_status == tbt.MapStatus.ACTIVE:
@@ -445,7 +446,7 @@ def specimen_current(
     hfw_mm=Constants.specimen_current_hfw_mm,
     delay_s=Constants.specimen_current_delay_s,
 ) -> float:
-    """Measures specimen current using the electron beam"""
+    """Measures specimen current using the electron beam, return in nA"""
     img.set_beam_device(
         microscope=microscope,
         device=tbt.Device.ELECTRON_BEAM,
@@ -467,5 +468,10 @@ def specimen_current(
     # reset detector and hfw
     microscope.beams.electron_beam.horizontal_field_width.value = initial_hfw_m
     img.detector_type(microscope=microscope, detector=initial_detector)
+    img.beam_hfw(
+        beam=tbt.ElectronBeam(settings=tbt.BeamSettings()),
+        microscope=microscope,
+        hfw_mm=initial_hfw_m * cs.Conversions.M_TO_MM,
+    )
 
     return current_na

@@ -64,7 +64,7 @@ def shutter_control(microscope: tbt.Microscope) -> None:
 
 def prepare_milling(
     microscope: tbt.Microscope,
-    application: tbt.FIBApplication,
+    application: str,
     patterning_device: tbt.Device = tbt.Device.ION_BEAM,
 ) -> bool:
     # TODO validation and error checking from TFS
@@ -77,22 +77,13 @@ def prepare_milling(
         )
     microscope.patterning.clear_patterns()
     microscope.patterning.set_default_beam_type(beam_index=patterning_device.value)
-    try:
-        microscope.patterning.set_default_application_file(application)
-    # geometry = cs.Constants.default_fib_rectangle_pattern
-    # try:
-    # microscope.patterning.create_rectangle(
-    #     center_x=geometry.center_um.x * Conversions.UM_TO_M,
-    #     center_y=geometry.center_um.y * Conversions.UM_TO_M,
-    #     width=geometry.width_um * Conversions.UM_TO_M,
-    #     height=geometry.height_um * Conversions.UM_TO_M,
-    #     depth=geometry.depth_um * Conversions.UM_TO_M,
-    # )
-    except:
+    if application not in microscope.patterning.list_all_application_files():
         raise ValueError(
-            f"Invalid application file on this system, there is not patterning application with name: '{application}'."
+            f"Invalid application file on this system, there is no patterning application with name: '{application}'."
         )
-    microscope.patterning.clear_patterns()
+    else:
+        microscope.patterning.set_default_application_file(application)
+
     return True
 
 
