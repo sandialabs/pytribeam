@@ -1,5 +1,6 @@
 import re
 import tkinter as tk
+from tkinter import ttk
 import tkinter.filedialog as filedialog
 from .utils import *
 from .config import *
@@ -19,6 +20,7 @@ class Entry(tk.Entry):
         fg=None,
         command=None,
         dtype=str,
+        borders="bottom",
         **kw,
     ):
         """Initialize the menubutton."""
@@ -38,6 +40,8 @@ class Entry(tk.Entry):
                 selectforeground=h_fg,
             )
         )
+        if borders.lower() != "all":
+            kw.update(dict(borderwidth=0))
         tk.Entry.__init__(self, parent, **kw)
         self.dtype = dtype
         self.bypass_validation = False
@@ -58,6 +62,21 @@ class Entry(tk.Entry):
         if command is not None:
             self.config(textvariable=self.var)
             self.var.trace_add("write", command)
+
+        # Handle borders
+        if "bottom" in borders.lower():
+            separator = ttk.Separator(self, orient="horizontal")
+            separator.place(in_=self, x=0, rely=1.0, height=2, relwidth=1.0)
+        if "top" in borders.lower():
+            separator = ttk.Separator(self, orient="horizontal")
+            separator.place(in_=self, x=0, rely=0.0, height=2, relwidth=1.0)
+        if "left" in borders.lower():
+            separator = ttk.Separator(self, orient="vertical")
+            separator.place(in_=self, y=0, relx=0.0, width=2, relheight=1.0)
+        if "right" in borders.lower():
+            separator = ttk.Separator(self, orient="vertical")
+            separator.place(in_=self, y=0, relx=1.0, width=2, relheight=1.0)
+        
 
     def validate(
         self,
@@ -82,7 +101,7 @@ class Entry(tk.Entry):
             if re.match(r"^[+1]?\d*$", value_if_allowed):
                 return True
         elif self.dtype == float:
-            if re.match(r"^[+-]?\d*\.?\d+$", value_if_allowed) or re.match(r"^[+-]?\d+\.\d*$", value_if_allowed):
+            if re.match(r"^[+-]?\d*\.?\d+$", value_if_allowed) or re.match(r"^[+-]?\d+\.\d*$", value_if_allowed) or value_if_allowed == "-":
                 return True
         elif self.dtype == str:
             return True

@@ -51,8 +51,8 @@ class ScrollableFrame(tk.Frame):
         self.autoscroll = autoscroll
         self.current_height = None
 
-        sbar_bg = sbar_bg or "blue"
-        sbar_fg = sbar_fg or "white"
+        self.sbar_bg = sbar_bg or "blue"
+        self.sbar_fg = sbar_fg or "white"
 
         # create outside frame
         self.outer_frame = tk.Frame(parent, bg=bg)
@@ -71,8 +71,8 @@ class ScrollableFrame(tk.Frame):
                 self.outer_frame,
                 orient="vertical",
                 command=self.canvas.yview,
-                bg=sbar_bg,
-                slider_color=sbar_fg,
+                bg=self.sbar_bg,
+                slider_color=self.sbar_fg,
                 width=vbar_width,
             )
             self.canvas.configure(yscrollcommand=self.vsb.set)
@@ -83,8 +83,8 @@ class ScrollableFrame(tk.Frame):
                 self.outer_frame,
                 orient="horizontal",
                 command=self.canvas.xview,
-                bg=sbar_bg,
-                slider_color=sbar_fg,
+                bg=self.sbar_bg,
+                slider_color=self.sbar_fg,
                 width=hbar_width,
             )
             self.canvas.configure(xscrollcommand=self.hsb.set)
@@ -213,6 +213,100 @@ class Frame3d(ttk.Frame):
         img = mix_images(shadow_img, img)
 
         return ImageTk.PhotoImage(img)
+
+
+class ExpandableFrame(ttk.Frame):
+    """
+    A custom frame that can be expanded or collapsed to show/hide its contents.
+    Supports nested hierarchical structure with proper visual indentation and consistent coloring.
+    """
+    def __init__(
+        self, 
+        parent: tk.Widget, 
+        title: str, 
+        level: int = 0,
+        initial_state: str = 'collapsed',
+        bg: str = '#ffffff',  # Default white background
+        fg: str = '#000000',  # Default black text
+        font: tuple = ('TkDefaultFont', 10, 'bold'),
+        *args, 
+        **kwargs
+    ):
+        super().__init__(parent, *args, **kwargs)
+        
+        # Store colors
+        self.bg_color = bg
+        self.fg_color = fg
+        self.font = font
+        
+        # Configuration
+        self.title = title
+        self.level = level
+        self.is_expanded = initial_state == 'expanded'
+        
+        # Style setup - create unique style names for this instance
+        self.frame_style = f'Expandable_{id(self)}.TFrame'
+        self.label_style = f'Expandable_{id(self)}.TLabel'
+        self.entry_style = f'Expandable_{id(self)}.TEntry'
+        self.checkbutton_style = f'Expandable_{id(self)}.TCheckbutton'
+        
+        # Configure styles
+        self.style = ttk.Style()
+        self.style.configure(self.frame_style, background=self.bg_color)
+        self.style.configure(self.label_style, 
+                           background=self.bg_color, 
+                           foreground=self.fg_color)
+        self.style.configure(self.entry_style, 
+                           fieldbackground=self.bg_color, 
+                           foreground=self.fg_color)
+        self.style.configure(self.checkbutton_style,
+                           background=self.bg_color,
+                           foreground=self.fg_color)
+        
+        # Apply frame style
+        self.configure(style=self.frame_style, padding=(level * 20, 5, 5, 5))
+        
+        # Create header with consistent styling
+        self.header_frame = ttk.Frame(self, style=self.frame_style)
+        self.header_frame.pack(fill='x', expand=False)
+        
+        # Toggle button with arrow
+        self.toggle_button = tk.Label(
+            self.header_frame,
+            text='▼' if self.is_expanded else '▶',
+            width=2,
+            bg=self.bg_color,
+            fg=self.fg_color,
+            font=self.font,
+        )
+        self.toggle_button.pack(side='left')
+        self.toggle_button.bind('<Button-1>', self.toggle)
+        
+        # Title label with consistent styling
+        self.title_label = tk.Label(
+            self.header_frame,
+            text=title,
+            bg=self.bg_color,
+            fg=self.fg_color,
+            font=self.font,
+        )
+        self.title_label.pack(side='left', padx=5)
+        self.title_label.bind('<Button-1>', self.toggle)
+        
+        # Content frame with consistent styling
+        self.extension = ttk.Frame(self, style=self.frame_style)
+        if self.is_expanded:
+            self.extension.pack(fill='both', expand=True, padx=5)
+    
+    def toggle(self, event=None):
+        """Toggle the expanded/collapsed state of the frame."""
+        self.is_expanded = not self.is_expanded
+        self.toggle_button.configure(text='▼' if self.is_expanded else '▶')
+        
+        if self.is_expanded:
+            self.extension.pack(fill='both', expand=True, padx=5)
+        else:
+            self.extension.pack_forget()
 
 
 class ToggledFrame(tk.Frame):

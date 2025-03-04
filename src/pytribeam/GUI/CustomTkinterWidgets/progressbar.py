@@ -77,7 +77,7 @@ class Progressbar(tk.Frame):
         self.grid_rowconfigure(0, weight=1)
 
         # create custom progressbar style
-        self.create_style()
+        self.style_name = self.create_style()
 
         # create tk Progressbar
         self.bar = ttk.Progressbar(
@@ -86,6 +86,7 @@ class Progressbar(tk.Frame):
             mode="determinate",
             variable=self.var,
             length=self.size,
+            style=self.style_name,
         )
         self.bar.grid(row=0, column=0, sticky="nsew")
 
@@ -131,27 +132,53 @@ class Progressbar(tk.Frame):
         style name is unique and will be stored in class variable "styles"
         """
 
-        # create style object
-        ttk.Style().configure(
-            "TProgressbar",
-            background=self.bg,
-            barsize=10,
-            bordercolor=self.bg,
-            borderwidth=0,
-            darkcolor=self.bg,
-            lightcolor=self.fg,
-            pbarrelief="flat",
-            thickness=0,
-            troughcolor=self.bg,
-            troughrelief="flat",
+        self.style = ttk.Style()
+        self.style.theme_use("default")
+        name = "text.Horizontal.TProgressbar"
+        self.style.layout(
+            name,
+            [
+                (
+                    "Horizontal.Progressbar.trough",
+                    {
+                        "children": [
+                            (
+                                "Horizontal.Progressbar.pbar",
+                                {"side": "left", "sticky": "ns"},
+                            )
+                        ],
+                        "sticky": "nswe",
+                    },
+                ),
+                ("Horizontal.Progressbar.label", {"sticky": "nswe"}),
+            ],
         )
+        self.style.configure(name, background=self.fg, troughcolor=self.bg)
+        # self.style.configure(name, text='0 %', anchor='center', foreground=self.fg, background=self.bg)
 
-        return True
+        # create style object
+        # name = f"custom_progressbar_{len(Progressbar.styles)}"
+        # ttk.Style().configure(
+        #     name,
+        #     background=self.bg,
+        #     barsize=10,
+        #     bordercolor=self.bg,
+        #     borderwidth=0,
+        #     darkcolor=self.bg,
+        #     lightcolor=self.fg,
+        #     pbarrelief="flat",
+        #     thickness=0,
+        #     troughcolor=self.bg,
+        #     troughrelief="flat",
+        # )
+
+        return name
 
     def show_percentage(self, *args):
         """display progressbar percentage in a label"""
         bar_value = self.get()
         self.percent_label.config(text=f"{bar_value}%")
+        # self.style.configure(self.style_name, text=f"{bar_value} %")
 
 
 class RadialProgressbar(tk.Frame):
@@ -271,7 +298,7 @@ class RadialProgressbar(tk.Frame):
 
         return value
 
-    def create_style(self):
+    def create_style(self, fg="green", bg="white"):
         """create ttk style for progressbar
 
         style name is unique and will be stored in class variable "styles"

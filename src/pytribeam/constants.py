@@ -22,7 +22,7 @@ class Constants(NamedTuple):
     module_short_name = "pyTriBeam"
     autoscript_version = "4.8.1"
     laser_api_version = "2.2.1"
-    yml_schema_version = "1.0"
+    yml_schema_version = "1.0"  # max supported version #TODO convert to float
 
     # Log file constants
     logfile_extension = ".h5"
