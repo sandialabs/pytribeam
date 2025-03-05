@@ -120,11 +120,117 @@ def test_position():
     microscope.disconnect()
 
 
-@ut.run_on_microscope_machine
-def test_read_power():
-    log.power()
+def test_laser_power():
+    temp_dir = Path.cwd().joinpath("tests", "temp")
+    if temp_dir.exists():
+        ut.remove_directory(directory=temp_dir)
+
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_file = temp_dir.joinpath(
+        "temp_log.h5",
+    )
+    log.create_file(path=temp_file)
+
+    known_power_w = 0.335
+
+    step_number = 1
+    step_name = "Laser_Step"
+    slice_number = 2
+    dataset_name = Constants.pre_lasing_dataset_name
+    log.laser_power(
+        step_number=step_number,
+        step_name=step_name,
+        slice_number=slice_number,
+        log_filepath=temp_file,
+        dataset_name=dataset_name,
+        power_w=known_power_w,
+    )
+
+    with h5py.File(temp_file, "r") as file:
+        data_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+        data = np.squeeze(file[data_location])
+
+    assert data["Power"] == known_power_w
+    assert data["Slice"] == slice_number
+
+    # add data
+    slice_number_2 = slice_number + 1
+    known_power_w_2 = known_power_w * 2
+    log.laser_power(
+        step_number=step_number,
+        step_name=step_name,
+        slice_number=slice_number_2,
+        log_filepath=temp_file,
+        dataset_name=dataset_name,
+        power_w=known_power_w_2,
+    )
+
+    with h5py.File(temp_file, "r") as file:
+        data_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+        data = np.squeeze(file[data_location])
+
+    assert data["Power"][0] == pytest.approx(known_power_w)
+    assert data["Power"][1] == pytest.approx(known_power_w_2)
+
+    assert data["Slice"][0] == slice_number
+    assert data["Slice"][1] == slice_number_2
+
+    ut.remove_directory(directory=temp_dir)
 
 
-@ut.run_on_microscope_machine
-def test_log_current():
-    pass
+def test_sample_current():
+    temp_dir = Path.cwd().joinpath("tests", "temp")
+    if temp_dir.exists():
+        ut.remove_directory(directory=temp_dir)
+
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    temp_file = temp_dir.joinpath(
+        "temp_log.h5",
+    )
+    log.create_file(path=temp_file)
+
+    known_current_na = 0.335
+
+    step_number = 1
+    step_name = "EBSD_step"
+    slice_number = 2
+    dataset_name = Constants.specimen_current_dataset_name
+    log.specimen_current(
+        step_number=step_number,
+        step_name=step_name,
+        slice_number=slice_number,
+        log_filepath=temp_file,
+        dataset_name=dataset_name,
+        specimen_current_na=known_current_na,
+    )
+
+    with h5py.File(temp_file, "r") as file:
+        data_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+        data = np.squeeze(file[data_location])
+
+    assert data["Current"] == known_current_na
+    assert data["Slice"] == slice_number
+
+    # add data
+    slice_number_2 = slice_number + 1
+    known_current_na_2 = known_current_na * 2
+    log.specimen_current(
+        step_number=step_number,
+        step_name=step_name,
+        slice_number=slice_number_2,
+        log_filepath=temp_file,
+        dataset_name=dataset_name,
+        specimen_current_na=known_current_na_2,
+    )
+
+    with h5py.File(temp_file, "r") as file:
+        data_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+        data = np.squeeze(file[data_location])
+
+    assert data["Current"][0] == pytest.approx(known_current_na)
+    assert data["Current"][1] == pytest.approx(known_current_na_2)
+
+    assert data["Slice"][0] == slice_number
+    assert data["Slice"][1] == slice_number_2
+
+    ut.remove_directory(directory=temp_dir)

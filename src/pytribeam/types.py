@@ -200,34 +200,34 @@ class ExternalDeviceOEM(Enum):
 
 
 # TODO remove this class and fix references
-class FIBApplication(Enum):
-    AL: str = "Al"
-    AL_DEP: str = "Al dep"
-    AU_E_DEP: str = "Au e-dep"
-    AU: str = "Au"
-    C_DEP_HIGH: str = "C dep high"
-    C_DEP: str = "C dep"
-    C_E_DEP_SURFACE: str = "C e-dep surface"
-    DEL_ETCH: str = "Del etch"
-    ENH_ETCH: str = "Enh etch"
-    FE2O3: str = "Fe2O3"
-    GAAS: str = "GaAs"
-    I_DEP2: str = "Idep2"
-    IEE: str = "IEE"
-    INP: str = "InP"
-    PMM: str = "PMMA"
-    PT_DEP: str = "Pt dep"
-    PT_DEP_STRUCTURES: str = "Pt dep structures"
-    PT_DEP_SURFACE: str = "Pt dep surface"
-    SCE: str = "SCE"
-    SI3: str = "Si3"
-    SI: str = "Si"
-    SI_SMALL: str = "Si_small"
-    SI_CCS: str = "Si-ccs"
-    SI_MULTIPASS: str = "Si-multipass"
-    W_DEP_HIGH: str = "W dep high"
-    W_DEP: str = "W dep"
-    W_E_DEP_SURFACE: str = "W e-dep surface"
+# class FIBApplication(Enum):
+#     AL: str = "Al"
+#     AL_DEP: str = "Al dep"
+#     AU_E_DEP: str = "Au e-dep"
+#     AU: str = "Au"
+#     C_DEP_HIGH: str = "C dep high"
+#     C_DEP: str = "C dep"
+#     C_E_DEP_SURFACE: str = "C e-dep surface"
+#     DEL_ETCH: str = "Del etch"
+#     ENH_ETCH: str = "Enh etch"
+#     FE2O3: str = "Fe2O3"
+#     GAAS: str = "GaAs"
+#     I_DEP2: str = "Idep2"
+#     IEE: str = "IEE"
+#     INP: str = "InP"
+#     PMM: str = "PMMA"
+#     PT_DEP: str = "Pt dep"
+#     PT_DEP_STRUCTURES: str = "Pt dep structures"
+#     PT_DEP_SURFACE: str = "Pt dep surface"
+#     SCE: str = "SCE"
+#     SI3: str = "Si3"
+#     SI: str = "Si"
+#     SI_SMALL: str = "Si_small"
+#     SI_CCS: str = "Si-ccs"
+#     SI_MULTIPASS: str = "Si-multipass"
+#     W_DEP_HIGH: str = "W dep high"
+#     W_DEP: str = "W dep"
+#     W_E_DEP_SURFACE: str = "W e-dep surface"
 
 
 class FIBPatternType(Enum):
@@ -342,6 +342,7 @@ class MapStatus(Enum):
 
     ACTIVE = "Active"
     IDLE = "Idle"
+    ERROR = "Error"
 
 
 class Microscope(SdbMicroscopeClient):
@@ -603,6 +604,7 @@ class ElectronBeam(Beam):
 class GeneralSettings(NamedTuple):
     """General settings object"""
 
+    yml_version: float
     slice_thickness_um: float
     max_slice_number: int
     pre_tilt_deg: float
@@ -745,7 +747,7 @@ class FIBStreamPattern(NamedTuple):
 
 
 class FIBPattern(NamedTuple):
-    application: FIBApplication
+    application: str
     type: FIBPatternType
     geometry: Union[
         FIBRectanglePattern,
@@ -762,6 +764,11 @@ class FIBSettings(NamedTuple):
     pattern: FIBPattern
 
 
+class EBSDGridType(IntEnum):
+    SQUARE = 1
+    HEXAGONAL = 0
+
+
 class EBSDSettings(NamedTuple):
     image: ImageSettings
     enable_eds: bool
@@ -770,12 +777,6 @@ class EBSDSettings(NamedTuple):
 
 class EDSSettings(NamedTuple):
     image: ImageSettings
-    enable_eds: bool = True
-
-
-class EBSD_EDSSettings(NamedTuple):
-    image: ImageSettings
-    enable_ebsd: bool = True
     enable_eds: bool = True
 
 

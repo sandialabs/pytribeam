@@ -1,6 +1,7 @@
 import sys
 import shutil
 import time
+import datetime
 import os
 import tkinter as tk
 from tkinter import filedialog
@@ -27,10 +28,19 @@ class MainApplication(tk.Tk):
         # Create core
         tk.Tk.__init__(self, *args, **kwargs)
         self.title("TriBeam Runner")
+
+        # Get images
         ico_path = Path(__file__).parent.parent.parent.parent.joinpath(
             "docs", "userguide", "src", "logos", "logo_color_alt.ico"
         )
         self.iconbitmap(ico_path)
+        img_path = Path(__file__).parent.parent.parent.parent.joinpath(
+            "docs", "userguide", "src", "logo_color.png"
+        )
+        self.image = Image.open(img_path)
+        self.image_size = (self.image.size[0] // 3, self.image.size[1] // 3)
+        self.image.thumbnail(self.image_size, Image.ANTIALIAS)
+        self.image = ImageTk.PhotoImage(self.image)
 
         # Set the window size
         self.frame_w = int(1100)
@@ -44,46 +54,78 @@ class MainApplication(tk.Tk):
         self.grid_rowconfigure(0, weight=4)
         self.grid_rowconfigure(1, weight=1)
 
+        # Create variables
+        self.config_path = None
+        self.stop_after_slice = tk.BooleanVar(False)
+        self.stop_after_step = tk.BooleanVar(False)
+        self.stop_now = tk.BooleanVar(False)
+        self.starting_slice_var = tk.IntVar()
+        self.starting_step_var = tk.StringVar()
+        self.starting_slice_var.set(1)
+        self.starting_step_var.set("-")
+        self.yml_version = None
+
+        # Set the theme
+        self.theme = ctk.Theme("dark")
+        self.configure(bg=self.theme.bg)
+        self._draw()
+
+        # Map stdout through decorator so that we get the stdout in the GUI and CLI
+        self.original_out = sys.stdout
+        self.original_err = sys.stderr
+        self.terminal_log_path = os.path.join(
+            os.getenv("LOCALAPPDATA"),
+            "pytribeam",
+            time.strftime("%Y%m%d-%H%M%S") + "_log.txt",
+        )
+        sys.stdout = TextRedirector(
+            self.terminal, tag="stdout", log_path=self.terminal_log_path
+        )
+        sys.stderr = TextRedirector(
+            self.terminal, tag="stderr", log_path=self.terminal_log_path
+        )
+        print("---")
+        print("Welcome to TriBeam Layered Acquisition!")
+        print("Please create a new configuration file or load an existing one.")
+        print("---")
+
+        # Bind the close button to the close function
+        self.protocol("WM_DELETE_WINDOW", self.quit)
+        self.thread_obj = None
+
+        # Bind Ctrl+Shift+X to stop after step and Ctrl+X to stop after slice
+        self.bind("<Control-X>", lambda e: self.stop_slice())
+        self.bind("<Control-Shift-X>", lambda e: self.stop_step())
+
+    def _draw(self):
+        self._create_menubar()
+        self._create_control_frame()
+        self._create_display_frame()
+        self._create_status_frame()
+
+    def _create_menubar(self):
         # Create the menubar
         self.menu = tk.Menu(self)
         self.menu.add_command(label="Help", command=self.open_help)
         self.menu.add_command(label="Clear terminal", command=self.clear_terminal)
         self.menu.add_command(label="Test connections", command=self.test_connections)
         self.menu.add_command(label="Export log", command=self.export_log)
+        self.menu.add_command(label="Change theme", command=self.change_theme)
         self.menu.add_command(label="Exit", command=self.quit)
-        # Create file menu
-        # file_menu = tk.Menu(self.menu, tearoff=False, font=ctk.MENU_FONT)
-        # file_menu.add_command(
-        #     label="Create new config", command=self.new_config, font=ctk.MENU_FONT
-        # )
-        # file_menu.add_command(
-        #     label="Load config", command=self.load_config, font=ctk.MENU_FONT
-        # )
-        # file_menu.add_command(label="Exit", command=self.quit, font=ctk.MENU_FONT)
-        # self.menu.add_cascade(label="Menu", menu=file_menu, font=ctk.MENU_FONT)
         self.config(menu=self.menu)
 
-        # There are 3 main frames: controls (left vertical), display (right top), and status (right bottom)
-        # Create the control frame
-        self.control_frame = tk.Frame(self, bg=ctk.DEFAULT_COLOR, relief="ridge", bd=2)
+    def _create_control_frame(self):
+        self.control_frame = tk.Frame(self, bg=self.theme.bg, relief="ridge", bd=2)
         self.control_frame.grid(row=0, column=0, rowspan=2, sticky="nsew")
         self.control_frame.columnconfigure([0, 1, 2, 3], weight=1)
-        img_path = Path(__file__).parent.parent.parent.parent.joinpath(
-            "docs", "userguide", "src", "logos", "logo_color.png"
-        )
-        self.image = Image.open(img_path)
-
-        # Print image size
-        size = (self.image.size[0] // 3, self.image.size[1] // 3)
-        self.image.thumbnail(size, Image.ANTIALIAS)
-        self.image = ImageTk.PhotoImage(self.image)
         l = tk.Label(
             self.control_frame,
             font=ctk.HEADER_FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             image=self.image,
-            width=size[0],
-            height=size[1],
+            width=self.image_size[0],
+            height=self.image_size[1],
         )
         l.grid(row=0, column=0, columnspan=4)
 
@@ -92,7 +134,8 @@ class MainApplication(tk.Tk):
             self.control_frame,
             text="Experiment info",
             font=ctk.SUBHEADER_FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
         )
         sub_frame.grid(row=1, column=0, columnspan=4, sticky="nsew", pady=5, padx=5)
         sub_frame.columnconfigure(0, weight=5)
@@ -102,7 +145,8 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="Total number of slices: -",
             font=ctk.FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.total_slices_l.grid(row=0, column=0, sticky="nsew", pady=2, padx=2)
@@ -110,7 +154,8 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="Number of steps per slice: -",
             font=ctk.FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.total_steps_l.grid(row=1, column=0, sticky="nsew", pady=2, padx=2)
@@ -118,7 +163,8 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="Slice thickness: -",
             font=ctk.FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.slice_thickness_l.grid(row=2, column=0, sticky="nsew", pady=2, padx=2)
@@ -126,7 +172,8 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="No configuration file loaded",
             font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.config_file_path.grid(
@@ -136,7 +183,8 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="Exp dir: -",
             font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.exp_dir_l.grid(
@@ -146,26 +194,47 @@ class MainApplication(tk.Tk):
             sub_frame,
             text="...",
             font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="w",
         )
         self.valid_status.grid(
             row=5, column=0, columnspan=2, sticky="nsew", pady=2, padx=2
         )
         create_new = tk.Button(
-            sub_frame, text="Create", font=ctk.FONT, command=self.new_config
+            sub_frame,
+            text="Create",
+            font=ctk.FONT,
+            command=self.new_config,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         create_new.grid(row=0, column=1, sticky="nsew", pady=2, padx=2)
         load_config = tk.Button(
-            sub_frame, text="Load", font=ctk.FONT, command=self.load_config
+            sub_frame,
+            text="Load",
+            font=ctk.FONT,
+            command=self.load_config,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         load_config.grid(row=1, column=1, sticky="nsew", pady=2, padx=2)
         edit_config = tk.Button(
-            sub_frame, text="Edit", font=ctk.FONT, command=self.edit_config
+            sub_frame,
+            text="Edit",
+            font=ctk.FONT,
+            command=self.edit_config,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         edit_config.grid(row=2, column=1, sticky="nsew", pady=2, padx=2)
         validate = tk.Button(
-            sub_frame, text="Validate", font=ctk.FONT, command=self.validate_config
+            sub_frame,
+            text="Validate",
+            font=ctk.FONT,
+            command=self.validate_config,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         validate.grid(row=5, column=1, columnspan=2, sticky="nsew", pady=2, padx=2)
 
@@ -174,17 +243,21 @@ class MainApplication(tk.Tk):
             self.control_frame,
             text="Starting slice",
             font=ctk.FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="e",
         )
         l.grid(row=2, column=0, sticky="nsew", pady=5, padx=5)
-        self.starting_slice_var = tk.IntVar()
         self.starting_slice = tk.Spinbox(
             self.control_frame,
             font=ctk.FONT,
             width=4,
             from_=0,
             to=10,
+            bg=self.theme.bg_off,
+            buttonbackground=self.theme.bg_off,
+            disabledbackground=self.theme.bg_off,
+            fg=self.theme.fg,
             textvariable=self.starting_slice_var,
             state="disabled",
         )
@@ -193,11 +266,11 @@ class MainApplication(tk.Tk):
             self.control_frame,
             text="Starting step",
             font=ctk.FONT,
-            bg=ctk.DEFAULT_COLOR,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
             anchor="e",
         )
         l.grid(row=2, column=2, sticky="nsew", pady=5, padx=5)
-        self.starting_step_var = tk.StringVar()
         self.starting_step = ctk.MenuButton(
             self.control_frame,
             font=ctk.FONT,
@@ -205,9 +278,12 @@ class MainApplication(tk.Tk):
             var=self.starting_step_var,
             width=12,
             state="disabled",
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
+            h_bg=self.theme.accent1,
+            h_fg=self.theme.accent1_fg,
         )
         self.starting_step.grid(row=2, column=3, sticky="nsew", pady=5, padx=5)
-        self.starting_step_var.set("-")
 
         # Put in the control buttons
         self.start_exp_b = tk.Button(
@@ -215,6 +291,8 @@ class MainApplication(tk.Tk):
             text="Start experiment",
             font=ctk.FONT,
             command=self.start_experiment,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         self.start_exp_b.grid(
             row=3, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
@@ -224,6 +302,8 @@ class MainApplication(tk.Tk):
             text="Stop after current step",
             font=ctk.FONT,
             command=self.stop_step,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         self.stop_step_b.grid(
             row=4, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
@@ -233,110 +313,25 @@ class MainApplication(tk.Tk):
             text="Stop after current slice",
             font=ctk.FONT,
             command=self.stop_slice,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
         self.stop_slice_b.grid(
             row=5, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
         self.stop_now_b = tk.Button(
-            self.control_frame, text="Hard stop", font=ctk.FONT, command=self.stop_hard
+            self.control_frame,
+            text="Hard stop",
+            font=ctk.FONT,
+            command=self.stop_hard,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
         )
-        sep = tk.Frame(
-            self.control_frame, bg=ctk.DEFAULT_COLOR, height=5, relief="flat"
-        )
+        sep = tk.Frame(self.control_frame, bg=self.theme.bg, height=5, relief="flat")
         sep.grid(row=6, column=0, columnspan=4, sticky="nsew", pady=10)
         self.stop_now_b.grid(
             row=7, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
-
-        # Create the display frame
-        # self.display_frame = ctk.ScrollableFrame(self, vscroll=True, hscroll=False, autoscroll=True, bg=ctk.DEFAULT_COLOR)
-        self.display_frame = ctk.Frame3d(self, bg=ctk.DEFAULT_COLOR)
-        self.display_frame.grid(row=0, column=1, sticky="nsew")
-        self.display_frame.columnconfigure(0, weight=1)
-        self.display_frame.rowconfigure(0, weight=1)
-        # Put a listbox in the display frame that will act as a terminal for the program
-        self.terminal = ctk.ScrolledText(
-            self.display_frame,
-            hscroll=False,
-            bg=ctk.TERMINAL_COLOR,
-            fg=ctk.ACCENT_COLOR1,
-            autoscroll=True,
-            font=ctk.FONT,
-            wrap="word",
-            state="disabled",
-        )
-        self.terminal.grid(row=0, column=0, sticky="nsew")
-
-        # Create the status frame
-        self.status_frame = tk.Frame(self, bg=ctk.DEFAULT_COLOR, relief="ridge", bd=2)
-        self.status_frame.grid(row=1, column=1, sticky="nsew")
-        self.status_frame.columnconfigure([0, 1, 2, 3, 4, 5], weight=1)
-        self.status_frame.rowconfigure([0, 1], weight=1)
-        # Current step
-        current_step_label = tk.Label(
-            self.status_frame,
-            text="Current step",
-            font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
-            anchor="e",
-        )
-        current_step_label.grid(row=0, column=0, sticky="nsew", pady=5, padx=5)
-        self.current_step = tk.StringVar()
-        self.current_step.set("-")
-        current_step_label2 = tk.Label(
-            self.status_frame,
-            textvariable=self.current_step,
-            font=ctk.FONT_BOLD,
-            bg=ctk.DEFAULT_COLOR,
-            fg=ctk.ACCENT_COLOR2,
-            anchor="w",
-        )
-        current_step_label2.grid(row=0, column=1, sticky="nsew", pady=5, padx=5)
-        # Current slice
-        current_slice_label = tk.Label(
-            self.status_frame,
-            text="Current slice",
-            font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
-            anchor="e",
-        )
-        current_slice_label.grid(row=0, column=2, sticky="nsew", pady=5, padx=5)
-        self.current_slice = tk.StringVar()
-        self.current_slice.set("-")
-        current_slice_label2 = tk.Label(
-            self.status_frame,
-            textvariable=self.current_slice,
-            font=ctk.FONT_BOLD,
-            bg=ctk.DEFAULT_COLOR,
-            fg=ctk.ACCENT_COLOR2,
-            anchor="w",
-        )
-        current_slice_label2.grid(row=0, column=3, sticky="nsew", pady=5, padx=5)
-        # Average slice time
-        slice_time_label = tk.Label(
-            self.status_frame,
-            text="Average slice time",
-            font=ctk.FONT_ITALIC,
-            bg=ctk.DEFAULT_COLOR,
-            anchor="e",
-        )
-        slice_time_label.grid(row=0, column=4, sticky="nsew", pady=5, padx=5)
-        self.slice_time = tk.StringVar()
-        self.slice_time.set("-")
-        slice_time_label2 = tk.Label(
-            self.status_frame,
-            textvariable=self.slice_time,
-            font=ctk.FONT_BOLD,
-            bg=ctk.DEFAULT_COLOR,
-            fg=ctk.ACCENT_COLOR2,
-            anchor="w",
-        )
-        slice_time_label2.grid(row=0, column=5, sticky="nsew", pady=5, padx=5)
-        # Progress bar
-        self.progress = ctk.Progressbar(
-            self.status_frame, bg=ctk.DEFAULT_COLOR, fg=ctk.ACCENT_COLOR1
-        )
-        self.progress.grid(row=1, column=0, columnspan=6, sticky="nsew", pady=5, padx=5)
 
         # Put on tooltips
         ctk.tooltip(create_new, "Create a new configuration file")
@@ -358,33 +353,181 @@ class MainApplication(tk.Tk):
         )
         ctk.tooltip(self.stop_now_b, "Stop the experiment immediately. (Ctrl+C)")
 
-        # Create variables
-        self.config_path = None
-        self.stop_after_slice = tk.BooleanVar(False)
-        self.stop_after_step = tk.BooleanVar(False)
-        self.stop_now = tk.BooleanVar(False)
+    def _create_display_frame(self):
+        self.display_frame = tk.Frame(self, bg=self.theme.bg)
+        self.display_frame.grid(row=0, column=1, sticky="nsew")
+        self.display_frame.columnconfigure(0, weight=1)
+        self.display_frame.rowconfigure(0, weight=1)
+        # Put a listbox in the display frame that will act as a terminal for the program
+        self.terminal = ctk.ScrolledText(
+            self.display_frame,
+            hscroll=False,
+            bg=self.theme.terminal,
+            fg=self.theme.terminal_fg,
+            sbar_bg=self.theme.terminal,
+            sbar_fg=self.theme.bg,
+            autoscroll=True,
+            font=ctk.FONT,
+            wrap="word",
+            state="disabled",
+            bd=1,
+        )
+        self.terminal.grid(row=0, column=0, sticky="nsew")
+        # Update the terminal by just changing the colors of the scrollbar
+        style = self.terminal.vbar.make_style(
+            orient="vertical",
+            troughcolor=self.theme.terminal,
+            background=self.theme.scrollbar,
+            arrowcolor=self.theme.terminal,
+        )
+        self.terminal.vbar.config(style=style)
 
-        # Map stdout through decorator so that we get the stdout in the GUI and CLI
-        self.original_out = sys.stdout
-        self.original_err = sys.stderr
-        self.terminal_log_path = os.path.join(os.getenv('LOCALAPPDATA'), 'pytribeam', time.strftime("%Y%m%d-%H%M%S") + '_log.txt')
-        sys.stdout = TextRedirector(self.terminal, tag="stdout", log_path=self.terminal_log_path)
-        sys.stderr = TextRedirector(self.terminal, tag="stderr", log_path=self.terminal_log_path)
-        print("---")
-        print("Welcome to TriBeam Layered Acquisition!")
-        print("Please create a new configuration file or load an existing one.")
-        print("---")
+    def _create_status_frame(self):
+        self.status_frame = tk.Frame(self, bg=self.theme.bg, relief="ridge", bd=2)
+        self.status_frame.grid(row=1, column=1, sticky="nsew")
+        self.status_frame.columnconfigure([0, 1, 2, 3, 4, 5, 6, 7], weight=1)
+        self.status_frame.rowconfigure([0, 1], weight=1)
+        # Current step
+        current_step_label = tk.Label(
+            self.status_frame,
+            text="Current step",
+            font=ctk.FONT_ITALIC,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            anchor="e",
+        )
+        current_step_label.grid(row=0, column=0, sticky="nsew", pady=5, padx=5)
+        self.current_step = tk.StringVar()
+        self.current_step.set("-")
+        current_step_label2 = tk.Label(
+            self.status_frame,
+            textvariable=self.current_step,
+            font=ctk.FONT_BOLD,
+            bg=self.theme.bg,
+            fg=self.theme.accent2,
+            anchor="w",
+        )
+        current_step_label2.grid(row=0, column=1, sticky="nsew", pady=5, padx=5)
+        # Current slice
+        current_slice_label = tk.Label(
+            self.status_frame,
+            text="Current slice",
+            font=ctk.FONT_ITALIC,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            anchor="e",
+        )
+        current_slice_label.grid(row=0, column=2, sticky="nsew", pady=5, padx=5)
+        self.current_slice = tk.StringVar()
+        self.current_slice.set("-")
+        current_slice_label2 = tk.Label(
+            self.status_frame,
+            textvariable=self.current_slice,
+            font=ctk.FONT_BOLD,
+            bg=self.theme.bg,
+            fg=self.theme.accent2,
+            anchor="w",
+        )
+        current_slice_label2.grid(row=0, column=3, sticky="nsew", pady=5, padx=5)
+        # Average slice time
+        slice_time_label = tk.Label(
+            self.status_frame,
+            text="Average slice time",
+            font=ctk.FONT_ITALIC,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            anchor="e",
+        )
+        slice_time_label.grid(row=0, column=4, sticky="nsew", pady=5, padx=5)
+        self.slice_time = tk.StringVar()
+        self.slice_time.set("-")
+        slice_time_label2 = tk.Label(
+            self.status_frame,
+            textvariable=self.slice_time,
+            font=ctk.FONT_BOLD,
+            bg=self.theme.bg,
+            fg=self.theme.accent2,
+            anchor="w",
+        )
+        slice_time_label2.grid(row=0, column=5, sticky="nsew", pady=5, padx=5)
+        # Time left label
+        time_left_label = tk.Label(
+            self.status_frame,
+            text="Remaining duration",
+            font=ctk.FONT_ITALIC,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            anchor="e",
+        )
+        time_left_label.grid(row=0, column=6, sticky="nsew", pady=5, padx=5)
+        self.time_left = tk.StringVar()
+        self.time_left.set("-")
+        time_left_label2 = tk.Label(
+            self.status_frame,
+            textvariable=self.time_left,
+            font=ctk.FONT_BOLD,
+            bg=self.theme.bg,
+            fg=self.theme.accent2,
+            anchor="w",
+        )
+        time_left_label2.grid(row=0, column=7, sticky="nsew", pady=5, padx=5)
+        # Progress bar
+        self.progress = ctk.Progressbar(
+            self.status_frame,
+            bg=self.theme.bg,
+            fg=self.theme.green,
+            text_fg=self.theme.fg,
+            text_bg=self.theme.bg,
+        )
+        self.progress.grid(row=1, column=0, columnspan=8, sticky="nsew", pady=5, padx=5)
 
-        # Bind the close button to the close function
-        self.protocol("WM_DELETE_WINDOW", self.quit)
-        self.thread_obj = None
+    def change_theme(self):
+        """Change the theme of the app."""
+        if self.theme.theme_type == "light":
+            self.theme = ctk.Theme("dark")
+            img_path = Path(__file__).parent.parent.parent.parent.joinpath(
+                "docs", "userguide", "src", "logos", "logo_color_dark.png"
+            )
+        else:
+            self.theme = ctk.Theme("light")
+            img_path = Path(__file__).parent.parent.parent.parent.joinpath(
+                "docs", "userguide", "src", "logo_color.png"
+            )
+        # Update the root
+        self.configure(bg=self.theme.bg)
 
-        # Bind Ctrl+Shift+X to stop after step and Ctrl+X to stop after slice
-        self.bind("<Control-X>", lambda e: self.stop_slice())
-        self.bind("<Control-Shift-X>", lambda e: self.stop_step())
+        # Update the image
+        self.image = Image.open(img_path)
+        self.image_size = (self.image.size[0] // 3, self.image.size[1] // 3)
+        self.image.thumbnail(self.image_size, Image.ANTIALIAS)
+        self.image = ImageTk.PhotoImage(self.image)
+
+        # Update the control and status frames
+        self.control_frame.destroy()
+        self.status_frame.destroy()
+        self._create_control_frame()
+        self._create_status_frame()
+
+        # Update the terminal
+        self.terminal.config(bg=self.theme.terminal, fg=self.theme.terminal_fg)
+        style = self.terminal.vbar.make_style(
+            orient="vertical",
+            troughcolor=self.theme.terminal,
+            background=self.theme.scrollbar,
+            arrowcolor=self.theme.terminal,
+        )
+        self.terminal.vbar.config(style=style)
+
+        # Make sure the experiment info is still in tact
+        starting_slice = self.starting_slice_var.get()
+        starting_step = self.starting_step_var.get()
+        self._update_experiment_info()
+        self.starting_slice_var.set(starting_slice)
+        self.starting_step_var.set(starting_step)
 
     def test_connections(self):
         """Test the connections to the EDS/EBSD and the laser."""
+        out = laser._device_connections()
         with WaitCursor(self):
             out_dict = {"result": None}
             self.thread_obj = ThreadWithExc(
@@ -441,19 +584,23 @@ class MainApplication(tk.Tk):
             print("No file selected.")
             return
         print(f"Imported configuration file from: {self.config_path}")
-        self.valid_status.config(text="Configuration file is unvalidated", fg=ctk.RED)
+        self.valid_status.config(
+            text="Configuration file is unvalidated", fg=self.theme.red
+        )
         self._update_experiment_info()
 
     def edit_config(self, new=False):
         if new:
-            app = Configurator(self)
+            app = Configurator(self, theme=self.theme)
         else:
-            app = Configurator(self, self.config_path)
+            app = Configurator(self, theme=self.theme, yml_path=self.config_path)
         self.wait_window(app.toplevel)
         if app.clean_exit:
             self.config_path = Path(app.YAML_PATH)
             print(f"Imported configuration file from: {self.config_path}")
-            self.valid_status.config(text="Configuration file is valid", fg=ctk.GREEN)
+            self.valid_status.config(
+                text="Configuration file is valid", fg=self.theme.green
+            )
             self._update_experiment_info()
 
     def validate_config(self, return_settings=False):
@@ -478,7 +625,9 @@ class MainApplication(tk.Tk):
                 if out_dict["error"]:
                     raise Exception(out_dict["error"])
             experiment_settings = out_dict["result"]
-            self.valid_status.config(text="Configuration file is valid", fg=ctk.GREEN)
+            self.valid_status.config(
+                text="Configuration file is valid", fg=self.theme.green
+            )
             if return_settings:
                 return experiment_settings
             else:
@@ -487,15 +636,20 @@ class MainApplication(tk.Tk):
             messagebox.showerror(
                 "Invalid config file", f"The provided config file is invalid:\n{e}"
             )
-            self.valid_status.config(text="Configuration file is invalid", fg=ctk.RED)
+            self.valid_status.config(
+                text="Configuration file is invalid", fg=self.theme.red
+            )
             return
 
     def _update_experiment_info(self):
         """Update the experiment information in the GUI from the current yaml file."""
+        if self.config_path is None:
+            return
         try:
+            self.yml_version = utilities.yml_version(self.config_path)
             db = utilities.yml_to_dict(
                 yml_path_file=self.config_path,
-                version=1.0,
+                version=self.yml_version,
                 required_keys=("general", "steps"),
             )
             num_steps = db["general"]["step_count"]
@@ -549,6 +703,7 @@ class MainApplication(tk.Tk):
             except tk.TclError:
                 return
             if self.stop_now.get() and self.thread_obj.is_alive():
+                escape_call()
                 self.thread_obj.raise_exc(KeyboardInterrupt)
                 break
         return out_dict
@@ -611,7 +766,7 @@ class MainApplication(tk.Tk):
             messagebox.showwarning("Warning", message_part1 + message_part2)
 
         # Setup the progress bar
-        start_point = starting_slice * num_steps + starting_step_number
+        start_point = (starting_slice - 1) * num_steps + starting_step_number
         self.progress.set(int((start_point - 1) / (ending_slice * num_steps) * 100))
         self.current_step.set(step_names[starting_step_number])
         self.current_slice.set(starting_slice)
@@ -649,25 +804,6 @@ class MainApplication(tk.Tk):
                     if out_dict["error"]:
                         stop_now = True
 
-                    # exit_status = {"error": False}
-                    # self.thread_obj = ThreadWithExc(target=self.step_call_wrapper, args=(i, j + 1, experiment_settings, exit_status))
-                    # self.thread_obj.start()
-
-                    # Wait for the step to complete, updating the GUI in the meantime so that the user can stop the experiment
-                    # while self.thread_obj.is_alive():
-                    #     try:
-                    #         self.update()
-                    #     except tk.TclError:
-                    #         return
-                    #     stop_step = self.stop_after_step.get()
-                    #     stop_slice = self.stop_after_slice.get()
-                    #     stop_now = self.stop_now.get()
-                    #     if stop_now and self.thread_obj.is_alive():
-                    #         self.thread_obj.raise_exc(KeyboardInterrupt)
-                    #         break
-                    # if exit_status["error"]:
-                    #     stop_now = True
-
                     # Update progress bar if we didn't hard stop
                     if not stop_now:
                         perc_done = int(
@@ -695,14 +831,12 @@ class MainApplication(tk.Tk):
                         return
                     t1 = time.time()
                     slice_times.append(t1 - t0)
-                    avg_time = sum(slice_times) / len(slice_times)
-                    avg_time_divmod = divmod(avg_time, 60)
-                    if avg_time_divmod[0] < 1:
-                        self.slice_time.set(f"{avg_time_divmod[1]:.2f} sec")
-                    else:
-                        self.slice_time.set(
-                            f"{avg_time_divmod[0]:.0f} min {avg_time_divmod[1]:.2f} sec"
-                        )
+                    avg_time = round(sum(slice_times) / len(slice_times))
+                    remaining_time = avg_time * (ending_slice - i)
+                    avg_time_str = str(datetime.timedelta(seconds=avg_time))
+                    remaining_time_str = str(datetime.timedelta(seconds=remaining_time))
+                    self.slice_time.set(avg_time_str)
+                    self.time_left.set(remaining_time_str)
 
         except KeyboardInterrupt:
             print(
@@ -744,35 +878,35 @@ class MainApplication(tk.Tk):
     ):
         """Update the experiment control buttons."""
         start_kwards = {
-            "normal": {"state": "normal", "bg": ctk.DEFAULT_COLOR},
+            "normal": {"state": "normal", "bg": self.theme.bg},
             "disabled": {
                 "state": "disabled",
-                "bg": ctk.GREEN,
-                "disabledforeground": ctk.DEFAULT_COLOR,
+                "bg": self.theme.green,
+                "disabledforeground": self.theme.bg,
             },
         }
         step_kwargs = {
-            "normal": {"state": "normal", "bg": ctk.DEFAULT_COLOR},
+            "normal": {"state": "normal", "bg": self.theme.bg},
             "disabled": {
                 "state": "disabled",
-                "bg": ctk.ACCENT_COLOR3,
-                "disabledforeground": ctk.DEFAULT_COLOR,
+                "bg": self.theme.accent3,
+                "disabledforeground": self.theme.bg,
             },
         }
         slice_kwargs = {
-            "normal": {"state": "normal", "bg": ctk.DEFAULT_COLOR},
+            "normal": {"state": "normal", "bg": self.theme.bg},
             "disabled": {
                 "state": "disabled",
-                "bg": ctk.ACCENT_COLOR3,
-                "disabledforeground": ctk.DEFAULT_COLOR,
+                "bg": self.theme.accent3,
+                "disabledforeground": self.theme.bg,
             },
         }
         hard_kwargs = {
-            "normal": {"state": "normal", "bg": ctk.DEFAULT_COLOR},
+            "normal": {"state": "normal", "bg": self.theme.bg},
             "disabled": {
                 "state": "disabled",
-                "bg": ctk.ACCENT_COLOR3,
-                "disabledforeground": ctk.DEFAULT_COLOR,
+                "bg": self.theme.accent3,
+                "disabledforeground": self.theme.bg,
             },
         }
         self.start_exp_b.config(**start_kwards[start])
@@ -827,7 +961,6 @@ class MainApplication(tk.Tk):
         path = Path(__file__).parent.parent.parent.parent.joinpath(
             "docs", "userguide", "book", "index.html"
         )
-        print(path)
         webbrowser.open(f"file://{path}")
 
     def quit(self):
@@ -841,7 +974,6 @@ class MainApplication(tk.Tk):
             self.thread_obj.raise_exc(KeyboardInterrupt)
         self.update()
         self.destroy()
-
 
 
 @contextlib.contextmanager
@@ -863,7 +995,6 @@ def step_call_wrapper(out_dict, slice_number, step_index, experiment_settings):
         workflow.perform_step(slice_number, step_index, experiment_settings)
     except KeyboardInterrupt:
         try:
-            escape_call()  ### TODO: Test if this helps with stopping the microscope during a hard stop
             stage.stop(experiment_settings.microscope)
             print("-----> Stage stop unsuccessful")
         except SystemError:
@@ -899,53 +1030,129 @@ def escape_call():
     import time
     import ctypes
     from ctypes import wintypes
+    from collections import namedtuple
     import time
-    user32 = ctypes.WinDLL('user32', use_last_error=True)
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+
+    def list_windows():
+        """Return a sorted list of visible windows."""
+
+        def check_zero(result, func, args):
+            if not result:
+                err = ctypes.get_last_error()
+                if err:
+                    raise ctypes.WinError(err)
+            return args
+
+        if not hasattr(wintypes, "LPDWORD"):  # PY2
+            wintypes.LPDWORD = ctypes.POINTER(wintypes.DWORD)
+
+        WindowInfo = namedtuple("WindowInfo", "pid title")
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(
+            wintypes.BOOL,
+            wintypes.HWND,  # _In_ hWnd
+            wintypes.LPARAM,
+        )  # _In_ lParam
+
+        user32.EnumWindows.errcheck = check_zero
+        user32.EnumWindows.argtypes = (
+            WNDENUMPROC,  # _In_ lpEnumFunc
+            wintypes.LPARAM,
+        )  # _In_ lParam
+
+        user32.IsWindowVisible.argtypes = (wintypes.HWND,)  # _In_ hWnd
+
+        user32.GetWindowThreadProcessId.restype = wintypes.DWORD
+        user32.GetWindowThreadProcessId.argtypes = (
+            wintypes.HWND,  # _In_      hWnd
+            wintypes.LPDWORD,
+        )  # _Out_opt_ lpdwProcessId
+
+        user32.GetWindowTextLengthW.errcheck = check_zero
+        user32.GetWindowTextLengthW.argtypes = (wintypes.HWND,)  # _In_ hWnd
+
+        user32.GetWindowTextW.errcheck = check_zero
+        user32.GetWindowTextW.argtypes = (
+            wintypes.HWND,  # _In_  hWnd
+            wintypes.LPWSTR,  # _Out_ lpString
+            ctypes.c_int,
+        )  # _In_  nMaxCount
+
+        result = []
+
+        @WNDENUMPROC
+        def enum_proc(hWnd, lParam):
+            if user32.IsWindowVisible(hWnd):
+                pid = wintypes.DWORD()
+                tid = user32.GetWindowThreadProcessId(hWnd, ctypes.byref(pid))
+                length = user32.GetWindowTextLengthW(hWnd) + 1
+                title = ctypes.create_unicode_buffer(length)
+                user32.GetWindowTextW(hWnd, title, length)
+                result.append(WindowInfo(pid.value, title.value))
+            return True
+
+        user32.EnumWindows(enum_proc, 0)
+        return sorted(result)
+
+    def find_window_by_title(title):
+        return user32.FindWindowW(None, title)
+
+    def set_foreground_window(hwnd):
+        if hwnd:
+            user32.ShowWindow(hwnd, 9)
+            user32.SetForegroundWindow(hwnd)
+            return True
+        return False
 
     INPUT_KEYBOARD = 1
-    KEYEVENTF_KEYUP       = 0x0002
-    KEYEVENTF_UNICODE     = 0x0004
+    KEYEVENTF_KEYUP = 0x0002
+    KEYEVENTF_UNICODE = 0x0004
     MAPVK_VK_TO_VSC = 0
 
     # C struct definitions
     wintypes.ULONG_PTR = wintypes.WPARAM
 
     class MOUSEINPUT(ctypes.Structure):
-        _fields_ = (("dx",          wintypes.LONG),
-                    ("dy",          wintypes.LONG),
-                    ("mouseData",   wintypes.DWORD),
-                    ("dwFlags",     wintypes.DWORD),
-                    ("time",        wintypes.DWORD),
-                    ("dwExtraInfo", wintypes.ULONG_PTR))
+        _fields_ = (
+            ("dx", wintypes.LONG),
+            ("dy", wintypes.LONG),
+            ("mouseData", wintypes.DWORD),
+            ("dwFlags", wintypes.DWORD),
+            ("time", wintypes.DWORD),
+            ("dwExtraInfo", wintypes.ULONG_PTR),
+        )
 
     class KEYBDINPUT(ctypes.Structure):
-        _fields_ = (("wVk",         wintypes.WORD),
-                    ("wScan",       wintypes.WORD),
-                    ("dwFlags",     wintypes.DWORD),
-                    ("time",        wintypes.DWORD),
-                    ("dwExtraInfo", wintypes.ULONG_PTR))
+        _fields_ = (
+            ("wVk", wintypes.WORD),
+            ("wScan", wintypes.WORD),
+            ("dwFlags", wintypes.DWORD),
+            ("time", wintypes.DWORD),
+            ("dwExtraInfo", wintypes.ULONG_PTR),
+        )
 
         def __init__(self, *args, **kwds):
             super(KEYBDINPUT, self).__init__(*args, **kwds)
             # some programs use the scan code even if KEYEVENTF_SCANCODE
             # isn't set in dwFflags, so attempt to map the correct code.
             if not self.dwFlags & KEYEVENTF_UNICODE:
-                self.wScan = user32.MapVirtualKeyExW(self.wVk,
-                                                    MAPVK_VK_TO_VSC, 0)
+                self.wScan = user32.MapVirtualKeyExW(self.wVk, MAPVK_VK_TO_VSC, 0)
 
     class HARDWAREINPUT(ctypes.Structure):
-        _fields_ = (("uMsg",    wintypes.DWORD),
-                    ("wParamL", wintypes.WORD),
-                    ("wParamH", wintypes.WORD))
+        _fields_ = (
+            ("uMsg", wintypes.DWORD),
+            ("wParamL", wintypes.WORD),
+            ("wParamH", wintypes.WORD),
+        )
 
     class INPUT(ctypes.Structure):
         class _INPUT(ctypes.Union):
-            _fields_ = (("ki", KEYBDINPUT),
-                        ("mi", MOUSEINPUT),
-                        ("hi", HARDWAREINPUT))
+            _fields_ = (("ki", KEYBDINPUT), ("mi", MOUSEINPUT), ("hi", HARDWAREINPUT))
+
         _anonymous_ = ("_input",)
-        _fields_ = (("type",   wintypes.DWORD),
-                    ("_input", _INPUT))
+        _fields_ = (("type", wintypes.DWORD), ("_input", _INPUT))
 
     LPINPUT = ctypes.POINTER(INPUT)
 
@@ -955,31 +1162,38 @@ def escape_call():
         return args
 
     user32.SendInput.errcheck = _check_count
-    user32.SendInput.argtypes = (wintypes.UINT, # nInputs
-                                LPINPUT,       # pInputs
-                                ctypes.c_int)  # cbSize
+    user32.SendInput.argtypes = (
+        wintypes.UINT,  # nInputs
+        LPINPUT,  # pInputs
+        ctypes.c_int,
+    )  # cbSize
 
     # Functions
 
     def PressKey(hexKeyCode):
-        x = INPUT(type=INPUT_KEYBOARD,
-                ki=KEYBDINPUT(wVk=hexKeyCode))
+        x = INPUT(type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=hexKeyCode))
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
 
     def ReleaseKey(hexKeyCode):
-        x = INPUT(type=INPUT_KEYBOARD,
-                ki=KEYBDINPUT(wVk=hexKeyCode,
-                                dwFlags=KEYEVENTF_KEYUP))
+        x = INPUT(
+            type=INPUT_KEYBOARD, ki=KEYBDINPUT(wVk=hexKeyCode, dwFlags=KEYEVENTF_KEYUP)
+        )
         user32.SendInput(1, ctypes.byref(x), ctypes.sizeof(x))
-    
-    # print("Pressing ESC in")
-    # for i in range(3, 0, -1):
-    #     print(i)
-    #     time.sleep(1)
+
+    # Keys to press
     VK_ESC = 0x1B
-    PressKey(VK_ESC)
-    time.sleep(0.05)
-    ReleaseKey(VK_ESC)
+    VK_F6 = 0x75
+    VKs = [VK_ESC, VK_F6, VK_F6]
+
+    titles = list_windows()
+    for title in titles:
+        if "Microscope Control" in title.title:
+            window = find_window_by_title(title=title.title)
+            set_foreground_window(window)
+            for VK in VKs:
+                PressKey(VK)
+                time.sleep(0.05)
+                ReleaseKey(VK)
 
 
 def _async_raise(tid, exctype):
@@ -1057,12 +1271,11 @@ class TextRedirector(object):
     def __init__(self, widget, tag="stdout", log_path=None):
         self.widget = widget
         self.tag = tag
-        if log_path is None:
-            log_path = os.path.join(os.getenv('LOCALAPPDATA'), 'pytribeam', time.strftime("%Y%m%d-%H%M%S") + '_log.txt')
-        else:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-        self.file = open(log_path, "w")
-        self.file.write(time.strftime("%Y-%m-%d %H:%M:%S") + "\n")
+        self.log_path = log_path
+        if self.log_path is not None and not os.path.exists(self.log_path):
+            os.makedirs(os.path.dirname(self.log_path), exist_ok=True)
+            with open(self.log_path, "w") as f:
+                f.write(time.strftime("%Y-%m-%d %H:%M:%S") + "\n")
 
     def write(self, s):
         # See if the widget was scrolled to the bottom, if it is, we will autoscroll down past the new text
@@ -1076,16 +1289,11 @@ class TextRedirector(object):
         # Autoscroll if the scrollbar is at the bottom
         if autoscroll and bottom == 1:
             self.widget.see(tk.END)
-        
+
         # Write to the log file
-        timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-        self.file.write(f"{timestamp} > {s}")
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.file.close()
+        if self.log_path is not None:
+            with open(self.log_path, "a") as f:
+                f.write(s)
 
     def flush(self):
         pass

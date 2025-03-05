@@ -70,7 +70,7 @@ steps:
         dynamic_focus:    
         tilt_correction:
       pattern:
-        application_file: Si-ccs
+        application_file: Al
         type: #can only use one type
           rectangle:
             center:

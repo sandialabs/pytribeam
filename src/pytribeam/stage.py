@@ -57,11 +57,11 @@ def encoder_to_user_position(pos: tbt.StagePositionEncoder) -> tbt.StagePosition
             f"provided position is not of type '<class pytribeam.types.StagePositionEncoder>', but instead of type '{type(pos)}'. Did you mean to use the function 'user_to_encoder_position'?"
         )
     user_pos = tbt.StagePositionUser(
-        x_mm=pos.x * Conversions.M_TO_MM,
-        y_mm=pos.y * Conversions.M_TO_MM,
-        z_mm=pos.z * Conversions.M_TO_MM,
-        r_deg=pos.r * Conversions.RAD_TO_DEG,
-        t_deg=pos.t * Conversions.RAD_TO_DEG,
+        x_mm=round(pos.x * Conversions.M_TO_MM, 6),
+        y_mm=round(pos.y * Conversions.M_TO_MM, 6),
+        z_mm=round(pos.z * Conversions.M_TO_MM, 6),
+        r_deg=round(pos.r * Conversions.RAD_TO_DEG, 6),
+        t_deg=round(pos.t * Conversions.RAD_TO_DEG, 6),
         coordinate_system=tbt.StageCoordinateSystem(pos.coordinate_system),
     )
     return user_pos
@@ -492,17 +492,31 @@ def move_to_position(
     # stop visualization on CCD
     devices.CCD_pause(microscope=microscope)
 
-    # check if completed
+    # check if completed #TODO clean this with a loop
     if not move_completed(
         microscope=microscope,
         target_position=target_position,
         stage_tolerance=stage_tolerance,
     ):
-        current_position = factory.active_stage_position_settings(microscope=microscope)
-        error_message = _bad_axes_message(
-            target_position, current_position, stage_tolerance
+        # Try again
+        move_stage(
+            microscope=microscope,
+            target_position=target_position,
+            stage_tolerance=stage_tolerance,
         )
-        raise SystemError(error_message)
+        # check if completed
+        if not move_completed(
+            microscope=microscope,
+            target_position=target_position,
+            stage_tolerance=stage_tolerance,
+        ):
+            current_position = factory.active_stage_position_settings(
+                microscope=microscope
+            )
+            error_message = _bad_axes_message(
+                target_position, current_position, stage_tolerance
+            )
+            raise SystemError(error_message)
 
     return True
 

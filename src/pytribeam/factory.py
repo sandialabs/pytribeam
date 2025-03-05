@@ -22,10 +22,16 @@ from pytribeam.constants import Conversions, Constants
 from pytribeam.fib import application_files
 
 try:
-    from pytribeam.laser import tfs_laser
+    import pytribeam.laser as fs_laser
 except:
     pass
 import pytribeam.types as tbt
+
+
+def active_fib_applications(
+    microscope: tbt.Microscope,
+) -> list:
+    return microscope.patterning.list_all_application_files()
 
 
 def active_beam_with_settings(
@@ -37,15 +43,15 @@ def active_beam_with_settings(
     selected_beam = active_imaging_device(microscope=microscope)
     beam = ut.beam_type(selected_beam, microscope)
 
-    voltage_kv = beam.high_voltage.value * Conversions.V_TO_KV
-    voltage_tol_kv = voltage_kv * Constants.voltage_tol_ratio
+    voltage_kv = round(beam.high_voltage.value * Conversions.V_TO_KV, 6)
+    voltage_tol_kv = round(voltage_kv * Constants.voltage_tol_ratio, 6)
 
-    current_na = beam.beam_current.value * Conversions.A_TO_NA
-    current_tol_na = current_na * Constants.current_tol_ratio
+    current_na = round(beam.beam_current.value * Conversions.A_TO_NA, 6)
+    current_tol_na = round(current_na * Constants.current_tol_ratio, 6)
 
-    hfw_mm = beam.horizontal_field_width.value * Conversions.M_TO_MM
+    hfw_mm = round(beam.horizontal_field_width.value * Conversions.M_TO_MM, 6)
 
-    working_dist_mm = beam.working_distance.value * Conversions.M_TO_MM
+    working_dist_mm = round(beam.working_distance.value * Conversions.M_TO_MM, 6)
 
     active_settings = tbt.BeamSettings(
         voltage_kv=voltage_kv,
@@ -176,6 +182,7 @@ def active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePosit
             new_r_deg = user_pos.r_deg - 360.0
         while user_pos.r_deg < Constants.rotation_axis_limit_deg.min:
             new_r_deg = user_pos.r_deg + 360.0
+        new_r_deg = round(new_r_deg, 6)
         user_pos = tbt.StagePositionUser(
             x_mm=user_pos.x_mm,
             y_mm=user_pos.y_mm,
@@ -191,13 +198,15 @@ def active_laser_state() -> tbt.LaserState:
     """returns dictionary object for all properties that can be quickly read from the laser (not exhaustive)
     Power can be read but has its own method and is more involved.
     Flipper configuration can only be set, not read"""
-    vals = tfs_laser.Laser_ReadValues()
-    vals["objective_position_mm"] = tfs_laser.LIP_GetZPosition()
-    vals["beam_shift_um_x"] = tfs_laser.BeamShift_Get_X()
-    vals["beam_shift_um_y"] = tfs_laser.BeamShift_Get_Y()
-    vals["shutter_state"] = tfs_laser.Shutter_GetState()
-    vals["pattern"] = tfs_laser.Patterning_ReadValues()
-    vals["expected_pattern_duration_s"] = tfs_laser.Patterning_GetExpectedDuration()
+    vals = fs_laser.tfs_laser.Laser_ReadValues()
+    vals["objective_position_mm"] = fs_laser.tfs_laser.LIP_GetZPosition()
+    vals["beam_shift_um_x"] = fs_laser.tfs_laser.BeamShift_Get_X()
+    vals["beam_shift_um_y"] = fs_laser.tfs_laser.BeamShift_Get_Y()
+    vals["shutter_state"] = fs_laser.tfs_laser.Shutter_GetState()
+    vals["pattern"] = fs_laser.tfs_laser.Patterning_ReadValues()
+    vals["expected_pattern_duration_s"] = (
+        fs_laser.tfs_laser.Patterning_GetExpectedDuration()
+    )
 
     pattern_db = vals["pattern"]
     pattern_type = pattern_db["patternType"].lower()
@@ -444,8 +453,10 @@ def general(
             h5_log_name = h5_log_name[: -len(log_extension)]
         # step count
         step_count = general_db["step_count"]
+        yml_version = 1.0
 
     general_settings = tbt.GeneralSettings(
+        yml_version=yml_version,
         slice_thickness_um=slice_thickness_um,
         max_slice_number=max_slice_number,
         pre_tilt_deg=pre_tilt_deg,
@@ -1396,6 +1407,7 @@ def validate_detector_settings(
 
 
 def validate_EBSD_EDS_settings(
+    yml_format: tbt.YMLFormatVersion,
     connection_host: str,
     connection_port: str,
     ebsd_oem: str,
@@ -1427,7 +1439,7 @@ def validate_EBSD_EDS_settings(
 
     # check EBSD and EDS connection
     try:
-        tfs_laser
+        fs_laser.tfs_laser
     except:
         raise SystemError(
             "EBSD and/or EDS control requested, but Laser API not accessible, so cannot use EBSD and EDS control. Please restart Laser API, or if not installed, change OEM to 'null', or leave blank in settings file."
@@ -1466,13 +1478,13 @@ def validate_general_settings(
     pre_tilt_limit_deg = Constants.pre_tilt_limit_deg_generic
 
     if yml_format.version >= 1.0:
-        sectioning_axis = settings["sectioning_axis"]
-        connection_host = settings["connection_host"]
-        connection_port = settings["connection_port"]
-        ebsd_oem = settings["EBSD_OEM"]
-        eds_oem = settings["EDS_OEM"]
-        exp_dir = settings["exp_dir"]
-        h5_log_name = settings["h5_log_name"]
+        sectioning_axis = settings.get("sectioning_axis")
+        connection_host = settings.get("connection_host")
+        connection_port = settings.get("connection_port")
+        ebsd_oem = settings.get("EBSD_OEM")
+        eds_oem = settings.get("EDS_OEM")
+        exp_dir = settings.get("exp_dir")
+        h5_log_name = settings.get("h5_log_name")
 
     # Validate the non-numeric values
     # Check sectioning axis
@@ -1497,6 +1509,7 @@ def validate_general_settings(
 
     # check EBSD and EDS
     validate_EBSD_EDS_settings(
+        yml_format=yml_format,
         connection_host=connection_host,
         connection_port=connection_port,
         ebsd_oem=ebsd_oem,

@@ -22,13 +22,16 @@ class Constants(NamedTuple):
     module_short_name = "pyTriBeam"
     autoscript_version = "4.8.1"
     laser_api_version = "2.2.1"
-    yml_schema_version = "1.0"
+    yml_schema_version = "1.0"  # max supported version #TODO convert to float
 
     # Log file constants
     logfile_extension = ".h5"
     settings_dataset_name = "Experiment Settings"
     pre_position_dataset_name = "Position Before"
     post_position_dataset_name = "Position After"
+    pre_lasing_dataset_name = "Laser Power Before"
+    post_lasing_dataset_name = "Laser Power After"
+    specimen_current_dataset_name = "Specimen Current"
     settings_dtype = np.dtype(
         [
             ("Slice", "<u4"),
@@ -46,6 +49,22 @@ class Constants(NamedTuple):
             ("Z", "<f8"),
             ("T", "<f8"),
             ("R", "<f8"),
+            ("Timestamp", h5py.special_dtype(vlen=str)),
+            ("UNIX time", "<u8"),
+        ]
+    )
+    laser_power_dtype = np.dtype(
+        [
+            ("Slice", "<u4"),
+            ("Power", "<f8"),
+            ("Timestamp", h5py.special_dtype(vlen=str)),
+            ("UNIX time", "<u8"),
+        ]
+    )
+    specimen_current_dtype = np.dtype(
+        [
+            ("Slice", "<u4"),
+            ("Current", "<f8"),
             ("Timestamp", h5py.special_dtype(vlen=str)),
             ("UNIX time", "<u8"),
         ]
@@ -120,16 +139,14 @@ class Constants(NamedTuple):
     # Mapping (EBSD/EDS) constants
     min_map_time_s = 30
     specimen_current_hfw_mm = 1.0e-3
-    specimen_current_delay_s = 3.0
+    specimen_current_delay_s = 2.0
 
     # Test suite constants
     test_hardware_movement = True
     offline_machines = [
         "S1099177",
     ]
-    microscope_machines = [
-        "HPN125v-MPC",
-    ]
+    microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
 
     # error message display constants
     default_column_count = 3  # for printing large lists of values

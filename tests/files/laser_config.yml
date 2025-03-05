@@ -58,4 +58,4 @@ steps:
       rotation_deg: 0.0
       mode: fine #can only use fine or coarse
       pulses_per_pixel: 2 #only matters for fine
-      pixel_dwell_ms: 0.5  #only matters for coarse
+      pixel_dwell_ms: Null  #only matters for coarse

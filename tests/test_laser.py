@@ -115,8 +115,15 @@ def test_retract_shutter():
 @ut.run_on_microscope_machine
 def test_set_wavelength():
     """test wavelength setting on the laser"""
-    assert laser.set_wavelength(wavelength=tbt.LaserWavelength.NM_515)
-    assert laser.set_wavelength(wavelength=tbt.LaserWavelength.NM_1030)
+
+    assert laser.set_wavelength(
+        wavelength=tbt.LaserWavelength.NM_1030,
+        frequency_khz=60,
+    )
+    assert laser.set_wavelength(
+        wavelength=tbt.LaserWavelength.NM_515,
+        frequency_khz=60,
+    )
 
 
 @ut.run_on_microscope_machine

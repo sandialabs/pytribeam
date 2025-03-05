@@ -19,7 +19,7 @@ class Button(tk.Button):
 
         self.bg = bg or get_widget_attribute(parent, "background")
         self.fg = fg or calc_font_color(self.bg)
-        h_bg = h_bg or ACCENT_COLOR1
+        h_bg = h_bg or bg
         h_fg = h_fg or fg
         a_fg = h_fg or fg
         a_bg = h_bg or bg

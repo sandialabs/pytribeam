@@ -1,3 +1,4 @@
+import ctypes
 from pathlib import Path
 from copy import deepcopy
 import tkinter as tk
@@ -13,8 +14,12 @@ import pytribeam.GUI.config_ui.lookup as lut
 
 
 class Configurator:
-    def __init__(self, master, yml_path=None, *args, **kwargs):
-        self.toplevel = tk.Toplevel(master, background="white", *args, **kwargs)
+    def __init__(self, master, theme, yml_path=None, *args, **kwargs):
+        self.master = master
+        self.theme = theme
+        self.toplevel = tk.Toplevel(
+            self.master, background=self.theme.bg, *args, **kwargs
+        )
 
         # Set app title, icon, size and grid structure
         self.YAML_PATH = yml_path
@@ -27,145 +32,16 @@ class Configurator:
         self.toplevel.update_idletasks()
         self.toplevel.rowconfigure(0, weight=1)
         self.toplevel.columnconfigure(0, weight=1)
-        # self.toplevel.attributes("-topmost", True)
 
-        # Create menubar
-        self.menu = tk.Menu(self.toplevel)
-        # Create file menu
-        file_menu = tk.Menu(
-            self.menu,
-            tearoff=False,
-            font=ctk.MENU_FONT,
-            activebackground=ctk.ACCENT_COLOR1,
+        # Set version and put a trace on it
+        self.yml_version = tk.StringVar()
+        self.yml_version.set(lut.VERSIONS[-1])
+        self.yml_version.trace_id = self.yml_version.trace_add(
+            "write", self._yaml_version_updated
         )
-        file_menu.add_command(label="New", command=self.new_config, font=ctk.MENU_FONT)
-        file_menu.add_command(
-            label="Load", command=self.load_config, font=ctk.MENU_FONT
-        )
-        file_menu.add_command(
-            label="Save as", command=self.save_config, font=ctk.MENU_FONT
-        )
-        file_menu.add_command(
-            label="Save & Exit", command=self.save_exit, font=ctk.MENU_FONT
-        )
-        self.menu.add_cascade(label="Menu", menu=file_menu, font=ctk.MENU_FONT)
-        # Create validation menu
-        validate_menu = tk.Menu(
-            self.menu,
-            tearoff=False,
-            font=ctk.MENU_FONT,
-            activebackground=ctk.ACCENT_COLOR1,
-        )
-        validate_menu.add_command(
-            label="Full", command=self.validate_full, font=ctk.MENU_FONT
-        )
-        validate_menu.add_command(
-            label="Step", command=self.validate_step, font=ctk.MENU_FONT
-        )
-        validate_menu.add_command(
-            label="General", command=self.validate_general, font=ctk.MENU_FONT
-        )
-        self.menu.add_cascade(label="Validate", menu=validate_menu, font=ctk.MENU_FONT)
-        # Create Microscope interaction menu
-        microscope_menu = tk.Menu(
-            self.menu,
-            tearoff=False,
-            font=ctk.MENU_FONT,
-            activebackground=ctk.ACCENT_COLOR1,
-        )
-        microscope_menu.add_command(
-            label="Import stage position...",
-            command=self.update_step_position_from_scope,
-            font=ctk.MENU_FONT,
-        )
-        microscope_menu.add_command(
-            label="Import imaging conditions...",
-            command=self.update_step_imaging_from_scope,
-            font=ctk.MENU_FONT,
-        )
-        microscope_menu.add_command(
-            label="Import laser settings...",
-            command=self.update_laser_from_scope,
-            font=ctk.MENU_FONT,
-        )
-        self.menu.add_cascade(
-            label="Microscope", menu=microscope_menu, font=ctk.MENU_FONT
-        )
-        # Create help menu
-        help_menu = tk.Menu(
-            self.menu,
-            tearoff=False,
-            font=ctk.MENU_FONT,
-            activebackground=ctk.ACCENT_COLOR1,
-        )
-        help_menu.add_command(label="About", command=self.about, font=ctk.MENU_FONT)
-        self.menu.add_cascade(label="Help", menu=help_menu, font=ctk.MENU_FONT)
-        # Put the menu on the app
-        self.toplevel.config(menu=self.menu)
 
-        # Create and format workspace window, this contains the pipeline window and the step editor window
-        self.frame = tk.Frame(self.toplevel, background="white")
-        self.frame.grid(row=0, column=0, sticky="nsew", pady=0, padx=0)
-        self.frame.columnconfigure(0, weight=1)
-        self.frame.columnconfigure(1, weight=15)
-        self.frame.columnconfigure(2, weight=15)
-        self.frame.rowconfigure(0, weight=1)
-
-        # Create pipeline window
-        self.pipeline = ctk.ScrollableFrame(self.frame, bg=ctk.DEFAULT_COLOR)
-        self.pipeline.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
-        self.pipeline.columnconfigure(0, weight=1)
-        self.pipeline.columnconfigure(1, weight=1)
-        top_label = ctk.AutofitLabel(
-            self.pipeline,
-            text="Pipeline Editor",
-            bg=ctk.DEFAULT_COLOR,
-            font=ctk.HEADER_FONT,
-        )
-        top_label.grid(row=0, column=0, sticky="nsew")
-        self.status_label = ctk.AutofitLabel(
-            self.pipeline,
-            text="INVALID",
-            bg=ctk.RED,
-            font=ctk.MENU_FONT,
-            anchor="center",
-            relief="raised",
-            width=12,
-        )
-        self.status_label.grid(row=0, column=1, sticky="nse", padx=20, pady=5)
-        step_types = [l.lower() for l in list(lut.LUT.keys()) if l.lower() != "general"]
-
-        self.pick_step_b = ctk.MenuButton(
-            self.pipeline,
-            step_types,
-            font=ctk.MENU_FONT,
-            command=self.create_pipeline_step,
-            relief="raised",
-            padx=5,
-            bd=3,
-        )
-        self.pick_step_b.grid(row=1, column=0, sticky="nsew", pady=1, padx=1)
-        self.pick_step_b.var.set("Add Step")
-        note_label = ctk.AutofitLabel(
-            self.pipeline,
-            text="Right click on a step to delete or rearrange",
-            bg=ctk.DEFAULT_COLOR,
-            font=ctk.MENU_FONT,
-            padx=5,
-        )
-        note_label.grid(row=1, column=1, sticky="nsew")
-
-        # Create pipeline step editor window
-        self.editor = ctk.ScrollableFrame(self.frame, bg=ctk.DEFAULT_COLOR)
-        self.editor.grid(row=0, column=1, columnspan=2, sticky="nsew", padx=1, pady=0)
-        self.editor.columnconfigure(0, weight=1)
-        self.editor.columnconfigure(1, weight=1)
-        self.editor.columnconfigure(2, weight=1)
-        top_label = ctk.AutofitLabel(
-            self.editor, text="Step Editor", bg=ctk.DEFAULT_COLOR, font=ctk.HEADER_FONT
-        )
-        self.VIEW = tk.StringVar(self.editor, "basic")
-        top_label.grid(row=0, column=0, sticky="nsew")
+        # Fill the toplevel with the editor window
+        self._fill_toplevel(redraw=False)
 
         # Initialize class variables
         self.STEP_INDEX = -1
@@ -185,35 +61,207 @@ class Configurator:
 
         self.toplevel.protocol("WM_DELETE_WINDOW", self.quit)
 
+        # Bind Ctrl+S to save the config
+        self.toplevel.bind("<Control-s>", lambda e: self.save_config())
+
+    def _fill_toplevel(self, redraw=True):
+        """Create the editor window for the pipeline steps."""
+        # First we clear everything in the toplevel (the menubar and the frames)
+        for widget in self.toplevel.winfo_children():
+            widget.destroy()
+        self.toplevel.config(menu="")
+
+        # Create menubar
+        self.menu = tk.Menu(self.toplevel)
+        # Create file menu
+        file_menu = tk.Menu(
+            self.menu,
+            tearoff=False,
+            font=ctk.MENU_FONT,
+            # bg=self.theme.bg,
+            activebackground=self.theme.accent1,
+        )
+        file_menu.add_command(label="New", command=self.new_config, font=ctk.MENU_FONT)
+        file_menu.add_command(
+            label="Load", command=self.load_config, font=ctk.MENU_FONT
+        )
+        file_menu.add_command(
+            label="Save", command=self.save_config, font=ctk.MENU_FONT
+        )
+        file_menu.add_command(
+            label="Save as",
+            command=lambda: self.save_config(save_as=True),
+            font=ctk.MENU_FONT,
+        )
+        file_menu.add_command(
+            label="Save & Exit", command=self.save_exit, font=ctk.MENU_FONT
+        )
+        self.menu.add_cascade(label="Menu", menu=file_menu, font=ctk.MENU_FONT)
+        # Create validation menu
+        validate_menu = tk.Menu(
+            self.menu,
+            tearoff=False,
+            font=ctk.MENU_FONT,
+            # bg=self.theme.bg,
+            activebackground=self.theme.accent1,
+        )
+        validate_menu.add_command(
+            label="Full", command=self.validate_full, font=ctk.MENU_FONT
+        )
+        validate_menu.add_command(
+            label="Step", command=self.validate_step, font=ctk.MENU_FONT
+        )
+        validate_menu.add_command(
+            label="General", command=self.validate_general, font=ctk.MENU_FONT
+        )
+        self.menu.add_cascade(label="Validate", menu=validate_menu, font=ctk.MENU_FONT)
+        # Create Microscope interaction menu
+        microscope_menu = tk.Menu(
+            self.menu,
+            tearoff=False,
+            font=ctk.MENU_FONT,
+            # bg=self.theme.bg,
+            activebackground=self.theme.accent1,
+        )
+        microscope_menu.add_command(
+            label="Import stage position...",
+            command=self.update_step_position_from_scope,
+            font=ctk.MENU_FONT,
+        )
+        microscope_menu.add_command(
+            label="Import imaging conditions...",
+            command=self.update_step_imaging_from_scope,
+            font=ctk.MENU_FONT,
+        )
+        microscope_menu.add_command(
+            label="Import laser settings...",
+            command=self.update_laser_from_scope,
+            font=ctk.MENU_FONT,
+        )
+        self.menu.add_cascade(
+            label="Microscope", menu=microscope_menu, font=ctk.MENU_FONT
+        )
+        # Create a version menu of checkbuttons, only one of which can be selected at a time, to choose the version of the config file
+        version_menu = tk.Menu(
+            self.menu,
+            tearoff=False,
+            font=ctk.MENU_FONT,
+            # bg=self.theme.bg,
+            activebackground=self.theme.accent1,
+        )
+        for version in lut.VERSIONS:
+            version_menu.add_radiobutton(
+                label=version,
+                variable=self.yml_version,
+                value=version,
+                font=ctk.MENU_FONT,
+            )
+        self.menu.add_cascade(label="Version", menu=version_menu, font=ctk.MENU_FONT)
+
+        # Put the menu on the app
+        self.toplevel.config(menu=self.menu, bg=self.theme.bg)
+
+        # Create and format workspace window, this contains the pipeline window and the step editor window
+        self.frame = tk.Frame(self.toplevel, background=self.theme.bg)
+        self.frame.grid(row=0, column=0, sticky="nsew", pady=0, padx=0)
+        self.frame.columnconfigure(0, weight=1)
+        self.frame.columnconfigure(1, weight=15)
+        self.frame.columnconfigure(2, weight=15)
+        self.frame.rowconfigure(0, weight=1)
+
+        # Create pipeline window
+        self.pipeline = ctk.ScrollableFrame(
+            self.frame,
+            vscroll=True,
+            hscroll=False,
+            bg=self.theme.bg,
+            sbar_bg=self.theme.bg,
+            sbar_fg=self.theme.bg,
+        )
+        self.pipeline.grid(row=0, column=0, sticky="nsew", padx=0, pady=0)
+        self.pipeline.columnconfigure(0, weight=1)
+        self.pipeline.columnconfigure(1, weight=1)
+        top_label = ctk.AutofitLabel(
+            self.pipeline,
+            text="Pipeline Editor",
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            font=ctk.HEADER_FONT,
+        )
+        top_label.grid(row=0, column=0, sticky="nsew")
+        self.status_label = ctk.AutofitLabel(
+            self.pipeline,
+            text="INVALID",
+            bg=self.theme.red,
+            fg=self.theme.red_fg,
+            font=ctk.MENU_FONT,
+            anchor="center",
+            relief="raised",
+            width=12,
+        )
+        self.status_label.grid(row=0, column=1, sticky="nse", padx=20, pady=5)
+        step_types = [
+            l.lower() for l in list(lut.LUTs.keys()) if l.lower() != "general"
+        ]
+
+        self.pick_step_b = ctk.MenuButton(
+            self.pipeline,
+            step_types,
+            font=ctk.MENU_FONT,
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            command=self.create_pipeline_step,
+            relief="raised",
+            padx=5,
+            bd=3,
+        )
+        self.pick_step_b.grid(row=1, column=0, sticky="nsew", pady=1, padx=1)
+        self.pick_step_b.var.set("Add Step")
+        note_label = ctk.AutofitLabel(
+            self.pipeline,
+            text="Right click on a step to delete or rearrange",
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            font=ctk.MENU_FONT,
+            padx=5,
+        )
+        note_label.grid(row=1, column=1, sticky="nsew")
+
+        self.editor = ctk.ScrollableFrame(
+            self.frame,
+            vscroll=True,
+            hscroll=False,
+            bg=self.theme.bg,
+            sbar_bg=self.theme.bg,
+            sbar_fg=self.theme.bg,
+        )
+        self.editor.grid(row=0, column=1, columnspan=2, sticky="nsew", padx=1, pady=0)
+        self.editor.columnconfigure(0, weight=1)
+        self.editor.columnconfigure(1, weight=1)
+        self.editor.columnconfigure(2, weight=1)
+        top_label = ctk.AutofitLabel(
+            self.editor,
+            text="Step Editor",
+            bg=self.theme.bg,
+            fg=self.theme.fg,
+            font=ctk.HEADER_FONT,
+        )
+        top_label.grid(row=0, column=0, sticky="nsew")
+
+        if redraw:
+            self._update_pipeline()
+            self._update_editor()
+
+    def _yaml_version_updated(self, *args):
+        """Function called when the yaml version is updated."""
+        self._update_editor()
+
     def update_title(self):
         """Update the title of the app window based on the current yaml file."""
         if self.YAML_PATH is None:
             self.toplevel.title("TriBeam Configurator - Untitled")
         else:
             self.toplevel.title(f"TriBeam Configurator - {self.YAML_PATH}")
-
-    def about(self):
-        """Display an about message box."""
-        details = """Pipeline Editor:
-        \r>A General step is always present and cannot be deleted.
-        \r>Click "Add step" to add a new step to the pipeline.
-        \r>Right click on a step in the pipeline editor to delete or move steps\n
-        \rStep Editor:
-        \r>The right panel permits editing the parameters of each step.
-        \r>Parameters are grouped. Click on the down arrows to open up grouped sets.
-        \r>Hover over parameter labels to show a description of the parameter.
-        \r>Entries will only permit typing allowed characters (i.e. a integer parameter will only allow integers to be typed).\n
-        \r>For the parameter Scan.Resolution, click in the entry box and press the up or down arrow keys to cycle through the preset options (custom resolutions are also supported. i.e. 100x100).\n
-        \rGeneral:
-        \r>You can validate the config file, to varying depths, under the "Validate" menu at the top of the window.
-        \r>Saving, reseting, and loading config files is done under the "File" menu.
-        \r>Under the "Microscope" menu, you can import stage positions and imaging conditions from the microscope."""
-        messagebox.showinfo(
-            parent=self.toplevel,
-            title="About TriBeam Configurator",
-            message="A GUI for creating and editing configuration files for running TriBeam experiments.",
-            detail=details,
-        )
 
     def update_step_imaging_from_scope(self):
         """Update the imaging settings of the current step based on the current microscope settings."""
@@ -237,8 +285,10 @@ class Configurator:
         )
         # Get the settings
         imaging_settings = factory.active_image_settings(Microscope)
+        # Disconnect the microscope
+        ut.disconnect_microscope(Microscope)
         # First set the beam type (special case)
-        key = get_key(["beam", "type"], self.CONFIG[self.STEP_INDEX])
+        # key = get_key(["beam", "type"], self.CONFIG[self.STEP_INDEX])
         value = imaging_settings.beam.__getattribute__("type").value
         # If this is a fib step, we check if the beam is ion, if not, we raise a warning and abort
         if self.STEP == "fib" and value != "ion":
@@ -248,59 +298,76 @@ class Configurator:
                 message="Importing imaging conditions for a FIB step requires the active beam to be an ion beam.",
             )
             return
-        self.CONFIG[self.STEP_INDEX][key] = _check_value_type(value, str)
-        # Second we do the resolution (special case)
-        key = get_key(["scan", "resolution"], self.CONFIG[self.STEP_INDEX])
+        # If it is a fib step, copy imaging conditions to the mill setting
+        if self.STEP == "fib":
+            self.CONFIG[self.STEP_INDEX]["mill/beam/type"] = _check_value_type(
+                value, str
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/voltage_kv"] = _check_value_type(
+                imaging_settings.beam.settings.voltage_kv, float
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/current_na"] = _check_value_type(
+                imaging_settings.beam.settings.current_na, float
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/voltage_tol_kv"] = (
+                _check_value_type(imaging_settings.beam.settings.voltage_tol_kv, float)
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/current_tol_na"] = (
+                _check_value_type(imaging_settings.beam.settings.current_tol_na, float)
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/hfw_mm"] = _check_value_type(
+                imaging_settings.beam.settings.hfw_mm, float
+            )
+            self.CONFIG[self.STEP_INDEX]["mill/beam/working_dist_mm"] = (
+                _check_value_type(imaging_settings.beam.settings.working_dist_mm, float)
+            )
+        # Do beam stuff
+        self.CONFIG[self.STEP_INDEX]["beam/type"] = _check_value_type(value, str)
+        self.CONFIG[self.STEP_INDEX]["beam/voltage_kv"] = _check_value_type(
+            imaging_settings.beam.settings.voltage_kv, float
+        )
+        self.CONFIG[self.STEP_INDEX]["beam/current_na"] = _check_value_type(
+            imaging_settings.beam.settings.current_na, float
+        )
+        self.CONFIG[self.STEP_INDEX]["beam/voltage_tol_kv"] = _check_value_type(
+            imaging_settings.beam.settings.voltage_tol_kv, float
+        )
+        self.CONFIG[self.STEP_INDEX]["beam/current_tol_na"] = _check_value_type(
+            imaging_settings.beam.settings.current_tol_na, float
+        )
+        self.CONFIG[self.STEP_INDEX]["beam/hfw_mm"] = _check_value_type(
+            imaging_settings.beam.settings.hfw_mm, float
+        )
+        self.CONFIG[self.STEP_INDEX]["beam/working_dist_mm"] = _check_value_type(
+            imaging_settings.beam.settings.working_dist_mm, float
+        )
+        # Now set the detector settings
+        self.CONFIG[self.STEP_INDEX]["detector/type"] = _check_value_type(
+            imaging_settings.detector.type, str
+        )
+        self.CONFIG[self.STEP_INDEX]["detector/mode"] = _check_value_type(
+            imaging_settings.detector.mode, str
+        )
+        self.CONFIG[self.STEP_INDEX]["detector/brightness"] = _check_value_type(
+            imaging_settings.detector.brightness, float
+        )
+        self.CONFIG[self.STEP_INDEX]["detector/contrast"] = _check_value_type(
+            imaging_settings.detector.contrast, float
+        )
+        # Now the scan settings
+        self.CONFIG[self.STEP_INDEX]["scan/rotation_deg"] = _check_value_type(
+            imaging_settings.scan.rotation_deg, float
+        )
+        self.CONFIG[self.STEP_INDEX]["scan/dwell_time_us"] = _check_value_type(
+            imaging_settings.scan.dwell_time_us, float
+        )
         value = imaging_settings.scan.__getattribute__("resolution")
         value = _check_value_type(f"{value.width}x{value.height}", str)
-        self.CONFIG[self.STEP_INDEX][key] = value
-        # Third we do the bit depth
-        key = get_key(["bit_depth"], self.CONFIG[self.STEP_INDEX])
-        value = _check_value_type(imaging_settings.__getattribute__("bit_depth"), int)
-        self.CONFIG[self.STEP_INDEX][key] = value
-        # Now set the beam settings, beam type is the first entry so we skip it
-        params = [
-            (p, lut._beam_lookup[p].kwargs.get("dtype", None))
-            for p in lut._beam_lookup.keys()
-        ][1:]
-        for param, dtype in params:
-            key = get_key(["beam", param], self.CONFIG[self.STEP_INDEX])
-            self.CONFIG[self.STEP_INDEX][key] = _check_value_type(
-                imaging_settings.beam.settings.__getattribute__(param), dtype
-            )
-        # Now set the detector settings, excluding ACB
-        params = [
-            (p, lut._image_detector_lookup[p].kwargs.get("dtype", None))
-            for p in list(lut._image_detector_lookup.keys())[:-1]
-        ]
-        for param, dtype in params:
-            key = get_key(["detector", param], self.CONFIG[self.STEP_INDEX])
-            self.CONFIG[self.STEP_INDEX][key] = _check_value_type(
-                imaging_settings.detector.__getattribute__(param), dtype
-            )
-        # Now set the auto cb settings
-        params = [
-            (p, lut._auto_cb_lookup[p].kwargs.get("dtype", None))
-            for p in lut._auto_cb_lookup.keys()
-        ]
-        for param, dtype in params:
-            key = get_key(["auto_cb", param], self.CONFIG[self.STEP_INDEX])
-            self.CONFIG[self.STEP_INDEX][key] = _check_value_type(
-                imaging_settings.detector.auto_cb_settings.__getattribute__(param),
-                dtype,
-            )
-        # Now set scan settings, but we already did the resolution so we skip it (it is the last entry)
-        params = [
-            (p, lut._image_scan_lookup[p].kwargs.get("dtype", None))
-            for p in lut._image_scan_lookup.keys()
-        ][:-1]
-        for param, dtype in params:
-            key = get_key(["scan", param], self.CONFIG[self.STEP_INDEX])
-            self.CONFIG[self.STEP_INDEX][key] = _check_value_type(
-                imaging_settings.scan.__getattribute__(param), dtype
-            )
-        # Disconnect the microscope
-        ut.disconnect_microscope(Microscope)
+        self.CONFIG[self.STEP_INDEX]["scan/resolution"] = value
+        # Last is the bit depth
+        self.CONFIG[self.STEP_INDEX]["bit_depth"] = _check_value_type(
+            imaging_settings.bit_depth, int
+        )
         # Update the editor
         self._update_editor()
 
@@ -325,15 +392,24 @@ class Configurator:
             connection_port=general_set["connection_port"],
         )
         current_position = factory.active_stage_position_settings(Microscope)
-        # Put the current position in the step
-        axes = list(lut._initial_pos_lookup.keys())
-        for ax in axes:
-            key = get_key(ax, self.CONFIG[self.STEP_INDEX])
-            self.CONFIG[self.STEP_INDEX][key] = _check_value_type(
-                current_position.__getattribute__(ax), float
-            )
         # Disconnect the microscope
         ut.disconnect_microscope(Microscope)
+        # Put the current position in the step
+        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/x_mm"] = (
+            _check_value_type(current_position.x_mm, float)
+        )
+        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/y_mm"] = (
+            _check_value_type(current_position.y_mm, float)
+        )
+        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/z_mm"] = (
+            _check_value_type(current_position.z_mm, float)
+        )
+        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/t_deg"] = (
+            _check_value_type(current_position.t_deg, float)
+        )
+        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/r_deg"] = (
+            _check_value_type(current_position.r_deg, float)
+        )
         # Update the editor
         self._update_editor()
 
@@ -370,7 +446,7 @@ class Configurator:
             )
             return
         ut.disconnect_microscope(Microscope)
-        
+
         # Convert the laser state to a dictionary
         laser_state = laser.laser_state_to_db(laser_state)
 
@@ -378,31 +454,67 @@ class Configurator:
         for key in laser_state.keys():
             if laser_state[key] is None:
                 laser_state[key] = ""
-        
+
+        # Empty the current laser db
+        for key in self.CONFIG[self.STEP_INDEX].keys():
+            self.CONFIG[self.STEP_INDEX][key] = ""
+
         # Pass the laser state values to the config file
-        self.CONFIG[self.STEP_INDEX]["pulse/wavelength_nm"] = laser_state["wavelength_nm"].value
+        self.CONFIG[self.STEP_INDEX]["pulse/wavelength_nm"] = laser_state[
+            "wavelength_nm"
+        ]
         self.CONFIG[self.STEP_INDEX]["pulse/divider"] = laser_state["pulse_divider"]
         self.CONFIG[self.STEP_INDEX]["pulse/energy_uj"] = laser_state["pulse_energy_uj"]
-        self.CONFIG[self.STEP_INDEX]["objective_position_mm"] = laser_state["objective_position_mm"]
+        self.CONFIG[self.STEP_INDEX]["objective_position_mm"] = laser_state[
+            "objective_position_mm"
+        ]
         self.CONFIG[self.STEP_INDEX]["beam_shift/x_um"] = laser_state["beam_shift_um_x"]
         self.CONFIG[self.STEP_INDEX]["beam_shift/y_um"] = laser_state["beam_shift_um_y"]
         self.CONFIG[self.STEP_INDEX]["pattern/mode"] = laser_state["laser_pattern_mode"]
-        self.CONFIG[self.STEP_INDEX]["pattern/rotation_deg"] = laser_state["laser_pattern_rotation_deg"]
-        self.CONFIG[self.STEP_INDEX]["pattern/pulses_per_pixel"] = laser_state["laser_pattern_pulses_per_pixel"]
-        self.CONFIG[self.STEP_INDEX]["pattern/pixel_dwell_ms"] = laser_state["laser_pattern_pixel_dwell_ms"]
+        self.CONFIG[self.STEP_INDEX]["pattern/rotation_deg"] = laser_state[
+            "laser_pattern_rotation_deg"
+        ]
+        self.CONFIG[self.STEP_INDEX]["pattern/pulses_per_pixel"] = laser_state[
+            "laser_pattern_pulses_per_pixel"
+        ]
+        self.CONFIG[self.STEP_INDEX]["pattern/pixel_dwell_ms"] = laser_state[
+            "laser_pattern_pixel_dwell_ms"
+        ]
         if laser_state["geometry_type"] == "line":
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/passes"] = laser_state["passes"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/size_um"] = laser_state["size_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/pitch_um"] = laser_state["pitch_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/scan_type"] = laser_state["laser_scan_type"]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/line/passes"] = laser_state[
+                "passes"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/line/size_um"] = laser_state[
+                "size_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/line/pitch_um"] = laser_state[
+                "pitch_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/line/scan_type"] = laser_state[
+                "laser_scan_type"
+            ]
         elif laser_state["geometry_type"] == "box":
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/passes"] = laser_state["passes"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_x_um"] = laser_state["size_x_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_y_um"] = laser_state["size_y_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_x_um"] = laser_state["pitch_x_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_y_um"] = laser_state["pitch_y_um"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/scan_type"] = laser_state["laser_scan_type"]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/coordinate_ref"] = laser_state["coordinate_ref"].value
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/passes"] = laser_state[
+                "passes"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_x_um"] = laser_state[
+                "size_x_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_y_um"] = laser_state[
+                "size_y_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_x_um"] = laser_state[
+                "pitch_x_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_y_um"] = laser_state[
+                "pitch_y_um"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/scan_type"] = laser_state[
+                "laser_scan_type"
+            ]
+            self.CONFIG[self.STEP_INDEX]["pattern/type/box/coordinate_ref"] = (
+                laser_state["coordinate_ref"].value
+            )
 
         # Update the editor
         self._update_editor()
@@ -462,9 +574,10 @@ class Configurator:
         self.PYVARS = {}
         # Read the yaml file
         try:
+            yml_version = ut.yml_version(path)
             db = ut.yml_to_dict(
                 yml_path_file=path,
-                version=1.0,
+                version=yml_version,
                 required_keys=(
                     "general",
                     "config_file_version",
@@ -480,6 +593,7 @@ class Configurator:
         steps = db["steps"]
         # Give general a stype type
         general["step_type"] = "general"
+        general = flatten_dict(general, sep="/")
         # Flatten the nested dictionaries
         flat_steps = {}
         step_order = []
@@ -505,27 +619,29 @@ class Configurator:
         # Set the step index to the general step and update the pipeline and editor windows
         self.STEP_INDEX = 0
         self.STEP = self.CONFIG[self.STEP_INDEX]["step_type"]
+        self.yml_version.set(str(yml_version))
         self._update_pipeline()
         self._update_editor()
         self.YAML_PATH = str(path)
         self.update_title()
 
-    def save_config(self):
+    def save_config(self, save_as=False):
         """Wrapper function to save the current configuration to a yaml file."""
         # Get the path to the pipeline yaml file
-        yml_path = tk.filedialog.asksaveasfilename(
-            defaultextension=".yml",
-            filetypes=[
-                ("YAML files", "*.yml"),
-                ("YAML files", "*.yaml"),
-                ("All files", "*.*"),
-            ],
-        )
-        if yml_path == "" or yml_path is None:
-            return
+        if save_as or self.YAML_PATH is None:
+            yml_path = tk.filedialog.asksaveasfilename(
+                defaultextension=".yml",
+                filetypes=[
+                    ("YAML files", "*.yml"),
+                    ("YAML files", "*.yaml"),
+                    ("All files", "*.*"),
+                ],
+            )
+            if yml_path == "" or yml_path is None:
+                return
+            self.YAML_PATH = yml_path
         config_db = self.format_config()
-        ut.dict_to_yml(config_db, yml_path)
-        self.YAML_PATH = yml_path
+        ut.dict_to_yml(config_db, self.YAML_PATH)
         self.update_title()
 
     def save_exit(self):
@@ -588,9 +704,12 @@ class Configurator:
         else:
             self._update_pipeline()
         self._update_editor()
-        self.pick_step_b.var.set("Add Step")
+
         # Update the general to have an additional step
         self.CONFIG[0]["step_count"] = len(self.CONFIG) - 1
+
+        # Set the pick step button back to "Add Step"
+        self.pick_step_b.var.set("Add Step")
 
     def delete_pipeline_step(self, index):
         """Delete a pipeline step from the pipeline."""
@@ -618,7 +737,6 @@ class Configurator:
         """Move a pipeline step up or down in the pipeline."""
         # print("Moving pipeline step...", self.CONFIG[index], direction)
         # Return if the first step is trying to be moved up or the last step down
-        print(index, direction)
         if index == 1 and direction == -1:
             return
         if index == len(self.CONFIG) - 1 and direction == 1:
@@ -655,9 +773,7 @@ class Configurator:
                 if v["step_general/step_type"] == new_step["step_general/step_type"]
             ]
         )
-        self.CONFIG[index][
-            "step_general/step_name"
-        ] = f"{self.STEP}_{step_count}"
+        self.CONFIG[index]["step_general/step_name"] = f"{self.STEP}_{step_count}"
         # Update the pipeline and editor
         # self._update_pipeline()
         self._update_editor()
@@ -694,27 +810,30 @@ class Configurator:
         # Loop over the options and update the pipeline
         for i, option in enumerate(options):
             row_i = i + 2
-            
+
             # Set the text to be displayed and the colors
             if i == self.STEP_INDEX:
-                bg = ctk.ACCENT_COLOR1
                 kw = {
                     "font": ctk.FONT,
-                    "bg": ctk.ACCENT_COLOR1,
                     "relief": "raised",
-                    "h_bg": ctk.ACCENT_COLOR1,
-                    "fg": "black",
+                    "bg": self.theme.accent1,
+                    "fg": self.theme.accent1_fg,
+                    # "h_bg": self.theme.accent1,
+                    # "h_fg": self.theme.accent1_fg,
+                    # "activebackground": self.theme.accent1,
+                    # "activeforeground": self.theme.accent1_fg
                 }
             else:
-                bg = ctk.DEFAULT_COLOR
                 kw = {
                     "font": ctk.FONT,
-                    "bg": bg,
                     "relief": "groove",
-                    "activebackground": bg,
-                    "fg": "black",
+                    "bg": self.theme.bg,
+                    "fg": self.theme.fg,
+                    # "highlightcolor": self.theme.accent1,
+                    # "activebackground": self.theme.bg,
+                    # "activeforeground": self.theme.fg,
                 }
-            
+
             # Create tooltip options and state
             right_click_map = {
                 "Move up": lambda x=i: self.move_pipeline_step(x, -1),
@@ -746,22 +865,22 @@ class Configurator:
                     button.right_click_menu = ctk.RightClickMenu(
                         button,
                         right_click_map.keys(),
-                        bg=ctk.DEFAULT_COLOR,
-                        fg="black",
-                        abg=ctk.ACCENT_COLOR1,
-                        afg="black",
+                        bg=self.theme.bg,
+                        fg=self.theme.fg,
+                        abg=self.theme.accent1,
+                        afg=self.theme.fg,
                     )
 
             # If the row is not the end of the pipeline, update the button with the new option (in case it has changed)
             else:
                 button = self.pipeline.grid_slaves(row_i)[0]
-                button.bg = bg
+                button.bg = self.theme.bg
                 button.config(
                     text=option,
                     command=lambda a=option: self.select_pipeline_step(a),
                     **kw,
                 )
-            
+
             # Change the state of tthe commands in the right click menu based on position
             if i != 0:
                 for j, state in enumerate(right_click_states):
@@ -797,8 +916,13 @@ class Configurator:
         # Clear the editor if there is anything in it
         self._clear_editor(row)
         # Get the entries for the step type from the editor lookup table, flatten the dictionary
-        entries = lut.LUT[step_type]
-        entries_flat = flatten_dict(entries, sep="/")
+        ##### Changes from new LUT
+        ### entries = lut.LUT[step_type]
+        ### entries_flat = flatten_dict(entries, sep="/")
+        entries = lut.get_lut(step_type, float(self.yml_version.get()))
+        entries_flat = deepcopy(entries)
+        entries_flat.flatten()
+        ##### End changes
         depth = max([len(k.split("/")) for k in entries_flat.keys()])
         # If depth is one, then we have no subframes and we just populate the editor
         if depth == 1:
@@ -825,11 +949,20 @@ class Configurator:
                                     for l in broken[i][j].split("_")
                                 ]
                             )
-                            f = ctk.ToggledFrame(
+                            f = ctk.ExpandableFrame(
                                 frames[parentframe_name],
-                                bg=ctk.DEFAULT_COLOR,
-                                text=label_key,
+                                title=label_key,
+                                level=j,
+                                initial_state="collapsed",
+                                bg=self.theme.bg,
+                                fg=self.theme.fg,
+                                font=ctk.FONT,
                             )
+                            # f = ctk.ToggledFrame(
+                            #     frames[parentframe_name],
+                            #     bg=self.theme.bg,
+                            #     text=label_key,
+                            # )
                             f.grid(
                                 row=rows[parentframe_name],
                                 column=0,
@@ -857,7 +990,7 @@ class Configurator:
                 rows[subframe_name] += 1
         # Check if collapsable frames were expanded previously and expand them now if they are
         for key in frames_dict.keys():
-            if key in self.frames_dict.keys() and self.frames_dict[key].showing:
+            if key in self.frames_dict.keys() and self.frames_dict[key].is_expanded:
                 frames_dict[key].toggle()
         self.frames_dict = frames_dict
 
@@ -886,12 +1019,26 @@ class Configurator:
             var.set(value.default)
 
         # Create the widgets and place them on the grid
-        label = ctk.AutofitLabel(frame, text=value.label, font=ctk.FONT)
-        widget = value.widget(
-            frame, var=self.PYVARS[path], font=ctk.FONT, **value.kwargs
+        # local_frame = tk.Frame(frame, bg=self.theme.bg)
+        # local_frame.grid(row=row, column=0, columnspan=3, sticky="nsew", pady=5)
+        kwargs = deepcopy(value.widget_kwargs)
+        kwargs.update({"font": ctk.FONT, "bg": self.theme.bg_off})
+        if value.widget == ctk.Entry:
+            kwargs.update({"disabledbackground": self.theme.bg_off})
+        elif value.widget == ctk.MenuButton:
+            kwargs.update({"h_bg": self.theme.accent1, "h_fg": self.theme.accent1_fg})
+        label = ctk.AutofitLabel(
+            frame, text=value.label, font=ctk.FONT, bg=self.theme.bg, fg=self.theme.fg
         )
-        label.grid(row=row, column=0, sticky="nsew")
-        widget.grid(row=row, column=1, columnspan=2, sticky="nsew")
+        widget = value.widget(
+            frame,
+            var=self.PYVARS[path],
+            **kwargs,
+        )
+        # label.pack(side="left", padx=(0, 10))
+        # widget.pack(side="left")
+        label.grid(row=row, column=0, sticky="nsew", pady=2)
+        widget.grid(row=row, column=1, columnspan=2, sticky="nsew", pady=2)
 
         # Add a tooltip to show information about the config entry/menu/etc.
         label.tp = ctk.tooltip(label, value.help_text, font=ctk.TIP_FONT)
@@ -917,7 +1064,9 @@ class Configurator:
         string = args[0]
         if self.PYVARS[string].get() != self.CONFIG[self.STEP_INDEX][string]:
             try:
-                self.status_label.config(text="UNVALIDATED", bg=ctk.YELLOW)
+                self.status_label.config(
+                    text="UNVALIDATED", bg=self.theme.yellow, fg=self.theme.yellow_fg
+                )
             except tk.TclError:
                 pass
         # print("New value:", self.PYVARS[string].get())
@@ -949,7 +1098,9 @@ class Configurator:
                 step_type = "general"
             else:
                 step_type = out_dict[step]["step_general/step_type"]
-            out_dict_nested[step] = deepcopy(lut.LUT[step_type.lower()])
+            out_dict_nested[step] = deepcopy(
+                lut.get_lut(step_type.lower(), float(self.yml_version.get()))
+            )
             for key in out_dict_nested[step].keys():
                 if isinstance(out_dict_nested[step][key], dict):
                     for nkey in out_dict_nested[step][key].keys():
@@ -963,7 +1114,7 @@ class Configurator:
                                     ].keys():
                                         dtype = out_dict_nested[step][key][nkey][nnkey][
                                             nnnkey
-                                        ].kwargs.get("dtype", None)
+                                        ].dtype
                                         path = f"{key}/{nkey}/{nnkey}/{nnnkey}"
                                         out_dict_nested[step][key][nkey][nnkey][
                                             nnnkey
@@ -973,7 +1124,7 @@ class Configurator:
                                 else:
                                     dtype = out_dict_nested[step][key][nkey][
                                         nnkey
-                                    ].kwargs.get("dtype", None)
+                                    ].dtype
                                     path = f"{key}/{nkey}/{nnkey}"
                                     out_dict_nested[step][key][nkey][nnkey] = (
                                         self._check_value_type(
@@ -981,15 +1132,13 @@ class Configurator:
                                         )
                                     )
                         else:
-                            dtype = out_dict_nested[step][key][nkey].kwargs.get(
-                                "dtype", None
-                            )
+                            dtype = out_dict_nested[step][key][nkey].get("dtype", None)
                             path = f"{key}/{nkey}"
                             out_dict_nested[step][key][nkey] = self._check_value_type(
                                 out_dict[step][path], dtype
                             )
                 else:
-                    dtype = out_dict_nested[step][key].kwargs.get("dtype", None)
+                    dtype = out_dict_nested[step][key].dtype
                     path = key
                     out_dict_nested[step][key] = self._check_value_type(
                         out_dict[step][path], dtype
@@ -1012,12 +1161,23 @@ class Configurator:
         general = config_db.pop(0)
         general.pop("step_type")
         # general.pop("step_general/step_name")
-        for param in general.keys():
-            dtype = lut.LUT["general"][param].kwargs.get("dtype", None)
-            general[param] = _check_value_type(general[param], dtype)
+        general_db_flat = lut.get_lut("general", float(self.yml_version.get()))
+        general_db_flat.flatten()
+        params = list(general.keys())
+        for param in params:
+            if param not in list(general_db_flat.keys()):
+                general.pop(param)
+            else:
+                general[param] = _check_value_type(
+                    general[param], general_db_flat[param].dtype
+                )
+        general = unflatten_dict(general, sep="/")
         # If we are only formatting the general step, return the general step
         if step == 0:
-            return {"config_file_version": 1.0, "general": general}
+            return {
+                "config_file_version": float(self.yml_version.get()),
+                "general": general,
+            }
         # Re-key steps using step names
         for step_num in list(config_db.keys()):
             if step is not None and step_num != step:
@@ -1028,19 +1188,30 @@ class Configurator:
         # Unflatten the dictionary so that it can be written to a yaml file
         # Perform data type checking as well
         for step_name in config_db.keys():
-            db = deepcopy(
-                lut.LUT[config_db[step_name]["step_general/step_type"].lower()]
-            )
-            db_flat = flatten_dict(db, sep="/")
-            for param in db_flat.keys():
-                dtype = db_flat[param].kwargs.get("dtype", None)
-                config_db[step_name][param] = _check_value_type(
-                    config_db[step_name][param], dtype
+            db_flat = deepcopy(
+                lut.get_lut(
+                    config_db[step_name]["step_general/step_type"].lower(),
+                    float(self.yml_version.get()),
                 )
+                # lut.LUT[config_db[step_name]["step_general/step_type"].lower()]
+            )
+            db_flat.flatten()
+            params = list(config_db[step_name].keys())
+            for param in params:
+                if param not in db_flat.keys():
+                    config_db[step_name].pop(param)
+                else:
+                    config_db[step_name][param] = _check_value_type(
+                        config_db[step_name][param], db_flat[param].dtype
+                    )
             config_db[step_name].pop("step_general/step_name")
             config_db[step_name] = unflatten_dict(config_db[step_name], sep="/")
         # Format the dictionary as version, general, steps
-        config_db = {"config_file_version": 1.0, "general": general, "steps": config_db}
+        config_db = {
+            "config_file_version": float(self.yml_version.get()),
+            "general": general,
+            "steps": config_db,
+        }
         return config_db
 
     def validate_full(self, return_config=False):
@@ -1072,9 +1243,11 @@ class Configurator:
         # Check the pipeline to make sure it is correct
         status = self.schema_check_pipeline(config_db)
         if status:
-            self.status_label.config(text="VALID", bg=ctk.GREEN)
+            self.status_label.config(
+                text="VALID", bg=self.theme.green, fg=self.theme.green_fg
+            )
         else:
-            self.status_label.config(text="INVALID", bg=ctk.RED)
+            self.status_label.config(text="INVALID", bg=self.theme.red_fg)
         if return_config:
             return status, config_db
         else:
@@ -1213,7 +1386,7 @@ if __name__ == "__main__":
 
     def open_configurator():
         root.withdraw()
-        configurator = Configurator(root)
+        configurator = Configurator(root, theme=ctk.Theme("dark"))
         root.wait_window(configurator.toplevel)
         # print("Configurator closed.")
         root.deiconify()

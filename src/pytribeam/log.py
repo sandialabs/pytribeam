@@ -22,10 +22,6 @@ import pandas as pd
 # Local scripts
 from pytribeam.constants import Constants
 import pytribeam.types as tbt
-import pytribeam.insertable_devices as devices
-import pytribeam.factory as factory
-import pytribeam.utilities as ut
-import pytribeam.laser as laser
 
 
 def create_file(path: Path) -> bool:
@@ -161,9 +157,83 @@ def position(
     return True
 
 
-def power() -> bool:
-    power = laser.read_power()
-    pass
+def laser_power(
+    step_number: int,
+    step_name: str,
+    slice_number: int,
+    log_filepath: Path,
+    dataset_name: str,
+    power_w: float,
+) -> bool:
+    print("\tLogging laser power...")
+    dataset_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+    time = current_time()
+
+    with h5py.File(log_filepath, "r+") as file:
+        if not dataset_location in file:
+            laser_power = file.create_dataset(
+                dataset_location,
+                (0,),
+                Constants.laser_power_dtype,
+                maxshape=(None,),
+            )
+            laser_power.attrs["Units"] = np.string_("[W]")
+
+        dataset = file[dataset_location]
+        laser_power_data = np.array(
+            [
+                (
+                    slice_number,
+                    round(power_w, 6),
+                    time.human_readable,
+                    time.unix,
+                )
+            ],
+            Constants.laser_power_dtype,
+        )
+        # add one row to table
+        dataset.resize(dataset.shape[0] + 1, axis=0)
+        dataset[-1:] = laser_power_data
+
+
+def specimen_current(
+    step_number: int,
+    step_name: str,
+    slice_number: int,
+    log_filepath: Path,
+    dataset_name: str,
+    specimen_current_na: float,
+) -> bool:
+    print("\tLogging sample current...")
+    dataset_location = f"{step_number:02d}_{step_name}/{dataset_name}"
+    time = current_time()
+
+    with h5py.File(log_filepath, "r+") as file:
+        if not dataset_location in file:
+            specimen_current = file.create_dataset(
+                dataset_location,
+                (0,),
+                Constants.specimen_current_dtype,
+                maxshape=(None,),
+            )
+            specimen_current.attrs["Units"] = np.string_("[nA]")
+
+        dataset = file[dataset_location]
+        specimen_current_data = np.array(
+            [
+                (
+                    slice_number,
+                    round(specimen_current_na, 6),
+                    time.human_readable,
+                    time.unix,
+                )
+            ],
+            Constants.specimen_current_dtype,
+        )
+        # add one row to table
+        dataset.resize(dataset.shape[0] + 1, axis=0)
+        dataset[-1:] = specimen_current_data
+    print("\tLogging sample current complete...")
 
 
 if __name__ == "__main__":

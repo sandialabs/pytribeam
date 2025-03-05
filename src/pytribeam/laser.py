@@ -26,6 +26,7 @@ import pytribeam.types as tbt
 import pytribeam.utilities as ut
 import pytribeam.insertable_devices as devices
 import pytribeam.image as img
+import pytribeam.log as log
 
 
 def laser_state_to_db(state: tbt.LaserState) -> dict:
@@ -154,28 +155,28 @@ def pulse_divider(
 def set_wavelength(
     wavelength: tbt.LaserWavelength,
     frequency_khz: float = 60,  # make constnat
-    timeout_s: int = 180,  # 120,  # make constant
-    num_attempts: int = 2,  # make a constant
+    timeout_s: int = 20,  # 120,  # make constant
+    num_attempts: int = 2,  # TODO make a constant
     delay_s: int = 5,  # make a constant
 ) -> bool:
-    def correct_wavelength(laser_state: tbt.LaserState):
+    def correct_preset(laser_state: tbt.LaserState):
         if laser_state.wavelength_nm == wavelength:
-            return math.isclose(
-                laser_state.frequency_khz, frequency_khz, abs_tol=0.5
-            )  # TODO use constant for tolerance):
+            return math.isclose(laser_state.frequency_khz, frequency_khz, rel_tol=0.05)
+            # TODO use constant for tolerance):
         return False
 
     for _ in range(num_attempts):
-        if not correct_wavelength(factory.active_laser_state()):
-            print("Adjusting preset...")
-            tfs_laser.Laser_SetPreset(
-                wavelength_nm=wavelength.value, frequency_kHz=frequency_khz
-            )
+        if correct_preset(factory.active_laser_state()):
+            return True
+        print("Adjusting preset...")
+        tfs_laser.Laser_SetPreset(
+            wavelength_nm=wavelength.value, frequency_kHz=frequency_khz
+        )
         time_remaining = timeout_s
         while time_remaining > 0:
             laser_state = factory.active_laser_state()
-            # print(time_remaining, laser_state.frequency_kHz)
-            if correct_wavelength(laser_state=laser_state):
+            # print(time_remaining, laser_state.frequency_khz)
+            if correct_preset(laser_state=laser_state):
                 return True
             time.sleep(delay_s)
             time_remaining -= delay_s
@@ -184,7 +185,7 @@ def set_wavelength(
 
 
 def read_power(delay_s: float = Constants.laser_delay_s) -> float:
-    """measures laser power"""
+    """measures laser power in watts"""
     tfs_laser.Laser_ExternalPowerMeter_PowerMonitoringON()
     tfs_laser.Laser_ExternalPowerMeter_SetZeroOffset()
     tfs_laser.Laser_FireContinuously_Start()
@@ -474,13 +475,30 @@ def mill_region(
 def laser_operation(
     step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int
 ) -> bool:
-    log_file = Path(general_settings.exp_dir).joinpath(general_settings.h5_log_name)
 
-    # TODO log laser power before
+    # log laser power before
+    laser_power_w = read_power()
+    log.laser_power(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=Constants.pre_lasing_dataset_name,
+        power_w=laser_power_w,
+    )
 
     mill_region(settings=step.operation_settings)
 
-    # TODO log laser power after
+    # log laser power after
+    laser_power_w = read_power()
+    log.laser_power(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=Constants.post_lasing_dataset_name,
+        power_w=laser_power_w,
+    )
 
     return True
 
