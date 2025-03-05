@@ -376,7 +376,6 @@ def test_laser(test_dir):
             mode=tbt.LaserPatternMode.FINE,
             rotation_deg=0.0,
             pulses_per_pixel=2,
-            pixel_dwell_ms=0.5,
             geometry=tbt.LaserBoxPattern(
                 passes=3,
                 size_x_um=200.0,
@@ -521,7 +520,7 @@ def test_fib(test_dir):
             ),
         ),
         pattern=tbt.FIBPattern(
-            application="Si-ccs",
+            application="Al",
             type=tbt.FIBPatternType.RECTANGLE,
             geometry=tbt.FIBRectanglePattern(
                 center_um=tbt.Point(x=5.11, y=0.0),
