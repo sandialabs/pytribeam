@@ -1,0 +1,10 @@
+[run]
+omit =
+    # omit GUI files from tests
+    src/pytribeam/GUI/*
+
+[paths]
+    source = 
+        src/
+        C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src
+        C:/Users/User/Documents/pytribeam/src
