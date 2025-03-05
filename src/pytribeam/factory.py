@@ -43,15 +43,15 @@ def active_beam_with_settings(
     selected_beam = active_imaging_device(microscope=microscope)
     beam = ut.beam_type(selected_beam, microscope)
 
-    voltage_kv = beam.high_voltage.value * Conversions.V_TO_KV
-    voltage_tol_kv = voltage_kv * Constants.voltage_tol_ratio
+    voltage_kv = round(beam.high_voltage.value * Conversions.V_TO_KV, 6)
+    voltage_tol_kv = round(voltage_kv * Constants.voltage_tol_ratio, 6)
 
-    current_na = beam.beam_current.value * Conversions.A_TO_NA
-    current_tol_na = current_na * Constants.current_tol_ratio
+    current_na = round(beam.beam_current.value * Conversions.A_TO_NA, 6)
+    current_tol_na = round(current_na * Constants.current_tol_ratio, 6)
 
-    hfw_mm = beam.horizontal_field_width.value * Conversions.M_TO_MM
+    hfw_mm = round(beam.horizontal_field_width.value * Conversions.M_TO_MM, 6)
 
-    working_dist_mm = beam.working_distance.value * Conversions.M_TO_MM
+    working_dist_mm = round(beam.working_distance.value * Conversions.M_TO_MM, 6)
 
     active_settings = tbt.BeamSettings(
         voltage_kv=voltage_kv,
@@ -182,6 +182,7 @@ def active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePosit
             new_r_deg = user_pos.r_deg - 360.0
         while user_pos.r_deg < Constants.rotation_axis_limit_deg.min:
             new_r_deg = user_pos.r_deg + 360.0
+        new_r_deg = round(new_r_deg, 6)
         user_pos = tbt.StagePositionUser(
             x_mm=user_pos.x_mm,
             y_mm=user_pos.y_mm,

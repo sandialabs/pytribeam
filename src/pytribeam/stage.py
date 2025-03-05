@@ -57,11 +57,11 @@ def encoder_to_user_position(pos: tbt.StagePositionEncoder) -> tbt.StagePosition
             f"provided position is not of type '<class pytribeam.types.StagePositionEncoder>', but instead of type '{type(pos)}'. Did you mean to use the function 'user_to_encoder_position'?"
         )
     user_pos = tbt.StagePositionUser(
-        x_mm=pos.x * Conversions.M_TO_MM,
-        y_mm=pos.y * Conversions.M_TO_MM,
-        z_mm=pos.z * Conversions.M_TO_MM,
-        r_deg=pos.r * Conversions.RAD_TO_DEG,
-        t_deg=pos.t * Conversions.RAD_TO_DEG,
+        x_mm=round(pos.x * Conversions.M_TO_MM, 6),
+        y_mm=round(pos.y * Conversions.M_TO_MM, 6),
+        z_mm=round(pos.z * Conversions.M_TO_MM, 6),
+        r_deg=round(pos.r * Conversions.RAD_TO_DEG, 6),
+        t_deg=round(pos.t * Conversions.RAD_TO_DEG, 6),
         coordinate_system=tbt.StageCoordinateSystem(pos.coordinate_system),
     )
     return user_pos

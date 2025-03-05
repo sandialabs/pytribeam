@@ -66,7 +66,7 @@ class MainApplication(tk.Tk):
         self.yml_version = None
 
         # Set the theme
-        self.theme = ctk.Theme("light")
+        self.theme = ctk.Theme("dark")
         self.configure(bg=self.theme.bg)
         self._draw()
 

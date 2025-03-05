@@ -312,7 +312,7 @@ email_lut.add_entry("recipients", email_recipients)
 ### General LUT ###
 slice_thickness_um = LUTField(
     "Slice Thickness (um)",
-    "",
+    "1.0",
     ctk.Entry,
     {"dtype": float},
     "Thickness of the laser cut slice in micrometers.",
@@ -321,7 +321,7 @@ slice_thickness_um = LUTField(
 )
 max_slice_num = LUTField(
     "Max Slice Number",
-    "",
+    "1",
     ctk.Entry,
     {"dtype": int},
     "The maximum slice number to cut. The experiment will stop after this slice number is complete.",
@@ -330,7 +330,7 @@ max_slice_num = LUTField(
 )
 pre_tilt_deg = LUTField(
     "Pre-Tilt Angle (deg)",
-    "",
+    "0.0",
     ctk.Entry,
     {"dtype": float},
     "The angle to pre-tilt sample holder used. This angle impacts how stage movements are determined.",

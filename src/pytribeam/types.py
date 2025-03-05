@@ -764,6 +764,11 @@ class FIBSettings(NamedTuple):
     pattern: FIBPattern
 
 
+class EBSDGridType(IntEnum):
+    SQUARE = 1
+    HEXAGONAL = 0
+
+
 class EBSDSettings(NamedTuple):
     image: ImageSettings
     enable_eds: bool
