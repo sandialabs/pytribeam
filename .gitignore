@@ -40,7 +40,7 @@ Thumbs.db
 # *.log
 
 # Test results
-*.coverage*
+*.coverage
 # *.cover
 # nosetests.xml
 # coverage.xml

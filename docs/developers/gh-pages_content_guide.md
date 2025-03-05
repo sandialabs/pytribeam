@@ -81,6 +81,10 @@ curl -k -L -o badges/userguide.svg "https://img.shields.io/badge/userguide-Book-
 
 ## api docs
 
+```sh
+
+```
+
 ## test coverage
 
 In order to run tests, the user must install ``pyTriBeam`` in editable mode and add their computer name to the list of machines in the ``Constants`` module. To find your hardware name, you can run the following from a python terminal:
@@ -93,6 +97,28 @@ Run test suite on TriBeam:
                 1. Turn on ebeam, focus and link Z
                 2. open laser app and disable laser interlock (turn the key so laser can fire)
                 3. Open EBSD software, enable proximity sensor and override alerts (Oxford only)
+
+combine coverage, now make badge in git-bash terminal:
+
+```sh
+# pip install anybadge
+test -d badges/ || mkdir -p badges/
+LINES_COVERED=$(grep -oP 'lines-covered="\K[0-9]+' coverage_reports/combined/coverage.xml)
+LINES_VALID=$(grep -oP 'lines-valid="\K[0-9]+' coverage_reports/combined/coverage.xml)
+if [ "$LINES_VALID" -ne 0 ]; then \
+    COVERAGE_PERCENTAGE=$(awk "BEGIN {printf \"%.1f\", ($LINES_COVERED / $LINES_VALID) * 100}"); \
+    COLOR=$(awk -v coverage="$COVERAGE_PERCENTAGE" 'BEGIN { \
+        if (coverage < 40) { print "red" } \
+        else if (coverage < 80) { print "orange" } \
+        else if (coverage < 90) { print "yellow" } \
+        else { print "green" } \
+    }'); \
+    anybadge -o -l "Coverage" -v "$COVERAGE_PERCENTAGE%" -f badges/test-coverage.svg -c "$COLOR"; \
+else \
+    echo "Lines Valid is zero, cannot calculate coverage percentage."; \
+fi
+
+```
 
 
 ## lint logs
