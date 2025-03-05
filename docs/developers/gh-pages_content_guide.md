@@ -83,6 +83,18 @@ curl -k -L -o badges/userguide.svg "https://img.shields.io/badge/userguide-Book-
 
 ## test coverage
 
+In order to run tests, the user must install ``pyTriBeam`` in editable mode and add their computer name to the list of machines in the ``Constants`` module. To find your hardware name, you can run the following from a python terminal:
+
+```python
+
+```
+Run test suite on TriBeam:
+			0. Remove CBS stage restructions
+                1. Turn on ebeam, focus and link Z
+                2. open laser app and disable laser interlock (turn the key so laser can fire)
+                3. Open EBSD software, enable proximity sensor and override alerts (Oxford only)
+
+
 ## lint logs
 
 ## versioning

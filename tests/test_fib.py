@@ -170,13 +170,12 @@ def test_prepare_milling():
         application=fib_settings.pattern.application,
     )
 
-
     with pytest.raises(ValueError) as err:
         fib.prepare_milling(microscope=microscope, application="invalid")
     assert err.type == ValueError
     assert (
         err.value.args[0]
-        == f"Invalid application file on this system, there is not patterning application with name: 'invalid'."
+        == f"Invalid application file on this system, there is no patterning application with name: 'invalid'."
     )
     microscope.patterning.clear_patterns()
     microscope.disconnect()

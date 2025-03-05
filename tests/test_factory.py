@@ -643,6 +643,7 @@ def test_general(test_dir):
     )
 
     known_settings = tbt.GeneralSettings(
+        yml_version=1.0,
         slice_thickness_um=2.0,
         max_slice_number=400,
         pre_tilt_deg=36.0,
