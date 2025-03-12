@@ -6,6 +6,7 @@ In order to manually overwrite the content of gh-pages, you should start from an
 
 ```sh
 git switch main
+git pull
 ```
 
 From here you can checkout and reset the gh-pages branch:
@@ -117,9 +118,9 @@ if [ "$LINES_VALID" -ne 0 ]; then \
 else \
     echo "Lines Valid is zero, cannot calculate coverage percentage."; \
 fi
-
 ```
 
+combined test coverage, delete .gitignore to push these up
 
 ## lint logs
 
