@@ -1,5 +1,7 @@
 # NOTICE
 
+IMPORTANT NOTICE: At installation, pyTriBeam accesses and installs certain open-source packages that are not part of pyTriBeam package as distributed, which follow below. By installing pyTriBeam, you are accepting these licenses for these packages. We strongly advise consulting with a legal expert or attorney prior to any redistribution or modification of recon3d software to ensure compliance with the applicable licensing terms.
+
 ## Thermo Fisher Scientific Autoscript Software
 
 This software relies on the use of the Thermo Fisher Scientific ("Thermo 
