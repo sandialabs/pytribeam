@@ -1,6 +1,6 @@
 # NOTICE
 
-## Thermo Fisher Scientific
+## Thermo Fisher Scientific Autoscript Software
 
 This software relies on the use of the Thermo Fisher Scientific ("Thermo 
 Fisher") Autoscript Software. Thermo Fisher and its affiliates are not 
