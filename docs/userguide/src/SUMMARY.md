@@ -19,6 +19,6 @@
     - [Example configuration file](config_file/example/README.md)
 - [GUI](gui/README.md)
     - [Configurator](gui/configurator/README.md)
-- [Command Line Interface](cli/README.md)
+<!-- - [Command Line Interface](cli/README.md) -->
 
 -----------

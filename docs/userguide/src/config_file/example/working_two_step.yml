@@ -23,17 +23,17 @@ steps:
         rotation_side: fsl_mill
         initial_position:
           x_mm: 1.0
-          y_mm: 1.9988244294954152
-          z_mm: 5.00161803398875
+          y_mm: 1.999
+          z_mm: 5.002
           t_deg: 0.0
-          r_deg: -49.99999999999994
+          r_deg: -50.0
     beam:
       type: electron
       voltage_kv: 5.0
       voltage_tol_kv: 0.25
       current_na: 5.0
       current_tol_na: 0.25
-      hfw_mm: 0.9000000000000001
+      hfw_mm: 0.9
       working_dist_mm: 4.093
       dynamic_focus: null
       tilt_correction: null
@@ -69,8 +69,8 @@ steps:
       type: electron
       voltage_kv: 20.0
       voltage_tol_kv: 1.0
-      current_na: 0.45000000000000007
-      current_tol_na: 0.022500000000000006
+      current_na: 0.45
+      current_tol_na: 0.0225
       hfw_mm: 0.01
       working_dist_mm: 0.0
       dynamic_focus: null

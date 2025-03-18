@@ -452,7 +452,7 @@ x_mm = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting X position of the laser cut.",
+    "The starting X position of the step on slice 1.",
     float,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
@@ -461,7 +461,7 @@ y_mm = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting Y position of the laser cut.",
+    "The starting Y position of the step on slice 1.",
     float,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
@@ -470,7 +470,7 @@ z_mm = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting Z position of the laser cut.",
+    "The starting Z position of the step on slice 1.",
     float,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
@@ -479,7 +479,7 @@ t_deg = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting T position of the laser cut.",
+    "The starting T position of the step on slice 1.",
     float,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
@@ -488,7 +488,7 @@ r_deg = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting R position of the laser cut.",
+    "The starting R position of the step on slice 1.",
     float,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
@@ -1205,11 +1205,11 @@ mask_file = LUTField(
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
 application_file = LUTField(
-    "Mill Pattern Preset",
+    "Application File",
     "",
     ctk.Entry,
     {"dtype": str},
-    "The preset to use for milling.",
+    "The application file preset to use for milling.",
     str,
     tbt.Limit(min=1.0, max=MAX_VERSION),
 )
