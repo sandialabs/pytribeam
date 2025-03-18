@@ -21,16 +21,18 @@ The langing page is broken up into several sections, namely:
 
 The top menu bar provides various functionalities, including:
 
-- **Help**: This will open the local version of the userguide shipped with the package.
+- **Help**: This will attempt to open the user guide, either a local version of the userguide, or the online version stored [here](https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html). If you want a local version, please download the built book (the entirety of the `book` folder) from the `gh-pages` branch [here](https://github.com/sandialabs/pytribeam/tree/gh-pages/docs/userguide) and put it in the following location relative to where you installed the package: `./docs/userguide/`.
 - **Clear terminal**: Clear any messages below the welcome message in the central console window.
 - **Test connections**: Checks whether ``pytribeam`` can successfully talk with the Laser and any 3rd party EBSD or EDS detectors. A window will pop-up displaying the results of the test. Thermo Fisher Scientific's Laser application must be open to connect, and EBSD and EDS connectivity additionally requires a connection to the Laser.
+- **Export Log**: Opens `Save As...` file dialog to export the contents of the terminal to a text file.
+- **Change Theme**: Switch between *Dark* and *Light* themes for the GUI.
 - **Exit**: Exits the program. This should not be performed while an acquisition is running, instead the experiment should be stopped as described [below](#acquisition-management).
 
 ## Experiment Configuration
 
 The upper-left side of the GUI contains tools for creating, editing, and validating configuration files. A new configuration file can be created by clicking the **Create** button, which opens up a new window with the **TriBeam Configurator**, details on which can be found [here](./configurator/index.html).
 
-Exisiting configuration files can be loaded by clicking the **Load** button, which will open up a file browser. Once a configuration file is created or loaded, the configurator can be reopened by clicking the **Edit** button or validated by clicking the **Validate**  button. Validation includes a ful-suite of checks on configuration files intended to catch any invalid or improper settings that can stop an acquisition from running. This validation is always performed at the start/continuation of an experiment, but its use in the GUI can help to identify any errors prior to the start of an acquisition.
+Exisiting configuration files can be loaded by clicking the **Load** button, which will open up a file browser. Once a configuration file is created or loaded, the configurator can be reopened by clicking the **Edit** button or validated by clicking the **Validate**  button. Validation includes a full-suite of checks on configuration files intended to catch any invalid or improper settings that can stop an acquisition from running. This validation is always performed at the start/continuation of an experiment, but its use in the GUI can help to identify any errors prior to the start of an acquisition.
 
 ## Acquisition Management
 
@@ -39,7 +41,7 @@ The bottom-left side of the GUI contains various buttons for starting and stoppi
 - **Start experiment**: Begin acquisition at the currently displayed starting slice and step.
 - **Stop after current step**: Cleanly exit data acquistion at the end of the step currently being exectued.
 - **Stop after current slice**: Cleanly exit data acquisiton at the end of the slice currently being collected (will complete all remaining steps on that slice in order).
-- **Hard stop**: Stops the experiment as quickly as possible by severing the microscope connection. Control over insertable devices and stage axes already in motion is not guaranteed after this has been pressed, but no additional commands will be sent to the microscope by ``pytribeam`` after this button has been pressed.
+- **Hard stop**: Stops the experiment as quickly as possible by severing the microscope connection. Also throws the `Esc` command to the xTUI to stop any in-process stage movements. Control over insertable devices already in motion is not guaranteed after this has been pressed, but no additional commands will be sent to the microscope by ``pytribeam`` after this button has been pressed.
 
 ## Acquisition Monitoring
 

@@ -72,3 +72,27 @@ In this step, the $30\degree$ rotation of the tilt axis T rotates the Z and Y ax
 *Geometric calculation of stage movements required to bring the sample surface to the fixed imaging location, which involves moving the Y and Z axes to bring point **Slice n** to point **Slice n-1**. The Y axis must move by $+\frac{t}{2}$ and the Z axis must move by $+\frac{t\sqrt{3}}{2}$ for this operation.*
 
 Note that the magnitude of the stage movement is the same for both axes for both the [laser milling step](#laser-milling-step) and the [electron imaging step](#electron-imaging-step-surface-normal-imaging), but that the sign of the Y axis movement is opposite due to the rotation of the stage. This is the critical functionality of the **rotation_side** parameter.
+
+## Imaging quadrants
+
+`pytribeam` adopts the same imaging view (quad) convention as that of Thermo Fisher Scientific. When the xTUI screen is divdided into 4 quadrants of equal size, the $1^{st}$ quadrant will be in the top left corner, the $2^{nd}$ quadrant in the top right corner, the $3^{rd}$ quadrant in the bottom left corner, and the $4^{th}$ quadrant in the bottom right corner as illustrated below:
+
+![Imaging quadrants](quadrants.png)
+
+*Image viewing quadrants as seen in xTUI.* 
+
+## Image Coordinate System
+
+`pytribeam` supports the use of reduced area imaging for certain scan modes, specifically for the use of the [auto contrast/brightness](../config_file/steps/image/index.html#auto_cb) functionality. This area is specified with a scan width and scan height ranging from *0.0* to *1.0*, with the origin (0,0) in the upper left corner, and the point (1,1) in the bottom right corner as in the following image:
+
+![Imaging coordinate system](image_coord.png)
+
+*Image cooridnate system as seen in xTUI.*
+
+## Patterning Coordinate System
+
+`pytribeam` supports the use of patterning for [ion beam milling](../config_file/steps/fib/index.html#mill). The patterning coordinate system is defined with the origin as the center of the scan field of view, both horizontally and vertically with pattern centers defined in units of length around this origin point. Thus pattern centers can range from $\pm \frac{scan width}{2}$ in the horizontal direction and $\pm \frac{scan height}{2}$ in the vertical direction for the scan field of view. This is illustrated below:
+
+![Patterning coordinate system](pattern_coord.png)
+
+*Patterning cooridnate system as seen in xTUI.*

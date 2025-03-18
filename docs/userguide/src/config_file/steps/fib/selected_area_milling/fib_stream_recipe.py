@@ -1,4 +1,4 @@
-## python standard libraries
+# python standard libraries
 from pathlib import Path
 import sys
 
@@ -12,11 +12,16 @@ def process_image(
     input_path: Path,
     output_path: Path,
 ) -> bool:
+    # open the image
     with pil_img.open(input_path) as test_img:
-        # threshold using simple otsu method
+        # convert to numpy array
         fib_img = np.asarray(test_img)
+        
+        # find and apply an Otsu filter
         threshold = filters.threshold_otsu(fib_img)
         segmented = fib_img > threshold
+
+    # Remove all but the largest continuous feature by:
 
     # label connected components
     labeled_img, num_features = measure.label(
@@ -34,7 +39,7 @@ def process_image(
             max_size = size
             largest = component
 
-    # mask largest component
+    # mask largest component (remove all others)
     mask = labeled_img == largest
 
     # write out image

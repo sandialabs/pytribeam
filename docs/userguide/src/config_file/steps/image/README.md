@@ -47,7 +47,7 @@ Various settings to control the imaging detector to save a micrograph.
 
 ### auto_cb
 
-Settings to utilize the auto contrast/brightness adjustment of the active detector. Sets the active region (or sub_region) of the active imaging quadrant in which to perform the automated routine. Future releases may provide additional functionlity to adjust the auto contrast/brightness routine.
+Settings to utilize the auto contrast/brightness adjustment of the active detector. Sets the active region (or sub_region) of the active imaging quadrant in which to perform the automated routine. Future releases may provide additional functionlity to adjust the auto contrast/brightness routine. For details on the sub_region coordinate system, see [here](../../../reference_frame/index.html#image-coordinate-system). The specific settings for the **auto_cb** operaton are:
 
 - **left** (*float*): The position of the left edge of the region of interest, a float from *0.0* to *1.0*, with *0.0* representing the left edge of the image and *1.0* representing the right edge of the image.
 - **width** (*float*): The width of the rectangle starting from the **left** edge of the box. The sum of **left** + **width** must be less than or equal to *1.0*.

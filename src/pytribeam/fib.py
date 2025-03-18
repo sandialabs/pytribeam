@@ -237,10 +237,9 @@ def image_processing(
     output = subprocess.run(
         [
             "python",
-            (geometry.recipe_file).as_posix(),
-            input_image_path.as_posix(),  # input path,
-            (geometry.mask_file).as_posix(),
-            # outputpath,
+            (geometry.recipe_file).as_posix(), # recipe_file
+            input_image_path.as_posix(), # input path,
+            (geometry.mask_file).as_posix(), # outputpath,
         ],
         capture_output=True,
     )

@@ -17,6 +17,7 @@ The menu bar contains several buttons, namely:
 - **Menu**: Options for creating new configuration files, loading or saving the current configuration. This contains multiple options:
     - **New**: Create a new configuration file.
     - **Load**: Load an existing configuration file.
+    - **Save**: Save/overwrite the current configuration file. Will not attempt to validate the file
     - **Save as**: Save the current configuration file. Will not attempt to validate the file.
     - **Save & Exit**: will attempt to validate the current configuration. If successful, will overwrite and close the configurator.
 
@@ -24,14 +25,18 @@ The menu bar contains several buttons, namely:
     - **Full**: Validate entire configuration file.
     - **Step**: Validate the currently selected step only.
     - **General**: Validate the general settings (considered to be Step 0, but not an operation) only.
+**NOTE** A general step must be validated before any individual steps can be validated.
 
 - **Microscope**: Contains various utilities for reading properties directly from the microscope. Users are encouraged to setup stage and imaging conditions manually in xTUI and then utilize these utilities to directly copy settings into the configuration file, which will account for the vast majority of settings. Current utilities include:
 
-    - **Import stage positions...**: Reads current microscope stage position (in RAW stage coordinates) and records these values in the currently selected step.
-    - **Import imaging conditions...**: Reads current microscope imaging conditions (voltage, current, resolution, detector settings, etc.) for the active quadrant and records these values in the currently selected step.
-    - **Import laser settings...**: Reads current laser settings and records these values (beam settings, patterning, etc.). **NOTE**: There is currently no method to actively read the **Polarization** parameter from the laser directly, so this value will default to *vertical* polarization automatically. Please manually select *horizontal* polarization after importing laser settings if this configuration is desired.
+    - **Import stage positions...**: Reads current microscope stage position (in RAW stage coordinates) and records these values in the currently selected step. Applies to all step types.
+    - **Import imaging conditions...**: Reads current microscope imaging conditions (voltage, current, resolution, detector settings, etc.) for the active quadrant and records these values in the currently selected step. Applies to **Image**, **FIB** and **EBSD_EDS** step types.
+    - **Import laser settings...**: Reads current laser settings and records these values (beam settings, patterning, etc.). 
+        - **NOTE**: There is currently no method to actively read the **Polarization** parameter from the laser directly, so this value will default to *vertical* polarization automatically. Please manually select *horizontal* polarization after importing laser settings if this configuration is desired. Applies to **Laser** step types.
 
-- **Help**: The enclosed **About** button Opens a new pop-up window with quick reference information on the configurator.
+        **NOTE**: There is currently no method to actively read the **Pattern** settings in a **FIB** step type, these values must be manually input by the user.
+
+- **Version**: Drop-down menu to select the version of configuration file to be completed by the configurator. Different versions of configuration files in future releases will have differing settings parameters to accommodate new features.
 
 ## Pipeline Editor
 
@@ -45,7 +50,7 @@ To adjust the order of operations, right-click on a step to bring up a new dropd
 
 ## Step Editor
 
-The right-side of the configurator is used for filling out specific settings for a particular step. There are various sections with dropdown menus that can be expanded by clicking on the upside down triangles on the right side of each section. These sections can similarly be collapsed by clicking the right-side up triangle as desired.
+The right-side of the configurator is used for filling out specific settings for a particular step. There are various sections with dropdown menus that can be expanded by clicking on the right-facing triangles on the left side of each section. These sections can similarly be collapsed by clicking the upside-down triangle as desired.
 
 A quick description of each variable can be seen by hovering over the variable name on the left side of the step editor section. 
 

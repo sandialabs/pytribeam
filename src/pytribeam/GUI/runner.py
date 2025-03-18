@@ -961,7 +961,11 @@ class MainApplication(tk.Tk):
         path = Path(__file__).parent.parent.parent.parent.joinpath(
             "docs", "userguide", "book", "index.html"
         )
-        webbrowser.open(f"file://{path}")
+        if path.exists():
+            webbrowser.open(f"file://{path}")
+        else:
+            webbrowser.open("https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html")
+
 
     def quit(self):
         """
