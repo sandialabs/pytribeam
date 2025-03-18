@@ -8,13 +8,11 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 
 - Follow the Autoscript installation instructions provided by Thermo Fisher Scientific
 
-- With `AutoScript_4.8.1.exe`, install **Autoscript**
-  - Section 5 - Procedure, select the appropriate scripting configuration
-  - AutoScript Server
-  - AutoScript Client
-    - Python 3.8 Distribution
-    - AutoScript Python Packages
-    - We recommend not installing the following: PyCharm Community IDE, .NET API, preferring to use VS Code as an IDE
+- With `AutoScript_4.8.1.exe`, install **Autoscript** according to Thermo Fisher Scientific's instructions:
+  - Section 5 - Procedure, select the appropriate scripting configuration. This codebase has been tested in both "Local" and "Offline" Scripting Configurations.
+    - *Select Components* screen
+      - AutoScript Client components
+        - We recommend not installing the following: PyCharm Community IDE, .NET API, preferring to use VS Code as an IDE
   - Select the installer option to add Python to the system Path.
   - Register to activate AutoScript license on this computer.
   - Restart the computer.

@@ -1,6 +1,8 @@
 # Step Settings
 
-Configuration files contain a list of all the individual operations that form the data acquisition pipeline. These comprise one of the root level elements of the `.yml` file called `steps:`. Each step is designated as a nested mapping with the highest-level nesting designating the name of the step. For each step, these settings are broken down further into lower level nested mappings. All steps must contain a `step_general` nested mapping that contains information applicable to all step types. Depending on the specific step type, other unique nested mappings at the same level of `step_general` key-value pairs will be required. The following subsections provide more detailed information on these nested mappings, namely:
+Configuration files contain a list of all the individual operations that form the data acquisition pipeline. These comprise one of the root level elements of the `.yml` file called `steps:`. 
+
+Each step is designated as a nested mapping with the highest-level nesting designating the name of the step. For each step, these settings are broken down further into lower level nested mappings. All steps must contain a `step_general` nested mapping that contains information applicable to all step types. Depending on the specific step type, other unique nested mappings at the same level of `step_general` key-value pairs will be required. The following subsections provide more detailed information on these nested mappings, namely:
 
 - **[Step General](../steps/general/index.html)**: Step settings applicable to all step types, including stage position and frequency settings.
 
