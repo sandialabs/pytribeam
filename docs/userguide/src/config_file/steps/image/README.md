@@ -72,4 +72,4 @@ Various settings to control the scan settings to save a micrograph. The time to 
     - 4096x3536
     - 6144x4096
 
-    Custom resolutions from 12 up to 65,535 ($2^{16}-1$) pixels on edge are also supported, but care should be taken to account for potential lensing distortions and sample drift when collecting large numbers of pixels across large fields of view, which can take several minutes to collect. Custom (non-preset) resolutions can also only be saved to images of 8-bit colordepth (grayscale values of 0-255).
+Custom resolutions from 12 up to 65,535 pixels on edge are also supported, but care should be taken to account for potential lensing distortions and sample drift when collecting large numbers of pixels across large fields of view, which can take several minutes to collect. Custom (non-preset) resolutions can also only be saved to images of 8-bit colordepth (grayscale values of 0-255).
