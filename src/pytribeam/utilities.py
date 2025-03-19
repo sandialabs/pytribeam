@@ -1,4 +1,98 @@
 #!/usr/bin/python3
+"""
+Utilities Module
+================
+
+This module contains various utility functions and decorators for managing and controlling the microscope, handling YAML files, and performing other common tasks.
+
+Functions
+---------
+beam_type(beam) -> property
+    Return the beam property object as ion and electron beams have the same internal hierarchy.
+
+connect_microscope(microscope: tbt.Microscope, quiet_output: bool = True, connection_host: str = None, connection_port: int = None) -> bool
+    Connect to the microscope with the option to suppress printout.
+
+dict_to_yml(db: dict, file_path: Path) -> Path
+    Convert a dictionary to a YAML file.
+
+disconnect_microscope(microscope: tbt.Microscope, quiet_output: bool = True) -> bool
+    Disconnect from the microscope with the option to suppress printout.
+
+general_settings(exp_settings: dict, yml_format: tbt.YMLFormat) -> dict
+    Grab general experiment settings from a .yml file and return them as a dictionary.
+
+step_type(settings: dict, yml_format: tbt.YMLFormat) -> tbt.StepType
+    Determine the step type for a specific step settings dictionary.
+
+in_interval(val: float, limit: tbt.Limit, type: tbt.IntervalType) -> bool
+    Test whether a value is within an interval, with the interval type defined by an enumerated IntervalType.
+
+gen_dict_extract(key, var)
+    Extract values from a nested dictionary by key.
+
+nested_dictionary_location(d: dict, key: str, value: Any) -> List[str]
+    Find the nested location of a key-value pair in a dictionary.
+
+nested_find_key_value_pair(d: dict, key: str, value: Any) -> List[str]
+    Find a key-value pair in a nested dictionary.
+
+_flatten(dictionary: dict) -> dict
+    Flatten a dictionary using pandas.
+
+none_value_dictionary(dictionary: dict) -> bool
+    Check if all values in a dictionary are None.
+
+nostdout()
+    Create a dummy file to suppress output.
+
+step_count(exp_settings: dict, yml_format: tbt.YMLFormatVersion) -> int
+    Determine the maximum step number from a settings dictionary.
+
+step_settings(exp_settings: dict, step_number_key: str, step_number_val: int, yml_format: tbt.YMLFormatVersion) -> Tuple[str, dict]
+    Grab specific step settings from an experimental dictionary and return them as a dictionary along with the user-defined step name.
+
+valid_microscope_connection(host: str, port: str) -> bool
+    Determine if a microscope connection can be made.
+
+enable_external_device(oem: tbt.ExternalDeviceOEM) -> bool
+    Determine whether to enable external device control.
+
+valid_enum_entry(obj: Any, check_type: Enum) -> bool
+    Determine if an object is a member of an Enum class.
+
+yml_format(version: float) -> tbt.YMLFormatVersion
+    Return the YML file format for a given version.
+
+yml_to_dict(*, yml_path_file: Path, version: float, required_keys: Tuple[str, ...]) -> Dict
+    Convert a YAML file to a dictionary.
+
+yml_version(file: Path, key_name="config_file_version") -> float
+    Return the version of a YAML file if the proper key exists.
+
+yes_no(question) -> bool
+    Simple Yes/No function.
+
+remove_directory(directory: Path)
+    Recursively remove a directory.
+
+split_list(data: List, chunk_size: int) -> List
+    Split a list into equal-sized chunks.
+
+tabular_list(data: List, num_columns: int = Constants.default_column_count, column_width: int = Constants.default_column_width) -> str
+    Format a list into a tabular string.
+
+Decorators
+----------
+hardware_movement(func)
+    Decorator to run a function only when hardware testing is enabled.
+
+run_on_standalone_machine(func)
+    Decorator to run a function only on a standalone machine.
+
+run_on_microscope_machine(func)
+    Decorator to run a function only on a microscope machine.
+"""
 
 # Default python modules
 import os
@@ -31,20 +125,65 @@ from pytribeam.constants import Constants
 
 @singledispatch
 def beam_type(beam) -> property:
-    """Returns beam property object as ion and electron beams have same internal hierarchy"""
+    """
+    Return the beam property object as ion and electron beams have the same internal hierarchy.
+
+    Parameters
+    ----------
+    beam : Any
+        The beam object.
+
+    Returns
+    -------
+    property
+        The beam property object.
+
+    Raises
+    ------
+    NotImplementedError
+        If the beam type is not implemented.
+    """
     _ = beam  # no operation
     raise NotImplementedError()
 
 
 @beam_type.register
 def _(beam: tbt.ElectronBeam, microscope: tbt.Microscope) -> property:
-    """Returns electron beam property object"""
+    """
+    Return the electron beam property object.
+
+    Parameters
+    ----------
+    beam : tbt.ElectronBeam
+        The electron beam object.
+    microscope : tbt.Microscope
+        The microscope object.
+
+    Returns
+    -------
+    property
+        The electron beam property object.
+    """
     return microscope.beams.electron_beam
 
 
 @beam_type.register
 def _(beam: tbt.IonBeam, microscope: tbt.Microscope) -> property:
-    """Returns ion beam property object"""
+    """
+    Return the ion beam property object.
+
+    Parameters
+    ----------
+    beam : tbt.IonBeam
+        The ion beam object.
+    microscope : tbt.Microscope
+        The microscope object.
+
+    Returns
+    -------
+    property
+        The ion beam property object.
+    """
     return microscope.beams.ion_beam
 
 
@@ -54,7 +193,30 @@ def connect_microscope(
     connection_host: str = None,
     connection_port: int = None,
 ):
-    """Connects to the microscope with option to suppress printout"""
+    """
+    Connect to the microscope with the option to suppress printout.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object to connect.
+    quiet_output : bool, optional
+        Whether to suppress printout (default is True).
+    connection_host : str, optional
+        The connection host (default is None).
+    connection_port : int, optional
+        The connection port (default is None).
+
+    Returns
+    -------
+    bool
+        True if the connection is successful.
+
+    Raises
+    ------
+    ConnectionError
+        If the connection fails.
+    """
 
     # TODO clean up inner function
     def connect(
@@ -93,7 +255,19 @@ def connect_microscope(
 
 def dict_to_yml(db: dict, file_path: Path) -> Path:
     """
-    Converts dict to yaml
+    Convert a dictionary to a YAML file.
+
+    Parameters
+    ----------
+    db : dict
+        The dictionary to convert.
+    file_path : Path
+        The path to save the YAML file.
+
+    Returns
+    -------
+    Path
+        The path to the saved YAML file.
     """
     with open(file_path, "w", encoding="utf-8") as out_file:
         yaml.dump(
@@ -110,7 +284,26 @@ def disconnect_microscope(
     microscope: tbt.Microscope,
     quiet_output: bool = True,
 ):
-    """Disconnects from the microscope with option to suppress printout"""
+    """
+    Disconnect from the microscope with the option to suppress printout.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object to disconnect.
+    quiet_output : bool, optional
+        Whether to suppress printout (default is True).
+
+    Returns
+    -------
+    bool
+        True if the disconnection is successful.
+
+    Raises
+    ------
+    ConnectionError
+        If the disconnection fails.
+    """
     if quiet_output:
         with nostdout():
             microscope.disconnect()
@@ -124,13 +317,41 @@ def disconnect_microscope(
 
 
 def general_settings(exp_settings: dict, yml_format: tbt.YMLFormat) -> dict:
-    """Grabs general experiment settings from a .yml and returns them as a dictionary"""
+    """
+    Grab general experiment settings from a .yml file and return them as a dictionary.
+
+    Parameters
+    ----------
+    exp_settings : dict
+        The experiment settings dictionary.
+    yml_format : tbt.YMLFormat
+        The YAML format version.
+
+    Returns
+    -------
+    dict
+        The general experiment settings as a dictionary.
+    """
     general_key = yml_format.general_section_key
     return exp_settings[general_key]
 
 
 def step_type(settings: dict, yml_format: tbt.YMLFormat) -> tbt.StepType:
-    """determine step type for an specific step settings dictioanry"""
+    """
+    Determine the step type for a specific step settings dictionary.
+
+    Parameters
+    ----------
+    settings : dict
+        The step settings dictionary.
+    yml_format : tbt.YMLFormat
+        The YAML format version.
+
+    Returns
+    -------
+    tbt.StepType
+        The step type.
+    """
     step_type = tbt.StepType(
         settings[yml_format.step_general_key][yml_format.step_type_key]
     )
@@ -139,15 +360,23 @@ def step_type(settings: dict, yml_format: tbt.YMLFormat) -> tbt.StepType:
 
 
 def in_interval(val: float, limit: tbt.Limit, type: tbt.IntervalType) -> bool:
-    """Tests where a value is within an interval, with interval type (close, open, half-open, etc. defined by enumerated IntervalType)
+    """
+    Test whether a value is within an interval, with the interval type defined by an enumerated IntervalType.
 
-    Args:
-        val: The input value to be compared to against min and max.
-        limit: The bounds of the interval
-        type: The type of interval
+    Parameters
+    ----------
+    val : float
+        The input value to be compared against min and max.
+    limit : tbt.Limit
+        The bounds of the interval.
+    type : tbt.IntervalType
+        The type of interval.
 
     Returns
-        True if winthin interval, False otherwise"""
+    -------
+    bool
+        True if within the interval, False otherwise.
+    """
     if type == tbt.IntervalType.OPEN:
         return (val > limit.min) and (val < limit.max)
     if type == tbt.IntervalType.CLOSED:
@@ -159,6 +388,21 @@ def in_interval(val: float, limit: tbt.Limit, type: tbt.IntervalType) -> bool:
 
 
 def gen_dict_extract(key, var):
+    """
+    Extract values from a nested dictionary by key.
+
+    Parameters
+    ----------
+    key : str
+        The key to search for.
+    var : dict
+        The nested dictionary to search.
+
+    Yields
+    ------
+    Any
+        The values associated with the specified key.
+    """
     if hasattr(var, "items"):
         for k, v in var.items():
             if k == key:
@@ -170,17 +414,32 @@ def gen_dict_extract(key, var):
                 for d in v:
                     for result in gen_dict_extract(key, d):
                         yield result
-    # return v, result
-
-
-# def list_enum_to_string(list: List[Enum]) -> List[str]:
-#     """Converts list of enum to strings"""
-#     return [str(i.value) for i in list]
 
 
 def nested_dictionary_location(d: dict, key: str, value: Any) -> List[str]:
-    """Finds nested location of key-value pair in dictionary, returns a list of key values
-    from highest to lowest level of nested dictionaries. Checks if key value pair is found
+    """
+    Find the nested location of a key-value pair in a dictionary.
+
+    This function returns a list of key values from the highest to the lowest level of nested dictionaries.
+
+    Parameters
+    ----------
+    d : dict
+        The dictionary to search.
+    key : str
+        The key to search for.
+    value : Any
+        The value to search for.
+
+    Returns
+    -------
+    List[str]
+        The nested location of the key-value pair.
+
+    Raises
+    ------
+    KeyError
+        If the key-value pair is not found in the dictionary.
     """
     nesting = nested_find_key_value_pair(d=d, key=key, value=value)
     if nesting is None:
@@ -191,8 +450,25 @@ def nested_dictionary_location(d: dict, key: str, value: Any) -> List[str]:
 
 
 def nested_find_key_value_pair(d: dict, key: str, value: Any) -> List[str]:
-    """Finds key value pair in nested dictionary, returns a list of key
-    values from highest to lowest level of nested dictionaries"""
+    """
+    Find a key-value pair in a nested dictionary.
+
+    This function returns a list of key values from the highest to the lowest level of nested dictionaries.
+
+    Parameters
+    ----------
+    d : dict
+        The dictionary to search.
+    key : str
+        The key to search for.
+    value : Any
+        The value to search for.
+
+    Returns
+    -------
+    List[str]
+        The nested location of the key-value pair.
+    """
     for k, v in d.items():
         if k == key:
             if v == value:
@@ -204,9 +480,21 @@ def nested_find_key_value_pair(d: dict, key: str, value: Any) -> List[str]:
 
 
 def _flatten(dictionary: dict) -> dict:
-    """Flattens a dictionary using pandas, which can be slow on large dictionaries.
+    """
+    Flatten a dictionary using pandas.
 
+    This function flattens a nested dictionary using pandas, which can be slow on large dictionaries.
     From https://stackoverflow.com/questions/6027558/flatten-nested-dictionaries-compressing-keys
+
+    Parameters
+    ----------
+    dictionary : dict
+        The dictionary to flatten.
+
+    Returns
+    -------
+    dict
+        The flattened dictionary.
     """
     data_frame = json_normalize(dictionary, sep="_")
     db_flat = data_frame.to_dict(orient="records")[0]
@@ -214,7 +502,21 @@ def _flatten(dictionary: dict) -> dict:
 
 
 def none_value_dictionary(dictionary: dict) -> bool:
-    """Return true if all values in dictionary are None, false otherwise."""
+    """
+    Check if all values in a dictionary are None.
+
+    This function returns True if all values in the dictionary are None, and False otherwise.
+
+    Parameters
+    ----------
+    dictionary : dict
+        The dictionary to check.
+
+    Returns
+    -------
+    bool
+        True if all values in the dictionary are None, False otherwise.
+    """
     # flatten the dictionary first
     db_flat = _flatten(dictionary)
     return all([v is None for v in db_flat.values()])
@@ -222,7 +524,15 @@ def none_value_dictionary(dictionary: dict) -> bool:
 
 @contextlib.contextmanager
 def nostdout():
-    """Creates dummy file to suppress output"""
+    """
+    Create a dummy file to suppress output.
+
+    This function creates a dummy file to suppress output.
+
+    Yields
+    ------
+    None
+    """
     save_stdout = sys.stdout
     sys.stdout = tbt.DummyFile()
     yield
@@ -233,7 +543,28 @@ def step_count(
     exp_settings: dict,
     yml_format: tbt.YMLFormatVersion,
 ):
-    """Determine maximum step number from a settings dictionary, as specified by the step_number_key"""
+    """
+    Determine the maximum step number from a settings dictionary.
+
+    This function determines the maximum step number from a settings dictionary, as specified by the step_number_key.
+
+    Parameters
+    ----------
+    exp_settings : dict
+        The experiment settings dictionary.
+    yml_format : tbt.YMLFormatVersion
+        The YAML format version.
+
+    Returns
+    -------
+    int
+        The maximum step number.
+
+    Raises
+    ------
+    ValueError
+        If the number of steps found does not match the expected step count.
+    """
 
     step_number_key = yml_format.step_number_key
     non_step_sections = yml_format.non_step_section_count
@@ -279,8 +610,25 @@ def step_settings(
     step_number_val: int,
     yml_format: tbt.YMLFormatVersion,
 ) -> Tuple[str, dict]:
-    """Grabs specific step settings from an experimental dictionary and
-    returns them as a dictionary along with the user-defined step name"""
+    """
+    Grab specific step settings from an experimental dictionary and return them as a dictionary along with the user-defined step name.
+
+    Parameters
+    ----------
+    exp_settings : dict
+        The experiment settings dictionary.
+    step_number_key : str
+        The key for the step number.
+    step_number_val : int
+        The value for the step number.
+    yml_format : tbt.YMLFormatVersion
+        The YAML format version.
+
+    Returns
+    -------
+    Tuple[str, dict]
+        The step name and the step settings dictionary.
+    """
 
     nested_locations = nested_dictionary_location(
         d=exp_settings,
@@ -294,7 +642,23 @@ def step_settings(
 
 
 def valid_microscope_connection(host: str, port: str) -> bool:
-    """Determines if microscope connection can be made, disconnects if a connection can be made"""
+    """
+    Determine if a microscope connection can be made.
+
+    This function checks if a microscope connection can be made and disconnects if a connection can be made.
+
+    Parameters
+    ----------
+    host : str
+        The connection host.
+    port : str
+        The connection port.
+
+    Returns
+    -------
+    bool
+        True if the connection can be made, False otherwise.
+    """
     microscope = tbt.Microscope()
     if connect_microscope(
         microscope=microscope,
@@ -311,8 +675,25 @@ def valid_microscope_connection(host: str, port: str) -> bool:
 
 
 def enable_external_device(oem: tbt.ExternalDeviceOEM) -> bool:
-    """Determines whether to enable External Device Control.
-    Device must be a member of the ExternalDeviceOEM enum and not equal to ExternalDeviceOEM.NONE to enable control
+    """
+    Determine whether to enable external device control.
+
+    This function checks if the external device control should be enabled based on the OEM.
+
+    Parameters
+    ----------
+    oem : tbt.ExternalDeviceOEM
+        The OEM of the external device.
+
+    Returns
+    -------
+    bool
+        True if the external device control should be enabled, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If the OEM type is unsupported.
     """
     if not isinstance(oem, tbt.ExternalDeviceOEM):
         raise NotImplementedError(
@@ -324,12 +705,47 @@ def enable_external_device(oem: tbt.ExternalDeviceOEM) -> bool:
 
 
 def valid_enum_entry(obj: Any, check_type: Enum) -> bool:
-    """Determines if object is member of an Enum class"""
+    """
+    Determine if an object is a member of an Enum class.
+
+    This function checks if an object is a member of an Enum class.
+
+    Parameters
+    ----------
+    obj : Any
+        The object to check.
+    check_type : Enum
+        The Enum class to check against.
+
+    Returns
+    -------
+    bool
+        True if the object is a member of the Enum class, False otherwise.
+    """
     return obj in check_type._value2member_map_
 
 
 def yml_format(version: float) -> tbt.YMLFormatVersion:
-    """returns YMLFile format for a given version"""
+    """
+    Return the YML file format for a given version.
+
+    This function returns the YML file format for a given version.
+
+    Parameters
+    ----------
+    version : float
+        The version of the YML file.
+
+    Returns
+    -------
+    tbt.YMLFormatVersion
+        The YML file format for the given version.
+
+    Raises
+    ------
+    NotImplementedError
+        If the YML file version is unsupported.
+    """
     supported_versions = [file.version for file in tbt.YMLFormatVersion]
     if not version in supported_versions:
         raise NotImplementedError(
@@ -343,17 +759,35 @@ def yml_format(version: float) -> tbt.YMLFormatVersion:
 def yml_to_dict(
     *, yml_path_file: Path, version: float, required_keys: Tuple[str, ...]
 ) -> Dict:
-    """Given a valid Path to a yml input file, read it in and return the
-    result as a dictionary.
+    """
+    Convert a YAML file to a dictionary.
 
-    Args:
-        yml_path_file: The fully pathed location to the input file.
-        version: The version of the yml in x.y format.
-        required_keys: The key(s) that must be in the yml file for conversion
-            to a dictionary to occur.
+    This function reads a YAML file and returns the result as a dictionary.
 
-    Returns:
-        The .yml file represented as a dictionary.
+    Parameters
+    ----------
+    yml_path_file : Path
+        The fully pathed location to the input file.
+    version : float
+        The version of the YAML file in x.y format.
+    required_keys : Tuple[str, ...]
+        The key(s) that must be in the YAML file for conversion to a dictionary to occur.
+
+    Returns
+    -------
+    dict
+        The YAML file represented as a dictionary.
+
+    Raises
+    ------
+    TypeError
+        If the file type is unsupported.
+    OSError
+        If the YAML file cannot be opened or decoded.
+    KeyError
+        If the required keys are not found in the YAML file.
+    ValueError
+        If the version specified in the file does not match the requested version.
     """
 
     # Compared to the lower() method, the casefold() method is stronger.
@@ -401,7 +835,28 @@ def yml_version(
     file: Path,
     key_name="config_file_version",
 ) -> float:
-    """Returns version of yml file if proper key exists"""
+    """
+    Return the version of a YAML file if the proper key exists.
+
+    Parameters
+    ----------
+    file : Path
+        The path to the YAML file.
+    key_name : str, optional
+        The key name for the version in the YAML file (default is "config_file_version").
+
+    Returns
+    -------
+    float
+        The version of the YAML file.
+
+    Raises
+    ------
+    KeyError
+        If the version key is not found in the YAML file.
+    ValueError
+        If the version value is not a valid float.
+    """
     with open(file, "r") as stream:
         data = yaml.load(stream, Loader=yaml.SafeLoader)
 
@@ -420,7 +875,19 @@ def yml_version(
 
 
 def yes_no(question):
-    """Simple Yes/No Function."""
+    """
+    Simple Yes/No function.
+
+    Parameters
+    ----------
+    question : str
+        The question to ask the user.
+
+    Returns
+    -------
+    bool
+        True if the user answers "yes", False otherwise.
+    """
     prompt = f"{question} (y/n): "
     ans = input(prompt).strip().lower()
     if ans not in ["y", "n"]:
@@ -432,12 +899,33 @@ def yes_no(question):
 
 
 def remove_directory(directory: Path):
-    """Recursively remove a directory"""
+    """
+    Recursively remove a directory.
+
+    Parameters
+    ----------
+    directory : Path
+        The path to the directory to remove.
+    """
     shutil.rmtree(directory)
 
 
 def split_list(data: List, chunk_size: int) -> List:
-    """split list into equal sized chunks"""
+    """
+    Split a list into equal-sized chunks.
+
+    Parameters
+    ----------
+    data : List
+        The list to split.
+    chunk_size : int
+        The size of each chunk.
+
+    Returns
+    -------
+    List
+        A list of chunks.
+    """
     result = []
     for i in range(0, len(data), chunk_size):
         result.append(data[i : i + chunk_size])
@@ -449,6 +937,23 @@ def tabular_list(
     num_columns: int = Constants.default_column_count,
     column_width: int = Constants.default_column_width,
 ) -> str:
+    """
+    Format a list into a tabular string.
+
+    Parameters
+    ----------
+    data : List
+        The list to format.
+    num_columns : int, optional
+        The number of columns in the table (default is Constants.default_column_count).
+    column_width : int, optional
+        The width of each column in the table (default is Constants.default_column_width).
+
+    Returns
+    -------
+    str
+        The formatted tabular string.
+    """
     rows = split_list(data, chunk_size=num_columns)
     result = ""
     for sublist in rows:
@@ -462,6 +967,20 @@ def tabular_list(
 
 
 def hardware_movement(func):
+    """
+    Decorator to run a function only when hardware testing is enabled.
+
+    Parameters
+    ----------
+    func : function
+        The function to decorate.
+
+    Returns
+    -------
+    function
+        The decorated function.
+    """
+
     @run_on_microscope_machine
     def wrapper_func():
         if not Constants.test_hardware_movement:
@@ -472,6 +991,20 @@ def hardware_movement(func):
 
 
 def run_on_standalone_machine(func):
+    """
+    Decorator to run a function only on a standalone machine.
+
+    Parameters
+    ----------
+    func : function
+        The function to decorate.
+
+    Returns
+    -------
+    function
+        The decorated function.
+    """
+
     def wrapper_func():
         current_machine = platform.uname().node.lower()
         test_machines = [machine.lower() for machine in Constants().offline_machines]
@@ -483,6 +1016,20 @@ def run_on_standalone_machine(func):
 
 
 def run_on_microscope_machine(func):
+    """
+    Decorator to run a function only on a microscope machine.
+
+    Parameters
+    ----------
+    func : function
+        The function to decorate.
+
+    Returns
+    -------
+    function
+        The decorated function.
+    """
+
     def wrapper_func():
         current_machine = platform.uname().node.lower()
         test_machines = [machine.lower() for machine in Constants().microscope_machines]

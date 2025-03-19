@@ -91,7 +91,15 @@ class EntryMenuButton(ttk.Combobox):
     style = []
 
     def __init__(
-        self, master, bg=None, fg=None, command=None, var=None, options=None, dtype=None, **kwargs
+        self,
+        master,
+        bg=None,
+        fg=None,
+        command=None,
+        var=None,
+        options=None,
+        dtype=None,
+        **kwargs,
     ):
         """Initialize the custom combobox and intercept the length option."""
         self.length = 10

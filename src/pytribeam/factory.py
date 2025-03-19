@@ -1,3 +1,147 @@
+#!/usr/bin/python3
+"""
+Factory Module
+==============
+
+This module contains functions for creating and validating various settings and objects used in the microscope operations. The functions are organized to handle different step types, including EBSD, EDS, IMAGE, LASER, CUSTOM, and FIB.
+
+Functions
+---------
+active_fib_applications(microscope: tbt.Microscope) -> list
+    Retrieve a list of all active FIB (Focused Ion Beam) application files from the microscope.
+
+active_beam_with_settings(microscope: tbt.Microscope) -> tbt.Beam
+    Retrieve the current active beam and its settings from the microscope to create a beam object.
+
+active_detector_settings(microscope: tbt.Microscope) -> tbt.Detector
+    Retrieve the current active detector settings from the microscope to create a detector object.
+
+active_image_settings(microscope: tbt.Microscope) -> tbt.ImageSettings
+    Retrieve the current active image settings from the microscope to create an image settings object.
+
+active_imaging_device(microscope: tbt.Microscope) -> tbt.Beam
+    Determine the active imaging device and return the corresponding internal beam type object with null beam settings.
+
+active_scan_settings(microscope: tbt.Microscope) -> tbt.Scan
+    Retrieve the current active scan settings from the microscope to create a scan object.
+
+active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePositionUser
+    Retrieve the current stage position in the raw coordinate system and user units [mm, deg].
+
+active_laser_state() -> tbt.LaserState
+    Retrieve the current state of the laser, including various properties that can be quickly read.
+
+active_laser_settings(microscope: tbt.Microscope) -> tbt.LaserSettings
+    Retrieve the current active laser settings from the microscope to create a laser settings object.
+
+available_detector_types(microscope: tbt.Microscope) -> List[str]
+    Retrieve the available detector types on the current microscope.
+
+available_detector_modes(microscope: tbt.Microscope) -> List[str]
+    Retrieve the available detector modes on the current microscope.
+
+beam_object_type(type: tbt.BeamType) -> tbt.Beam
+    Retrieve the beam object type based on the given beam type.
+
+stage_limits(microscope: tbt.Microscope) -> tbt.StageLimits
+    Retrieve the stage limits from the current microscope connection.
+
+beam_limits(selected_beam: property, beam_type: tbt.BeamType) -> tbt.BeamLimits
+    Retrieve the beam limits for the selected beam and beam type.
+
+general(general_db: dict, yml_format: tbt.YMLFormatVersion) -> tbt.GeneralSettings
+    Convert a general settings dictionary to a built-in type and perform schema checking.
+
+laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern
+    Convert a dictionary of laser box pattern settings to a `LaserBoxPattern` object.
+
+laser_line_pattern(settings: dict) -> tbt.LaserLinePattern
+    Convert a dictionary of laser line pattern settings to a `LaserLinePattern` object.
+
+laser(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.LaserSettings
+    Convert a laser step from a .yml file to microscope settings for performing laser milling.
+
+image(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.ImageSettings
+    Convert an image step from a .yml file to microscope settings for capturing an image.
+
+fib(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.FIBSettings
+    Convert a FIB step from a .yml file to microscope settings for performing a FIB operation.
+
+enforce_beam_type(beam_type, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> bool
+    Enforce a specific beam type is used for an operation based on a dictionary.
+
+ebsd(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.EBSDSettings
+    Convert an EBSD step from a .yml file to microscope settings for performing an EBSD operation.
+
+eds(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.EDSSettings
+    Convert an EDS step from a .yml file to microscope settings for performing an EDS operation.
+
+custom(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.CustomSettings
+    Convert a custom step from a .yml file to custom settings for the microscope.
+
+scan_limits(selected_beam: property) -> tbt.ScanLimits
+    Retrieve the scan settings limits for the selected beam.
+
+string_to_res(input: str) -> tbt.Resolution
+    Convert a string in the format "{{width}}x{{height}}" to a resolution object.
+
+valid_string_resolution(string_resolution: str) -> bool
+    Validate a string resolution.
+
+validate_auto_cb_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for auto contrast/brightness setting dictionary.
+
+validate_stage_position(microscope: tbt.Microscope, step_name: str, settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
+    Perform schema checking for stage position dictionary.
+
+validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for beam setting dictionary.
+
+validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for detector setting dictionary.
+
+validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, connection_host: str, connection_port: str, ebsd_oem: str, eds_oem: str) -> bool
+    Check EBSD and EDS OEM and connection for supported OEMs.
+
+validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
+    Perform schema checking for general setting dictionary.
+
+validate_scan_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for scan setting dictionary.
+
+stage_position_settings(microscope: tbt.Microscope, step_name: str, general_settings: tbt.GeneralSettings, step_stage_settings: dict, yml_format: tbt.YMLFormatVersion) -> tbt.StageSettings
+    Create a StagePositionUser object from settings, including validation.
+
+validate_pulse_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for pulse setting dictionary.
+
+validate_laser_optics_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for laser optics setting dictionary.
+
+validate_laser_box_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for laser box pattern setting dictionary.
+
+validate_laser_line_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for laser line pattern setting dictionary.
+
+validate_laser_mode_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
+    Perform schema checking for laser mode setting dictionary.
+
+validate_laser_pattern_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> tbt.LaserPatternType
+    Perform schema checking for laser pattern setting dictionary.
+
+validate_fib_pattern_settings(microscope: tbt.Microscope, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> Union[tbt.FIBRectanglePattern, tbt.FIBRegularCrossSection, tbt.FIBCleaningCrossSection, tbt.FIBStreamPattern]
+    Perform schema checking for FIB pattern setting dictionary.
+
+validate_fib_box_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str, pattern_type: tbt.FIBPatternType) -> bool
+    Perform schema checking for FIB box pattern setting dictionary.
+
+validate_fib_selected_area_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str, pattern_type: tbt.FIBPatternType) -> bool
+    Perform schema checking for FIB selected area pattern setting dictionary.
+
+step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_settings: tbt.GeneralSettings, yml_format: tbt.YMLFormatVersion) -> tbt.Step
+    Create a step object for different step types, including validation.
+"""
 ## python standard libraries
 from pathlib import Path
 import platform
@@ -31,14 +175,39 @@ import pytribeam.types as tbt
 def active_fib_applications(
     microscope: tbt.Microscope,
 ) -> list:
+    """
+    Retrieve a list of all active FIB (Focused Ion Beam) patterning application files from the microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the application files.
+
+    Returns
+    -------
+    list
+        A list of active FIB patterning application files.
+    """
     return microscope.patterning.list_all_application_files()
 
 
 def active_beam_with_settings(
     microscope: tbt.Microscope,
 ) -> tbt.Beam:
-    """Beam factory
-    This will grab current beam and its settings on the microscope to make a beam object. These settings will fully depend on the currently active beam as determined by xTUI. Tolerance values for voltage and current will be autopopulated as a ratio of current values predetermined in the constants.Constants() class.
+    """
+    Retrieve the current active beam and its settings from the microscope to create a beam object.
+
+    This function grabs the current beam and its settings on the microscope to make a beam object. These settings fully depend on the currently active beam as determined by xTUI. Tolerance values for voltage and current are auto-populated as a ratio of current values predetermined in the `Constants` class.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the active beam and its settings.
+
+    Returns
+    -------
+    tbt.Beam
+        The active beam object with its settings.
     """
     selected_beam = active_imaging_device(microscope=microscope)
     beam = ut.beam_type(selected_beam, microscope)
@@ -68,8 +237,20 @@ def active_beam_with_settings(
 def active_detector_settings(
     microscope: tbt.Microscope,
 ) -> tbt.Detector:
-    """Detector factory
-    This will grab current detector settings on the microscope to make a detector object. These settings will fully depend on the currently active detector as determined by xTUI.
+    """
+    Retrieve the current active detector settings from the microscope to create a detector object.
+
+    This function grabs the current detector settings on the microscope to make a detector object. These settings fully depend on the currently active detector as determined by xTUI.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the active detector settings.
+
+    Returns
+    -------
+    tbt.Detector
+        The active detector object with its settings.
     """
 
     detector_type = microscope.detector.type.value
@@ -97,7 +278,21 @@ def active_detector_settings(
 
 
 def active_image_settings(microscope: tbt.Microscope) -> tbt.ImageSettings:
-    """"""
+    """
+    Retrieve the current active image settings from the microscope to create an image settings object.
+
+    This function grabs the current beam, detector, and scan settings on the microscope to make an image settings object. The bit depth is set to the default color depth defined in the `Constants` class.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the active image settings.
+
+    Returns
+    -------
+    tbt.ImageSettings
+        The active image settings object.
+    """
     beam = active_beam_with_settings(microscope=microscope)
     detector = active_detector_settings(microscope=microscope)
     scan = active_scan_settings(microscope=microscope)
@@ -115,7 +310,26 @@ def active_image_settings(microscope: tbt.Microscope) -> tbt.ImageSettings:
 
 
 def active_imaging_device(microscope: tbt.Microscope) -> tbt.Beam:
-    """Determines active imaging device and returns correct internal beam type object with null beam settings"""
+    """
+    Determine the active imaging device and return the corresponding internal beam type object with null beam settings.
+
+    This function identifies the currently active imaging device on the microscope and returns the appropriate beam type object (electron or ion) with null beam settings.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to determine the active imaging device.
+
+    Returns
+    -------
+    tbt.Beam
+        The active beam object with null beam settings.
+
+    Raises
+    ------
+    ValueError
+        If the currently selected device is neither an electron beam nor an ion beam.
+    """
     curr_device = tbt.Device(microscope.imaging.get_active_device())
     if curr_device == tbt.Device.ELECTRON_BEAM:
         selected_beam = beam_object_type(type=tbt.BeamType.ELECTRON)(
@@ -135,8 +349,20 @@ def active_imaging_device(microscope: tbt.Microscope) -> tbt.Beam:
 def active_scan_settings(
     microscope: tbt.Microscope,
 ) -> tbt.Scan:
-    """Scan factory
-    This will grab current scan settings on the microscope to make a scan object. These settings will fully depend on the currently active scan settings as determined by xTUI.
+    """
+    Retrieve the current active scan settings from the microscope to create a scan object.
+
+    This function grabs the current scan settings on the microscope to make a scan object. These settings fully depend on the currently active scan settings as determined by xTUI.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the active scan settings.
+
+    Returns
+    -------
+    tbt.Scan
+        The active scan object with its settings.
     """
     selected_beam = active_imaging_device(microscope=microscope)
     beam = ut.beam_type(selected_beam, microscope)
@@ -158,7 +384,21 @@ def active_scan_settings(
 
 
 def active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePositionUser:
-    """Returns current stage position in raw coordinate system and user units [mm, deg]"""
+    """
+    Retrieve the current stage position in the raw coordinate system and user units [mm, deg].
+
+    This function sets the stage coordinate system to RAW, retrieves the current stage position in encoder units (meters and radians), converts it to user units (millimeters and degrees), and ensures the r-axis is within the axis limit.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the current stage position.
+
+    Returns
+    -------
+    tbt.StagePositionUser
+        The current stage position in user units [mm, deg].
+    """
     stage.coordinate_system(microscope=microscope, mode=tbt.StageCoordinateSystem.RAW)
     # encoder positions (pos) are in meters and radians
     direct_encoder_pos = microscope.specimen.stage.current_position
@@ -195,9 +435,21 @@ def active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePosit
 
 
 def active_laser_state() -> tbt.LaserState:
-    """returns dictionary object for all properties that can be quickly read from the laser (not exhaustive)
-    Power can be read but has its own method and is more involved.
-    Flipper configuration can only be set, not read"""
+    """
+    Retrieve the current state of the laser, including various properties that can be quickly read.
+
+    This function returns a dictionary object for all properties that can be quickly read from the laser (not exhaustive). Power can be read but has its own method and is more involved. Flipper configuration can only be set, not read.
+
+    Returns
+    -------
+    tbt.LaserState
+        The current state of the laser, including wavelength, frequency, pulse divider, pulse energy, objective position, beam shift, pattern, and expected pattern duration.
+
+    Raises
+    ------
+    KeyError
+        If an unsupported LaserPatternType is encountered.
+    """
     vals = fs_laser.tfs_laser.Laser_ReadValues()
     vals["objective_position_mm"] = fs_laser.tfs_laser.LIP_GetZPosition()
     vals["beam_shift_um_x"] = fs_laser.tfs_laser.BeamShift_Get_X()
@@ -267,7 +519,21 @@ def active_laser_state() -> tbt.LaserState:
 
 
 def active_laser_settings(microscope: tbt.Microscope) -> tbt.LaserSettings:
-    """Laser Settings factory. Some values cannot be read by Laser Control, only set. For example, Polarization will default to "Vertical" as this value cannot be read"""
+    """
+    Retrieve the current active laser settings from the microscope to create a laser settings object.
+
+    This function grabs the current laser state and uses it to create a laser settings object. Some values cannot be read by Laser Control and can only be set. For example, polarization will default to "Vertical" as this value cannot be read.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the active laser settings.
+
+    Returns
+    -------
+    tbt.LaserSettings
+        The active laser settings object.
+    """
     state = active_laser_state()
 
     settings = tbt.LaserSettings(
@@ -287,20 +553,68 @@ def active_laser_settings(microscope: tbt.Microscope) -> tbt.LaserSettings:
 
 
 def available_detector_types(microscope: tbt.Microscope) -> List[str]:
-    """Returns available detector types on the current microscope"""
+    """
+    Retrieve the available detector types on the current microscope.
+
+    This function returns a list of available detector types on the current microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the available detector types.
+
+    Returns
+    -------
+    List[str]
+        A list of available detector types.
+    """
     detectors = microscope.detector.type.available_values
     # available = [tbt.DetectorType(i) for i in detectors]
     return detectors
 
 
 def available_detector_modes(microscope: tbt.Microscope) -> List[str]:
-    """Returns available detector modes on the current microscope"""
+    """
+    Retrieve the available detector modes on the current microscope.
+
+    This function returns a list of available detector modes on the current microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the available detector modes.
+
+    Returns
+    -------
+    List[str]
+        A list of available detector modes.
+    """
     modes = microscope.detector.mode.available_values
     # available = [tbt.DetectorType(i) for i in modes]
     return modes
 
 
 def beam_object_type(type: tbt.BeamType) -> tbt.Beam:
+    """
+    Retrieve the beam object type based on the given beam type.
+
+    This function returns the appropriate beam object type (electron or ion) based on the provided beam type.
+
+    Parameters
+    ----------
+    type : tbt.BeamType
+        The type of the beam (electron or ion).
+
+    Returns
+    -------
+    tbt.Beam
+        The corresponding beam object type.
+
+    Raises
+    ------
+    NotImplementedError
+        If the provided beam type is unsupported.
+    """
     if type.value == "electron":
         return tbt.ElectronBeam
     if type.value == "ion":
@@ -309,7 +623,21 @@ def beam_object_type(type: tbt.BeamType) -> tbt.Beam:
 
 
 def stage_limits(microscope: tbt.Microscope) -> tbt.StageLimits:
-    """stage limits from current microscope connection"""
+    """
+    Retrieve the stage limits from the current microscope connection.
+
+    This function retrieves the stage limits for the X, Y, Z, R, and T axes from the current microscope connection and returns them as a `StageLimits` object.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object from which to retrieve the stage limits.
+
+    Returns
+    -------
+    tbt.StageLimits
+        The stage limits for the X, Y, Z, R, and T axes in user units (mm and degrees).
+    """
     stage.coordinate_system(microscope=microscope)
     # x position
     min_x_mm = (
@@ -364,6 +692,28 @@ def beam_limits(
     selected_beam: property,
     beam_type: tbt.BeamType,
 ) -> tbt.BeamLimits:
+    """
+    Retrieve the beam limits for the selected beam and beam type.
+
+    This function retrieves the limits for voltage, current, horizontal field width (HFW), and working distance for the selected beam and beam type, and returns them as a `BeamLimits` object.
+
+    Parameters
+    ----------
+    selected_beam : property
+        The selected beam property from which to retrieve the limits.
+    beam_type : tbt.BeamType
+        The type of the beam (electron or ion).
+
+    Returns
+    -------
+    tbt.BeamLimits
+        The beam limits for voltage, current, HFW, and working distance in user units (kV, nA, mm).
+
+    Raises
+    ------
+    ValueError
+        If the beam type is unsupported.
+    """
     # voltage range
     min_kv = selected_beam.high_voltage.limits.min * Conversions.V_TO_KV
     max_kv = selected_beam.high_voltage.limits.max * Conversions.V_TO_KV
@@ -397,15 +747,27 @@ def general(
     general_db: dict,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.GeneralSettings:
-    """Converts general setting dictionary to built-in type.
-    Performs schema checking to ensure valid inputs are requested.
+    """
+    Convert a general settings dictionary to a built-in type and perform schema checking.
 
-    Args:
-        general_db: general settings dictioanry from .yml
-        yml_format: format specified by version of the .yml file
+    This function converts a general settings dictionary from a .yml file to a `GeneralSettings` object. It performs schema checking to ensure valid inputs are requested.
 
-    Returns:
-        general settings
+    Parameters
+    ----------
+    general_db : dict
+        The general settings dictionary from the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.GeneralSettings
+        The general settings object.
+
+    Raises
+    ------
+    NotImplementedError
+        If the provided yml format is unsupported.
     """
 
     if not yml_format in tbt.YMLFormatVersion:
@@ -474,8 +836,21 @@ def general(
 
 
 def laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern:
-    # if settings is None or ut.none_value_dictionary(dictionary=settings):
-    #     return tbt.LaserBoxPattern()
+    """
+    Convert a dictionary of laser box pattern settings to a `LaserBoxPattern` object.
+
+    This function takes a dictionary of laser box pattern settings and converts it to a `LaserBoxPattern` object.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing laser box pattern settings.
+
+    Returns
+    -------
+    tbt.LaserBoxPattern
+        The laser box pattern object.
+    """
     return tbt.LaserBoxPattern(
         passes=settings["passes"],
         size_x_um=settings["size_x_um"],
@@ -488,8 +863,21 @@ def laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern:
 
 
 def laser_line_pattern(settings: dict) -> tbt.LaserBoxPattern:
-    # if settings is None or ut.none_value_dictionary(dictionary=settings):
-    #     return tbt.LaserLinePattern()
+    """
+    Convert a dictionary of laser line pattern settings to a `LaserLinePattern` object.
+
+    This function takes a dictionary of laser line pattern settings and converts it to a `LaserLinePattern` object.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing laser line pattern settings.
+
+    Returns
+    -------
+    tbt.LaserLinePattern
+        The laser line pattern object.
+    """
     return tbt.LaserLinePattern(
         passes=settings["passes"],
         size_um=settings["size_um"],
@@ -504,7 +892,32 @@ def laser(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.LaserSettings:
-    """Coverts laser step from .yml to microscope settings to perform laser milling. Performs schema checking to ensure valid inputs are requested"""
+    """
+    Convert a laser step from a .yml file to microscope settings for performing laser milling.
+
+    This function converts a laser step from a .yml file to `LaserSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the laser settings.
+    step_settings : dict
+        The dictionary containing the laser step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.LaserSettings
+        The laser settings object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file.
+    """
     if yml_format.version >= 1.0:
         # pulse settings
         pulse_set_db = step_settings.get("pulse")
@@ -582,17 +995,35 @@ def image(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.ImageSettings:
-    """Converts image step from .yml file to microscope settings
-    to capture an image. Performs schema checking to ensure valid
-    inputs are requested.
+    """
+    Convert an image step from a .yml file to microscope settings for capturing an image.
 
-    Args:
-        microscope: the connection to the microscope
-        step_settings: image step dictioanry from a .yml file
-        yml_format: format specified by version of the .yml file
+    This function converts an image step from a .yml file to `ImageSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
 
-    Returns:
-        image settings
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the image settings.
+    step_settings : dict
+        The dictionary containing the image step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.ImageSettings
+        The image settings object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file.
+    NotImplementedError
+        If the provided beam type is unsupported.
+    ValueError
+        If invalid scan rotation is requested with dynamic focus or tilt correction, or if the bit depth is unsupported.
     """
     if yml_format.version >= 1.0:
         step_general = step_settings.get(yml_format.step_general_key)
@@ -738,8 +1169,33 @@ def fib(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.FIBSettings:
-    """Converts fib step from .yml file to microscope settings
-    to perform a fib operation. Performs schema checking to ensure valid inputs are requested.
+    """
+    Convert a FIB step from a .yml file to microscope settings for performing a FIB operation.
+
+    This function converts a FIB step from a .yml file to `FIBSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the FIB settings.
+    step_settings : dict
+        The dictionary containing the FIB step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.FIBSettings
+        The FIB settings object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file.
+    ValueError
+        If invalid beam type is requested.
     """
     ## create image_step_settings from this
     if yml_format.version >= 1.0:
@@ -818,7 +1274,32 @@ def enforce_beam_type(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> bool:
-    """Enforce a specific beam type is used for an operation based on a dictionary. Dictionary must contain sub-dictionary with key 'beam'"""
+    """
+    Enforce a specific beam type is used for an operation based on a dictionary.
+
+    This function ensures that the specified beam type is used for an operation based on the provided settings dictionary. The dictionary must contain a sub-dictionary with the key 'beam'.
+
+    Parameters
+    ----------
+    beam_type : Any
+        The beam type to enforce.
+    step_settings : dict
+        The dictionary containing the step settings.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the beam type is enforced successfully.
+
+    Raises
+    ------
+    NotImplementedError
+        If no handler is available for the provided type.
+    """
     _ = beam_type
     __ = step_settings
     ___ = step_name
@@ -833,6 +1314,34 @@ def _(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> bool:
+    """
+    Enforce that an electron beam is used for an operation based on a dictionary.
+
+    This function ensures that an electron beam is used for an operation based on the provided settings dictionary.
+
+    Parameters
+    ----------
+    beam_type : tbt.ElectronBeam
+        The electron beam type to enforce.
+    step_settings : dict
+        The dictionary containing the step settings.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the electron beam type is enforced successfully.
+
+    Raises
+    ------
+    KeyError
+        If the 'beam' settings are missing from the .yml file.
+    NotImplementedError
+        If the beam type is unsupported or not an electron beam.
+    """
     # beam must be electron
     if yml_format.version >= 1.0:
         beam_set_db = step_settings.get("beam")
@@ -856,6 +1365,34 @@ def _(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> bool:
+    """
+    Enforce that an ion beam is used for an operation based on a dictionary.
+
+    This function ensures that an ion beam is used for an operation based on the provided settings dictionary.
+
+    Parameters
+    ----------
+    beam_type : tbt.IonBeam
+        The ion beam type to enforce.
+    step_settings : dict
+        The dictionary containing the step settings.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the ion beam type is enforced successfully.
+
+    Raises
+    ------
+    KeyError
+        If the 'beam' settings are missing from the .yml file.
+    NotImplementedError
+        If the beam type is unsupported or not an ion beam.
+    """
     # beam must be ion
     if yml_format.version >= 1.0:
         beam_set_db = step_settings.get("beam")
@@ -878,7 +1415,32 @@ def ebsd(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.EBSDSettings:
-    """Performs schema checking to ensure valid inputs are requested."""
+    """
+    Convert an EBSD step from a .yml file to microscope settings for performing an EBSD operation.
+
+    This function converts an EBSD step from a .yml file to `EBSDSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the EBSD settings.
+    step_settings : dict
+        The dictionary containing the EBSD step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.EBSDSettings
+        The EBSD settings object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file or if the 'concurrent_EDS' key is invalid.
+    """
     enforce_beam_type(
         tbt.ElectronBeam(settings=None),
         step_settings=step_settings,
@@ -914,7 +1476,27 @@ def eds(
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.EDSSettings:
-    """Performs schema checking to ensure valid inputs are requested."""
+    """
+    Convert an EDS step from a .yml file to microscope settings for performing an EDS operation.
+
+    This function converts an EDS step from a .yml file to `EDSSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the EDS settings.
+    step_settings : dict
+        The dictionary containing the EDS step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.EDSSettings
+        The EDS settings object.
+    """
     enforce_beam_type(
         tbt.ElectronBeam(settings=None),
         step_settings=step_settings,
@@ -934,40 +1516,40 @@ def eds(
     return eds_settings
 
 
-# def ebsd_eds(
-#     microscope: tbt.Microscope,
-#     step_settings: dict,
-#     step_name: str,
-#     yml_format: tbt.YMLFormatVersion,
-# ) -> tbt.EDSSettings:
-#     """Performs schema checking to ensure valid inputs are requested."""
-#     enforce_beam_type(
-#         tbt.ElectronBeam(settings=None),
-#         step_settings=step_settings,
-#         step_name=step_name,
-#         yml_format=yml_format,
-#     )
-#     image_settings = image(
-#         microscope=microscope,
-#         step_settings=step_settings,
-#         step_name=step_name,
-#         yml_format=yml_format,
-#     )
-#     ebsd_eds_settings = tbt.EBSD_EDSSettings(
-#         image=image_settings,
-#         enable_ebsd=True,
-#         enable_eds=True,
-#     )
-#     return ebsd_eds_settings
-
-
 def custom(
     microscope: tbt.Microscope,
     step_settings: dict,
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.CustomSettings:
-    """Performs schema checking to ensure valid inputs are requested."""
+    """
+    Convert a custom step from a .yml file to custom settings for the microscope.
+
+    This function converts a custom step from a .yml file to `CustomSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the custom settings.
+    step_settings : dict
+        The dictionary containing the custom step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.CustomSettings
+        The custom settings object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file.
+    ValueError
+        If the specified script or executable path does not exist.
+    """
     if yml_format.version >= 1.0:
         script_path = step_settings.get("script_path")
         if script_path is None:
@@ -996,16 +1578,30 @@ def custom(
     return custom_settings
 
 
-def fib_pattern_type(
-    settings: tbt.FIBSettings,
-) -> Union[tbt.FIBBoxPattern, tbt.FIBStreamPattern]:
-    """Returns specific pattern type settings for a properly formatted FIBSettings object"""
+# def fib_pattern_type(
+#     settings: tbt.FIBSettings,
+# ) -> Union[tbt.FIBBoxPattern, tbt.FIBStreamPattern]:
+#     """Returns specific pattern type settings for a properly formatted FIBSettings object"""
 
 
 def scan_limits(
     selected_beam: property,
 ) -> tbt.ScanLimits:
-    """Scan settings limits"""
+    """
+    Retrieve the scan settings limits for the selected beam.
+
+    This function retrieves the limits for rotation and dwell time for the selected beam and returns them as a `ScanLimits` object.
+
+    Parameters
+    ----------
+    selected_beam : property
+        The selected beam property from which to retrieve the scan limits.
+
+    Returns
+    -------
+    tbt.ScanLimits
+        The scan limits for rotation (degrees) and dwell time (microseconds).
+    """
     # rotation
     min_deg = selected_beam.scanning.rotation.limits.min * Conversions.RAD_TO_DEG
     max_deg = selected_beam.scanning.rotation.limits.max * Conversions.RAD_TO_DEG
@@ -1020,7 +1616,26 @@ def scan_limits(
 
 
 def string_to_res(input: str) -> tbt.Resolution:
-    """Converts string in format of "{{width}}x{{height}}" to resolution object"""
+    """
+    Convert a string in the format "{{width}}x{{height}}" to a resolution object.
+
+    This function takes a string representing the resolution in the format "WIDTHxHEIGHT" and converts it to a `Resolution` object.
+
+    Parameters
+    ----------
+    input : str
+        The string representing the resolution in the format "WIDTHxHEIGHT".
+
+    Returns
+    -------
+    tbt.Resolution
+        The resolution object.
+
+    Raises
+    ------
+    ValueError
+        If the input string is not in the expected format.
+    """
     try:
         split_res = (input.lower()).split("x")
         width, height = int(split_res[0]), int(split_res[1])
@@ -1035,7 +1650,21 @@ def string_to_res(input: str) -> tbt.Resolution:
 
 
 def valid_string_resolution(string_resolution: str) -> bool:
-    """validates string resolution"""
+    """
+    Validate a string resolution.
+
+    This function validates a string resolution by converting it to a `Resolution` object and checking if the width and height are within the specified limits.
+
+    Parameters
+    ----------
+    string_resolution : str
+        The string representing the resolution in the format "WIDTHxHEIGHT".
+
+    Returns
+    -------
+    bool
+        True if the resolution is valid, False otherwise.
+    """
     res = string_to_res(string_resolution)
     width, height = res.width, res.height
     return (
@@ -1058,7 +1687,32 @@ def validate_auto_cb_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
-    """Schema checking for auto contrast/brightness setting dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for auto contrast/brightness setting dictionary.
+
+    This function validates the auto contrast/brightness settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the auto contrast/brightness settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    KeyError
+        If required keys are missing from the settings dictionary.
+    ValueError
+        If the settings do not satisfy the specified schema.
+    """
 
     if ut.none_value_dictionary(settings):
         return True
@@ -1134,7 +1788,32 @@ def validate_stage_position(
     settings: dict,
     yml_format: tbt.YMLFormatVersion,
 ) -> bool:
-    """Schema checking for stage position dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for stage position dictionary.
+
+    This function validates the stage position settings dictionary based on the specified yml format and the stage limits of the microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to validate the stage position settings.
+    step_name : str
+        The name of the step in the .yml file.
+    settings : dict
+        The dictionary containing the stage position settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported.
+    """
     limits = stage_limits(microscope=microscope)
 
     if yml_format.version >= 1.0:
@@ -1204,7 +1883,34 @@ def validate_beam_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
-    """Schema checking for beam setting dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for beam setting dictionary.
+
+    This function validates the beam settings dictionary based on the specified yml format and the beam limits of the microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to validate the beam settings.
+    beam_type : tbt.BeamType
+        The type of the beam (electron or ion).
+    settings : dict
+        The dictionary containing the beam settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     specified_beam = beam_object_type(beam_type)(settings=tbt.BeamSettings())
     selected_beam = ut.beam_type(specified_beam, microscope)
 
@@ -1313,7 +2019,36 @@ def validate_detector_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
-    """Schema checking for detector setting dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for detector setting dictionary.
+
+    This function validates the detector settings dictionary based on the specified yml format and the detector capabilities of the microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to validate the detector settings.
+    beam_type : tbt.BeamType
+        The type of the beam (electron or ion).
+    settings : dict
+        The dictionary containing the detector settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    KeyError
+        If auto contrast/brightness settings conflict with fixed brightness/contrast values.
+    ValueError
+        If the yml version is unsupported, or if the settings do not satisfy the specified schema, or if the detector type or mode is unsupported.
+    """
 
     # switch to top left quad, enable e-beam
     devices.device_access(microscope=microscope)
@@ -1413,7 +2148,38 @@ def validate_EBSD_EDS_settings(
     ebsd_oem: str,
     eds_oem: str,
 ) -> bool:
-    """Checks EBSD and EDS OEM and connection for supported OEMs"""
+    """
+    Check EBSD and EDS OEM and connection for supported OEMs.
+
+    This function ensures that the specified EBSD and EDS OEMs are supported and that the connection settings are valid.
+
+    Parameters
+    ----------
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    connection_host : str
+        The host for the microscope connection.
+    connection_port : str
+        The port for the microscope connection.
+    ebsd_oem : str
+        The OEM for the EBSD device.
+    eds_oem : str
+        The OEM for the EDS device.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If differing EBSD and EDS OEMs are requested.
+    ValueError
+        If the EBSD or EDS OEM is unsupported.
+    SystemError
+        If the Laser API is not accessible.
+    """
     # ensure same manufacturer for both EBSD and EDS
     if (ebsd_oem is not None) and (eds_oem is not None) and (ebsd_oem != eds_oem):
         raise NotImplementedError(
@@ -1466,9 +2232,29 @@ def validate_general_settings(
     settings: dict,
     yml_format: tbt.YMLFormatVersion,
 ) -> bool:
-    """Schema checking for general setting dictionary, format specified by yml_format.
-    Checks microscope connection
-    Checks EBSD/EDS connection if valid OEM specified
+    """
+    Perform schema checking for general setting dictionary.
+
+    This function validates the general settings dictionary based on the specified yml format. It checks the microscope connection and EBSD/EDS connection if valid OEMs are specified.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the general settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the general settings dictionary is empty, or if the settings do not satisfy the specified schema, or if the connection is invalid.
+    NotImplementedError
+        If the sectioning axis is unsupported.
     """
 
     if settings == {}:
@@ -1589,7 +2375,34 @@ def validate_scan_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
-    """Schema checking for beam setting dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for scan setting dictionary.
+
+    This function validates the scan settings dictionary based on the specified yml format and the scan limits of the microscope.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to validate the scan settings.
+    beam_type : tbt.BeamType
+        The type of the beam (electron or ion).
+    settings : dict
+        The dictionary containing the scan settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     specified_beam = beam_object_type(beam_type)(settings=tbt.BeamSettings())
     selected_beam = ut.beam_type(specified_beam, microscope)
 
@@ -1647,7 +2460,36 @@ def stage_position_settings(
     step_stage_settings: dict,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.StageSettings:
-    """Create StagePositionUser object from settings, including validation"""
+    """
+    Create a StagePositionUser object from settings, including validation.
+
+    This function creates a `StagePositionUser` object from the provided settings and performs validation.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the stage position.
+    step_name : str
+        The name of the step in the .yml file.
+    general_settings : tbt.GeneralSettings
+        The general settings object.
+    step_stage_settings : dict
+        The dictionary containing the stage position settings for the step.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.StageSettings
+        The stage settings object.
+
+    Raises
+    ------
+    NotImplementedError
+        If the rotation side value is unsupported.
+    ValueError
+        If the stage position settings do not satisfy the specified schema.
+    """
 
     if yml_format.version >= 1.0:
         pos_db = step_stage_settings.get("initial_position")
@@ -1693,6 +2535,32 @@ def validate_pulse_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
+    """
+    Perform schema checking for pulse setting dictionary.
+
+    This function validates the pulse settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the pulse settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If the wavelength or polarization value is unsupported.
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         wavelength_nm = settings.get("wavelength_nm")
         if not ut.valid_enum_entry(wavelength_nm, tbt.LaserWavelength):
@@ -1733,6 +2601,30 @@ def validate_laser_optics_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
+    """
+    Perform schema checking for laser optics setting dictionary.
+
+    This function validates the laser optics settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the laser optics settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         schema = Schema(
             {
@@ -1769,6 +2661,32 @@ def validate_laser_box_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
+    """
+    Perform schema checking for laser box pattern setting dictionary.
+
+    This function validates the laser box pattern settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the laser box pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If the scan type or coordinate reference value is unsupported.
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         # scan type
         scan_type = settings.get("scan_type")
@@ -1838,6 +2756,32 @@ def validate_laser_line_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
+    """
+    Perform schema checking for laser line pattern setting dictionary.
+
+    This function validates the laser line pattern settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the laser line pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If the scan type value is unsupported.
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         # scan type
         scan_type = settings.get("scan_type")
@@ -1884,6 +2828,32 @@ def validate_laser_mode_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> bool:
+    """
+    Perform schema checking for laser mode setting dictionary.
+
+    This function validates the laser mode settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the laser mode settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    NotImplementedError
+        If the laser pattern mode value is unsupported.
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         mode = settings.get("mode")
         if not ut.valid_enum_entry(mode, tbt.LaserPatternMode):
@@ -1949,6 +2919,32 @@ def validate_laser_pattern_settings(
     yml_format: tbt.YMLFormatVersion,
     step_name: str,
 ) -> tbt.LaserPatternType:
+    """
+    Perform schema checking for laser pattern setting dictionary.
+
+    This function validates the laser pattern settings dictionary based on the specified yml format and determines the type of pattern (box or line).
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the laser pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    tbt.LaserPatternType
+        The type of the laser pattern (box or line).
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file or if multiple pattern types are specified.
+    ValueError
+        If the laser pattern settings are invalid.
+    """
     if yml_format.version >= 1.0:
         # determine type of pattern (only one allowed)
         type_set_db = settings.get("type")
@@ -2012,7 +3008,34 @@ def validate_fib_pattern_settings(
     tbt.FIBCleaningCrossSection,
     tbt.FIBStreamPattern,
 ]:
-    """Schema checking for fib pattern setting dictionary, format specified by yml_format"""
+    """
+    Perform schema checking for FIB pattern setting dictionary.
+
+    This function validates the FIB pattern settings dictionary based on the specified yml format and determines the type of pattern (rectangle, regular cross section, cleaning cross section, or selected area).
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to validate the FIB pattern settings.
+    settings : dict
+        The dictionary containing the FIB pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    Union[tbt.FIBRectanglePattern, tbt.FIBRegularCrossSection, tbt.FIBCleaningCrossSection, tbt.FIBStreamPattern]
+        The validated FIB pattern object.
+
+    Raises
+    ------
+    KeyError
+        If required settings are missing from the .yml file or if multiple pattern types are specified.
+    ValueError
+        If the application file is unsupported or invalid for the specified pattern type.
+    """
 
     if yml_format.version >= 1.0:
         application_file = settings.get("application_file")
@@ -2259,6 +3282,32 @@ def validate_fib_box_settings(
     step_name: str,
     pattern_type: tbt.FIBPatternType,
 ) -> bool:
+    """
+    Perform schema checking for FIB box pattern setting dictionary.
+
+    This function validates the FIB box pattern settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the FIB box pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    pattern_type : tbt.FIBPatternType
+        The type of the FIB pattern.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         # flattens nested dictionary, adding "_" separator
         flat_settings = ut._flatten(settings)
@@ -2315,6 +3364,32 @@ def validate_fib_selected_area_settings(
     step_name: str,
     pattern_type: tbt.FIBPatternType,
 ) -> bool:
+    """
+    Perform schema checking for FIB selected area pattern setting dictionary.
+
+    This function validates the FIB selected area pattern settings dictionary based on the specified yml format.
+
+    Parameters
+    ----------
+    settings : dict
+        The dictionary containing the FIB selected area pattern settings.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    pattern_type : tbt.FIBPatternType
+        The type of the FIB pattern.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the yml version is unsupported or if the settings do not satisfy the specified schema.
+    """
     if yml_format.version >= 1.0:
         schema = Schema(
             {
@@ -2377,7 +3452,36 @@ def step(
     general_settings: tbt.GeneralSettings,
     yml_format: tbt.YMLFormatVersion,
 ) -> tbt.Step:
-    """Create step object for different step types, including validation."""
+    """
+    Create a step object for different step types, including validation.
+
+    This function creates a `Step` object for the specified step type and performs validation.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to create the step.
+    step_name : str
+        The name of the step in the .yml file.
+    step_settings : dict
+        The dictionary containing the step settings.
+    general_settings : tbt.GeneralSettings
+        The general settings object.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.Step
+        The step object.
+
+    Raises
+    ------
+    NotImplementedError
+        If the step type is unsupported.
+    KeyError
+        If required settings are missing or invalid.
+    """
 
     # parsing settings
     step_type_value = step_settings[yml_format.step_general_key][

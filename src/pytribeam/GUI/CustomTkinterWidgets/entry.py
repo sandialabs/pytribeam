@@ -76,7 +76,6 @@ class Entry(tk.Entry):
         if "right" in borders.lower():
             separator = ttk.Separator(self, orient="vertical")
             separator.place(in_=self, y=0, relx=1.0, width=2, relheight=1.0)
-        
 
     def validate(
         self,
@@ -101,7 +100,11 @@ class Entry(tk.Entry):
             if re.match(r"^[+1]?\d*$", value_if_allowed):
                 return True
         elif self.dtype == float:
-            if re.match(r"^[+-]?\d*\.?\d+$", value_if_allowed) or re.match(r"^[+-]?\d+\.\d*$", value_if_allowed) or value_if_allowed == "-":
+            if (
+                re.match(r"^[+-]?\d*\.?\d+$", value_if_allowed)
+                or re.match(r"^[+-]?\d+\.\d*$", value_if_allowed)
+                or value_if_allowed == "-"
+            ):
                 return True
         elif self.dtype == str:
             return True
