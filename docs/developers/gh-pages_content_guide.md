@@ -83,7 +83,27 @@ curl -k -L -o badges/userguide.svg "https://img.shields.io/badge/userguide-Book-
 ## api docs
 
 ```sh
-
+pdoc ./src/pytribeam/  -o ./docs/api
+test -d badges/ || mkdir -p badges
+# anybadge -o -l api -v passing -f badges/api.svg -c green
+#docstring coverage
+DOCSTRING_COVERAGE_RAW=$(docstr-coverage --percentage-only src/ -e ".*(GUI)")
+DOCSTRING_COVERAGE=$(printf "%.1f" "$DOCSTRING_COVERAGE_RAW")
+echo "Coverage Percentage: $DOCSTRING_COVERAGE%"
+# Determine badge color based on coverage percentage using awk for comparison
+COLOR=$(awk -v coverage="$DOCSTRING_COVERAGE" 'BEGIN {
+    if (coverage < 40) {
+        print "red"
+    } else if (coverage < 80) {
+        print "orange"
+    } else if (coverage < 90) {
+        print "yellow"
+    } else {
+        print "green"
+    }
+}')
+echo "badge color: $COLOR"
+anybadge -o -l api -v "$DOCSTRING_COVERAGE% coverage" -f badges/api.svg -c "$COLOR"
 ```
 
 ## test coverage
@@ -123,5 +143,19 @@ fi
 combined test coverage, delete .gitignore to push these up
 
 ## lint logs
+
+```sh
+mkdir -p logs/
+# pylint --output-format=text src/pytribeam | tee logs/lint.log || pylint-exit $?
+
+# ignore GUI for linting
+# pylint -v --ignore=GUI src/pytribeam | tee logs/lint.log || pylint-exit $?
+
+pylint -v src/pytribeam | tee logs/lint.log || pylint-exit $? #ignore GUI for linting
+
+test -d badges/ || mkdir -p badges/
+PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' logs/lint.log)
+anybadge -o --label=lint --file=badges/lint.svg --value=${PYLINT_SCORE} 2=red 4=orange 8=yellow 10=green
+```
 
 ## versioning
