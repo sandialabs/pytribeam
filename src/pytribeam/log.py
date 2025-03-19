@@ -131,9 +131,9 @@ def yml_from_log(
     # TODO enforce file formats on inputs
     with h5py.File(log_path_h5, "r") as file:
         data = np.array(file[Constants.settings_dataset_name][:])
-    settings = data[row][Constants.settings_dtype.names.index(config_field)].decode(
-        "utf-8"
-    )
+    settings = data[row][
+        Constants.settings_dtype.names.index(config_field)
+    ].decode("utf-8")
 
     with open(output_path_yml, "w") as file:
         file.write(settings)

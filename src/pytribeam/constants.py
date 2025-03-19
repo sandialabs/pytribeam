@@ -3,27 +3,27 @@
 Constants Module
 ================
 
-This module contains various constants and conversion factors used throughout the software. The constants are organized into two main classes: `Constants` and `Conversions`.
+This module contains various constants and conversion factors used
+throughout the software. The constants are organized into two main 
+classes: `Constants` and `Conversions`.
 
 Classes
 -------
 Constants : NamedTuple
-    A NamedTuple containing various constants related to software versions, log files, beam parameters, detector parameters, laser parameters, FIB parameters, stage parameters, mapping parameters, test suite parameters, and error message display parameters.
+    A NamedTuple containing various constants related to software 
+    versions, log files, beam parameters, detector parameters, laser 
+    parameters, FIB parameters, stage parameters, mapping parameters, 
+    test suite parameters, and error message display parameters.
 
 Conversions : NamedTuple
-    A NamedTuple containing various conversion factors for length, time, voltage, current, and angle.
+    A NamedTuple containing various conversion factors for length, time, 
+    voltage, current, and angle.
 """
 
 # Default python modules
-import os
-from pathlib import Path
-import time
-import warnings
 import math
-from typing import Dict, NamedTuple, Tuple, List
-import platform
+from typing import NamedTuple
 
-import pytest
 import numpy as np
 import h5py
 
@@ -33,7 +33,8 @@ import pytribeam.types as tbt
 
 class Constants(NamedTuple):
     """
-    A NamedTuple containing various constants used throughout the software.
+    A NamedTuple containing various constants used throughout the 
+    software.
 
     Attributes
     ----------
@@ -98,7 +99,8 @@ class Constants(NamedTuple):
     laser_energy_tol_uj : float
         Tolerance for laser energy in microjoules.
     laser_delay_s : float
-        Delay for measuring power and setting pulse divider/energy in seconds.
+        Delay for measuring power and setting pulse divider/energy in 
+        seconds.
 
     default_fib_rectangle_pattern : tbt.FIBRectanglePattern
         Default FIB rectangle pattern.
@@ -152,7 +154,8 @@ class Constants(NamedTuple):
     module_short_name = "pyTriBeam"
     autoscript_version = "4.8.1"
     laser_api_version = "2.2.1"
-    yml_schema_version = "1.0"  # max supported version #TODO convert to float
+    #TODO convert to float
+    yml_schema_version = "1.0"  # max supported version
 
     # Log file constants
     logfile_extension = ".h5"
@@ -215,13 +218,17 @@ class Constants(NamedTuple):
     contrast_brightness_tolerance = 1.0e-4  # range is 0 to 1
 
     # Laser constants
-    image_scan_rotation_for_laser_deg = 180.0  # requirement by TFS for laser milling
+    image_scan_rotation_for_laser_deg = (
+        180.0  # requirement by TFS for laser milling
+    )
     laser_objective_limit_mm = tbt.Limit(min=2.0, max=29.0)
     laser_objective_retracted_mm = 2.5  # safe retracted position
     laser_objective_tolerance_mm = 0.005
     laser_beam_shift_tolerance_um = 0.5
     laser_energy_tol_uj = 0.05
-    laser_delay_s = 3.0  # for measuring power and settings pulse divider/energy
+    laser_delay_s = (
+        3.0  # for measuring power and settings pulse divider/energy
+    )
 
     # FIB constants
     default_fib_rectangle_pattern = tbt.FIBRectanglePattern(
@@ -235,32 +242,33 @@ class Constants(NamedTuple):
         scan_direction=tbt.FIBPatternScanDirection.TOP_TO_BOTTOM,
         scan_type=tbt.FIBPatternScanType.RASTER,
     )
-    stream_pattern_scale = (
-        2**12
-    )  # upscales fib image to this value / width for higher density of points
-    stream_pattern_y_shift = int(
-        2**16 / 6
-    )  # for correct centering of stream patterns, with scan control available only at 16 bit depth, must account for 3:2 aspect ratio for image length:width and cut off half the discrepancy on both top and bottom. Full equation: 2^16(1-(2/3)) / 2
-    stream_pattern_base_dwell_us = 0.025  # can be 25 or 100 ns, defaults to 25ns
+    # upscales fib image to this value / width for higher density of points
+    stream_pattern_scale = 2**12
+    # for correct centering of stream patterns, with scan control
+    # available only at 16 bit depth, must account for 3:2 aspect ratio
+    # for image length:width and cut off half the discrepancy on both
+    # top and bottom. Full equation: 2^16(1-(2/3)) / 2
+    stream_pattern_y_shift = int(2**16 / 6)
+    # can be 25 or 100 ns, defaults to 25ns
+    stream_pattern_base_dwell_us = 0.025
 
     # Stage constants
     stage_move_delay_s = 0.5
-    stage_move_attempts = (
-        2  # generally higher accuracy on movement with 2 attempts for non-piezo stages
-    )
+    # generally higher accuracy on movement with 2 attempts
+    stage_move_attempts = 2
     default_stage_tolerance = tbt.StageTolerance(
         translational_um=0.5,
         angular_deg=0.02,
     )
-    slice_thickness_limit_um = tbt.Limit(min=0.0, max=30.0)  # TODO revert to 0.5 micron
+    slice_thickness_limit_um = tbt.Limit(min=0.0, max=30.0)
     pre_tilt_limit_deg_generic = tbt.Limit(min=-60.0, max=60.0)
     pre_tilt_limit_deg_non_Z_sectioning = tbt.Limit(min=0.0, max=0.0)
     home_position = tbt.StagePositionUser(
         x_mm=0.0, y_mm=0.0, z_mm=0.0, r_deg=0.0, t_deg=0.0
     )
-    rotation_axis_limit_deg = tbt.Limit(
-        min=-180.0, max=180.0
-    )  # used as right-open internal: 180.0 is not valid and should be converted to -180.0
+    # used as right-open internal: 180.0 is not valid
+    # and should be converted to -180.0
+    rotation_axis_limit_deg = tbt.Limit(min=-180.0, max=180.0)
     detector_collisions = [
         [tbt.DetectorType.CBS, tbt.DetectorType.EDS],
         [tbt.DetectorType.CBS, tbt.DetectorType.EBSD],
@@ -285,7 +293,8 @@ class Constants(NamedTuple):
 
 class Conversions(NamedTuple):
     """
-    A NamedTuple containing various conversion constants for length, time, voltage, current, and angle.
+    A NamedTuple containing various conversion constants for length, 
+    time, voltage, current, and angle.
 
     Attributes
     ----------

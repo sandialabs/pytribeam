@@ -3,7 +3,9 @@
 FIB Module
 ==========
 
-This module contains functions for performing various operations related to Focused Ion Beam (FIB) milling, including preparing the microscope for milling, creating patterns, and performing milling operations.
+This module contains functions for performing various operations related
+to Focused Ion Beam (FIB) milling, including preparing the microscope
+for milling, creating patterns, and performing milling operations.
 
 Functions
 ---------
@@ -11,59 +13,64 @@ application_files(microscope: tbt.Microscope) -> List[str]
     Get the list of application files from the current microscope.
 
 shutter_control(microscope: tbt.Microscope) -> None
-    Ensure auto control is set on the e-beam shutter. Manual control is not currently offered.
+    Ensure auto control is set on the e-beam shutter. Manual control is
+    not currently offered.
 
-prepare_milling(microscope: tbt.Microscope, application: str, patterning_device: tbt.Device = tbt.Device.ION_BEAM) -> bool
-    Clear old patterns, assign patterning to ion beam by default, and load the application.
+prepare_milling(microscope: tbt.Microscope, application: str,
+                patterning_device: tbt.Device = tbt.Device.ION_BEAM) -> bool
+    Clear old patterns, assign patterning to ion beam by default,
+    and load the application.
 
 create_pattern(geometry, microscope: tbt.Microscope, **kwargs: dict) -> bool
     Create a pattern on the microscope based on the provided geometry.
 
-create_pattern(geometry: tbt.FIBRectanglePattern, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.RectanglePattern
+create_pattern(geometry: tbt.FIBRectanglePattern,
+               microscope: tbt.Microscope, **kwargs: dict) 
+               -> tbt.as_dynamics.RectanglePattern
     Create a rectangle pattern on the microscope.
 
-create_pattern(geometry: tbt.FIBRegularCrossSection, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.RegularCrossSectionPattern
+create_pattern(geometry: tbt.FIBRegularCrossSection, 
+               microscope: tbt.Microscope, **kwargs: dict) 
+               -> tbt.as_dynamics.RegularCrossSectionPattern
     Create a regular cross-section pattern on the microscope.
 
-create_pattern(geometry: tbt.FIBCleaningCrossSection, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.CleaningCrossSectionPattern
+create_pattern(geometry: tbt.FIBCleaningCrossSection,
+               microscope: tbt.Microscope, **kwargs: dict) 
+               -> tbt.as_dynamics.CleaningCrossSectionPattern
     Create a cleaning cross-section pattern on the microscope.
 
-create_pattern(geometry: tbt.FIBStreamPattern, microscope: tbt.Microscope, **kwargs: dict) -> tbt.StreamPattern
+create_pattern(geometry: tbt.FIBStreamPattern,
+               microscope: tbt.Microscope, **kwargs: dict) 
+               -> tbt.StreamPattern
     Create a stream pattern on the microscope.
 
-image_processing(geometry: tbt.FIBStreamPattern, input_image_path: Path) -> bool
+image_processing(geometry: tbt.FIBStreamPattern,
+                 input_image_path: Path) -> bool
     Perform image processing for FIB stream pattern.
 
-mill_operation(step: tbt.Step, fib_settings: tbt.FIBSettings, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
+mill_operation(step: tbt.Step, fib_settings: tbt.FIBSettings,
+               general_settings: tbt.GeneralSettings,
+               slice_number: int) -> bool
     Perform a milling operation based on the provided step and settings.
 """
 # Default python modules
 from functools import singledispatch
-import os
 from pathlib import Path
-import time
 import warnings
-import math
-from typing import NamedTuple, List, Tuple
-from functools import singledispatch
+from typing import List
 import subprocess
 
 # Autoscript included modules
 from PIL import Image as pil_img
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-import h5py
 
 # 3rd party module
 
 # Local scripts
 import pytribeam.constants as cs
 from pytribeam.constants import Conversions
-import pytribeam.insertable_devices as devices
-import pytribeam.factory as factory
 import pytribeam.types as tbt
-import pytribeam.utilities as ut
 import pytribeam.image as img
 
 
@@ -71,12 +78,15 @@ def application_files(microscope: tbt.Microscope) -> List[str]:
     """
     Get the list of application files from the current microscope.
 
-    This function retrieves the list of application files available on the current microscope, removes any "None" entries, and sorts the list.
+    This function retrieves the list of application files available on
+    the current microscope, removes any "None" entries, and sorts the
+    list.
 
     Parameters
     ----------
     microscope : tbt.Microscope
-        The microscope object from which to retrieve the application files.
+        The microscope object from which to retrieve the application
+        files.
 
     Returns
     -------
@@ -95,9 +105,12 @@ def application_files(microscope: tbt.Microscope) -> List[str]:
 
 def shutter_control(microscope: tbt.Microscope) -> None:
     """
-    Ensure auto control is set on the e-beam shutter. Manual control is not currently offered.
+    Ensure auto control is set on the e-beam shutter. Manual control is
+    not currently offered.
 
-    This function checks if the e-beam protective shutter is installed and sets its mode to automatic if it is not already set. If the shutter cannot be set to automatic mode, a SystemError is raised.
+    This function checks if the e-beam protective shutter is installed
+    and sets its mode to automatic if it is not already set. If the
+    shutter cannot be set to automatic mode, a SystemError is raised.
 
     Parameters
     ----------
@@ -107,16 +120,20 @@ def shutter_control(microscope: tbt.Microscope) -> None:
     Raises
     ------
     SystemError
-        If the e-beam shutter is installed but cannot be set to automatic mode.
+        If the e-beam shutter is installed but cannot be set to
+        automatic mode.
 
     Warnings
     --------
     UserWarning
-        If the e-beam shutter is not installed or if it is set to automatic mode.
+        If the e-beam shutter is not installed or if it is set to
+        automatic mode.
     """
     shutter = microscope.beams.electron_beam.protective_shutter
     if not shutter.is_installed:
-        warnings.warn("Protective E-beam shutter not installed on this system.")
+        warnings.warn(
+            "Protective E-beam shutter not installed on this system."
+        )
         return
     status = shutter.mode.value
     if status != tbt.ProtectiveShutterMode.AUTOMATIC:
@@ -140,9 +157,13 @@ def prepare_milling(
     # TODO validation and error checking from TFS
     # TODO support e-beam patterning via the mill_beam settings
     """
-    Clear old patterns, assign patterning to ion beam by default, and load the application.
+    Clear old patterns, assign patterning to ion beam by default, and
+    load the application.
 
-    This function clears old patterns, assigns the patterning device to the specified beam (ion beam by default), and loads the specified application. It validates the patterning device and application file.
+    This function clears old patterns, assigns the patterning device to
+    the specified beam (ion beam by default), and loads the specified
+    application. It validates the patterning device and application
+    file.
 
     Parameters
     ----------
@@ -151,7 +172,8 @@ def prepare_milling(
     application : str
         The name of the application file to load.
     patterning_device : tbt.Device, optional
-        The device to use for patterning (default is tbt.Device.ION_BEAM).
+        The device to use for patterning (default is
+        tbt.Device.ION_BEAM).
 
     Returns
     -------
@@ -161,7 +183,8 @@ def prepare_milling(
     Raises
     ------
     ValueError
-        If the patterning device is invalid or if the application file is not found on the system.
+        If the patterning device is invalid or if the application file
+        is not found on the system.
     """
     valid_devices = [tbt.Device.ELECTRON_BEAM, tbt.Device.ION_BEAM]
     if patterning_device not in valid_devices:
@@ -169,13 +192,14 @@ def prepare_milling(
             f"Invalid patterning device of '{patterning_device}' requested, only '{[i for i in valid_devices]}' are valid."
         )
     microscope.patterning.clear_patterns()
-    microscope.patterning.set_default_beam_type(beam_index=patterning_device.value)
+    microscope.patterning.set_default_beam_type(
+        beam_index=patterning_device.value
+    )
     if application not in microscope.patterning.list_all_application_files():
         raise ValueError(
             f"Invalid application file on this system, there is no patterning application with name: '{application}'."
         )
-    else:
-        microscope.patterning.set_default_application_file(application)
+    microscope.patterning.set_default_application_file(application)
 
     return True
 
@@ -189,7 +213,10 @@ def create_pattern(
     """
     Create a pattern on the microscope based on the provided geometry.
 
-    This function creates a pattern on the microscope based on the provided geometry. It is a generic function that raises a NotImplementedError if no handler is available for the provided geometry type.
+    This function creates a pattern on the microscope based on the
+    provided geometry. It is a generic function that raises a
+    NotImplementedError if no handler is available for the provided
+    geometry type.
 
     Parameters
     ----------
@@ -362,7 +389,9 @@ def _(
         mask = np.asarray(mask_img).astype(int)
 
     stream_def = tbt.StreamPatternDefinition()
-    stream_def.bit_depth = tbt.StreamDepth.BITS_16  # only supported bit depth now
+    stream_def.bit_depth = (
+        tbt.StreamDepth.BITS_16
+    )  # only supported bit depth now
     dwell_time = geometry.dwell_us * Conversions.US_TO_S
 
     scale_factor = cs.Constants.stream_pattern_scale / width
@@ -372,9 +401,9 @@ def _(
         interpolation=cv2.INTER_NEAREST,
     )
     idx = np.where(point_img == 1)
-    num_points = (
-        len(idx[0]) + 2
-    )  # top right and bottom left corners each have a point to make sure pattern is centered
+    # top right and bottom left corners each have a point to make sure
+    # pattern is centered
+    num_points = len(idx[0]) + 2
 
     # stream pattern is defined by 4 values for each point
     # [x, y, dwell_time, flags]
@@ -420,12 +449,15 @@ def image_processing(
     """
     Perform image processing for FIB stream pattern.
 
-    This function runs an image processing script specified by the `recipe_file` in the `geometry` object, using the input image path and outputting the mask file.
+    This function runs an image processing script specified by the
+    `recipe_file` in the `geometry` object, using the input image path
+    and outputting the mask file.
 
     Parameters
     ----------
     geometry : tbt.FIBStreamPattern
-        The geometry of the FIB stream pattern, including the `recipe_file` and `mask_file`.
+        The geometry of the FIB stream pattern, including the
+        `recipe_file` and `mask_file`.
     input_image_path : Path
         The path to the input image.
 
@@ -437,7 +469,8 @@ def image_processing(
     Raises
     ------
     ValueError
-        If the subprocess call for the script does not execute correctly or if the mask file is not created.
+        If the subprocess call for the script does not execute correctly
+        or if the mask file is not created.
     """
     output = subprocess.run(
         [
@@ -473,14 +506,16 @@ def mill_operation(
     """
     Perform a milling operation based on the provided step and settings.
 
-    This function performs a milling operation using the specified step, FIB settings, general settings, and slice number.
+    This function performs a milling operation using the specified step,
+    FIB settings, general settings, and slice number.
 
     Parameters
     ----------
     step : tbt.Step
         The step object containing the operation settings.
     fib_settings : tbt.FIBSettings
-        The FIB settings object containing the microscope and pattern settings.
+        The FIB settings object containing the microscope and pattern
+        settings.
     general_settings : tbt.GeneralSettings
         The general settings object.
     slice_number : int
@@ -512,8 +547,7 @@ def mill_operation(
     if fib_settings.pattern.type != tbt.FIBPatternType.SELECTED_AREA:
         input_image_path = None
     else:
-        input_image_path = Path.join(
-            general_settings.exp_dir,
+        input_image_path = (general_settings.exp_dir).joinpath(
             step.name,
             f"{slice_number:04}.tif",
         )
@@ -523,7 +557,7 @@ def mill_operation(
             )
 
     # make the pattern
-    pattern = create_pattern(
+    create_pattern(
         fib_settings.pattern.geometry,
         microscope=microscope,
         kwargs={"input_image_path": input_image_path},

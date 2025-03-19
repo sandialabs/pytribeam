@@ -144,14 +144,24 @@ combined test coverage, delete .gitignore to push these up
 
 ## lint logs
 
+Force black formmater to control line length:
+```sh
+black --line-length 79 ./src/pytribeam/module.py
+```
+
+Lint a specific file, no log:
+```sh
+pylint -v ./src/pytribeam/module.py
+```
+
 ```sh
 mkdir -p logs/
 # pylint --output-format=text src/pytribeam | tee logs/lint.log || pylint-exit $?
 
 # ignore GUI for linting
-# pylint -v --ignore=GUI src/pytribeam | tee logs/lint.log || pylint-exit $?
+pylint -v --ignore=GUI src/pytribeam | tee logs/lint.log || pylint-exit $?
 
-pylint -v src/pytribeam | tee logs/lint.log || pylint-exit $? #ignore GUI for linting
+# pylint -v src/pytribeam | tee logs/lint.log || pylint-exit $? #ignore GUI for linting
 
 test -d badges/ || mkdir -p badges/
 PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' logs/lint.log)

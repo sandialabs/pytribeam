@@ -14,8 +14,8 @@ from pathlib import Path
 # import pkg_resources  # part of setup tools
 from importlib.metadata import version
 import pytribeam.constants as cs
-import pytribeam.GUI.runner as runner
-import pytribeam.workflow as workflow
+from pytribeam.GUI import runner
+from pytribeam import workflow
 
 CLI_DOCS: Final[
     str
@@ -28,8 +28,8 @@ pytribeam
     (this command)
 
 pytribeam_info
-    Prints the module version and ThermoFisher Scientific Autoscript and Laser
-    API version requirements.
+    Prints the module version and ThermoFisher Scientific Autoscript 
+    and Laser API version requirements.
 
 pytribeam_gui
     Launches GUI for creating configuration .yml files and to control
@@ -48,9 +48,9 @@ def pytribeam():
     """
     Prints the command line documentation to the command window.
 
-    This function prints the contents of the global variable `CLI_DOCS` to the
-    command window. It is assumed that `CLI_DOCS` contains the necessary
-    documentation in string format.
+    This function prints the contents of the global variable `CLI_DOCS` 
+    to the command window. It is assumed that `CLI_DOCS` contains the 
+    necessary documentation in string format.
 
     Parameters
     ----------
@@ -63,13 +63,14 @@ def pytribeam():
     print(CLI_DOCS)
 
 
-def module_info() -> None:
+def module_info():
     """
     Prints the module version and the yml_schema_version.
 
-    This function retrieves the version of the module and the YAML schema version
-    from the `Constants` class in the `cs` module (constants.py). It prints these
-    versions to the command window and returns the module version.
+    This function retrieves the version of the module and the YAML 
+    schema version from the `Constants` class in the `cs` module 
+    (constants.py). It prints these versions to the command window and 
+    returns the module version.
 
     Parameters
     ----------
@@ -92,11 +93,20 @@ def module_info() -> None:
         f"  Maximum supported Thermo Fisher Autoscript version: v{autoscript_version}"
     )
     print(f"  Maximum supported Laser API version: v{laser_api_version}")
-    return None
 
 
 def launch_gui():
-    # work_in_progress()
+    """
+    Launches the TriBeam Runner GUI.
+
+    Parameters
+    ----------
+    None
+
+    Returns
+    -------
+    None
+    """
     app = runner.MainApplication()
     app.mainloop()
 
@@ -112,8 +122,9 @@ def run_experiment():
                 value = int(input(prompt))
                 if value > 0:
                     return value  # Return the valid integer
-                else:
-                    print("Invalid input. Please enter an integer greater than 0.")
+                print(
+                    "Invalid input. Please enter an integer greater than 0."
+                )
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
@@ -121,7 +132,9 @@ def run_experiment():
     parser = argparse.ArgumentParser(description="Process a file.")
 
     # Add the file path argument
-    parser.add_argument("file_path", type=str, help="Path to the file to process")
+    parser.add_argument(
+        "file_path", type=str, help="Path to the file to process"
+    )
 
     # Parse the arguments
     args = parser.parse_args()
@@ -131,7 +144,9 @@ def run_experiment():
 
     # Call the main function with the provided file path
     workflow.run_experiment_cli(
-        start_slice=start_slice, start_step=start_step, yml_path=Path(args.file_path)
+        start_slice=start_slice,
+        start_step=start_step,
+        yml_path=Path(args.file_path),
     )
 
 
@@ -139,8 +154,8 @@ def work_in_progress():
     """
     Prints the 'Work in Progress (WIP)' warning message.
 
-    This function prints a warning message indicating that the function is a
-    work in progress and has not yet been implemented.
+    This function prints a warning message indicating that the function 
+    is a work in progress and has not yet been implemented.
 
     Parameters
     ----------

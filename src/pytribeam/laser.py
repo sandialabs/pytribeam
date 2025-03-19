@@ -353,7 +353,9 @@ def set_wavelength(
 
     def correct_preset(laser_state: tbt.LaserState):
         if laser_state.wavelength_nm == wavelength:
-            return math.isclose(laser_state.frequency_khz, frequency_khz, rel_tol=0.05)
+            return math.isclose(
+                laser_state.frequency_khz, frequency_khz, rel_tol=0.05
+            )
             # TODO use constant for tolerance):
         return False
 
@@ -539,7 +541,9 @@ def pulse_settings(pulse: tbt.LaserPulse) -> True:
         set_wavelength(wavelength=pulse.wavelength_nm)
     pulse_divider(divider=pulse.divider)
     pulse_energy_uj(energy_uj=pulse.energy_uj)
-    pulse_polarization(polarization=pulse.polarization, wavelength=pulse.wavelength_nm)
+    pulse_polarization(
+        polarization=pulse.polarization, wavelength=pulse.wavelength_nm
+    )
     return True
 
 
@@ -771,7 +775,9 @@ def create_pattern(pattern: tbt.LaserPattern):
     return True
 
 
-def apply_laser_settings(image_beam: tbt.Beam, settings: tbt.LaserSettings) -> bool:
+def apply_laser_settings(
+    image_beam: tbt.Beam, settings: tbt.LaserSettings
+) -> bool:
     """
     Apply the laser settings to the current patterning.
 

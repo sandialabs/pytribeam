@@ -313,7 +313,9 @@ def disconnect_microscope(
     if microscope.server_host is None:
         return True
     else:
-        raise ConnectionError("Disconnection failed, microscope still connected")
+        raise ConnectionError(
+            "Disconnection failed, microscope still connected"
+        )
 
 
 def general_settings(exp_settings: dict, yml_format: tbt.YMLFormat) -> dict:
@@ -818,7 +820,9 @@ def yml_to_dict(
     keys_exist = tuple(map(lambda x: x in found_keys, required_keys))
     has_required_keys = all(keys_exist)
     if not has_required_keys:
-        raise KeyError(f"Input files must have these keys defined: {required_keys}")
+        raise KeyError(
+            f"Input files must have these keys defined: {required_keys}"
+        )
 
     version_specified = db["config_file_version"]
     version_requested = version
@@ -864,7 +868,9 @@ def yml_version(
         version = data[key_name]
     except KeyError:
         # print(f"Error with version key: {error}")
-        raise KeyError(f"Error with version key, '{key_name}' key not found in {file}.")
+        raise KeyError(
+            f"Error with version key, '{key_name}' key not found in {file}."
+        )
     try:
         version = float(version)
     except ValueError:
@@ -1007,7 +1013,9 @@ def run_on_standalone_machine(func):
 
     def wrapper_func():
         current_machine = platform.uname().node.lower()
-        test_machines = [machine.lower() for machine in Constants().offline_machines]
+        test_machines = [
+            machine.lower() for machine in Constants().offline_machines
+        ]
         if current_machine not in test_machines:
             pytest.skip("Run on Offline License Machine Only.")
         func()
@@ -1032,7 +1040,9 @@ def run_on_microscope_machine(func):
 
     def wrapper_func():
         current_machine = platform.uname().node.lower()
-        test_machines = [machine.lower() for machine in Constants().microscope_machines]
+        test_machines = [
+            machine.lower() for machine in Constants().microscope_machines
+        ]
         if current_machine not in test_machines:
             pytest.skip("Run on Microscope Machine Only.")
         func()

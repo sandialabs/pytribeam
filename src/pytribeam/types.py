@@ -506,7 +506,9 @@ class DetectorMode(Enum):
     A_MINUS_B: str = as_enums.DetectorMode.A_MINUS_B
     ANGULAR: str = as_enums.DetectorMode.ANGULAR
     ANGULAR_PARTIAL: str = as_enums.DetectorMode.ANGULAR_PARTIAL
-    ANGULAR_PARTIAL_COMPLEMENT: str = as_enums.DetectorMode.ANGULAR_PARTIAL_COMPLEMENT
+    ANGULAR_PARTIAL_COMPLEMENT: str = (
+        as_enums.DetectorMode.ANGULAR_PARTIAL_COMPLEMENT
+    )
     ANULAR_A: str = as_enums.DetectorMode.ANULAR_A
     ANULAR_B: str = as_enums.DetectorMode.ANULAR_B
     ANULAR_C: str = as_enums.DetectorMode.ANULAR_C
@@ -697,7 +699,9 @@ class Device(IntEnum):
     IR_CAMERA = as_enums.ImagingDevice.IR_CAMERA
     NAV_CAM = as_enums.ImagingDevice.NAV_CAM
     OPTICAL_MICROSCOPE = as_enums.ImagingDevice.OPTICAL_MICROSCOPE
-    VOLUMESCOPE_APPROACH_CAMERA = as_enums.ImagingDevice.VOLUMESCOPE_APPROACH_CAMERA
+    VOLUMESCOPE_APPROACH_CAMERA = (
+        as_enums.ImagingDevice.VOLUMESCOPE_APPROACH_CAMERA
+    )
 
 
 class DummyFile(object):
@@ -1456,7 +1460,9 @@ class VacuumState(Enum):
 
     ERROR: str = as_enums.VacuumState.ERROR
     PUMPED: str = as_enums.VacuumState.PUMPED
-    PUMPED_FOR_WAFER_EXCHANGE: str = as_enums.VacuumState.PUMPED_FOR_WAFER_EXCHANGE
+    PUMPED_FOR_WAFER_EXCHANGE: str = (
+        as_enums.VacuumState.PUMPED_FOR_WAFER_EXCHANGE
+    )
     PUMPING: str = as_enums.VacuumState.PUMPING
     UNKNOWN: str = as_enums.VacuumState.UNKNOWN
     VENTED: str = as_enums.VacuumState.VENTED

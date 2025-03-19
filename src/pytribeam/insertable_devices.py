@@ -194,7 +194,9 @@ def detectors_will_collide(
                     if external.EBSD_CameraStatus() != device_retracted:
                         return True
                 else:
-                    state = detector_state(microscope=microscope, detector=detector)
+                    state = detector_state(
+                        microscope=microscope, detector=detector
+                    )
                     if state.value != device_retracted:
                         return True
     return False
@@ -262,7 +264,9 @@ def insert_EBSD(
     ebsd_cam_status = tbt.RetractableDeviceState(external.EBSD_CameraStatus())
     map_status = tbt.MapStatus(external.EBSD_MappingStatus())
     if ebsd_cam_status == tbt.RetractableDeviceState.ERROR:
-        raise SystemError("Error, EDS Camera in error state, workflow stopped.")
+        raise SystemError(
+            "Error, EDS Camera in error state, workflow stopped."
+        )
     if map_status != tbt.MapStatus.IDLE:
         raise SystemError(
             f'Error, EBSD mapping not in "{tbt.MapStatus.IDLE.value}" state.'
@@ -285,11 +289,15 @@ def insert_EBSD(
             time.sleep(waittime)
             timeout = timeout - waittime
             if timeout < 1:
-                warnings.warn("Warning: EBSD insert timeout. Trying to continue...")
+                warnings.warn(
+                    "Warning: EBSD insert timeout. Trying to continue..."
+                )
                 break
         CCD_pause(microscope=microscope)
 
-    new_ebsd_cam_status = tbt.RetractableDeviceState(external.EBSD_CameraStatus())
+    new_ebsd_cam_status = tbt.RetractableDeviceState(
+        external.EBSD_CameraStatus()
+    )
     if new_ebsd_cam_status == tbt.RetractableDeviceState.INSERTED:
         print("\tEBSD Camera inserted")
         return True
@@ -333,7 +341,9 @@ def insert_EDS(
     eds_cam_status = tbt.RetractableDeviceState(external.EDS_CameraStatus())
     map_status = tbt.MapStatus(external.EDS_MappingStatus())
     if eds_cam_status == tbt.RetractableDeviceState.ERROR:
-        raise SystemError("Error, EDS Camera in error state, workflow stopped.")
+        raise SystemError(
+            "Error, EDS Camera in error state, workflow stopped."
+        )
     if map_status != tbt.MapStatus.IDLE:
         raise SystemError(
             f'Error, EDS mapping not in "{tbt.MapStatus.IDLE.value}" state.'
@@ -344,7 +354,9 @@ def insert_EDS(
         external.EDS_InsertCamera()
         CCD_pause(microscope=microscope)
 
-    new_eds_cam_status = tbt.RetractableDeviceState(external.EDS_CameraStatus())
+    new_eds_cam_status = tbt.RetractableDeviceState(
+        external.EDS_CameraStatus()
+    )
     if new_eds_cam_status == tbt.RetractableDeviceState.INSERTED:
         print("\tEDS Camera inserted")
         return True
@@ -406,7 +418,10 @@ def insert_detector(
         microscope.detector.insert()
         time.sleep(time_delay_s)
         CCD_pause(microscope=microscope)
-        if microscope.detector.state == tbt.RetractableDeviceState.INSERTED.value:
+        if (
+            microscope.detector.state
+            == tbt.RetractableDeviceState.INSERTED.value
+        ):
             print(f"\t\t{detector.value} detector inserted.")
             return True
     elif state == tbt.RetractableDeviceState.INSERTED.value:
@@ -446,7 +461,9 @@ def retract_all_devices(
     ------
     None
     """
-    print("\tRetracting devices, do not interact with xTUI during this process...")
+    print(
+        "\tRetracting devices, do not interact with xTUI during this process..."
+    )
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     device_access(microscope)
 
@@ -456,7 +473,9 @@ def retract_all_devices(
             microscope=microscope,
             detector=detector,
         )
-        if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
+        if (state is not None) and (
+            state != tbt.RetractableDeviceState.RETRACTED
+        ):
             retract_device(
                 microscope=microscope,
                 detector=detector,
@@ -467,7 +486,9 @@ def retract_all_devices(
         external
     except NameError:
         pass
-        print("\t\tLaser API not imported, EBSD and EDS detectors are unavailable")
+        print(
+            "\t\tLaser API not imported, EBSD and EDS detectors are unavailable"
+        )
     else:
         if enable_EBSD:
             retract_EBSD(microscope=microscope)
@@ -551,7 +572,9 @@ def retract_EBSD(microscope: tbt.Microscope) -> bool:
         cameraokconfirmations = 3  # synchronization issue with EDAX, try to get map completed 3x before continuing
         waittime = 10  # seconds
         if map_status == tbt.MapStatus.ACTIVE:
-            print("\t\t\tEBSD mapping currently active, waiting for mapping to finish")
+            print(
+                "\t\t\tEBSD mapping currently active, waiting for mapping to finish"
+            )
         while True:
             current_map_status = tbt.MapStatus(external.EBSD_MappingStatus())
             if current_map_status != tbt.MapStatus.ACTIVE:
@@ -561,7 +584,9 @@ def retract_EBSD(microscope: tbt.Microscope) -> bool:
             timeout = timeout - waittime
             if cameraokconfirmations < 1:
                 delay = minutes_to_wait * 60 - timeout
-                print(f"\t\t\t\tEBSD mapping finished. Delay of {delay} seconds")
+                print(
+                    f"\t\t\t\tEBSD mapping finished. Delay of {delay} seconds"
+                )
                 break
             if timeout < 1:
                 warnings.warn(
@@ -573,9 +598,13 @@ def retract_EBSD(microscope: tbt.Microscope) -> bool:
         external.EBSD_RetractCamera()
         time.sleep(1)
         CCD_pause(microscope=microscope)
-        current_ebsd_status = tbt.RetractableDeviceState(external.EBSD_CameraStatus())
+        current_ebsd_status = tbt.RetractableDeviceState(
+            external.EBSD_CameraStatus()
+        )
         if current_ebsd_status != tbt.RetractableDeviceState.RETRACTED:
-            raise SystemError("Error, EBSD Camera retraction failed, workflow stopped.")
+            raise SystemError(
+                "Error, EBSD Camera retraction failed, workflow stopped."
+            )
         print("\t\tEBSD Camera retracted")
     return True
 
@@ -643,13 +672,17 @@ def retract_EDS(microscope: tbt.Microscope) -> bool:
             tbt.RetractableDeviceState(external.EDS_CameraStatus())
             != tbt.RetractableDeviceState.RETRACTED
         ):
-            raise SystemError("Error, EDS Camera retraction failed, workflow stopped.")
+            raise SystemError(
+                "Error, EDS Camera retraction failed, workflow stopped."
+            )
         CCD_pause(microscope=microscope)
         print("\t\tEDS Camera retracted")
     return True
 
 
-def retract_device(microscope: tbt.Microscope, detector: tbt.DetectorType) -> bool:
+def retract_device(
+    microscope: tbt.Microscope, detector: tbt.DetectorType
+) -> bool:
     """
     Retract the specified detector from the microscope.
 
@@ -716,7 +749,9 @@ def CCD_pause(
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     img.set_view(microscope=microscope, quad=quad)
     try:
-        img.set_beam_device(microscope=microscope, device=tbt.Device.CCD_CAMERA)
+        img.set_beam_device(
+            microscope=microscope, device=tbt.Device.CCD_CAMERA
+        )
     except:
         warnings.warn("CCD camera is not installed on this microscope.")
     else:
@@ -755,7 +790,9 @@ def CCD_view(
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     img.set_view(microscope=microscope, quad=quad)
     try:
-        img.set_beam_device(microscope=microscope, device=tbt.Device.CCD_CAMERA)
+        img.set_beam_device(
+            microscope=microscope, device=tbt.Device.CCD_CAMERA
+        )
     except:
         warnings.warn("CCD camera is not installed on this microscope.")
     else:
@@ -804,7 +841,9 @@ def specimen_current(
     )
     microscope.imaging.start_acquisition()
     time.sleep(delay_s)
-    current_na = microscope.state.specimen_current.value * cs.Conversions.A_TO_NA
+    current_na = (
+        microscope.state.specimen_current.value * cs.Conversions.A_TO_NA
+    )
     microscope.imaging.stop_acquisition()
 
     # reset detector and hfw

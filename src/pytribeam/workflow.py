@@ -230,14 +230,19 @@ def _(
     """
     # dump out .yml with experiment info
     slice_info_path = Path.joinpath(general_settings.exp_dir, "slice_info.yml")
-    db = {"exp_dir": str(general_settings.exp_dir), "slice_number": slice_number}
+    db = {
+        "exp_dir": str(general_settings.exp_dir),
+        "slice_number": slice_number,
+    }
     ut.dict_to_yml(db=db, file_path=slice_info_path)
 
     output = subprocess.run(
         [step_settings.executable_path, step_settings.script_path],
         capture_output=True,
     )
-    stdout, stderr = output.stdout.decode("utf-8"), output.stderr.decode("utf-8")
+    stdout, stderr = output.stdout.decode("utf-8"), output.stderr.decode(
+        "utf-8"
+    )
     if stdout:
         print(f"\nCustom script output: {stdout}\n")
 
@@ -547,7 +552,9 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
     )
 
     # get step_count and validate settings
-    num_steps = ut.step_count(exp_settings=experiment_settings, yml_format=yml_format)
+    num_steps = ut.step_count(
+        exp_settings=experiment_settings, yml_format=yml_format
+    )
     step_sequence = []  # empty list of tbt.Step type objects
     for step in range(1, num_steps + 1):
         step_name, step_settings = ut.step_settings(
@@ -815,7 +822,9 @@ def run_experiment_cli(
     for slice_number in range(
         start_slice, experiment_settings.general_settings.max_slice_number + 1
     ):  # inclusive of max slice number
-        for step_number in range(start_step, num_steps + 1):  # list is 1-indexed
+        for step_number in range(
+            start_step, num_steps + 1
+        ):  # list is 1-indexed
             perform_step(
                 slice_number=slice_number,
                 step_number=step_number,

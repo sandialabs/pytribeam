@@ -139,7 +139,9 @@ def stop(microscope: tbt.Microscope) -> None:
     # sys.exit("Microscope stage movement was halted.")
 
 
-def encoder_to_user_position(pos: tbt.StagePositionEncoder) -> tbt.StagePositionUser:
+def encoder_to_user_position(
+    pos: tbt.StagePositionEncoder,
+) -> tbt.StagePositionUser:
     """
     Convert from encoder position (m/radian units) to user position (mm/deg units).
 
@@ -175,7 +177,9 @@ def encoder_to_user_position(pos: tbt.StagePositionEncoder) -> tbt.StagePosition
     return user_pos
 
 
-def user_to_encoder_position(pos: tbt.StagePositionUser) -> tbt.StagePositionEncoder:
+def user_to_encoder_position(
+    pos: tbt.StagePositionUser,
+) -> tbt.StagePositionEncoder:
     """
     Convert from user position (mm/deg units) to encoder position (m/radian units).
 
@@ -303,7 +307,9 @@ def target_position(
     pre_tilt_rad = stage.pretilt_angle_deg * Conversions.DEG_TO_RAD
     sectioning_axis = stage.sectioning_axis
     rotation_side = stage.rotation_side
-    increment_factor_m = slice_thickness_m * (slice_number - 1)  # slices are 1-indexed
+    increment_factor_m = slice_thickness_m * (
+        slice_number - 1
+    )  # slices are 1-indexed
 
     # only modify needed axes for each case, so initialize with original position
     target_x_m = initial_pos_encoder.x
@@ -337,19 +343,27 @@ def target_position(
 
     # TODO
     elif sectioning_axis == tbt.SectioningAxis.X_POS:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        raise NotImplementedError(
+            "Currently only Z-axis sectioning is supported."
+        )
         delta_x_m = increment_factor_m
         pass
     elif sectioning_axis == tbt.SectioningAxis.X_NEG:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        raise NotImplementedError(
+            "Currently only Z-axis sectioning is supported."
+        )
         delta_x_m = increment_factor_m
         pass
     elif sectioning_axis == tbt.SectioningAxis.Y_POS:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        raise NotImplementedError(
+            "Currently only Z-axis sectioning is supported."
+        )
         delta_x_m = increment_factor_m
         pass
     elif sectioning_axis == tbt.SectioningAxis.Y_NEG:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        raise NotImplementedError(
+            "Currently only Z-axis sectioning is supported."
+        )
         delta_x_m = increment_factor_m
         pass
 
@@ -475,8 +489,10 @@ def axis_angular_in_range(
     return ut.in_interval(
         current_pos_deg,
         limit=tbt.Limit(
-            min=target_pos_deg - (stage_tolerance_deg * Conversions.DEG_TO_RAD),
-            max=target_pos_deg + (stage_tolerance_deg * Conversions.DEG_TO_RAD),
+            min=target_pos_deg
+            - (stage_tolerance_deg * Conversions.DEG_TO_RAD),
+            max=target_pos_deg
+            + (stage_tolerance_deg * Conversions.DEG_TO_RAD),
         ),
         type=tbt.IntervalType.CLOSED,
     )
@@ -518,17 +534,20 @@ def axis_in_range(
         tbt.StageAxis.X: {
             "current_position": current_position.x_mm,
             "target_position": target_position.x_mm,
-            "tolerance": stage_tolerance.translational_um * Conversions.UM_TO_MM,
+            "tolerance": stage_tolerance.translational_um
+            * Conversions.UM_TO_MM,
         },
         tbt.StageAxis.Y: {
             "current_position": current_position.y_mm,
             "target_position": target_position.y_mm,
-            "tolerance": stage_tolerance.translational_um * Conversions.UM_TO_MM,
+            "tolerance": stage_tolerance.translational_um
+            * Conversions.UM_TO_MM,
         },
         tbt.StageAxis.Z: {
             "current_position": current_position.z_mm,
             "target_position": target_position.z_mm,
-            "tolerance": stage_tolerance.translational_um * Conversions.UM_TO_MM,
+            "tolerance": stage_tolerance.translational_um
+            * Conversions.UM_TO_MM,
         },
         tbt.StageAxis.R: {
             "current_position": current_position.r_deg,
@@ -545,8 +564,10 @@ def axis_in_range(
     return ut.in_interval(
         val=match_db[axis]["current_position"],
         limit=tbt.Limit(
-            min=match_db[axis]["target_position"] - match_db[axis]["tolerance"],
-            max=match_db[axis]["target_position"] + match_db[axis]["tolerance"],
+            min=match_db[axis]["target_position"]
+            - match_db[axis]["tolerance"],
+            max=match_db[axis]["target_position"]
+            + match_db[axis]["tolerance"],
         ),
         type=tbt.IntervalType.CLOSED,
     )
@@ -628,7 +649,9 @@ def move_stage(
     """
 
     # ensure RAW specimen coordiantes
-    coordinate_system(microscope=microscope, mode=tbt.StageCoordinateSystem.RAW)
+    coordinate_system(
+        microscope=microscope, mode=tbt.StageCoordinateSystem.RAW
+    )
 
     # r-axis first for safety
     if not axis_in_range(
@@ -704,7 +727,9 @@ def move_completed(
         True if the stage is at the target position, False otherwise.
     """
     # ensure RAW specimen coordiantes
-    coordinate_system(microscope=microscope, mode=tbt.StageCoordinateSystem.RAW)
+    coordinate_system(
+        microscope=microscope, mode=tbt.StageCoordinateSystem.RAW
+    )
 
     axes = [
         tbt.StageAxis.X,
@@ -887,13 +912,19 @@ def _bad_axes_message(
     """
     error_msg = "Error: Stage move did not execute correctly.\n"
     x_error_um = np.around(
-        abs(target_position.x_mm - current_position.x_mm) * Conversions.MM_TO_UM, 3
+        abs(target_position.x_mm - current_position.x_mm)
+        * Conversions.MM_TO_UM,
+        3,
     )
     y_error_um = np.around(
-        abs(target_position.y_mm - current_position.y_mm) * Conversions.MM_TO_UM, 3
+        abs(target_position.y_mm - current_position.y_mm)
+        * Conversions.MM_TO_UM,
+        3,
     )
     z_error_um = np.around(
-        abs(target_position.z_mm - current_position.z_mm) * Conversions.MM_TO_UM, 3
+        abs(target_position.z_mm - current_position.z_mm)
+        * Conversions.MM_TO_UM,
+        3,
     )
 
     translation_errors = [x_error_um, y_error_um, z_error_um]
@@ -902,8 +933,12 @@ def _bad_axes_message(
         if translation_errors[axis] > stage_tolerance.translational_um:
             error_msg += f"\t {translation_axes[axis]} axis error: {translation_errors[axis]} micron, stage tolerance is {stage_tolerance.translational_um} micron\n"
 
-    t_error_deg = np.around(abs(target_position.t_deg - current_position.t_deg), 3)
-    r_error_deg = np.around(abs(target_position.r_deg - current_position.r_deg), 3)
+    t_error_deg = np.around(
+        abs(target_position.t_deg - current_position.t_deg), 3
+    )
+    r_error_deg = np.around(
+        abs(target_position.r_deg - current_position.r_deg), 3
+    )
     angular_errors = [t_error_deg, r_error_deg]
     angular_axes = ["T", "R"]
     for axis in range(0, len(angular_axes)):

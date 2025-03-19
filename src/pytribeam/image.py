@@ -2,41 +2,51 @@
 Microscope Imaging Module
 =========================
 
-This module provides a set of functions for configuring and operating the microscope for imaging purposes.
-It includes functions for setting beam parameters, detector settings, and capturing images with custom
-or preset resolutions.
+This module provides a set of functions for configuring and operating 
+the microscope for imaging purposes.
+It includes functions for setting beam parameters, detector settings,
+and capturing images with custom or preset resolutions.
 
 Functions
 ---------
-beam_angular_correction(microscope, dynamic_focus, tilt_correction, delay_s=0.5)
+beam_angular_correction(microscope, dynamic_focus, tilt_correction,
+                        delay_s=0.5)
     Uses auto mode to set tilt correction and dynamic focus.
 
 beam_current(beam, microscope, current_na, current_tol_na, delay_s=5.0)
-    Sets the current for the selected beam type, with inputs in units of nanoamps.
+    Sets the current for the selected beam type, with inputs in units of
+    nanoamps.
 
 beam_dwell_time(beam, microscope, dwell_us, delay_s=0.1)
-    Sets the dwell time for the selected beam, with inputs in units of microseconds.
+    Sets the dwell time for the selected beam, with inputs in units of
+    microseconds.
 
 beam_hfw(beam, microscope, hfw_mm, delay_s=0.1)
-    Sets the horizontal field width for the selected beam, with inputs in units of millimeters.
+    Sets the horizontal field width for the selected beam, with inputs
+    in units of millimeters.
 
 beam_ready(beam, microscope, delay_s=5.0, attempts=2)
-    Checks if the beam is on or blanked, and tries to turn it on and unblank it if possible.
+    Checks if the beam is on or blanked, and tries to turn it on and
+    unblank it if possible.
 
 beam_scan_full_frame(beam, microscope)
     Sets the beam scan mode to full frame.
 
 beam_scan_resolution(beam, microscope, resolution, delay_s=0.1)
-    Sets the scan resolution for the selected beam, with inputs in units of preset resolutions.
+    Sets the scan resolution for the selected beam, with inputs in units
+    of preset resolutions.
 
 beam_scan_rotation(beam, microscope, rotation_deg, delay_s=0.1)
-    Sets the scan rotation for the selected beam, with inputs in units of degrees.
+    Sets the scan rotation for the selected beam, with inputs in units
+    of degrees.
 
 beam_voltage(beam, microscope, voltage_kv, voltage_tol_kv, delay_s=5.0)
-    Sets the voltage for a given beam type, with inputs in units of kilovolts.
+    Sets the voltage for a given beam type, with inputs in units of
+    kilovolts.
 
 beam_working_dist(beam, microscope, wd_mm, delay_s=0.1)
-    Sets the working distance for the selected beam, with inputs in units of millimeters.
+    Sets the working distance for the selected beam, with inputs in
+    units of millimeters.
 
 collect_multiple_images(multiple_img_settings, num_frames)
     Sets up scanning for multiple frames.
@@ -63,7 +73,8 @@ detector_type(microscope, detector, delay_s=0.1)
     Sets the detector type.
 
 grab_custom_resolution_frame(img_settings, save_path)
-    Captures a single frame image using custom resolutions and saves it to the specified path.
+    Captures a single frame image using custom resolutions and saves it
+    to the specified path.
 
 grab_preset_resolution_frame(img_settings)
     Captures a single frame image using preset resolutions.
@@ -75,7 +86,8 @@ imaging_detector(img_settings)
     Prepares the detector and inserts it if applicable.
 
 imaging_device(microscope, beam)
-    Prepares the imaging beam, viewing quad, and the beam voltage and current.
+    Prepares the imaging beam, viewing quad, and the beam voltage and
+    current.
 
 imaging_scan(img_settings)
     Sets all scan settings except for the resolution.
@@ -116,20 +128,24 @@ def beam_angular_correction(
     """
     Uses auto mode to set tilt correction and dynamic focus.
 
-    This function configures the electron beam's angular correction mode to automatic,
-    sets the scan rotation to zero, and enables or disables dynamic focus and tilt correction
-    based on the provided parameters.
+    This function configures the electron beam's angular correction mode
+    to automatic, sets the scan rotation to zero, and enables or
+    disables dynamic focus and tilt correction based on the provided
+    parameters.
 
     Parameters
     ----------
     microscope : tbt.Microscope
         The microscope object to configure.
     dynamic_focus : bool
-        If True, dynamic focus will be turned on. If False, dynamic focus will be turned off.
+        If True, dynamic focus will be turned on. If False, dynamic
+        focus will be turned off.
     tilt_correction : bool
-        If True, tilt correction will be turned on. If False, tilt correction will be turned off.
+        If True, tilt correction will be turned on. If False, tilt
+        correction will be turned off.
     delay_s : float, optional
-        The delay in seconds to wait after turning dynamic focus or tilt correction on or off (default is 0.5).
+        The delay in seconds to wait after turning dynamic focus or tilt
+        correction on or off (default is 0.5).
 
     Returns
     -------
@@ -148,7 +164,9 @@ def beam_angular_correction(
     >>> microscope.connect("localhost")
     Client connecting to [localhost:7520]...
     Client connected to [localhost:7520]
-    >>> success = beam_angular_correction(microscope, dynamic_focus=True, tilt_correction=False)
+    >>> success = beam_angular_correction(microscope, 
+                                          dynamic_focus=True,
+                                          tilt_correction=False)
     >>> print(success)
     True
     """
@@ -191,11 +209,12 @@ def beam_current(
     delay_s: float = 5.0,
 ) -> bool:
     """
-    Sets the current for the selected beam type, with inputs in units of nanoamps.
+    Sets the current for the selected beam type, with inputs in units of
+    nanoamps.
 
-    This function sets the beam current for the specified beam type on the microscope.
-    If the current difference exceeds the tolerance, it adjusts the beam current and
-    waits for the specified delay.
+    This function sets the beam current for the specified beam type on
+    the microscope. If the current difference exceeds the tolerance, it
+    adjusts the beam current and waits for the specified delay.
 
     Parameters
     ----------
@@ -208,7 +227,8 @@ def beam_current(
     current_tol_na : float
         The tolerance for the beam current in nanoamps.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the beam current (default is 5.0).
+        The delay in seconds to wait after adjusting the beam current
+        (default is 5.0).
 
     Returns
     -------
@@ -218,7 +238,8 @@ def beam_current(
     Raises
     ------
     ValueError
-        If the beam current cannot be adjusted within the specified tolerance.
+        If the beam current cannot be adjusted within the specified
+        tolerance.
 
     Examples
     --------
@@ -228,7 +249,8 @@ def beam_current(
     Client connecting to [localhost:7520]...
     Client connected to [localhost:7520]
     >>> beam = tbt.ElectronBeam(settings=None)
-    >>> success = beam_current(beam, microscope, current_na=1.0, current_tol_na=0.1)
+    >>> success = beam_current(beam, microscope, 
+                               current_na=1.0, current_tol_na=0.1)
     >>> print(success)
     True
     """
@@ -246,7 +268,9 @@ def beam_current(
         selected_beam.beam_current.value = current_na * cs.Conversions.NA_TO_A
         time.sleep(delay_s)
 
-        new_current_na = selected_beam.beam_current.value * cs.Conversions.A_TO_NA
+        new_current_na = (
+            selected_beam.beam_current.value * cs.Conversions.A_TO_NA
+        )
         current_diff_na = abs(new_current_na - current_na)
         if current_diff_na > current_tol_na:
             raise ValueError(
@@ -265,11 +289,13 @@ def beam_dwell_time(
     delay_s: float = 0.1,
 ) -> bool:
     """
-    Sets the dwell time for the selected beam, with inputs in units of microseconds.
+    Sets the dwell time for the selected beam, with inputs in units of
+    microseconds.
 
-    This function sets the dwell time for the specified beam type on the microscope.
-    It converts the dwell time from microseconds to seconds, sets the dwell time, and
-    waits for the specified delay.
+    This function sets the dwell time for the specified beam type on the
+    microscope.
+    It converts the dwell time from microseconds to seconds, sets the
+    dwell time, and waits for the specified delay.
 
     Parameters
     ----------
@@ -280,7 +306,8 @@ def beam_dwell_time(
     dwell_us : float
         The desired dwell time in microseconds.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the dwell time (default is 0.1).
+        The delay in seconds to wait after adjusting the dwell time
+        (default is 0.1).
 
     Returns
     -------
@@ -330,11 +357,13 @@ def beam_hfw(
     hfw_tol_mm: float = 1e-6,  # 1 nm of tolerance
 ) -> bool:
     """
-    Sets the horizontal field width for the selected beam, with inputs in units of millimeters.
+    Sets the horizontal field width for the selected beam, with inputs
+    in units of millimeters.
 
-    This function sets the horizontal field width (HFW) for the specified beam type on the microscope.
-    It converts the HFW from millimeters to meters, sets the HFW, and waits for the specified delay.
-    This should be done after adjusting the working distance.
+    This function sets the horizontal field width (HFW) for the
+    specified beam type on the microscope. It converts the HFW from
+    millimeters to meters, sets the HFW, and waits for the specified
+    delay. This should be done after adjusting the working distance.
 
     Parameters
     ----------
@@ -345,7 +374,8 @@ def beam_hfw(
     hfw_mm : float
         The desired horizontal field width in millimeters.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the HFW (default is 0.1).
+        The delay in seconds to wait after adjusting the HFW (default is
+        0.1).
 
     Returns
     -------
@@ -395,10 +425,13 @@ def beam_ready(
     attempts: int = 2,
 ) -> bool:
     """
-    Checks if the beam is on or blanked, and tries to turn it on and unblank it if possible.
+    Checks if the beam is on or blanked, and tries to turn it on and
+    unblank it if possible.
 
-    This function checks the vacuum state, ensures the beam is on, and unblanks the beam if it is blanked.
-    It makes multiple attempts to turn on and unblank the beam, waiting for the specified delay between attempts.
+    This function checks the vacuum state, ensures the beam is on, and
+    unblanks the beam if it is blanked. It makes multiple attempts to
+    turn on and unblank the beam, waiting for the specified delay
+    between attempts.
 
     Parameters
     ----------
@@ -409,7 +442,8 @@ def beam_ready(
     delay_s : float, optional
         The delay in seconds to wait between attempts (default is 5.0).
     attempts : int, optional
-        The number of attempts to turn on and unblank the beam (default is 2).
+        The number of attempts to turn on and unblank the beam (default
+        is 2).
 
     Returns
     -------
@@ -420,8 +454,10 @@ def beam_ready(
     ------
     ValueError
         If the vacuum is not pumped.
-        If the beam cannot be turned on after the specified number of attempts.
-        If the beam cannot be unblanked after the specified number of attempts.
+        If the beam cannot be turned on after the specified number of
+        attempts.
+        If the beam cannot be unblanked after the specified number of
+        attempts.
 
     Examples
     --------
@@ -478,7 +514,8 @@ def beam_scan_full_frame(
     """
     Set beam scan mode to full frame.
 
-    This function sets the scanning mode of the specified beam to full frame on the microscope.
+    This function sets the scanning mode of the specified beam to full
+    frame on the microscope.
 
     Parameters
     ----------
@@ -490,7 +527,8 @@ def beam_scan_full_frame(
     Returns
     -------
     bool
-        True if the scan mode is set to full frame successfully, False otherwise.
+        True if the scan mode is set to full frame successfully, False
+        otherwise.
 
     Raises
     ------
@@ -526,10 +564,12 @@ def beam_scan_resolution(
     delay_s: float = 0.1,
 ) -> bool:
     """
-    Sets the scan resolution for the selected beam, with inputs in units of preset resolutions.
+    Sets the scan resolution for the selected beam, with inputs in units
+    of preset resolutions.
 
-    This function sets the scan resolution for the specified beam type on the microscope.
-    It only works for preset resolutions and waits for the specified delay after setting the resolution.
+    This function sets the scan resolution for the specified beam type
+    on the microscope. It only works for preset resolutions and waits
+    for the specified delay after setting the resolution.
 
     Parameters
     ----------
@@ -540,17 +580,20 @@ def beam_scan_resolution(
     resolution : tbt.Resolution
         The desired scan resolution (must be a preset resolution).
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the resolution (default is 0.1).
+        The delay in seconds to wait after adjusting the resolution
+        (default is 0.1).
 
     Returns
     -------
     bool
-        True if the scan resolution is set successfully, False otherwise.
+        True if the scan resolution is set successfully, False
+        otherwise.
 
     Raises
     ------
     ValueError
-        If a custom resolution is requested or if the resolution cannot be adjusted correctly.
+        If a custom resolution is requested or if the resolution cannot
+        be adjusted correctly.
 
     Examples
     --------
@@ -591,10 +634,12 @@ def beam_scan_rotation(
     delay_s: float = 0.1,
 ) -> bool:
     """
-    Sets the scan rotation for the selected beam, with inputs in units of degrees.
+    Sets the scan rotation for the selected beam, with inputs in units
+    of degrees.
 
-    This function sets the scan rotation for the specified beam type on the microscope.
-    It converts the rotation from degrees to radians, sets the scan rotation, and waits for the specified delay.
+    This function sets the scan rotation for the specified beam type on
+    the microscope. It converts the rotation from degrees to radians,
+    sets the scan rotation, and waits for the specified delay.
 
     Parameters
     ----------
@@ -605,7 +650,8 @@ def beam_scan_rotation(
     rotation_deg : float
         The desired scan rotation in degrees.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the scan rotation (default is 0.1).
+        The delay in seconds to wait after adjusting the scan rotation
+        (default is 0.1).
 
     Returns
     -------
@@ -651,10 +697,13 @@ def beam_voltage(
     delay_s: float = 5.0,
 ) -> bool:
     """
-    Sets the voltage for a given beam type, with inputs in units of kilovolts.
+    Sets the voltage for a given beam type, with inputs in units of
+    kilovolts.
 
-    This function sets the beam voltage for the specified beam type on the microscope.
-    If the voltage difference exceeds the tolerance, it adjusts the beam voltage and waits for the specified delay.
+    This function sets the beam voltage for the specified beam type on
+    the microscope.
+    If the voltage difference exceeds the tolerance, it adjusts the beam
+    voltage and waits for the specified delay.
 
     Parameters
     ----------
@@ -667,7 +716,8 @@ def beam_voltage(
     voltage_tol_kv : float
         The tolerance for the beam voltage in kilovolts.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the beam voltage (default is 5.0).
+        The delay in seconds to wait after adjusting the beam voltage
+        (default is 5.0).
 
     Returns
     -------
@@ -677,7 +727,8 @@ def beam_voltage(
     Raises
     ------
     ValueError
-        If the beam voltage cannot be adjusted within the specified tolerance.
+        If the beam voltage cannot be adjusted within the specified
+        tolerance.
         If the beam is not controllable.
 
     Examples
@@ -688,7 +739,8 @@ def beam_voltage(
     Client connecting to [localhost:7520]...
     Client connected to [localhost:7520]
     >>> beam = tbt.ElectronBeam(settings=None)
-    >>> success = beam_voltage(beam, microscope, voltage_kv=15.0, voltage_tol_kv=0.5)
+    >>> success = beam_voltage(beam, microscope, voltage_kv=15.0, 
+                               voltage_tol_kv=0.5)
     >>> print(success)
     True
     """
@@ -700,18 +752,21 @@ def beam_voltage(
     )  # kilovolts
     if delta_voltage_kv > voltage_tol_kv:
         warnings.warn(
-            "Requested beam current is not the current setting, imaging conditions may be non-ideal."
+            "Requested beam current is not the current setting, imaging"
+            "conditions may be non-ideal."
         )
         beam_controllable = selected_beam.high_voltage.is_controllable
 
         if not beam_controllable:
             raise ValueError(
-                f"Unable to modify beam voltage, beam is not currently controllable."
+                "Unable to modify beam voltage, beam is not currently controllable."
             )
         print("Adjusting beam voltage...")
         selected_beam.high_voltage.value = voltage_kv * cs.Conversions.KV_TO_V
         time.sleep(delay_s)
-        new_voltage_kv = selected_beam.high_voltage.value * cs.Conversions.V_TO_KV
+        new_voltage_kv = (
+            selected_beam.high_voltage.value * cs.Conversions.V_TO_KV
+        )
         voltage_diff_kv = abs(new_voltage_kv - voltage_kv)
         if voltage_diff_kv > voltage_tol_kv:
             raise ValueError(
@@ -730,10 +785,13 @@ def beam_working_distance(
     delay_s: float = 0.1,
 ) -> bool:
     """
-    Sets the working distance for the selected beam, with inputs in units of millimeters.
+    Sets the working distance for the selected beam, with inputs in
+    units of millimeters.
 
-    This function sets the working distance (WD) for the specified beam type on the microscope.
-    It converts the WD from millimeters to meters, sets the WD, and waits for the specified delay.
+    This function sets the working distance (WD) for the specified beam
+    type on the microscope.
+    It converts the WD from millimeters to meters, sets the WD, and
+    waits for the specified delay.
     This should be done before adjusting the horizontal field width.
 
     Parameters
@@ -745,12 +803,14 @@ def beam_working_distance(
     wd_mm : float
         The desired working distance in millimeters.
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the working distance (default is 0.1).
+        The delay in seconds to wait after adjusting the working
+        distance (default is 0.1).
 
     Returns
     -------
     bool
-        True if the working distance is set successfully, False otherwise.
+        True if the working distance is set successfully, False
+        otherwise.
 
     Raises
     ------
@@ -790,10 +850,12 @@ def detector_auto_cb(
     delay_s: float = 0.1,
 ) -> bool:
     """
-    Detector auto contrast brightness. Currently only reduced scan area option is supported.
+    Detector auto contrast brightness. Currently only reduced scan area
+    option is supported.
 
-    This function sets the scanning mode to reduced area, runs the auto contrast-brightness function,
-    and then sets the scanning mode back to full frame.
+    This function sets the scanning mode to reduced area, runs the auto
+    contrast-brightness function, and then sets the scanning mode back
+    to full frame.
 
     Parameters
     ----------
@@ -804,12 +866,14 @@ def detector_auto_cb(
     settings : tbt.ScanArea
         The scan area settings for the reduced area.
     delay_s : float, optional
-        The delay in seconds to wait after each operation (default is 0.1).
+        The delay in seconds to wait after each operation (default is
+        0.1).
 
     Returns
     -------
     bool
-        True if the auto contrast-brightness is completed successfully, False otherwise.
+        True if the auto contrast-brightness is completed successfully,
+        False otherwise.
 
     Raises
     ------
@@ -824,7 +888,8 @@ def detector_auto_cb(
     Client connecting to [localhost:7520]...
     Client connected to [localhost:7520]
     >>> beam = tbt.ElectronBeam(settings=None)
-    >>> auto_cb_settings = tbt.ScanArea(left=0.1, top=0.1, width=0.8, height=0.8)
+    >>> auto_cb_settings = tbt.ScanArea(left=0.1, top=0.1, width=0.8,
+                                        height=0.8)
     >>> success = detector_auto_cb(microscope, beam, auto_cb_settings)
     >>> print(success)
     True
@@ -862,7 +927,8 @@ def detector_brightness(
     """
     Sets the detector brightness with input from 0 to 1.
 
-    This function sets the brightness for the detector on the microscope and waits for the specified delay.
+    This function sets the brightness for the detector on the microscope
+    and waits for the specified delay.
 
     Parameters
     ----------
@@ -871,7 +937,8 @@ def detector_brightness(
     brightness : float
         The desired brightness value (from 0 to 1).
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the brightness (default is 0.1).
+        The delay in seconds to wait after adjusting the brightness
+        (default is 0.1).
 
     Returns
     -------
@@ -918,7 +985,8 @@ def detector_contrast(
     """
     Sets the detector contrast with input from 0 to 1.
 
-    This function sets the contrast for the detector on the microscope and waits for the specified delay.
+    This function sets the contrast for the detector on the microscope
+    and waits for the specified delay.
 
     Parameters
     ----------
@@ -927,7 +995,8 @@ def detector_contrast(
     contrast : float
         The desired contrast value (from 0 to 1).
     delay_s : float, optional
-        The delay in seconds to wait after adjusting the contrast (default is 0.1).
+        The delay in seconds to wait after adjusting the contrast
+        (default is 0.1).
 
     Returns
     -------
@@ -974,23 +1043,26 @@ def detector_cb(
     """
     Sets detector contrast and brightness.
 
-    This function sets the contrast and brightness for the detector on the microscope.
-    It also runs the auto contrast-brightness function if specified in the detector settings.
-    Supports initial settings of contrast and brightness with fixed values before auto adjustment.
+    This function sets the contrast and brightness for the detector on
+    the microscope. It also runs the auto contrast-brightness function
+    if specified in the detector settings. Supports initial settings of
+    contrast and brightness with fixed values before auto adjustment.
 
     Parameters
     ----------
     microscope : tbt.Microscope
         The microscope object to configure.
     detector_settings : tbt.Detector
-        The detector settings, including contrast, brightness, and auto contrast-brightness settings.
+        The detector settings, including contrast, brightness, and auto
+        contrast-brightness settings.
     beam : tbt.Beam
         The beam type to configure.
 
     Returns
     -------
     bool
-        True if the contrast and brightness are set successfully, False otherwise.
+        True if the contrast and brightness are set successfully, False
+        otherwise.
 
     Examples
     --------
@@ -1000,12 +1072,19 @@ def detector_cb(
     Client connecting to [localhost:7520]...
     Client connected to [localhost:7520]
     >>> beam = tbt.ElectronBeam(settings=None)
-    >>> detector_settings = tbt.Detector(contrast=None, brightness=None, auto_cb_settings=tbt.ScanArea(left=0.1, top=0.1, width=0.8, height=0.8))
+    >>> detector_settings = tbt.Detector(contrast=None, brightness=None,
+                                         auto_cb_settings=tbt.ScanArea(
+                                                          left=0.1,
+                                                          top=0.1,
+                                                          width=0.8,
+                                                          height=0.8)
+                                        )
     >>> success = detector_cb(microscope, detector_settings, beam)
     >>> print(success)
     True
 
-    >>> detector_settings = tbt.Detector(contrast=0.2, brightness=0.3, auto_cb_settings=None)
+    >>> detector_settings = tbt.Detector(contrast=0.2, brightness=0.3,
+                                         auto_cb_settings=None)
     >>> success = detector_cb(microscope, detector_settings, beam)
     >>> print(success)
     True
@@ -1016,7 +1095,8 @@ def detector_cb(
     >>> print(beam_contrast)
     0.2
     """
-    ### cannot ensure detector is the active one, will overwrite mode settings, so following line is not used
+    # cannot ensure detector is the active one, will overwrite mode
+    # settings, so following line is not used
     # microscope.detector.type.value = detector_settings.type.value
     contrast = detector_settings.contrast
     brightness = detector_settings.brightness
@@ -1043,7 +1123,8 @@ def detector_mode(
     """
     Sets the detector mode.
 
-    This function sets the mode for the detector on the microscope and waits for the specified delay.
+    This function sets the mode for the detector on the microscope and
+    waits for the specified delay.
 
     Parameters
     ----------
@@ -1052,7 +1133,8 @@ def detector_mode(
     detector_mode : tbt.DetectorMode
         The desired detector mode.
     delay_s : float, optional
-        The delay in seconds to wait after setting the detector mode (default is 0.1).
+        The delay in seconds to wait after setting the detector mode
+        (default is 0.1).
 
     Returns
     -------
@@ -1095,7 +1177,8 @@ def detector_type(
     """
     Sets the detector type.
 
-    This function sets the type for the detector on the microscope and waits for the specified delay.
+    This function sets the type for the detector on the microscope and
+    waits for the specified delay.
 
     Parameters
     ----------
@@ -1104,7 +1187,8 @@ def detector_type(
     detector : tbt.DetectorType
         The desired detector type.
     delay_s : float, optional
-        The delay in seconds to wait after setting the detector type (default is 0.1).
+        The delay in seconds to wait after setting the detector type
+        (default is 0.1).
 
     Returns
     -------
@@ -1146,19 +1230,22 @@ def grab_custom_resolution_frame(
     """
     Method for single frame imaging used with custom resolutions.
 
-    This function captures a single frame image using custom resolutions and saves it to the specified path.
+    This function captures a single frame image using custom resolutions
+    and saves it to the specified path.
 
     Parameters
     ----------
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope and scan resolution.
+        The image settings, including the microscope and scan
+        resolution.
     save_path : Path
         The path to save the captured image.
 
     Returns
     -------
     bool
-        True if the image is captured and saved successfully, False otherwise.
+        True if the image is captured and saved successfully, False
+        otherwise.
 
     Examples
     --------
@@ -1198,12 +1285,14 @@ def grab_preset_resolution_frame(
     """
     Method for single frame imaging used with preset resolutions.
 
-    This function captures a single frame image using preset resolutions.
+    This function captures a single frame image using preset
+    resolutions.
 
     Parameters
     ----------
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, detector, and scan resolution.
+        The image settings, including the microscope, beam, detector,
+        and scan resolution.
 
     Returns
     -------
@@ -1244,14 +1333,17 @@ def imaging_detector(img_settings: tbt.ImageSettings) -> bool:
     """
     Prepares the detector and inserts it if applicable.
 
-    This function sets the detector type, inserts the detector if necessary, sets the detector mode,
-    and adjusts the contrast and brightness settings. It is important to set detector mode settings
-    right before contrast and brightness as any subsequent calls to a detector type can overwrite the mode.
+    This function sets the detector type, inserts the detector if
+    necessary, sets the detector mode, and adjusts the contrast and
+    brightness settings. It is important to set detector mode settings
+    right before contrast and brightness as any subsequent calls to a
+    detector type can overwrite the mode.
 
     Parameters
     ----------
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, and detector settings.
+        The image settings, including the microscope, beam, and detector
+        settings.
 
     Returns
     -------
@@ -1313,10 +1405,12 @@ def imaging_device(
     beam: tbt.Beam,
 ) -> bool:
     """
-    Prepares the imaging beam, viewing quad, and the beam voltage and current.
+    Prepares the imaging beam, viewing quad, and the beam voltage and
+    current.
 
-    This function sets the beam device, ensures the beam is ready, sets the beam voltage and current,
-    and applies angular correction if the beam type is electron.
+    This function sets the beam device, ensures the beam is ready, sets
+    the beam voltage and current, and applies angular correction if the
+    beam type is electron.
 
     Parameters
     ----------
@@ -1328,7 +1422,8 @@ def imaging_device(
     Returns
     -------
     bool
-        True if the imaging device is prepared successfully, False otherwise.
+        True if the imaging device is prepared successfully, False
+        otherwise.
     """
     set_beam_device(microscope=microscope, device=beam.device)
     beam_ready(beam=beam, microscope=microscope)
@@ -1357,19 +1452,21 @@ def imaging_scan(img_settings: tbt.ImageSettings) -> bool:
     """
     Sets all scan settings except for the resolution.
 
-    This function configures the scan settings for the specified image settings, including
-    setting the scan mode to full frame, scan rotation, working distance, horizontal field width,
-    and dwell time.
+    This function configures the scan settings for the specified image
+    settings, including setting the scan mode to full frame, scan
+    rotation, working distance, horizontal field width, and dwell time.
 
     Parameters
     ----------
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, and scan settings.
+        The image settings, including the microscope, beam, and scan
+        settings.
 
     Returns
     -------
     bool
-        True if the scan settings are configured successfully, False otherwise.
+        True if the scan settings are configured successfully, False
+        otherwise.
     """
     microscope = img_settings.microscope
     beam = img_settings.beam
@@ -1378,16 +1475,24 @@ def imaging_scan(img_settings: tbt.ImageSettings) -> bool:
         microscope=microscope,
     )
     beam_scan_rotation(
-        beam=beam, microscope=microscope, rotation_deg=img_settings.scan.rotation_deg
+        beam=beam,
+        microscope=microscope,
+        rotation_deg=img_settings.scan.rotation_deg,
     )
     beam_working_distance(
         beam=beam,
         microscope=microscope,
         wd_mm=img_settings.beam.settings.working_dist_mm,
     )
-    beam_hfw(beam=beam, microscope=microscope, hfw_mm=img_settings.beam.settings.hfw_mm)
+    beam_hfw(
+        beam=beam,
+        microscope=microscope,
+        hfw_mm=img_settings.beam.settings.hfw_mm,
+    )
     beam_dwell_time(
-        beam=beam, microscope=microscope, dwell_us=img_settings.scan.dwell_time_us
+        beam=beam,
+        microscope=microscope,
+        dwell_us=img_settings.scan.dwell_time_us,
     )
     return True
 
@@ -1396,18 +1501,20 @@ def prepare_imaging(img_settings: tbt.ImageSettings) -> bool:
     """
     Prepares various imaging settings.
 
-    This function prepares the imaging device, scan settings, and detector settings
-    based on the specified image settings.
+    This function prepares the imaging device, scan settings, and
+    detector settings based on the specified image settings.
 
     Parameters
     ----------
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, scan, and detector settings.
+        The image settings, including the microscope, beam, scan, and
+        detector settings.
 
     Returns
     -------
     bool
-        True if the imaging settings are prepared successfully, False otherwise.
+        True if the imaging settings are prepared successfully, False
+        otherwise.
     """
     imaging_device(microscope=img_settings.microscope, beam=img_settings.beam)
     imaging_scan(img_settings=img_settings)
@@ -1422,7 +1529,8 @@ def set_view(
     """
     Sets the active view to the specified quad.
 
-    This function sets the active imaging view to the specified quad on the microscope.
+    This function sets the active imaging view to the specified quad on
+    the microscope.
 
     Parameters
     ----------
@@ -1451,7 +1559,8 @@ def set_beam_device(
     """
     Sets the active imaging device.
 
-    This function sets the active imaging device on the microscope and waits for the specified delay.
+    This function sets the active imaging device on the microscope and
+    waits for the specified delay.
 
     Parameters
     ----------
@@ -1460,7 +1569,8 @@ def set_beam_device(
     device : tbt.Device
         The desired imaging device.
     delay_s : float, optional
-        The delay in seconds to wait after setting the device (default is 0.1).
+        The delay in seconds to wait after setting the device (default
+        is 0.1).
 
     Returns
     -------
@@ -1499,21 +1609,24 @@ def collect_single_image(
     """
     Collects a single frame image with defined image settings.
 
-    This function prepares the imaging settings, sets the view, and captures a single frame image.
-    It saves the image to the specified path. If a non-preset resolution is requested, the image
-    will be saved at 8-bit color depth.
+    This function prepares the imaging settings, sets the view, and
+    captures a single frame image. It saves the image to the specified
+    path. If a non-preset resolution is requested, the image will be
+    saved at 8-bit color depth.
 
     Parameters
     ----------
     save_path : Path
         The path to save the captured image.
     img_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, scan, and detector settings.
+        The image settings, including the microscope, beam, scan, and
+        detector settings.
 
     Returns
     -------
     bool
-        True if the image is captured and saved successfully, False otherwise.
+        True if the image is captured and saved successfully, False
+        otherwise.
     """
     beam = img_settings.beam
     microscope = img_settings.microscope
@@ -1545,13 +1658,15 @@ def collect_multiple_images(
     """
     Sets up scanning for multiple frames.
 
-    This function is best used for collecting multiple segments on a single detector simultaneously.
-    It is limited to preset resolutions only.
+    This function is best used for collecting multiple segments on a
+    single detector simultaneously. It is limited to preset resolutions
+    only.
 
     Parameters
     ----------
     multiple_img_settings : List[tbt.ImageSettings]
-        The list of image settings for each frame, including the microscope, beam, scan, and detector settings.
+        The list of image settings for each frame, including the
+        microscope, beam, scan, and detector settings.
     num_frames : int
         The number of frames to collect.
 
@@ -1563,13 +1678,15 @@ def collect_multiple_images(
     Raises
     ------
     ValueError
-        If a non-preset resolution is requested for simultaneous multiple frame imaging.
+        If a non-preset resolution is requested for simultaneous
+        multiple frame imaging.
 
     Notes
     -----
     This method has not yet been tested.
 
     """
+    raise NotImplementedError("Method has not yet been implemented.")
     # TODO test this
     warnings.warn("Method not yet tested")
     views = []
@@ -1585,7 +1702,9 @@ def collect_multiple_images(
         beam = img_settings.beam
         views.append(quad)
         set_view(microscope=microscope, quad=quad)
-        prepare_imaging(microscope=microscope, beam=beam, img_settings=img_settings)
+        prepare_imaging(
+            microscope=microscope, beam=beam, img_settings=img_settings
+        )
     frames = microscope.imaging.grab_multiple_frames(
         tbt.GrabFrameSettings(bit_depth=img_settings.bit_depth, views=views)
     )
@@ -1614,14 +1733,16 @@ def image_operation(
     """
     Performs an image operation based on the specified settings.
 
-    This function collects an image, saves it to the specified directory, and turns off tilt correction and dynamic focus.
+    This function collects an image, saves it to the specified
+    directory, and turns off tilt correction and dynamic focus.
 
     Parameters
     ----------
     step : tbt.Step
         The step information, including the name of the step.
     image_settings : tbt.ImageSettings
-        The image settings, including the microscope, beam, scan, and detector settings.
+        The image settings, including the microscope, beam, scan, and
+        detector settings.
     general_settings : tbt.GeneralSettings
         The general settings, including the experimental directory.
     slice_number : int
@@ -1630,7 +1751,8 @@ def image_operation(
     Returns
     -------
     bool
-        True if the image operation is performed successfully, False otherwise.
+        True if the image operation is performed successfully, False
+        otherwise.
     """
     print("\tCollecting image")
     # create folder in same directory as experimental directory
