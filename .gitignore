@@ -1,9 +1,9 @@
 # gh-pages stuff (need to build locally from main)
-badges/
-coverage_reports/
-logs/
-docs/api/
-docs/userguide/book/
+# badges/
+# coverage_reports/
+# logs/
+# docs/api/
+# docs/userguide/book/
 
 # Python cache files
 __pycache__/

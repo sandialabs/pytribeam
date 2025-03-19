@@ -1,0 +1,425 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Installation - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This process uses <strong>AutoScript 4.8.1</strong> and <strong>TriBeam_API_Python 2_2.1</strong> provided by Thermo Fisher Scientific, which is a Windows-only configuration.</p>
+<h2 id="pre-installation"><a class="header" href="#pre-installation">Pre-installation</a></h2>
+<ul>
+<li>
+<p>Uninstall any prior installations of AutoScript</p>
+</li>
+<li>
+<p>Follow the Autoscript installation instructions provided by Thermo Fisher Scientific</p>
+</li>
+<li>
+<p>With <code>AutoScript_4.8.1.exe</code>, install <strong>Autoscript</strong> according to Thermo Fisher Scientific's instructions:</p>
+<ul>
+<li>Section 5 - Procedure, select the appropriate scripting configuration. This codebase has been tested in both "Local" and "Offline" Scripting Configurations.
+<ul>
+<li><em>Select Components</em> screen
+<ul>
+<li>AutoScript Client components
+<ul>
+<li>We recommend not installing the following: PyCharm Community IDE, .NET API, preferring to use VS Code as an IDE</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Select the installer option to add Python to the system Path.</li>
+<li>Register to activate AutoScript license on this computer.</li>
+<li>Restart the computer.</li>
+</ul>
+</li>
+<li>
+<p>Follow the Laser Control installation instructions provided by Thermo Fisher Scientific</p>
+<ul>
+<li>Install iFast and Python APIs</li>
+</ul>
+</li>
+</ul>
+<p>The AutoScript installer installs the following modules (generated with <code>pip freeze</code>):</p>
+<pre><code class="language-sh">appdirs==1.4.4
+argon2-cffi-bindings==21.2.0
+argon2_cffi==21.3.0
+attrs==21.2.0
+autoscript-core @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_core-5.17.0-py3-none-any.whl
+autoscript-sdb-microscope-client @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_sdb_microscope_client-4.8.1-py3-none-any.whl
+autoscript-sdb-microscope-client-tests @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_sdb_microscope_client_tests-4.8.1-py3-none-any.whl
+autoscript-toolkit @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_toolkit-4.8.1-py3-none-any.whl
+backcall==0.2.0
+bleach==4.1.0
+build==0.7.0
+ceres_solver==2.1.0
+certifi==2021.5.30
+cffi==1.14.6
+charset-normalizer==2.0.3
+colorama==0.4.6
+configobj==5.1.0.dev0
+cycler==0.11.0
+Cython==0.29.33
+decorator==5.1.0
+defusedxml==0.7.1
+docutils==0.17.1
+entrypoints==0.4
+fonttools==4.31.1
+h5py==3.6.0
+idna==3.1
+imagecodecs==2022.2.22
+imageio==2.16.2
+importlib_metadata==4.11.4
+intel_fortran_rt==2022.0.3
+intel_openmp==2021.4.28
+ipykernel==5.5.6
+ipython==7.31.1
+ipython-genutils==0.2.0
+jedi==0.18.0
+Jinja2==3.0.3
+joblib==1.1.0
+jsonschema==3.2.0
+jupyter-client==6.1.12
+jupyter-core==4.8.1
+jupyterlab-pygments==0.1.2
+kiwisolver==1.4.0
+libaec==1.0.6
+libbz2==1.0.8
+libfreetype==2.12.1
+libgflags==2.2.2
+libglog==0.6.0
+libharfbuzz==3.2.0
+libhdf5==1.12.1
+libicu==70.1
+liblcms2==2.12
+liblz4==1.9.3
+liblzma==5.2.5
+libopenjpeg==2.4.0.post1
+libpng==1.6.37
+libprotobuf==3.13.0
+libqhull==8.0.2
+libsodium==1.0.18
+libtiff==4.3.0
+libturbojpeg==2.1.2
+libyaml==0.2.5
+libz==1.2.11
+libzmq==4.3.4
+libzstd==1.5.0
+Markdown==3.3.7
+MarkupSafe==2.1.1
+matplotlib==3.5.1
+matplotlib-inline==0.1.6
+mfc_runtime==14
+mistune==0.8.4
+mkl==2021.3.0
+mkl-service==2.4.0
+msvc_runtime==14
+nbclient==0.5.12
+nbconvert==6.4.2
+nbformat==5.2.0
+nest-asyncio==1.5.4
+networkx==2.7.1
+notebook==6.4.8
+numexpr==2.8.1
+numpy==1.21.2
+opencv_python==4.6.0
+packaging==22.0
+pandas==1.3.2
+pandocfilters==1.5.0
+parso==0.8.2
+pep517==0.9.1
+pickleshare==0.7.5
+Pillow-SIMD==9.0.0.post1
+prometheus-client==0.13.1
+prompt-toolkit==3.0.24
+psutil==5.8.0
+pycparser==2.20
+Pygments==2.8.1
+pyparsing==2.4.7
+pyrsistent==0.15.3
+PySide6==6.2.3
+python-dateutil==2.8.2
+pytz==2022.6
+PyWavelets==1.3.0
+pywin32==301
+pywinpty==2.0.4
+PyYAML==5.4.1
+pyzmq==22.3.0
+qtbase==6.2.3
+qtconsole==5.3.0
+qtdeclarative==6.2.3
+qtmultimedia==6.2.3
+QtPy==2.3.0
+qtshadertools==6.2.3
+qtsvg==6.2.3
+qttools==6.2.3
+requests==2.26.0
+scikit-image==0.19.2
+scikit-learn==1.0.2
+scipy==1.8.0
+Send2Trash==1.8.0
+shiboken6==6.2.3
+sip==6.5.1
+six==1.16.0
+terminado==0.13.2
+testpath==0.5.0
+thermoscientific-logging @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/thermoscientific_logging-5.17.0-py3-none-any.whl
+threadpoolctl==3.1.0
+tifffile==2022.4.8
+toml==0.10.2
+tomli==2.0.1
+toolz==0.11.1
+tornado==6.1
+traitlets==5.1.0
+urllib3==1.26.3
+wcwidth==0.2.5
+webencodings==0.5.1
+zipp==3.7.0
+</code></pre>
+<p>Confirm the installation location of Autoscript's python environment, which should default to the following path: <code>C:/Program Files/Enthought/Python/envs/Autoscript/python.exe</code>. You can verify this by running the following in the Command Prompt (<code>cmd.exe</code>):</p>
+<pre><code class="language-sh">where python
+</code></pre>
+<p>which should output something similar to the following:</p>
+<pre><code class="language-sh">C:\Program Files\Enthought\Python\envs\AutoScript\python.exe 
+</code></pre>
+<!-- ```sh
+C:\Users\apolon\.conda\envs\pyebsd\python.exe
+C:\Program Files\Enthought\Python\envs\AutoScript\python.exe
+C:\Users\apolon\AppData\Local\Microsoft\WindowsApps\python.exe
+``` -->
+<h2 id="main-installation"><a class="header" href="#main-installation">Main Installation</a></h2>
+<p>Installation can be performed by running the provided batch file <a href="https://github.com/sandialabs/pytribeam/blob/main/install.bat">install.bat</a> from the local directory where you want to install the package. This can be accomplished simply by double clicking on the <code>install.bat</code> file from the Windows Explorer. Options are provided for both client and developer (editable) use. This will install the wheels of various open-source python packages included with the package that are provided here: <a href="https://github.com/sandialabs/pytribeam/tree/main/wheelhouse">wheels</a>. Wheels are provided in order to eliminate the need for internet connectivity on the microscope.</p>
+<p><strong>NOTE</strong>: Developer (editable) use provides the user with the ability to modify and expand the source code, such as adjusting default values in the <code>constants</code> module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the <code>constants</code> module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: <a href="https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html">test-coverage</a>.</p>
+<p>After running the <code>install.bat</code> script, confirm the package installation by opening a new terminal and run the following to list the available package commands:</p>
+<pre><code class="language-sh">pytribeam
+</code></pre>
+<p>which should generate the following output along with any relevant warning messages:</p>
+<pre><code class="language-plaintext">WARNING: Laser API not imported!
+	Laser control, as well as EBSD and EDS control are unavailable.
+
+--------
+pytribeam
+--------
+
+pytribeam
+    (this command)
+
+pytribeam_info
+    Prints the module version and ThermoFisher Scientific Autoscript and Laser
+    API version requirements.
+
+pytribeam_gui
+    Launches GUI for creating configuration .yml files and to control
+    experimental collection.
+
+pytribeam_exp &lt;path_to_file&gt;.yml
+    Runs 3D data collection workflow based off of input .yml file.
+
+    Example:
+        path/to/experiment/directory&gt; pytribeam_exp path/to/config/file.yml
+
+
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../reference_frame/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../reference_frame/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

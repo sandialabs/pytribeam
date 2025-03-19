@@ -1,0 +1,306 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Image Settings - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="image-step-settings"><a class="header" href="#image-step-settings">Image Step Settings</a></h1>
+<p>Specific settings for an image type step, which provides options for setting many of the relevant imaging parameters for the beam used (voltage, current, etc.), the detector (type, mode, etc.), and the scan (resolution, dwell, etc.). For any imaging step, the image will be saved in folder sharing the name of the step (highest level of the dictionary contained with the <code>steps:</code> key) within the experimental directory variable (<strong>exp_dir</strong>) specified in the <strong><a href="../../general/index.html">General Settings</a></strong> dictionary.</p>
+<ul>
+<li><strong>bit_depth</strong> (<em>int</em>): The bit depth of the saved imaged, an integer. Must be a member of the <strong>ColorDepth</strong> enum in the <code>types</code> module. Only 8 or 16 bit depths are supported, and images with custom resolutions (i.e not a <strong>PRESET</strong>, resolution, see here for more details) will automatically be saved at a bit depth of 8. 8-bit images have a grayscale color range of 0-255 (<span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8974em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">8</span></span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span>), while 16-bit images have a grayscale color range of 0-65,535 (<span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8974em;vertical-align:-0.0833em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8141em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mtight">16</span></span></span></span></span></span></span></span></span><span class="mspace" style="margin-right:0.2222em;"></span><span class="mbin">−</span><span class="mspace" style="margin-right:0.2222em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">1</span></span></span></span>).</li>
+</ul>
+<h2 id="beam"><a class="header" href="#beam">beam</a></h2>
+<p>Various settings to control the imaging beam to save a micrograph.</p>
+<ul>
+<li>
+<p><strong>type</strong> (<em>str</em>): The type of beam used to take the image, a string. Must be one of the enumerated <strong>BeamType</strong> values defined in the 1types` module. The supported enum values are:</p>
+<ul>
+<li><strong>electron</strong>: The electron beam.</li>
+<li><strong>ion</strong>: The ion beam. If a FIB step type is selected, the imaging beam must be an <strong>ion</strong> beam type.</li>
+</ul>
+</li>
+<li>
+<p><strong>voltage_kv</strong> (<em>float</em>): The accelerating voltage of the beam in kiloVolts, a float.</p>
+</li>
+<li>
+<p><strong>voltage_tol_kv</strong> (<em>float</em>): The allowed tolerance on the measured beam voltage that will trigger a call to adjust the voltage. An absolute value in kiloVolts, a float. If the requested beam voltage is 20.0 kV with a voltage tolerance of 0.5 kV, the system will attempt to adjust the beam voltage if the measured beam voltage is less than 19.5 kV or greater than 20.5 kV.</p>
+</li>
+<li>
+<p><strong>current_na</strong> (<em>float</em>): The current of the beam in nanoAmps, a float.</p>
+</li>
+<li>
+<p><strong>current_tol_na</strong> (<em>float</em>): The allowed tolerance on the measured beam current that will trigger a call to adjust the amperage. An absolute value in nanoAmps, a float. If the requested beam voltage is 15.0 nA with a current tolerance of 1.0 nA, the system will attempt to adjust the beam current if the measured beam current is less than 14.0 nA or greater than 16.0 nA.</p>
+</li>
+<li>
+<p><strong>hfw_mm</strong> (<em>float</em>): The horizontal field width view of the scan field in units of millimeters, a float. This directly controls the magnification of the beam.</p>
+</li>
+<li>
+<p><strong>working_dist_mm</strong> (<em>float</em>): The working distance in units of millimeters, a float. This directly controls the focus of the beam, with an in-focus image working distance measuring the distance from the pole piece to the sample surface being imaged.</p>
+</li>
+<li>
+<p><strong>dynamic_focus</strong> (<em>bool</em>): A flag whether or not to utilize dynamic focus, a boolean value of either <code>True</code> or <code>False</code>. Dynamic focus is typically used in concert with a correctly set sample tilt angle to dynamically adjust the working distance of the beam as the beam scans from the top to the bottom of the image. Dynamic focus cannot be used for ion imaging and only works for a <strong>scan_rotation</strong> (see <a href="#scan">here</a>) of 0 degrees.</p>
+</li>
+<li>
+<p><strong>tilt_correction</strong> (<em>bool</em>): A flag whether or not to utilize tilt correction, a boolean value of either <code>True</code> or <code>False</code>. Tilt correction is typically used in concert with a correctly set sample tilt angle to adjust the spacing of the vertical scan controller to remove linear distortions of a tilted plane, which may appear foreshortened relative to imaging beam. Tilt correction cannot be used for ion imaging and only works for a <strong>scan_rotation</strong> (see <a href="#scan">here</a>) of 0 degrees.</p>
+</li>
+</ul>
+<h2 id="detector"><a class="header" href="#detector">detector</a></h2>
+<p>Various settings to control the imaging detector to save a micrograph.</p>
+<ul>
+<li>
+<p><strong>type</strong> (<em>str</em>): The type of detector used to collect the image, a string. Must be an enumerated value in the<strong>DetectorType</strong> class defined in the <code>types </code> module, which contains all possible supported detector types, some of which may not be available on your system. Some examples of common detector types that are supported include:</p>
+<ul>
+<li><strong>ABS</strong>: annular backscatter detector, an insertable device.</li>
+<li><strong>CBS</strong>: concentric backscatter detector, an insertable device.</li>
+<li><strong>ETD</strong>: Everhart Thornley detector</li>
+<li><strong>ICE</strong>: Ion conversion and electron detector</li>
+<li><strong>TLD</strong>: Through Lens Detector</li>
+</ul>
+</li>
+<li>
+<p><strong>mode</strong> (<em>str</em>): The mode of the detector used to collect the image, a string. Must be an enumerated value in the <strong>DetectorMode</strong> class defined in the <code>types </code> module, which contains all possible supported detector modes, some of which may not be available on your system and are specific to individual detector types. Some examples of common detector modes that are supported on the <strong>ETD</strong> detector include:</p>
+<ul>
+<li><strong>SecondaryElectrons</strong>: secondary electrons</li>
+<li><strong>BackscatterElectrons</strong>: backscattered electrons</li>
+</ul>
+</li>
+<li>
+<p><strong>brightness</strong> (<em>float</em>): The brightness of the active detector, a float from <em>0.0</em> to <em>1.0</em>. Controls the voltage offset of the detector. Manually sets the brightness and cannot be combined with the auto contrast/brightness (<strong>auto_cb</strong>) functionality.</p>
+</li>
+<li>
+<p><strong>contrast</strong> (<em>float</em>): The contrast of the active detector, a float from <em>0.0</em> to <em>1.0</em>. Controls the electronic gain of the detector. Manually sets the contrast and cannot be combined with the auto contrast/brightness (<strong>auto_cb</strong>) functionality.</p>
+</li>
+</ul>
+<h3 id="auto_cb"><a class="header" href="#auto_cb">auto_cb</a></h3>
+<p>Settings to utilize the auto contrast/brightness adjustment of the active detector. Sets the active region (or sub_region) of the active imaging quadrant in which to perform the automated routine. Future releases may provide additional functionlity to adjust the auto contrast/brightness routine. For details on the sub_region coordinate system, see <a href="../../../reference_frame/index.html#image-coordinate-system">here</a>. The specific settings for the <strong>auto_cb</strong> operaton are:</p>
+<ul>
+<li><strong>left</strong> (<em>float</em>): The position of the left edge of the region of interest, a float from <em>0.0</em> to <em>1.0</em>, with <em>0.0</em> representing the left edge of the image and <em>1.0</em> representing the right edge of the image.</li>
+<li><strong>width</strong> (<em>float</em>): The width of the rectangle starting from the <strong>left</strong> edge of the box. The sum of <strong>left</strong> + <strong>width</strong> must be less than or equal to <em>1.0</em>.</li>
+<li><strong>top</strong> (<em>float</em>): The position of the top edge of the region of interest, a float from <em>0.0</em> to <em>1.0</em>, with <em>0.0</em> representing the top edge of the image and <em>1.0</em> representing the bottom edge of the image.</li>
+<li><strong>height</strong> (<em>float</em>): The height of the rectangle starting from the <strong>top</strong>* edge of the box. The sum of <strong>top</strong> + <strong>height</strong> must be less than or equal to <em>1.0</em>.</li>
+</ul>
+<h2 id="scan"><a class="header" href="#scan">scan</a></h2>
+<p>Various settings to control the scan settings to save a micrograph. The time to collect an image can be roughly calculated by multiplying the dwell time by the number of pixels as determined by the resolution of the image. For example, using a preset resolution of <strong>6144x4096</strong> with a 3 microsecond dwell time will take roughly 75.5 seconds to collect.</p>
+<ul>
+<li>
+<p><strong>rotation_deg</strong> (<em>float</em>): The rotation of the scan field in degrees, a float. Non-zero values of <strong>rotation_deg</strong> cannot be used in combination with <strong>tilt_correction</strong> and <strong>dynamic_focus</strong> settings (see <a href="#beam">above</a>).</p>
+</li>
+<li>
+<p><strong>dwell_time_us</strong> (<em>float</em>): The time the beam should dwell at each pixel in the scan field, in units of microseconds, a float. Must be a positive, non-zero value within the dwell time limits of the tool.</p>
+</li>
+<li>
+<p><strong>resolution</strong> (<em>str</em>): The resolution of the image to be collected, a string in the form of <strong>WIDTH</strong>x<strong>HEIGHT</strong>. Many preset resolutions (mostly with 3:2 aspect ratios) are supported, including:</p>
+<ul>
+<li>512x442</li>
+<li>768x512</li>
+<li>1024x884</li>
+<li>1536x1024</li>
+<li>2048x1768</li>
+<li>3072x2048</li>
+<li>4096x3536</li>
+<li>6144x4096</li>
+</ul>
+</li>
+</ul>
+<p>Custom resolutions from 12 up to 65,535 pixels on edge are also supported, but care should be taken to account for potential lensing distortions and sample drift when collecting large numbers of pixels across large fields of view, which can take several minutes to collect. Custom (non-preset) resolutions can also only be saved to images of 8-bit colordepth (grayscale values of 0-255).</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../config_file/steps/general/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../config_file/steps/laser/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../config_file/steps/general/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../config_file/steps/laser/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

@@ -1,0 +1,364 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Selected Area Milling - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../../favicon.png">
+        <link rel="stylesheet" href="../../../../css/variables.css">
+        <link rel="stylesheet" href="../../../../css/general.css">
+        <link rel="stylesheet" href="../../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../../highlight.css">
+        <link rel="stylesheet" href="../../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="selected-area-milling"><a class="header" href="#selected-area-milling">Selected Area Milling</a></h1>
+<p>When simple box-like patterns will not suffice, user of <code>pytribeam</code> can utilized the <strong>selected_area</strong> pattern type, which generates a stream file based off a masked image. Originally designed for non-prismatic or non-rectangular sample shapes, this approach enables users to create an image processing workflow based off the ion image taken at the start of the FIB step type to make arbitrary patterns defined on a per-pixel basis. Unlike other supported pattern types, the <strong>selected_area</strong> pattern type has its own set of user defined parameters, including:</p>
+<ul>
+<li>
+<p><strong>dwell_us</strong> (<em>float</em>): The time to dwell on each pixel in a pass in microseconds, a float. The dwell time must be a positive float <em>and</em> an integer multiple of the base dwell time, which is set to 25 ns in the <code>constants</code> module.</p>
+</li>
+<li>
+<p><strong>repeats</strong> (<em>int</em>): The number of times to repeat the pattern, a positive integer.</p>
+</li>
+<li>
+<p><strong>recipe_file</strong> (<em>str</em>): The path to the recipe file that will perform image processing. The parameter must be a valid file path string with the extension <code>.py</code> and must already exist. See <a href="#implementation">Implementation</a> below for more details.</p>
+</li>
+<li>
+<p><strong>mask_file</strong> (<em>str</em>): The path to the mask file created by the <strong>recipe_file</strong> script. Must be a valid file path string with the extension <code>.tif</code>, and must be created by the time the <strong>recipe_file</strong> script has finished execution.</p>
+</li>
+</ul>
+<h2 id="implementation"><a class="header" href="#implementation">Implementation</a></h2>
+<p>In order to utilize the selected area milling functionality, the user must be able to create a <code>python</code> script that performs the necessary image processing routine to create a binarized mask. This mask can either be a true binary array image (only values of <code>True</code> or <code>False</code>), or an integer array of values containing only <code>0</code> or <code>1</code>. This binary mask will be used to create a stream file.</p>
+<p><strong>NOTE</strong>: Mask arrays containing any other values may not work as expected. Future releases may target the utilization of scalar values to automatically adjust dwell times, but for now only fully binarized masks will create the expected behavior.</p>
+<p>When the stream file is created, the provided image is automatically scaled to a width of 4096, with nearest neighbor interpolation only. This means that for a FIB image with horizontal field width of 500 microns, the created stream pattern will have a pixel step size of <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.3669em;"></span><span class="mrel">∼</span><span class="mspace" style="margin-right:0.2778em;"></span></span><span class="base"><span class="strut" style="height:0.6444em;"></span><span class="mord">120</span></span></span></span> nanometers. It is important to take this pixel density into account when selecting the number of <strong>repeats</strong> for the selected area pattern.</p>
+<p>In order to ensure that the stream pattern is scaled correctly, there will also be a single point placed in the upper left corner of the scan field at the start of the stream pattern and a single point in the lower right corner of the scan field at the end of the stream pattern (see <a href="../../../../reference_frame/README.html#patterning-coordinate-system">patterning coordinate frame</a> for more details). This enforces that the stream file will be executed using the <strong>TopToBottom</strong> scan direction and the <strong>Raster</strong> scan type.</p>
+<h3 id="a-working-example"><a class="header" href="#a-working-example">A working example</a></h3>
+<p>Below is an example ion image taken of a sample pedestal in a glancing angle configuration. The image has been manipulated and mirrored across the horizontal axis in order to create a V-shaped area that would represent the area we want to mill. The black regions arise from the image manipulation in order to make a complex shape in cross-section to illustrate the utility of the selected area arpproach.</p>
+<p><img src="fib_image.png" alt="fib_image" />
+<em>A representative ion beam image taken of a sample pedestal in a glancing angle FIB milling configuration. The image has been synthetically manipulated with a slight rotation and mirroring operations to create a non-prismatic shape ill-suited for conventional box-type patterning geometries. Continued backtilting of the sample (higher degree of glancing) will foreshorten the width of the bright region, which has previously been machined with the laser, while reducing the amount of backtilting (less glancing angle) will increase the width of the bright region. The pedestal appears upside down as we are looking from the perspective of the ion beam, and the black areas are the result of the image manipulation to create an complex geometry region to mill.</em></p>
+<p>The pedestal appears to be flipped upside down as we are imaging from the perspective of the ion beam. The laser-machined region is the bright V-shaped area near the center of the image, and the textured gray region above this is the side of our sample pedestal. Typically after laser machining the region of interest for glancing angle milling will appear much brighter than the rest of the sample.</p>
+<p>We want to create a binarized mask of the V-shaped region of interest in order to create our stream file. The end result of our image processing produces the following image:</p>
+<p><img src="fib_mask.png" alt="fib_mask" />
+<em>The masked version of the original image after image processing. We have successfuly isolated the V-shaped region of interest without need to draw a much larger box pattern.</em></p>
+<p>This image was produced with the following script, which we will discuss in further detail below:</p>
+<pre><code class="language-python"># python standard libraries
+from pathlib import Path
+import sys
+
+# 3rd party libraries included with autoscript
+from PIL import Image as pil_img
+import numpy as np
+from skimage import filters, measure
+
+
+def process_image(
+    input_path: Path,
+    output_path: Path,
+) -&gt; bool:
+    # open the image
+    with pil_img.open(input_path) as test_img:
+        # convert to numpy array
+        fib_img = np.asarray(test_img)
+        
+        # find and apply an Otsu filter
+        threshold = filters.threshold_otsu(fib_img)
+        segmented = fib_img &gt; threshold
+
+    # Remove all but the largest continuous feature by:
+
+    # label connected components
+    labeled_img, num_features = measure.label(
+        segmented,
+        return_num=True,
+        connectivity=1,
+    )
+
+    # find largest componet:
+    largest = None
+    max_size = 0
+    for component in range(1, num_features + 1):
+        size = np.sum(labeled_img == component)
+        if size &gt; max_size:
+            max_size = size
+            largest = component
+
+    # mask largest component (remove all others)
+    mask = labeled_img == largest
+
+    # write out image
+    mask = pil_img.fromarray(mask)
+    mask.save(output_path)
+
+    return True
+
+
+if __name__ == "__main__":
+    # Get input and output paths passed from the subprocess:
+    input_path = Path(sys.argv[1])
+    output_path = Path(sys.argv[2])
+
+    # Process the image
+    process_image(
+        input_path=input_path,
+        output_path=output_path,
+    )
+</code></pre>
+<h3 id="the-image-processing-script"><a class="header" href="#the-image-processing-script">The image processing script</a></h3>
+<p>Looking at the above script used to generate the binarized mask, we can see there are three main sections to the script. This same rough structure should be maintained for any custom recipe file created by the user. Several of the imports in the first part must be included, and the standard entry point, <code>if __name__ == "__main__":</code> section should not be modified by the user. The user should only modify the <code>process_image</code> function to achieve the desired image processing routine. More details on the various parts of the script follow below:</p>
+<ul>
+<li>
+<p>Part 1, library imports:</p>
+<p>The top several lines contain several <code>import</code> statements. Here we are bringing in various libraries, either native to <code>python</code> or included in the <code>pytribeam</code> package, to perform various tasks. The first two imports are critical and must be included in the final recipe file:</p>
+<pre><code class="language-python"># python standard libraries
+from pathlib import Path
+import sys
+</code></pre>
+<p>The remainder of the import statements can be modified by the user depending on the nature of the image processing workflow. This example uses a variety of simple tools (<code>pillow</code>, <code>numpy</code>, and <code>scikit-image</code>) to import, segment, and write out image data that will already be avialable in your <code>python</code> environment.</p>
+</li>
+<li>
+<p>Part 2: The image processing recipe.</p>
+<p>All of the image processing to generate the desired binarized mask is achieved through the <code>process_image()</code> function.</p>
+<p>The example script performs the following operations to generate the binarized mask image shown <a href="#a-working-example">above</a>:
+- Import the image using the <code>Pillow</code> library
+- Convert the image to a <code>numpy</code> array
+- Apply a simple Otsu threshold
+- Remove all but the largest continuous feature:
+- Label connected components
+- Find the largest continuous component
+- Mask the largest component, removing all others
+- Save out the image</p>
+<p>Users may implement their own image processing routines and bring in any other functions or packages they deem necessary or helpful to get their desired result. It is, however, imperative that the users be sure to write out the final image as a <code>.tif</code> file before the end of the <code>process_image()</code> function. Users should there plan to retain at least the following lines, or something similar, at the end of their <code>process_image()</code> function:</p>
+<pre><code class="language-python"># write out image
+mask = pil_img.fromarray(mask)
+mask.save(output_path)
+
+return True
+</code></pre>
+</li>
+<li>
+<p>Part 3: The standard entry point.</p>
+<p>Users should not adjust the last several lines of this example, as this is required by <code>pytribeam</code> to correctly pass the user-defined settings of where to find the input grayscale ion image (automatically defined by the experimental directory, the step name, and the slice number) and where to save the ouput mask image (the <strong>mask_file</strong> user parameter). These lines allow the initiated subprocess from the main <code>pytribeam</code> acquisition loop to parse parameters correctly:</p>
+<pre><code class="language-python">if __name__ == "__main__":
+    # Get input and output paths passed from the subprocess:
+    input_path = Path(sys.argv[1])
+    output_path = Path(sys.argv[2])
+
+    # Process the image
+    process_image(
+        input_path=input_path,
+        output_path=output_path,
+    )
+</code></pre>
+</li>
+</ul>
+<p>Users can test their script by calling the following, provided they have correctly defined the variables <code>recipe_file</code>, <code>input_image_path</code> and <code>mask_file</code> as strings. The following should create the <code>mask_file</code> image at the user-defined location:</p>
+<pre><code class="language-python">import subprocess
+
+output = subprocess.run(
+[
+    "python",
+    recipe_file, # recipe_file
+    input_image_path, # input path,
+    mask_file, # outputpath,
+],
+capture_output=True,
+)
+if output.returncode != 0:
+raise ValueError(
+    f"Subprocess call did not execute correctly."
+)
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../../config_file/steps/fib/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../../config_file/steps/ebsd_eds/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../../config_file/steps/fib/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../../config_file/steps/ebsd_eds/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../../elasticlunr.min.js"></script>
+        <script src="../../../../mark.min.js"></script>
+        <script src="../../../../searcher.js"></script>
+
+        <script src="../../../../clipboard.min.js"></script>
+        <script src="../../../../highlight.js"></script>
+        <script src="../../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
