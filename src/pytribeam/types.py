@@ -1,3 +1,274 @@
+#!/usr/bin/python3
+"""
+Types Module
+============
+
+This module contains classes for internal data types used in the microscope operations, including settings, patterns, and enums.
+
+Classes
+-------
+AdornedImage(as_structs.AdornedImage)
+    Adapter class for autoscript AdornedImage.
+
+AngularCorrectionMode(as_enums.AngularCorrectionMode)
+    Adapter class for autoscript AngularCorrectionMode.
+
+Limit(NamedTuple)
+    Limit range for a value.
+
+BeamType(Enum)
+    Specific enumerated beam types.
+
+BeamSettings(NamedTuple)
+    Settings for generic Beam types.
+
+StreamDepth(IntEnum)
+    Bit depth of stream patterns.
+
+ColorDepth(IntEnum)
+    Bit depth of images.
+
+CoordinateReference(Enum)
+    Enum of coordinate reference frames used for laser milling operations.
+
+DetectorMode(Enum)
+    Enum adapter for autoscript DetectorMode enum.
+
+DetectorType(Enum)
+    Enum adapter for autoscript DetectorType enum.
+
+Device(IntEnum)
+    Enum adapter for autoscript ImagingDevice enum.
+
+DummyFile(object)
+    Dummy file to suppress excessive printing.
+
+ExternalDeviceOEM(Enum)
+    Specific EBSD and EDS OEMs supported for collection.
+
+FIBPatternType(Enum)
+    Enum for FIB pattern types.
+
+FIBPatternScanDirection(Enum)
+    Enum for FIB pattern scan directions.
+
+FIBPatternScanType(Enum)
+    Enum for FIB pattern scan types.
+
+FocusPlaneGrid(NamedTuple)
+    Settings for performing a focus grid to fit plane for image tiling.
+
+GrabFrameSettings(as_structs.GrabFrameSettings)
+    Class adapter for autoscript GrabFrameSettings.
+
+ImageFileFormat(Enum)
+    Enum adapter for autoscript ImageFileFormat.
+
+ImageTileSettings(NamedTuple)
+    Settings for image tiling operations.
+
+IntervalType(Enum)
+    Enumerated interval types for limit checking.
+
+LaserPatternMode(Enum)
+    Enum for laser pattern modes.
+
+LaserWavelength(IntEnum)
+    Enum for laser wavelengths.
+
+Point(as_structs.Point)
+    Adapter class for autoscript Point.
+
+ProtectiveShutterMode(as_enums.ProtectiveShutterMode)
+    Adapter class for autoscript ProtectiveShutterMode.
+
+MapStatus(Enum)
+    Map status for EBSD or EDS.
+
+Microscope(SdbMicroscopeClient)
+    Class adapter for autoscript SdbMicroscopeClient.
+
+MicroscopeConnection(NamedTuple)
+    Connection to initialize microscope object.
+
+PretiltAngleDegrees(NamedTuple)
+    Specimen pretilt as measured with regard to the electron beam normal direction.
+
+Resolution(NamedTuple)
+    Arbitrary scan resolution, with limits of (12 <= input <= 65536).
+
+RetractableDeviceState(Enum)
+    Enum adapter for autoscript RetractableDeviceState enum.
+
+DeviceStatus(NamedTuple)
+    Status of connected devices.
+
+RotationSide(Enum)
+    Enum for specific rotation sides.
+
+ScanArea(NamedTuple)
+    Reduced scan area box, coordinate range in [0,1] from top left corner.
+
+ScanMode(IntEnum)
+    Enum adapter for autoscript ScanningMode enum.
+
+SectioningAxis(Enum)
+    Specific sectioning directions supported for 3D collection.
+
+StageAxis(as_enums.StageAxis)
+    Class adapter for autoscript StageAxis enum.
+
+StageCoordinateSystem(Enum)
+    Adapter enum class for autoscript CoordinateSystem.
+
+StageMovementMode(Enum)
+    Movement mode of the stage.
+
+StagePositionEncoder(as_structs.StagePosition)
+    Class adapter for autoscript StagePosition.
+
+StagePositionUser(NamedTuple)
+    Stage object with axis positions in units of mm and degrees.
+
+StageLimits(NamedTuple)
+    Limits for stage positions as determined by autoscript.
+
+StageTolerance(NamedTuple)
+    Tolerance for stage positions.
+
+StepType(Enum)
+    Specific step types supported for data collection.
+
+StreamPatternDefinition(as_structs.StreamPatternDefinition)
+    Adapter class for autoscript StreamPatternDefinition.
+
+TimeStamp(NamedTuple)
+    Timestamp with human-readable and UNIX time formats.
+
+ViewQuad(IntEnum)
+    Quadrant in xTUI to select for viewing/imaging.
+
+VacuumState(Enum)
+    Enum adapter for autoscript VacuumState enum.
+
+Beam(NamedTuple)
+    A generic Beam type, used as a template for concrete beam types.
+
+BeamLimits(NamedTuple)
+    Limits for beam settings as determined by autoscript.
+
+ElectronBeam(Beam)
+    The specific beam type 'electron'.
+
+GeneralSettings(NamedTuple)
+    General settings object.
+
+IonBeam(Beam)
+    The specific beam type 'ion'.
+
+Detector(NamedTuple)
+    Generic detector settings.
+
+PresetResolution(Resolution, Enum)
+    Enum adapter for autoscript ScanningResolution enum.
+
+Scan(NamedTuple)
+    Generic scan settings.
+
+ImageSettings(NamedTuple)
+    Image settings for the microscope.
+
+StageSettings(NamedTuple)
+    Settings for high-level stage movement operation.
+
+ScanLimits(NamedTuple)
+    Limits for beam scan settings as determined by autoscript.
+
+CustomSettings(NamedTuple)
+    Custom settings for running scripts.
+
+RectanglePattern(as_dynamics.RectanglePattern)
+    Adapter class for autoscript RectanglePattern.
+
+CleaningCrossSectionPattern(as_dynamics.CleaningCrossSectionPattern)
+    Adapter class for autoscript CleaningCrossSectionPattern.
+
+RegularCrossSectionPattern(as_dynamics.RegularCrossSectionPattern)
+    Adapter class for autoscript RegularCrossSectionPattern.
+
+StreamPattern(as_dynamics.StreamPattern)
+    Adapter class for autoscript StreamPattern.
+
+FIBBoxPattern(NamedTuple)
+    FIB box pattern settings.
+
+FIBRectanglePattern(FIBBoxPattern)
+    FIB rectangle pattern settings.
+
+FIBRegularCrossSection(FIBBoxPattern)
+    FIB regular cross-section pattern settings.
+
+FIBCleaningCrossSection(FIBBoxPattern)
+    FIB cleaning cross-section pattern settings.
+
+FIBStreamPattern(NamedTuple)
+    FIB stream pattern settings.
+
+FIBPattern(NamedTuple)
+    FIB pattern settings.
+
+FIBSettings(NamedTuple)
+    FIB settings for the microscope.
+
+EBSDGridType(IntEnum)
+    Enum for EBSD grid types.
+
+EBSDSettings(NamedTuple)
+    EBSD settings for the microscope.
+
+EDSSettings(NamedTuple)
+    EDS settings for the microscope.
+
+LaserPolarization(Enum)
+    Enum for laser polarization.
+
+LaserPulse(NamedTuple)
+    Laser pulse settings.
+
+LaserScanType(Enum)
+    Enum for laser scan types.
+
+LaserPatternType(Enum)
+    Enum for laser pattern types.
+
+LaserBoxPattern(NamedTuple)
+    Laser box pattern settings.
+
+LaserLinePattern(NamedTuple)
+    Laser line pattern settings.
+
+LaserPattern(NamedTuple)
+    Laser pattern settings.
+
+LaserState(NamedTuple)
+    Settings for all readable values from TFS Laser Control.
+
+LaserSettings(NamedTuple)
+    Laser settings for the microscope.
+
+Step(NamedTuple)
+    Step settings for the experiment.
+
+ExperimentSettings(NamedTuple)
+    Experiment settings for the experiment.
+
+YMLFormat(NamedTuple)
+    YAML format settings.
+
+YMLFormatVersion(YMLFormat, Enum)
+    Enum for YAML format versions.
+"""
+
 # Default python modules
 from typing import NamedTuple, List, Union
 from enum import Enum, IntEnum
@@ -14,38 +285,75 @@ import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
 
 
 class AdornedImage(as_structs.AdornedImage):
+    """
+    Adapter class for autoscript AdornedImage.
+    """
+
     pass
 
 
 class AngularCorrectionMode(as_enums.AngularCorrectionMode):
+    """
+    Adapter class for autoscript AngularCorrectionMode.
+    """
+
     pass
 
 
 class Limit(NamedTuple):
-    """Limit range for a value"""
+    """
+    Limit range for a value.
+
+    Attributes
+    ----------
+    min : float
+        The minimum value of the limit.
+    max : float
+        The maximum value of the limit.
+    """
 
     min: float  # | int
     max: float  # | int
 
 
 class BeamType(Enum):
-    """Specific enumerated beam types"""
+    """
+    Specific enumerated beam types.
+
+    Attributes
+    ----------
+    ELECTRON : str
+        Electron beam type.
+    ION : str
+        Ion beam type.
+    """
 
     ELECTRON: str = "electron"
     ION: str = "ion"
 
 
 class BeamSettings(NamedTuple):
-    """Settings for generic Beam types
+    """
+    Settings for generic Beam types.
 
-    Attributes:
-        voltage_kv: float
-        current_na: float
-        hfw_mm: float
-        working_dist_mm: float
-        voltage_tol_kv: float
-        current_tol_na: float
-
+    Attributes
+    ----------
+    voltage_kv : float
+        The voltage in kV.
+    current_na : float
+        The current in nA.
+    hfw_mm : float
+        The horizontal field width in mm.
+    working_dist_mm : float
+        The working distance in mm.
+    voltage_tol_kv : float
+        The voltage tolerance in kV.
+    current_tol_na : float
+        The current tolerance in nA.
+    dynamic_focus : bool
+        Whether dynamic focus is enabled (ebeam only).
+    tilt_correction : bool
+        Whether tilt correction is enabled (ebeam only).
     """
 
     # read from microscope:
@@ -62,23 +370,48 @@ class BeamSettings(NamedTuple):
 
 
 class StreamDepth(IntEnum):
-    """but depth of stream patterns"""
+    """
+    Bit depth of stream patterns.
+
+    Attributes
+    ----------
+    BITS_16 : int
+        16-bit depth.
+    """
 
     # BITS_12 = 12 #no longer supported by TFS
     BITS_16 = 16
 
 
 class ColorDepth(IntEnum):
-    """bit depth of images"""
+    """
+    Bit depth of images.
+
+    Attributes
+    ----------
+    BITS_8 : int
+        8-bit depth.
+    BITS_16 : int
+        16-bit depth.
+    """
 
     BITS_8 = 8
     BITS_16 = 16
 
 
 class CoordinateReference(Enum):
-    """enum of coordinate reference frames used for laser milling operations.
+    """
+    Enum of coordinate reference frames used for laser milling operations.
 
-    Tiling support planned for future release"""
+    Attributes
+    ----------
+    CENTER : str
+        Center coordinate reference.
+    UPPER_CENTER : str
+        Upper center coordinate reference.
+    UPPER_LEFT : str
+        Upper left coordinate reference.
+    """
 
     CENTER: str = "center"
     UPPER_CENTER: str = "uppercenter"
@@ -86,7 +419,88 @@ class CoordinateReference(Enum):
 
 
 class DetectorMode(Enum):
-    """enum adapter for autoscript DetectorMode enum"""
+    """
+    Enum adapter for autoscript DetectorMode enum.
+
+    Attributes
+    ----------
+    ALL : str
+        All detector mode.
+    A_MINUS_B : str
+        A minus B detector mode.
+    ANGULAR : str
+        Angular detector mode.
+    ANGULAR_PARTIAL : str
+        Angular partial detector mode.
+    ANGULAR_PARTIAL_COMPLEMENT : str
+        Angular partial complement detector mode.
+    ANULAR_A : str
+        Anular A detector mode.
+    ANULAR_B : str
+        Anular B detector mode.
+    ANULAR_C : str
+        Anular C detector mode.
+    ANULAR_D : str
+        Anular D detector mode.
+    A_PLUS_B : str
+        A plus B detector mode.
+    BACKSCATTER_ELECTRONS : str
+        Backscatter electrons detector mode.
+    BEAM_DECELERATION : str
+        Beam deceleration detector mode.
+    BRIGHT_FIELD : str
+        Bright field detector mode.
+    CATHODO_LUMINESCENCE : str
+        Cathodo luminescence detector mode.
+    CHARGE_NEUTRALIZATION : str
+        Charge neutralization detector mode.
+    CUSTOM : str
+        Custom detector mode.
+    CUSTOM2 : str
+        Custom2 detector mode.
+    CUSTOM3 : str
+        Custom3 detector mode.
+    CUSTOM4 : str
+        Custom4 detector mode.
+    CUSTOM5 : str
+        Custom5 detector mode.
+    DARK_FIELD : str
+        Dark field detector mode.
+    DARK_FIELD1 : str
+        Dark field1 detector mode.
+    DARK_FIELD2 : str
+        Dark field2 detector mode.
+    DARK_FIELD3 : str
+        Dark field3 detector mode.
+    DARK_FIELD4 : str
+        Dark field4 detector mode.
+    DOWN_HOLE_VISIBILITY : str
+        Down hole visibility detector mode.
+    HIGH_ANGLE : str
+        High angle detector mode.
+    INNER_MINUS_OUTER : str
+        Inner minus outer detector mode.
+    LOW_ANGLE : str
+        Low angle detector mode.
+    MIX : str
+        Mix detector mode.
+    NONE : str
+        None detector mode.
+    SCINTILLATION : str
+        Scintillation detector mode.
+    SECONDARY_ELECTRONS : str
+        Secondary electrons detector mode.
+    SECONDARY_IONS : str
+        Secondary ions detector mode.
+    SEGMENT_A : str
+        Segment A detector mode.
+    SEGMENT_B : str
+        Segment B detector mode.
+    TOPOGRAPHY : str
+        Topography detector mode.
+    Z_CONTRAST : str
+        Z contrast detector mode.
+    """
 
     ALL: str = as_enums.DetectorMode.ALL
     A_MINUS_B: str = as_enums.DetectorMode.A_MINUS_B
@@ -129,7 +543,90 @@ class DetectorMode(Enum):
 
 
 class DetectorType(Enum):
-    """enum adapter for autoscript DetectorType enum"""
+    """
+    Enum adapter for autoscript DetectorType enum.
+
+    Attributes
+    ----------
+    ABS : str
+        ABS detector type.
+    BSD : str
+        BSD detector type.
+    CBS : str
+        CBS detector type.
+    CDEM : str
+        CDEM detector type.
+    CRD : str
+        CRD detector type.
+    DUAL_BSD : str
+        Dual BSD detector type.
+    EBSD : str
+        EBSD detector type.
+    EDS : str
+        EDS detector type.
+    ECD : str
+        ECD detector type.
+    ETD : str
+        ETD detector type.
+    EXTERNAL : str
+        External detector type.
+    GAS : str
+        GAD detector type.
+    GBSD : str
+        GBSD detector type.
+    GSED : str
+        GSED detector type.
+    HIRES_OPTICAL : str
+        HiRes Optical detector type.
+    HIRES_OPTICAL_LO_MAG : str
+        HiRes Optical Low Mag detector type.
+    ICE : str
+        ICE detector type.
+    IN_COLUMN_BSD : str
+        In Column BSD detector type.
+    IR : str
+        IR detector type.
+    IR2 : str
+        IR2 detector type.
+    IR_CAMERA : str
+        IR Camera detector type.
+    LFD : str
+        LFD detector type.
+    LVD : str
+        LVD detector type.
+    LVSED : str
+        LVSED detector type.
+    MD : str
+        MD detector type.
+    MIX : str
+        Mix detector type.
+    NONE : str
+        None detector type.
+    PMT : str
+        PMT detector type.
+    QUAD_BSD : str
+        Quad BSD detector type.
+    SED : str
+        SED detector type.
+    SINGLE_BSD : str
+        Single BSD detector type.
+    STEM3 : str
+        STEM3 detector type.
+    STEM3_PLUS : str
+        STEM3 Plus detector type.
+    STEM4 : str
+        STEM4 detector type.
+    T1 : str
+        T1 detector type.
+    T2 : str
+        T2 detector type.
+    T3 : str
+        T3 detector type.
+    TLD : str
+        TLD detector type.
+    TLD2 : str
+        TLD2 detector type.
+    """
 
     ABS: str = as_enums.DetectorType.ABS
     BSD: str = "BSD"
@@ -173,7 +670,26 @@ class DetectorType(Enum):
 
 
 class Device(IntEnum):
-    """enum adapter for autoscript ImagingDevice enum"""
+    """
+    Enum adapter for autoscript ImagingDevice enum.
+
+    Attributes
+    ----------
+    ELECTRON_BEAM : int
+        Electron beam device.
+    ION_BEAM : int
+        Ion beam device.
+    CCD_CAMERA : int
+        CCD camera device.
+    IR_CAMERA : int
+        IR camera device.
+    NAV_CAM : int
+        Navigation camera device.
+    OPTICAL_MICROSCOPE : int
+        Optical microscope device.
+    VOLUMESCOPE_APPROACH_CAMERA : int
+        Volumescope approach camera device.
+    """
 
     ELECTRON_BEAM = as_enums.ImagingDevice.ELECTRON_BEAM
     ION_BEAM = as_enums.ImagingDevice.ION_BEAM
@@ -185,14 +701,27 @@ class Device(IntEnum):
 
 
 class DummyFile(object):
-    """To suppress excessive printing"""
+    """
+    Dummy file to suppress excessive printing.
+    """
 
     def write(selfself, x):
         pass
 
 
 class ExternalDeviceOEM(Enum):
-    """Specific EBSD and EDS OEMS supported for collection"""
+    """
+    Specific EBSD and EDS OEMs supported for collection.
+
+    Attributes
+    ----------
+    OXFORD : str
+        Oxford OEM.
+    EDAX : str
+        EDAX OEM.
+    NONE : str
+        No OEM.
+    """
 
     OXFORD: str = "Oxford"
     EDAX: str = "EDAX"
@@ -231,6 +760,21 @@ class ExternalDeviceOEM(Enum):
 
 
 class FIBPatternType(Enum):
+    """
+    Enum for FIB pattern types.
+
+    Attributes
+    ----------
+    RECTANGLE : str
+        Rectangle pattern type.
+    REGULAR_CROSS_SECTION : str
+        Regular cross-section pattern type.
+    CLEANING_CROSS_SECTION : str
+        Cleaning cross-section pattern type.
+    SELECTED_AREA : str
+        Selected area pattern type.
+    """
+
     RECTANGLE: str = "rectangle"
     REGULAR_CROSS_SECTION: str = "regular_cross_section"
     CLEANING_CROSS_SECTION: str = "cleaning_cross_section"
@@ -238,7 +782,32 @@ class FIBPatternType(Enum):
 
 
 class FIBPatternScanDirection(Enum):
-    """Replaces Thermo Fisher PatternScanDirection enumeration, which does not work as a pythonic enum class"""
+    """
+    Enum for FIB pattern scan directions.
+
+    Attributes
+    ----------
+    BOTTOM_TO_TOP : str
+        Bottom to top scan direction.
+    DYNAMIC_ALL_DIRECTIONS : str
+        Dynamic all directions scan direction.
+    DYNAMIC_INNER_TO_OUTER : str
+        Dynamic inner to outer scan direction.
+    DYNAMIC_LEFT_TO_RIGHT : str
+        Dynamic left to right scan direction.
+    DYNAMIC_TOP_TO_BOTTOM : str
+        Dynamic top to bottom scan direction.
+    INNER_TO_OUTER : str
+        Inner to outer scan direction.
+    LEFT_TO_RIGHT : str
+        Left to right scan direction.
+    OUTER_TO_INNER : str
+        Outer to inner scan direction.
+    RIGHT_TO_LEFT : str
+        Right to left scan direction.
+    TOP_TO_BOTTOM : str
+        Top to bottom scan direction.
+    """
 
     BOTTOM_TO_TOP: str = "BottomToTop"
     DYNAMIC_ALL_DIRECTIONS: str = "DynamicAllDirections"
@@ -253,7 +822,18 @@ class FIBPatternScanDirection(Enum):
 
 
 class FIBPatternScanType(Enum):
-    """Replaces Thermo Fisher PatternScanType enumeration, which does not work as a pythonic enum class"""
+    """
+    Enum for FIB pattern scan types.
+
+    Attributes
+    ----------
+    RASTER : str
+        Raster scan type.
+    SERPENTINE : str
+        Serpentine scan type.
+    CIRCULAR : str
+        Circular scan type (not yet supported by pyTriBeam).
+    """
 
     RASTER: str = "Raster"
     SERPENTINE: str = "Serpentine"
@@ -261,8 +841,20 @@ class FIBPatternScanType(Enum):
 
 
 class FocusPlaneGrid(NamedTuple):
-    """Settings for performing a focus grid to fit plane for image tiling.
-    Uses same coordinate reference as requested for tiling operation"""
+    """
+    Settings for performing a focus grid to fit plane for image tiling.
+
+    Attributes
+    ----------
+    num_grid_points_x : int
+        Number of grid points in the x direction.
+    num_grid_points_y : int
+        Number of grid points in the y direction.
+    grid_dx_um : float
+        Grid spacing in the x direction in micrometers.
+    grid_dy_um : float
+        Grid spacing in the y direction in micrometers.
+    """
 
     num_grid_points_x: int
     num_grid_points_y: int
@@ -271,20 +863,48 @@ class FocusPlaneGrid(NamedTuple):
 
 
 class GrabFrameSettings(as_structs.GrabFrameSettings):
-    """Class adapter for autoscript GrabFrameSettings"""
+    """
+    Adapter Class for autoscript GrabFrameSettings.
+    """
 
     pass
 
 
 class ImageFileFormat(Enum):
-    """Enum adapter for autoscript ImageFileFormat"""
+    """
+    Enum adapter for autoscript ImageFileFormat.
+
+    Attributes
+    ----------
+    RAW : str
+        RAW image file format.
+    TIFF : str
+        TIFF image file format.
+    """
 
     RAW: str = as_enums.ImageFileFormat.RAW
     TIFF: str = as_enums.ImageFileFormat.TIFF
 
 
 class ImageTileSettings(NamedTuple):
-    """Settings for image tiling operations"""
+    """
+    Settings for image tiling operations.
+
+    Attributes
+    ----------
+    tile_origin : CoordinateReference
+        The origin of the tile.
+    length_x_mm : float
+        The length of the tile in the x direction in millimeters.
+    length_y_mm : float
+        The length of the tile in the y direction in millimeters.
+    overlap_frac_x : float
+        The overlap fraction in the x direction.
+    overlap_frac_y : float
+        The overlap fraction in the y direction.
+    focus_plane_grid : FocusPlaneGrid
+        The focus plane grid settings.
+    """
 
     tile_origin: CoordinateReference
     length_x_mm: float
@@ -295,50 +915,88 @@ class ImageTileSettings(NamedTuple):
 
 
 class IntervalType(Enum):
-    """Enumerated interval types for limit checking"""
+    """
+    Enumerated interval types for limit checking.
+
+    Attributes
+    ----------
+    OPEN : str
+        Fully-open interval (a,b), does not include endpoints.
+    CLOSED : str
+        Fully-closed interval [a,b], includes both endpoints.
+    LEFT_OPEN : str
+        Half-open interval on left side (a,b], does not include 'a'.
+    RIGHT_OPEN : str
+        Half-open interval on right side [a,b), does not include 'b'.
+    """
 
     OPEN: str = "open"
-    """
-    Fully-open interval (a,b), does not include endpoints
-    """
     CLOSED: str = "closed"
-    """
-    Fully-closed interval [a,b], includes both endpoints
-    """
     LEFT_OPEN: str = "left_open"
-    """
-    Half-open interval on left side (a,b], does not include 'a'
-    """
     RIGHT_OPEN: str = "right_open"
-    """
-    Half-open interval on right side [a,b), does not include 'b'
-    """
 
 
 class LaserPatternMode(Enum):
+    """
+    Enum for laser pattern modes.
+
+    Attributes
+    ----------
+    COARSE : str
+        Coarse pattern mode.
+    FINE : str
+        Fine pattern mode.
+    """
+
     COARSE: str = "coarse"
     FINE: str = "fine"
 
 
 class LaserWavelength(IntEnum):
+    """
+    Enum for laser wavelengths.
+
+    Attributes
+    ----------
+    NM_515 : int
+        515 nm wavelength.
+    NM_1030 : int
+        1030 nm wavelength.
+    """
+
     NM_515 = 515
     NM_1030 = 1030
 
 
 class Point(as_structs.Point):
-    """Adapter class"""
+    """
+    Adapter class for autoscript Point.
+    """
 
     pass
 
 
 class ProtectiveShutterMode(as_enums.ProtectiveShutterMode):
-    """Adapter class"""
+    """
+    Adapter class for autoscript ProtectiveShutterMode.
+    """
 
     pass
 
 
 class MapStatus(Enum):
-    """Map status for EBSD or EDS"""
+    """
+    Map status for EBSD or EDS.
+
+    Attributes
+    ----------
+    ACTIVE : str
+        Active map status.
+    IDLE : str
+        Idle map status.
+    ERROR : str
+        Error map status.
+    """
 
     ACTIVE = "Active"
     IDLE = "Idle"
@@ -346,8 +1004,11 @@ class MapStatus(Enum):
 
 
 class Microscope(SdbMicroscopeClient):
-    """Class adapter for autoscript SdbMicroscopeClient.
-    Can add functionality with inheritance and super() in init, commented out below"""
+    """
+    Class adapter for autoscript SdbMicroscopeClient.
+
+    Can add functionality with inheritance and super() in init, commented out below.
+    """
 
     # def __init__(self):
     #     super().__init__()
@@ -356,32 +1017,50 @@ class Microscope(SdbMicroscopeClient):
 
 
 class MicroscopeConnection(NamedTuple):
-    """connection to initialize microscope object"""
+    """
+    Connection to initialize microscope object.
+
+    Attributes
+    ----------
+    host : str
+        The host for the microscope connection.
+    port : int, optional
+        The port for the microscope connection (default is None).
+    """
 
     host: str
     port: int = None
 
 
 class PretiltAngleDegrees(NamedTuple):
-    """Specimen pretilt as measured with regard to the electron beam normal direction.
-    For example, when facing the front of the microscope (chamber door),
-    the laser is installed at 60 degrees clockwise from the electron beam.
-    A specimen at pretilt = 36 degrees would tilt the T-axis to -6 degrees for laser parallel
-    machining (glancing-angle), and either -96 degrees or -84 degrees after a
-    180 degree rotation about the R-axis for laser normal machining (drilling).
-    As -96 and -84 degrees are beyond the scope of the stage limits,
-    laser drilling operations are not achievable with a pretilt of -36 degrees.
+    """
+    Specimen pretilt as measured with regard to the electron beam normal direction.
 
-    Importantly, this convention differs from that of ThermoFisher, which instead considers this
-    configuration to be a 54 degree pre-tilt (the complement of the angle used here)
-
-    Value must be in degrees."""
+    Attributes
+    ----------
+    value : float
+        The pretilt angle in degrees.
+    """
 
     value: float
 
 
 class Resolution(NamedTuple):
-    """Abritrary scan resolution, with limits of (12 <= input <= 65536)"""
+    """
+    Arbitrary scan resolution, with limits of (12 <= input <= 65536).
+
+    Attributes
+    ----------
+    width : int
+        The width of the resolution.
+    height : int
+        The height of the resolution.
+
+    Properties
+    ----------
+    value : str
+        The resolution as a string in the format "widthxheight".
+    """
 
     width: int
     height: int
@@ -392,7 +1071,26 @@ class Resolution(NamedTuple):
 
 
 class RetractableDeviceState(Enum):
-    """enum adapter for autoscript RetractableDeviceState enum"""
+    """
+    Enum adapter for autoscript RetractableDeviceState enum.
+
+    Attributes
+    ----------
+    BUSY : str
+        Busy state.
+    ERROR : str
+        Error state.
+    INSERTED : str
+        Inserted state.
+    OTHER : str
+        Other state.
+    RETRACTED : str
+        Retracted state.
+    INDERTERMINATE : str
+        Indeterminate state (for Oxford EBSD and EDS detectors).
+    CONNECTED : str
+        Connected state (for laser status).
+    """
 
     BUSY: str = as_enums.RetractableDeviceState.BUSY
     ERROR: str = as_enums.RetractableDeviceState.ERROR
@@ -404,6 +1102,24 @@ class RetractableDeviceState(Enum):
 
 
 class DeviceStatus(NamedTuple):
+    """
+    Status of connected devices.
+
+    Attributes
+    ----------
+    laser : RetractableDeviceState
+        The status of the laser.
+    ebsd : RetractableDeviceState
+        The status of the EBSD detector.
+    eds : RetractableDeviceState
+        The status of the EDS detector.
+
+    Methods
+    -------
+    __str__():
+        Return a string representation of the device status.
+    """
+
     laser: RetractableDeviceState
     ebsd: RetractableDeviceState
     eds: RetractableDeviceState
@@ -413,17 +1129,18 @@ class DeviceStatus(NamedTuple):
 
 
 class RotationSide(Enum):
-    """enum for specific rotation sides.
-    Requried to accurately move stage during sectioning.
+    """
+    Enum for specific rotation sides.
 
-    While sectioning along the Z axis with a pretilted specimen,
-    stage will move along the raw negative Y axis on FSL_MILL side (toward the laser),
-    but along the raw positive Y axis on FIB_MILL side (toward the FIB).
-
-    EBEAM_NORMAL can be used when Y axis corrections are not required during Z-axis
-    sectioning, as for pretilted specimens during operations that require a constant
-    X or Y position independent of slice number, as for reference fiducials for
-    rotation corrections."""
+    Attributes
+    ----------
+    FSL_MILL : str
+        FSL mill side.
+    FIB_MILL : str
+        FIB mill side.
+    EBEAM_NORMAL : str
+        E-beam normal side.
+    """
 
     FSL_MILL: str = "fsl_mill"
     FIB_MILL: str = "fib_mill"
@@ -431,9 +1148,21 @@ class RotationSide(Enum):
 
 
 class ScanArea(NamedTuple):
-    """Reduced scan area box, coordinate range in [0,1] from top left corner"""
+    """
+    Reduced scan area box, coordinate range in [0,1] from top left corner.
 
-    # TODO check what (left + width > 1) or (top + height > 1) will do
+    Attributes
+    ----------
+    left : float
+        The left coordinate of the scan area.
+    top : float
+        The top coordinate of the scan area.
+    width : float
+        The width of the scan area.
+    height : float
+        The height of the scan area.
+    """
+
     left: float
     top: float
     width: float
@@ -441,7 +1170,26 @@ class ScanArea(NamedTuple):
 
 
 class ScanMode(IntEnum):
-    """enum adapter for autoscript ScanningMode enum"""
+    """
+    Enum adapter for autoscript ScanningMode enum.
+
+    Attributes
+    ----------
+    FULL_FRAME : int
+        Full frame scan mode.
+    LINE : int
+        Line scan mode.
+    SPOT : int
+        Spot scan mode.
+    REDUCED_AREA : int
+        Reduced area scan mode.
+    EXTERNAL : int
+        External scan mode.
+    CROSSOVER : int
+        Crossover scan mode.
+    OTHER : int
+        Other scan mode.
+    """
 
     FULL_FRAME = as_enums.ScanningMode.FULL_FRAME
     LINE = as_enums.ScanningMode.LINE
@@ -453,7 +1201,22 @@ class ScanMode(IntEnum):
 
 
 class SectioningAxis(Enum):
-    """Specific sectioning directions supported for 3D collection"""
+    """
+    Specific sectioning directions supported for 3D collection.
+
+    Attributes
+    ----------
+    X_POS : str
+        Positive X direction.
+    X_NEG : str
+        Negative X direction.
+    Y_POS : str
+        Positive Y direction.
+    Y_NEG : str
+        Negative Y direction.
+    Z : str
+        Z direction.
+    """
 
     X_POS: str = "X+"
     X_NEG: str = "X-"
@@ -463,46 +1226,87 @@ class SectioningAxis(Enum):
 
 
 class StageAxis(as_enums.StageAxis):
-    """Class adapter for autoscript StageAxis enum"""
+    """
+    Class adapter for autoscript StageAxis enum.
+    """
 
     pass
 
 
 class StageCoordinateSystem(Enum):
-    """Adapter enum class for autoscript CoordinateSystem.
-    Stage movement operations are all done in RAW coordinates for
-    increased accuracy, reliability, and constancy of positions"""
+    """
+    Adapter enum class for autoscript CoordinateSystem.
+
+    Attributes
+    ----------
+    RAW : str
+        RAW coordinate system.
+    SPECIMEN : str
+        Specimen coordinate system.
+    """
 
     RAW: str = as_enums.CoordinateSystem.RAW
     SPECIMEN: str = as_enums.CoordinateSystem.SPECIMEN
 
 
 class StageMovementMode(Enum):
-    """Movement mode of the stage.
-    IN_PLANE mode is used for in-plane tiling operations
-    OUT_OF_PLANE mode is used for out-of-plane slice increments"""
+    """
+    Movement mode of the stage.
+
+    Attributes
+    ----------
+    IN_PLANE : str
+        In-plane movement mode (for tiling operations).
+    OUT_OF_PLANE : str
+        Out-of-plane movement mode (for sectioning operations).
+    """
 
     IN_PLANE: str = "in_plane"
     OUT_OF_PLANE: str = "out_of_plane"
 
 
 class StagePositionEncoder(as_structs.StagePosition):
-    """Class adapter for autoscript StagePosition
-    length units in meters, angular units in radians
-    contains the following properties:
-    x: float, in meters
-    y: float, in meters
-    z: float, in meters
-    r: float, in radians
-    t: float, in radians
-    coordinate_system: str, tbt.StageCoordinateSystem.value
+    """
+    Class adapter for autoscript StagePosition.
+
+    Attributes
+    ----------
+    x : float
+        The x position in meters.
+    y : float
+        The y position in meters.
+    z : float
+        The z position in meters.
+    r : float
+        The r position in radians.
+    t : float
+        The t position in radians.
+    coordinate_system : str
+        The coordinate system.
     """
 
     pass
 
 
 class StagePositionUser(NamedTuple):
-    """Stage object with axis positions in units of mm and degrees"""
+    """
+    Stage object with axis positions in units of mm and degrees.
+
+    Attributes
+    ----------
+    x_mm : float
+        The x position in millimeters.
+    y_mm : float
+        The y position in millimeters.
+    z_mm : float
+        The z position in millimeters.
+    r_deg : float
+        The r position in degrees.
+    t_deg : float
+        The t position in degrees.
+    coordinate_system : StageCoordinateSystem
+        The coordinate system (default is StageCoordinateSystem.RAW).
+    """
 
     x_mm: float
     y_mm: float
@@ -513,7 +1317,22 @@ class StagePositionUser(NamedTuple):
 
 
 class StageLimits(NamedTuple):
-    """Limits for stage positions as determined by autoscript"""
+    """
+    Limits for stage positions as determined by autoscript.
+
+    Attributes
+    ----------
+    x_mm : Limit
+        The x position limit in millimeters.
+    y_mm : Limit
+        The y position limit in millimeters.
+    z_mm : Limit
+        The z position limit in millimeters.
+    r_deg : Limit
+        The r position limit in degrees.
+    t_deg : Limit
+        The t position limit in degrees.
+    """
 
     x_mm: Limit
     y_mm: Limit
@@ -523,12 +1342,40 @@ class StageLimits(NamedTuple):
 
 
 class StageTolerance(NamedTuple):
+    """
+    Tolerance for stage positions.
+
+    Attributes
+    ----------
+    translational_um : float
+        The translational tolerance in micrometers.
+    angular_deg : float
+        The angular tolerance in degrees.
+    """
+
     translational_um: float
     angular_deg: float
 
 
 class StepType(Enum):
-    """Specific step types supported for data collection"""
+    """
+    Specific step types supported for data collection.
+
+    Attributes
+    ----------
+    LASER : str
+        Laser step type.
+    IMAGE : str
+        Image step type.
+    FIB : str
+        FIB step type.
+    EDS : str
+        EDS step type.
+    EBSD : str
+        EBSD step type.
+    CUSTOM : str
+        Custom step type.
+    """
 
     LASER: str = "laser"
     IMAGE: str = "image"
@@ -540,18 +1387,44 @@ class StepType(Enum):
 
 
 class StreamPatternDefinition(as_structs.StreamPatternDefinition):
-    """Adapter class"""
+    """
+    Adapter class for autoscript StreamPatternDefinition.
+    """
 
     pass
 
 
 class TimeStamp(NamedTuple):
+    """
+    Timestamp with human-readable and UNIX time formats.
+
+    Attributes
+    ----------
+    human_readable : str
+        The human-readable timestamp.
+    unix : int
+        The UNIX timestamp.
+    """
+
     human_readable: str
     unix: int
 
 
 class ViewQuad(IntEnum):
-    """Quadrant in xTUI to select for viewing/imaging"""
+    """
+    Quadrant in xTUI to select for viewing/imaging.
+
+    Attributes
+    ----------
+    UPPER_LEFT : int
+        Upper left quadrant.
+    UPPER_RIGHT : int
+        Upper right quadrant.
+    LOWER_LEFT : int
+        Lower left quadrant.
+    LOWER_RIGHT : int
+        Lower right quadrant.
+    """
 
     UPPER_LEFT = 1
     UPPER_RIGHT = 2
@@ -560,7 +1433,26 @@ class ViewQuad(IntEnum):
 
 
 class VacuumState(Enum):
-    """enum adpater for autoscript VacuumState enum"""
+    """
+    Enum adapter for autoscript VacuumState enum.
+
+    Attributes
+    ----------
+    ERROR : str
+        Error state.
+    PUMPED : str
+        Pumped state.
+    PUMPED_FOR_WAFER_EXCHANGE : str
+        Pumped for wafer exchange state.
+    PUMPING : str
+        Pumping state.
+    UNKNOWN : str
+        Unknown state.
+    VENTED : str
+        Vented state.
+    VENTING : str
+        Venting state.
+    """
 
     ERROR: str = as_enums.VacuumState.ERROR
     PUMPED: str = as_enums.VacuumState.PUMPED
@@ -575,7 +1467,20 @@ class VacuumState(Enum):
 
 
 class Beam(NamedTuple):
-    """A generic Beam type, used as a template for concrete beam types."""
+    """
+    A generic Beam type, used as a template for concrete beam types.
+
+    Attributes
+    ----------
+    settings : BeamSettings
+        The beam settings.
+    type : BeamType
+        The beam type.
+    default_view : ViewQuad
+        The default view quadrant.
+    device : Device
+        The beam device.
+    """
 
     settings: BeamSettings
     type: BeamType = None
@@ -584,7 +1489,20 @@ class Beam(NamedTuple):
 
 
 class BeamLimits(NamedTuple):
-    """Limits for beam setting as determined by autoscript"""
+    """
+    Limits for beam settings as determined by autoscript.
+
+    Attributes
+    ----------
+    voltage_kv : Limit
+        The voltage limit in kV.
+    current_na : Limit
+        The current limit in nA.
+    hfw_mm : Limit
+        The horizontal field width limit in mm.
+    working_distance_mm : Limit
+        The working distance limit in mm.
+    """
 
     voltage_kv: Limit
     current_na: Limit
@@ -593,7 +1511,20 @@ class BeamLimits(NamedTuple):
 
 
 class ElectronBeam(Beam):
-    """The specific beam type 'electron'."""
+    """
+    The specific beam type 'electron'.
+
+    Attributes
+    ----------
+    settings : BeamSettings
+        The beam settings.
+    type : BeamType
+        The beam type (default is BeamType.ELECTRON).
+    default_view : ViewQuad
+        The default view quadrant (default is ViewQuad.UPPER_LEFT).
+    device : Device
+        The beam device (default is Device.ELECTRON_BEAM).
+    """
 
     settings: BeamSettings
     type: BeamType = BeamType.ELECTRON
@@ -602,7 +1533,41 @@ class ElectronBeam(Beam):
 
 
 class GeneralSettings(NamedTuple):
-    """General settings object"""
+    """
+    General settings object.
+
+    Attributes
+    ----------
+    yml_version : float
+        The YAML version.
+    slice_thickness_um : float
+        The slice thickness in micrometers.
+    max_slice_number : int
+        The maximum slice number.
+    pre_tilt_deg : float
+        The pre-tilt angle in degrees.
+    sectioning_axis : SectioningAxis
+        The sectioning axis.
+    stage_tolerance : StageTolerance
+        The stage tolerance.
+    connection : MicroscopeConnection
+        The microscope connection settings.
+    EBSD_OEM : ExternalDeviceOEM
+        The EBSD OEM.
+    EDS_OEM : ExternalDeviceOEM
+        The EDS OEM.
+    exp_dir : Path
+        The experiment directory.
+    h5_log_name : str
+        The HDF5 log file name.
+    step_count : int
+        The step count.
+
+    Properties
+    ----------
+    log_filepath : Path
+        The log file path.
+    """
 
     yml_version: float
     slice_thickness_um: float
@@ -623,7 +1588,20 @@ class GeneralSettings(NamedTuple):
 
 
 class IonBeam(Beam):
-    """The specific beam type 'ion'."""
+    """
+    The specific beam type 'ion'.
+
+    Attributes
+    ----------
+    settings : BeamSettings
+        The beam settings.
+    type : BeamType
+        The beam type (default is BeamType.ION).
+    default_view : ViewQuad
+        The default view quadrant (default is ViewQuad.UPPER_RIGHT).
+    device : Device
+        The beam device (default is Device.ION_BEAM).
+    """
 
     settings: BeamSettings
     type: BeamType = BeamType.ION
@@ -632,7 +1610,24 @@ class IonBeam(Beam):
 
 
 class Detector(NamedTuple):
-    """Generic detector settings"""
+    """
+    Generic detector settings.
+
+    Attributes
+    ----------
+    type : DetectorType
+        The detector type.
+    mode : DetectorMode
+        The detector mode.
+    brightness : float
+        The brightness setting.
+    contrast : float
+        The contrast setting.
+    auto_cb_settings : ScanArea
+        The auto contrast/brightness settings.
+    custom_settings : dict
+        The custom settings.
+    """
 
     type: DetectorType = None  # error check with "available_values" call
     mode: DetectorMode = None  # error check with "available_values" call
@@ -645,7 +1640,28 @@ class Detector(NamedTuple):
 
 
 class PresetResolution(Resolution, Enum):
-    """Enum adapter for autoscript ScanningResolution enum"""
+    """
+    Enum adapter for autoscript ScanningResolution enum.
+
+    Attributes
+    ----------
+    PRESET_512X442 : Resolution
+        512x442 resolution.
+    PRESET_768X512 : Resolution
+        768x512 resolution.
+    PRESET_1024X884 : Resolution
+        1024x884 resolution.
+    PRESET_1536X1024 : Resolution
+        1536x1024 resolution.
+    PRESET_2048X1768 : Resolution
+        2048x1768 resolution.
+    PRESET_3072X2048 : Resolution
+        3072x2048 resolution.
+    PRESET_4096X3536 : Resolution
+        4096x3536 resolution.
+    PRESET_6144X4096 : Resolution
+        6144x4096 resolution.
+    """
 
     # python 3.11 will support StrEnum like so: StandardResolution(StrEnum)
     PRESET_512X442 = Resolution(width=512, height=442)
@@ -659,7 +1675,18 @@ class PresetResolution(Resolution, Enum):
 
 
 class Scan(NamedTuple):
-    """Generic scan settings"""
+    """
+    Generic scan settings.
+
+    Attributes
+    ----------
+    rotation_deg : float
+        The scan rotation in degrees.
+    dwell_time_us : float
+        The dwell time in microseconds.
+    resolution : Resolution
+        The scan resolution.
+    """
 
     rotation_deg: float = None  # enforce resolution limit (tolerance)
     dwell_time_us: float = (
@@ -670,6 +1697,23 @@ class Scan(NamedTuple):
 
 
 class ImageSettings(NamedTuple):
+    """
+    Image settings for the microscope.
+
+    Attributes
+    ----------
+    microscope : Microscope
+        The microscope object.
+    beam : Beam
+        The beam settings.
+    detector : Detector
+        The detector settings.
+    scan : Scan
+        The scan settings.
+    bit_depth : ColorDepth
+        The bit depth of the image.
+    """
+
     microscope: Microscope
     beam: Beam
     detector: Detector
@@ -680,7 +1724,24 @@ class ImageSettings(NamedTuple):
 
 
 class StageSettings(NamedTuple):
-    """Settings for high-level stage movement operation."""
+    """
+    Settings for high-level stage movement operation.
+
+    Attributes
+    ----------
+    microscope : Microscope
+        The microscope object.
+    initial_position : StagePositionUser
+        The initial position of the stage.
+    pretilt_angle_deg : PretiltAngleDegrees
+        The pretilt angle in degrees.
+    sectioning_axis : SectioningAxis
+        The sectioning axis.
+    rotation_side : RotationSide
+        The rotation side.
+    movement_mode : StageMovementMode
+        The movement mode of the stage (default is StageMovementMode.OUT_OF_PLANE).
+    """
 
     microscope: Microscope
     initial_position: StagePositionUser
@@ -691,34 +1752,89 @@ class StageSettings(NamedTuple):
 
 
 class ScanLimits(NamedTuple):
-    """Limits for beam scan settings as determined by autoscript"""
+    """
+    Limits for beam scan settings as determined by autoscript.
+
+    Attributes
+    ----------
+    rotation_deg : Limit
+        The rotation limit in degrees.
+    dwell_us : Limit
+        The dwell time limit in microseconds.
+    """
 
     rotation_deg: Limit
     dwell_us: Limit
 
 
 class CustomSettings(NamedTuple):
+    """
+    Custom settings for running scripts.
+
+    Attributes
+    ----------
+    script_path : Path
+        The path to the script.
+    executable_path : Path
+        The path to the executable.
+    """
+
     script_path: Path
     executable_path: Path
 
 
 class RectanglePattern(as_dynamics.RectanglePattern):
+    """
+    Adapter class for autoscript RectanglePattern.
+    """
+
     pass
 
 
 class CleaningCrossSectionPattern(as_dynamics.CleaningCrossSectionPattern):
+    """
+    Adapter class for autoscript CleaningCrossSectionPattern.
+    """
+
     pass
 
 
 class RegularCrossSectionPattern(as_dynamics.RegularCrossSectionPattern):
+    """
+    Adapter class for autoscript RegularCrossSectionPattern.
+    """
+
     pass
 
 
 class StreamPattern(as_dynamics.StreamPattern):
+    """
+    Adapter class for autoscript StreamPattern.
+    """
+
     pass
 
 
 class FIBBoxPattern(NamedTuple):
+    """
+    FIB box pattern settings.
+
+    Attributes
+    ----------
+    center_um : Point
+        The center of the pattern in micrometers.
+    width_um : float
+        The width of the pattern in micrometers.
+    height_um : float
+        The height of the pattern in micrometers.
+    depth_um : float
+        The depth of the pattern in micrometers.
+    scan_direction : FIBPatternScanDirection
+        The scan direction of the pattern.
+    scan_type : FIBPatternScanType
+        The scan type of the pattern.
+    """
+
     center_um: Point
     width_um: float
     height_um: float
@@ -728,18 +1844,45 @@ class FIBBoxPattern(NamedTuple):
 
 
 class FIBRectanglePattern(FIBBoxPattern):
+    """
+    FIB rectangle pattern settings.
+    """
+
     pass
 
 
 class FIBRegularCrossSection(FIBBoxPattern):
+    """
+    FIB regular cross-section pattern settings.
+    """
+
     pass
 
 
 class FIBCleaningCrossSection(FIBBoxPattern):
+    """
+    FIB cleaning cross-section pattern settings.
+    """
+
     pass
 
 
 class FIBStreamPattern(NamedTuple):
+    """
+    FIB stream pattern settings.
+
+    Attributes
+    ----------
+    dwell_us : float
+        The dwell time in microseconds (must be a multiple of 25 ns).
+    repeats : int
+        The number of repeats.
+    recipe_file : Path
+        The path to the recipe file.
+    mask_file : Path
+        The path to the mask file.
+    """
+
     dwell_us: float  # must be multiple of 25 ns
     repeats: int
     recipe_file: Path
@@ -747,6 +1890,19 @@ class FIBStreamPattern(NamedTuple):
 
 
 class FIBPattern(NamedTuple):
+    """
+    FIB pattern settings.
+
+    Attributes
+    ----------
+    application : str
+        The application name.
+    type : FIBPatternType
+        The pattern type.
+    geometry : Union[FIBRectanglePattern, FIBRegularCrossSection, FIBCleaningCrossSection, FIBStreamPattern]
+        The pattern geometry.
+    """
+
     application: str
     type: FIBPatternType
     geometry: Union[
@@ -758,6 +1914,21 @@ class FIBPattern(NamedTuple):
 
 
 class FIBSettings(NamedTuple):
+    """
+    FIB settings for the microscope.
+
+    Attributes
+    ----------
+    microscope : Microscope
+        The microscope object.
+    image : ImageSettings
+        The image settings.
+    mill_beam : Beam
+        The milling beam settings.
+    pattern : FIBPattern
+        The FIB pattern settings.
+    """
+
     microscope: Microscope
     image: ImageSettings
     mill_beam: Beam
@@ -765,27 +1936,88 @@ class FIBSettings(NamedTuple):
 
 
 class EBSDGridType(IntEnum):
+    """
+    Enum for EBSD grid types.
+
+    Attributes
+    ----------
+    SQUARE : int
+        Square grid type.
+    HEXAGONAL : int
+        Hexagonal grid type.
+    """
+
     SQUARE = 1
     HEXAGONAL = 0
 
 
 class EBSDSettings(NamedTuple):
+    """
+    EBSD settings for the microscope.
+
+    Attributes
+    ----------
+    image : ImageSettings
+        The image settings.
+    enable_eds : bool
+        Whether to enable EDS.
+    enable_ebsd : bool
+        Whether to enable EBSD (default is True).
+    """
+
     image: ImageSettings
     enable_eds: bool
     enable_ebsd: bool = True
 
 
 class EDSSettings(NamedTuple):
+    """
+    EDS settings for the microscope.
+
+    Attributes
+    ----------
+    image : ImageSettings
+        The image settings.
+    enable_eds : bool
+        Whether to enable EDS (default is True).
+    """
+
     image: ImageSettings
     enable_eds: bool = True
 
 
 class LaserPolarization(Enum):
+    """
+    Enum for laser polarization.
+
+    Attributes
+    ----------
+    VERTICAL : str
+        Vertical polarization.
+    HORIZONTAL : str
+        Horizontal polarization.
+    """
+
     VERTICAL: str = "vertical"
     HORIZONTAL: str = "horizontal"
 
 
 class LaserPulse(NamedTuple):
+    """
+    Laser pulse settings.
+
+    Attributes
+    ----------
+    wavelength_nm : LaserWavelength
+        The laser wavelength in nanometers.
+    divider : int
+        The pulse divider.
+    energy_uj : float
+        The pulse energy in microjoules.
+    polarization : LaserPolarization
+        The pulse polarization.
+    """
+
     wavelength_nm: LaserWavelength
     divider: int
     energy_uj: float
@@ -793,6 +2025,21 @@ class LaserPulse(NamedTuple):
 
 
 class LaserScanType(Enum):
+    """
+    Enum for laser scan types.
+
+    Attributes
+    ----------
+    SERPENTINE : str
+        Serpentine scan type.
+    RASTER : str
+        Raster scan type.
+    SINGLE : str
+        Single scan type.
+    LAP : str
+        Lap scan type.
+    """
+
     SERPENTINE: str = "serpentine"
     RASTER: str = "raster"
     SINGLE: str = "single"
@@ -800,11 +2047,43 @@ class LaserScanType(Enum):
 
 
 class LaserPatternType(Enum):
+    """
+    Enum for laser pattern types.
+
+    Attributes
+    ----------
+    BOX : str
+        Box pattern type.
+    LINE : str
+        Line pattern type.
+    """
+
     BOX: str = "box"
     LINE: str = "line"
 
 
 class LaserBoxPattern(NamedTuple):
+    """
+    Laser box pattern settings.
+
+    Attributes
+    ----------
+    passes : int
+        The number of passes.
+    size_x_um : float
+        The size in the x direction in micrometers.
+    size_y_um : float
+        The size in the y direction in micrometers.
+    pitch_x_um : float
+        The pitch in the x direction in micrometers.
+    pitch_y_um : float
+        The pitch in the y direction in micrometers.
+    scan_type : LaserScanType
+        The scan type (Serpentine or Raster).
+    coordinate_ref : CoordinateReference
+        The coordinate reference (Center, UpperCenter, or UpperLeft).
+    """
+
     passes: int
     size_x_um: float
     size_y_um: float
@@ -816,6 +2095,21 @@ class LaserBoxPattern(NamedTuple):
 
 
 class LaserLinePattern(NamedTuple):
+    """
+    Laser line pattern settings.
+
+    Attributes
+    ----------
+    passes : int
+        The number of passes.
+    size_um : float
+        The size in micrometers.
+    pitch_um : float
+        The pitch in micrometers.
+    scan_type : LaserScanType
+        The scan type (Single or Lap).
+    """
+
     passes: int
     size_um: float
     pitch_um: float
@@ -824,6 +2118,23 @@ class LaserLinePattern(NamedTuple):
 
 
 class LaserPattern(NamedTuple):
+    """
+    Laser pattern settings.
+
+    Attributes
+    ----------
+    mode : LaserPatternMode
+        The laser pattern mode.
+    rotation_deg : float
+        The rotation in degrees.
+    geometry : Union[LaserBoxPattern, LaserLinePattern]
+        The pattern geometry.
+    pulses_per_pixel : int
+        The number of pulses per pixel.
+    pixel_dwell_ms : float
+        The pixel dwell time in milliseconds.
+    """
+
     mode: LaserPatternMode
     rotation_deg: float
     geometry: Union[LaserBoxPattern, LaserLinePattern]
@@ -832,7 +2143,28 @@ class LaserPattern(NamedTuple):
 
 
 class LaserState(NamedTuple):
-    """Settings for all readable values from TFS Laser Control"""
+    """
+    Settings for all readable values from TFS Laser Control.
+
+    Attributes
+    ----------
+    wavelength_nm : LaserWavelength
+        The laser wavelength in nanometers.
+    frequency_khz : float
+        The frequency in kilohertz.
+    pulse_divider : int
+        The pulse divider.
+    pulse_energy_uj : float
+        The pulse energy in microjoules.
+    objective_position_mm : float
+        The objective position in millimeters.
+    beam_shift_um : Point
+        The beam shift in micrometers.
+    pattern : LaserPattern
+        The laser pattern settings.
+    expected_pattern_duration_s : float
+        The expected pattern duration in seconds.
+    """
 
     wavelength_nm: LaserWavelength  # LaserPulse.wavelength_nm setting
     frequency_khz: float
@@ -847,6 +2179,23 @@ class LaserState(NamedTuple):
 
 
 class LaserSettings(NamedTuple):
+    """
+    Laser settings for the microscope.
+
+    Attributes
+    ----------
+    microscope : Microscope
+        The microscope object.
+    pulse : LaserPulse
+        The laser pulse settings.
+    objective_position_mm : float
+        The objective position in millimeters.
+    beam_shift_um : Point
+        The beam shift in micrometers.
+    pattern : LaserPattern
+        The laser pattern settings.
+    """
+
     microscope: Microscope
     pulse: LaserPulse
     objective_position_mm: float
@@ -855,6 +2204,25 @@ class LaserSettings(NamedTuple):
 
 
 class Step(NamedTuple):
+    """
+    Step settings for the experiment.
+
+    Attributes
+    ----------
+    type : StepType
+        The step type.
+    name : str
+        The step name.
+    number : int
+        The step number.
+    frequency : int
+        The step frequency.
+    stage : StageSettings
+        The stage settings.
+    operation_settings : Union[CustomSettings, EBSDSettings, EDSSettings, ImageSettings, FIBSettings, LaserSettings]
+        The operation settings for the step.
+    """
+
     type: StepType
     name: str
     number: int
@@ -871,6 +2239,23 @@ class Step(NamedTuple):
 
 
 class ExperimentSettings(NamedTuple):
+    """
+    Experiment settings for the experiment.
+
+    Attributes
+    ----------
+    microscope : Microscope
+        The microscope object.
+    general_settings : GeneralSettings
+        The general settings for the experiment.
+    step_sequence : List[Step]
+        The sequence of steps for the experiment.
+    enable_EBSD : bool
+        Whether to enable EBSD.
+    enable_EDS : bool
+        Whether to enable EDS.
+    """
+
     microscope: Microscope
     general_settings: GeneralSettings
     step_sequence: List[Step]
@@ -879,6 +2264,39 @@ class ExperimentSettings(NamedTuple):
 
 
 class YMLFormat(NamedTuple):
+    """
+    YAML format settings.
+
+    Attributes
+    ----------
+    version : float
+        The version of the YAML format.
+    general_section_key : str
+        The key for the general section.
+    non_step_section_count : int
+        The number of non-step sections.
+    general_exp_settings : dict
+        The general experiment settings.
+    step_count_key : str
+        The key for the step count.
+    step_section_key : str
+        The key for the step section.
+    step_general_settings : dict
+        The general settings for the step.
+    step_general_key : str
+        The key for the general step settings.
+    step_number_key : str
+        The key for the step number.
+    step_frequency_key : str
+        The key for the step frequency.
+    step_type_key : str
+        The key for the step type.
+    step_stage_settings_key : str
+        The key for the step stage settings.
+    image_step_settings : dict
+        The settings for the image step.
+    """
+
     version: float
     general_section_key: str
     non_step_section_count: int
@@ -895,35 +2313,17 @@ class YMLFormat(NamedTuple):
 
     image_step_settings: dict
 
-    # step_settings: List[
-    #     custom,
-    #     ebsd,
-    #     ebsd_eds,
-    #     eds,
-    #     fib,
-    #     image,
-    #     laser,
-    # ]
-
-    # image: ImageSettings
-    # ebsd: dict
-    #     image
-    # eds: dict
-    #     image
-    # ebsd_eds: dict
-    #     image
-
-    # fib: dict
-    #     image
-    #     milling_Settings
-
-    # laser: dict
-    #     special things
-
-    # custom_step_settings: dict
-
 
 class YMLFormatVersion(YMLFormat, Enum):
+    """
+    Enum for YAML format versions.
+
+    Attributes
+    ----------
+    V_1_0 : YMLFormat
+        Version 1.0 of the YAML format.
+    """
+
     V_1_0 = YMLFormat(
         version=1.0,
         # general settings
