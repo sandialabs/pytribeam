@@ -2276,9 +2276,8 @@ def validate_general_settings(
     # Check sectioning axis
     if not ut.valid_enum_entry(sectioning_axis, tbt.SectioningAxis):
         raise ValueError(f"Unsupported sectioning axis of {sectioning_axis}.")
-    # TODO
-    if tbt.SectioningAxis(sectioning_axis) != tbt.SectioningAxis.Z:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+    # if tbt.SectioningAxis(sectioning_axis) != tbt.SectioningAxis.Z:
+    #     raise NotImplementedError("Currently only Z-axis sectioning is supported.")
     if tbt.SectioningAxis(sectioning_axis) != tbt.SectioningAxis.Z:
         pre_tilt_limit_deg = Constants.pre_tilt_limit_deg_non_Z_sectioning  # overwrite
         warnings.warn(

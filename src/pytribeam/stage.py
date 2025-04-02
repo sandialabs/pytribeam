@@ -337,13 +337,44 @@ def target_position(
 
     # TODO
     elif sectioning_axis == tbt.SectioningAxis.X_POS:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        # no pretilt other than 0 degrees currently supported
+        # only need to move x axis by increment factor
         delta_x_m = increment_factor_m
-        pass
+        if rotation_side == tbt.RotationSide.FSL_MILL:
+            target_x_m = (
+                initial_pos_encoder.x + delta_x_m
+            )  
+        elif rotation_side == tbt.RotationSide.FIB_MILL:
+            target_x_m = (
+                initial_pos_encoder.x - delta_x_m
+            )  
+        elif rotation_side == tbt.RotationSide.EBEAM_NORMAL:
+            raise NotImplementedError(f"{rotation_side} not implemented for X+ sectioning.")
+            target_x_m = initial_pos_encoder.x  # no adjustment needed
+        else:
+            raise NotImplementedError(
+                f"Unsupported RotationSide enumeration of '{rotation_side}'"
+            )
+
     elif sectioning_axis == tbt.SectioningAxis.X_NEG:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+        # no pretilt other than 0 degrees currently supported
+        # only need to move x axis by increment factor
         delta_x_m = increment_factor_m
-        pass
+        if rotation_side == tbt.RotationSide.FSL_MILL:
+            target_x_m = (
+                initial_pos_encoder.x - delta_x_m
+            ) 
+        elif rotation_side == tbt.RotationSide.FIB_MILL:
+            target_x_m = (
+                initial_pos_encoder.x + delta_x_m
+            )  
+        elif rotation_side == tbt.RotationSide.EBEAM_NORMAL:
+            raise NotImplementedError(f"{rotation_side} not implemented for X- sectioning.")
+            target_x_m = initial_pos_encoder.x  # no adjustment needed
+        else:
+            raise NotImplementedError(
+                f"Unsupported RotationSide enumeration of '{rotation_side}'"
+            )
     elif sectioning_axis == tbt.SectioningAxis.Y_POS:
         raise NotImplementedError("Currently only Z-axis sectioning is supported.")
         delta_x_m = increment_factor_m

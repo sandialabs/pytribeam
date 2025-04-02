@@ -341,7 +341,7 @@ sectioning_axis = LUTField(
     "Sectioning Axis",
     "Z",
     ctk.MenuButton,
-    {"options": ["X", "Y", "Z"], "dtype": str, "state": "disabled"},
+    {"options": ["X+", "X-", "Y+", "Y-", "Z"], "dtype": str},
     "The axis that the laser will cut along. Can be X, Y, or Z.",
     str,
     tbt.Limit(min=1.0, max=MAX_VERSION),
