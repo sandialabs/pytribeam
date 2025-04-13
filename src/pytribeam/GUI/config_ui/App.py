@@ -322,50 +322,56 @@ class Configurator:
                 _check_value_type(imaging_settings.beam.settings.working_dist_mm, float)
             )
         # Do beam stuff
-        self.CONFIG[self.STEP_INDEX]["beam/type"] = _check_value_type(value, str)
-        self.CONFIG[self.STEP_INDEX]["beam/voltage_kv"] = _check_value_type(
+        # fib steps contain a nested "image" subdictionary that should be filled
+        # identically to a conventional "image" step
+        if self.STEP == "fib":
+            prefix = "image/"
+        elif self.STEP == "image":
+            prefix = ""
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/type"] = _check_value_type(value, str)
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/voltage_kv"] = _check_value_type(
             imaging_settings.beam.settings.voltage_kv, float
         )
-        self.CONFIG[self.STEP_INDEX]["beam/current_na"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/current_na"] = _check_value_type(
             imaging_settings.beam.settings.current_na, float
         )
-        self.CONFIG[self.STEP_INDEX]["beam/voltage_tol_kv"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/voltage_tol_kv"] = _check_value_type(
             imaging_settings.beam.settings.voltage_tol_kv, float
         )
-        self.CONFIG[self.STEP_INDEX]["beam/current_tol_na"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/current_tol_na"] = _check_value_type(
             imaging_settings.beam.settings.current_tol_na, float
         )
-        self.CONFIG[self.STEP_INDEX]["beam/hfw_mm"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/hfw_mm"] = _check_value_type(
             imaging_settings.beam.settings.hfw_mm, float
         )
-        self.CONFIG[self.STEP_INDEX]["beam/working_dist_mm"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/working_dist_mm"] = _check_value_type(
             imaging_settings.beam.settings.working_dist_mm, float
         )
         # Now set the detector settings
-        self.CONFIG[self.STEP_INDEX]["detector/type"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/type"] = _check_value_type(
             imaging_settings.detector.type, str
         )
-        self.CONFIG[self.STEP_INDEX]["detector/mode"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/mode"] = _check_value_type(
             imaging_settings.detector.mode, str
         )
-        self.CONFIG[self.STEP_INDEX]["detector/brightness"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/brightness"] = _check_value_type(
             imaging_settings.detector.brightness, float
         )
-        self.CONFIG[self.STEP_INDEX]["detector/contrast"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/contrast"] = _check_value_type(
             imaging_settings.detector.contrast, float
         )
         # Now the scan settings
-        self.CONFIG[self.STEP_INDEX]["scan/rotation_deg"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/rotation_deg"] = _check_value_type(
             imaging_settings.scan.rotation_deg, float
         )
-        self.CONFIG[self.STEP_INDEX]["scan/dwell_time_us"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/dwell_time_us"] = _check_value_type(
             imaging_settings.scan.dwell_time_us, float
         )
         value = imaging_settings.scan.__getattribute__("resolution")
         value = _check_value_type(f"{value.width}x{value.height}", str)
-        self.CONFIG[self.STEP_INDEX]["scan/resolution"] = value
+        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/resolution"] = value
         # Last is the bit depth
-        self.CONFIG[self.STEP_INDEX]["bit_depth"] = _check_value_type(
+        self.CONFIG[self.STEP_INDEX][f"{prefix}bit_depth"] = _check_value_type(
             imaging_settings.bit_depth, int
         )
         # Update the editor
