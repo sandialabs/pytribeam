@@ -336,53 +336,53 @@ def target_position(
             )
 
     # TODO
-    elif sectioning_axis == tbt.SectioningAxis.X_POS:
+    elif sectioning_axis == tbt.SectioningAxis.POS_Y_FIB:
         # no pretilt other than 0 degrees currently supported
-        # only need to move x axis by increment factor
-        delta_x_m = increment_factor_m
+        # only need to move y axis by increment factor
+        delta_y_m = increment_factor_m
         if rotation_side == tbt.RotationSide.FSL_MILL:
-            target_x_m = (
-                initial_pos_encoder.x + delta_x_m
+            target_y_m = (
+                initial_pos_encoder.y - delta_y_m
             )  
         elif rotation_side == tbt.RotationSide.FIB_MILL:
-            target_x_m = (
-                initial_pos_encoder.x - delta_x_m
+            target_y_m = (
+                initial_pos_encoder.y + delta_y_m
             )  
         elif rotation_side == tbt.RotationSide.EBEAM_NORMAL:
-            raise NotImplementedError(f"{rotation_side} not implemented for X+ sectioning.")
+            raise NotImplementedError(f"{rotation_side} not implemented for +Y_FIB sectioning.")
             target_x_m = initial_pos_encoder.x  # no adjustment needed
         else:
             raise NotImplementedError(
                 f"Unsupported RotationSide enumeration of '{rotation_side}'"
             )
 
-    elif sectioning_axis == tbt.SectioningAxis.X_NEG:
-        # no pretilt other than 0 degrees currently supported
-        # only need to move x axis by increment factor
-        delta_x_m = increment_factor_m
-        if rotation_side == tbt.RotationSide.FSL_MILL:
-            target_x_m = (
-                initial_pos_encoder.x - delta_x_m
-            ) 
-        elif rotation_side == tbt.RotationSide.FIB_MILL:
-            target_x_m = (
-                initial_pos_encoder.x + delta_x_m
-            )  
-        elif rotation_side == tbt.RotationSide.EBEAM_NORMAL:
-            raise NotImplementedError(f"{rotation_side} not implemented for X- sectioning.")
-            target_x_m = initial_pos_encoder.x  # no adjustment needed
-        else:
-            raise NotImplementedError(
-                f"Unsupported RotationSide enumeration of '{rotation_side}'"
-            )
-    elif sectioning_axis == tbt.SectioningAxis.Y_POS:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
-        delta_x_m = increment_factor_m
-        pass
-    elif sectioning_axis == tbt.SectioningAxis.Y_NEG:
-        raise NotImplementedError("Currently only Z-axis sectioning is supported.")
-        delta_x_m = increment_factor_m
-        pass
+    # elif sectioning_axis == tbt.SectioningAxis.X_NEG:
+    #     # no pretilt other than 0 degrees currently supported
+    #     # only need to move x axis by increment factor
+    #     delta_x_m = increment_factor_m
+    #     if rotation_side == tbt.RotationSide.FSL_MILL:
+    #         target_x_m = (
+    #             initial_pos_encoder.x - delta_x_m
+    #         ) 
+    #     elif rotation_side == tbt.RotationSide.FIB_MILL:
+    #         target_x_m = (
+    #             initial_pos_encoder.x + delta_x_m
+    #         )  
+    #     elif rotation_side == tbt.RotationSide.EBEAM_NORMAL:
+    #         raise NotImplementedError(f"{rotation_side} not implemented for X- sectioning.")
+    #         target_x_m = initial_pos_encoder.x  # no adjustment needed
+    #     else:
+    #         raise NotImplementedError(
+    #             f"Unsupported RotationSide enumeration of '{rotation_side}'"
+    #         )
+    # elif sectioning_axis == tbt.SectioningAxis.Y_POS:
+    #     raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+    #     delta_x_m = increment_factor_m
+    #     pass
+    # elif sectioning_axis == tbt.SectioningAxis.Y_NEG:
+    #     raise NotImplementedError("Currently only Z-axis sectioning is supported.")
+    #     delta_x_m = increment_factor_m
+    #     pass
 
     target_pos_encoder = tbt.StagePositionEncoder(
         x=target_x_m,
