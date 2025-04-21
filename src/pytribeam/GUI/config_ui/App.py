@@ -461,9 +461,10 @@ class Configurator:
             if laser_state[key] is None:
                 laser_state[key] = ""
 
+        #TODO clear out only necessary sections, not the whole thing
         # Empty the current laser db
-        for key in self.CONFIG[self.STEP_INDEX].keys():
-            self.CONFIG[self.STEP_INDEX][key] = ""
+        # for key in self.CONFIG[self.STEP_INDEX].keys():
+        #     self.CONFIG[self.STEP_INDEX][key] = ""
 
         # Pass the laser state values to the config file
         self.CONFIG[self.STEP_INDEX]["pulse/wavelength_nm"] = laser_state[
