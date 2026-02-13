@@ -102,6 +102,9 @@ class MainApplication(tk.Tk):
         # Add experiment controller
         self.experiment_controller = ExperimentController()
 
+        # Add state recording framework
+        self.state_recording_path = os.getcwd()
+
         # Register callbacks for UI updates
         self.experiment_controller.register_callback(
             "state_changed", self._on_experiment_state_changed
@@ -136,6 +139,17 @@ class MainApplication(tk.Tk):
         self.menu.add_command(label="Test connections", command=self.test_connections)
         self.menu.add_command(label="Export log", command=self.export_log)
         self.menu.add_command(label="Change theme", command=self.change_theme)
+
+        state_recording_menu = tk.Menu(
+            self.menu,
+            tearoff=False,
+            font=ctk.MENU_FONT,
+            activebackground=self.theme.accent1,
+        )
+        state_recording_menu.add_command(label="Set file", command=self.set_state_recording_file, font=ctk.MENU_FONT)
+        state_recording_menu.add_command(label="Record state", command=self.record_state, font=ctk.MENU_FONT)
+        self.menu.add_cascade(label="State recording", menu=state_recording_menu, font=ctk.MENU_FONT)
+
         self.menu.add_command(label="Exit", command=self.quit)
         self.config(menu=self.menu)
 
@@ -293,6 +307,66 @@ class MainApplication(tk.Tk):
             save_path = save_path.with_suffix(".txt")
         shutil.copy(self.terminal_log_path, save_path)
         messagebox.showinfo("Success", f"Log file saved to {save_path}")
+
+    def set_state_recording_file(self):
+        """Set the yaml file where recorded states will be written to."""
+        path = Path(
+            filedialog.asksaveasfilename(
+                title="Save log file",
+                filetypes=[("TAML files", "*.yml *.yaml")],
+                initialdir=self.state_recording_path,
+            )
+        )
+        if path == Path():
+            return
+        if not path.suffix == ".yml" or not path.suffix == ".yaml":
+            path = path.with_suffix(".yml")
+
+        self.state_recording_path = path
+
+        db = dict(config_file_version=0.0, states={})
+        utilities.dict_to_yml(db, self.state_recording_path)
+
+    def record_state(self):
+        """Record the state of the microscope, prompt the user for a description, and write out to yml"""
+        # Ask the user for a description of what happened.
+
+        def quit():
+            global text
+            text = text_box.get("1.0", "end-1c")
+            toplevel.destroy()
+
+        toplevel = tk.Toplevel(self)
+        toplevel.title("State recording")
+        toplevel.transient(self)
+
+        l = tk.Label(toplevel, text="Please describe how you got to this microscope state from the previous state.\nIf the initial state, just say 'Initial state'.")
+        l.pack(padx=20, pady=10)
+
+        text_box = tk.Text(toplevel, width=200, height=50)
+        text_box.pack(padx=20, pady=10)
+        text_box.insert(1.0, "Insert description...")
+
+        save = tk.Button(toplevel, text="Save", command=quit)
+        save.pack(padx=20, pady=10)
+
+        toplevel.grab_set()
+        toplevel.update_idletasks()
+
+        self.wait_window(toplevel)
+    
+        # Get microscope state and add description
+        microscope_state = self.experiment_controller.get_microscope_state()
+        microscope_state["description"] = text
+        timestamp = datetime.datetime.now().strftime("%b %d, %Y %I:%M %p")
+
+        # Read the current yml
+        db = utilities.yml_to_dict(yml_path_file=self.state_recording_path, version=0.0, required_keys=("config_file_version", "states"))
+        db["states"][timestamp] = microscope_state
+
+        # Write out new yml
+        utilities.dict_to_yml(db=db, file_path=self.state_recording_path)
+
 
     # -------- Config functions -------- #
 

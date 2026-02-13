@@ -12,9 +12,10 @@ from pathlib import Path
 from typing import Callable, Optional, Dict, Any, Tuple, List
 
 import pytribeam.types as tbt
-from pytribeam import workflow, stage, insertable_devices, utilities
+from pytribeam import workflow, stage, insertable_devices, utilities, factory
 from pytribeam.GUI.common import AppConfig, StoppableThread
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
+from pytribeam.GUI.config_ui.microscope_interface import MicroscopeInterface
 
 
 @dataclass
@@ -519,3 +520,33 @@ class ExperimentController:
                         break
             except Exception as e:
                 print(f"Warning: Failed to interrupt thread: {e}")
+
+    def get_microscope_state(self):
+        """Get the current state of the microscope"""
+
+        microscope = tbt.Microscope()
+        utilities.connect_microscope(
+            microscope,
+            quiet_output=True,
+            connection_host="localhost",
+            connection_port=None,
+        )
+
+        beam = factory.active_beam_with_settings(microscope)
+        detector = factory.active_detector_settings(microscope)
+        image_settings = factory.active_image_settings(microscope)
+        image_device = factory.active_imaging_device(microscope)
+        scan = factory.active_scan_settings(microscope)
+        position = factory.active_stage_position_settings(microscope)
+
+        beam.settings
+
+        beam = str(beam)
+        detector = str(detector)
+        image_settings = str(image_settings)
+        image_device = str(image_device)
+        scan = str(scan)
+        position = str(position)
+
+        
+        return dict(beam=beam, detector=detector, image_settings=image_settings, image_device=image_device, scan=scan, position=position)
