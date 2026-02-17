@@ -539,8 +539,6 @@ class ExperimentController:
         scan = factory.active_scan_settings(microscope)
         position = factory.active_stage_position_settings(microscope)
 
-        beam.settings
-
         beam = str(beam)
         detector = str(detector)
         image_settings = str(image_settings)
