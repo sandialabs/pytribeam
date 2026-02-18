@@ -1,4 +1,4 @@
-As autoscript cannot be installed in a virtual environment and requires a license, content for githubpages must be generated locally on a licensed machine. This file contains instructions and commands to create content for github pages for the gh-pages branch.
+As autoscript requires a license, content for GitHub pages must be generated locally on a licensed machine. This file contains instructions and commands to create content for github pages for the gh-pages branch.
 
 # overwriting gh-pages
 
