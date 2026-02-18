@@ -203,7 +203,7 @@ fi
 
 ## lint logs
 
-To generate a lint.log file and badge for lint score, run the following commands in a terminal: 
+To generate a lint.log file and badge for lint score, run the following commands in a git bash terminal: 
 
 ```sh
 mkdir -p logs/
@@ -219,3 +219,5 @@ anybadge -o --label=lint --file=badges/lint.svg --value=${PYLINT_SCORE} 2=red 4=
 ```
 
 ## versioning
+
+Notes to come
