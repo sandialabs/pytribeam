@@ -411,8 +411,8 @@ ignore = [
 ]
 
 [project.urls]
-documentation = "https://gitlab-ex.sandia.gov/tribeam/pytribeam/"
-repository = "https://gitlab-ex.sandia.gov/tribeam/pytribeam"
+documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"
+repository = "https://github.com/sandialabs/pytribeam"
 
 [project.scripts]
 pytribeam = "pytribeam.command_line:pytribeam"
@@ -425,9 +425,10 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
+```
 
-14.2 Recommended (automatic versioning via git tags using setuptools-scm)
-toml
+## 14.2 Recommended (automatic versioning via git tags using setuptools-scm)
+```toml
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel", "setuptools-scm>=8"]
@@ -474,8 +475,8 @@ ignore = [
 ]
 
 [project.urls]
-documentation = "https://gitlab-ex.sandia.gov/tribeam/pytribeam/"
-repository = "https://gitlab-ex.sandia.gov/tribeam/pytribeam"
+documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"
+repository = "https://github.com/sandialabs/pytribeam"
 
 [project.scripts]
 pytribeam = "pytribeam.command_line:pytribeam"
