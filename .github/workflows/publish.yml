@@ -2,8 +2,8 @@ name: Publish to PyPI
 
 on:
   push:
-    branches:
-      - main # Triggers when push/merge to the 'main' branch
+    #branches:
+    #  - main # Triggers when push/merge to the 'main' branch
     tags:
       - 'v*' # Triggers whenever you push a tag starting with 'v' (e.g., v0.0.2)
 
