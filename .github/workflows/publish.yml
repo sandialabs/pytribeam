@@ -1,36 +1,64 @@
-name: Publish to PyPI
-
+name: Package
 on:
-  push:
-    #branches:
-    #  - main # Triggers when push/merge to the 'main' branch
-    tags:
-      - 'v*' # Triggers whenever you push a tag starting with 'v' (e.g., v0.0.2)
-
+  pull_request:
+    branches: main
+  release:
+    types: published
 jobs:
-  build-and-publish:
-    name: Build and publish Python distribution
+  Source:
     runs-on: ubuntu-latest
-    permissions:
-      # This permission is REQUIRED for Trusted Publishing
-      id-token: write
-      contents: read
-
     steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.12"
-
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build
-
-    - name: Build binary wheel and source tarball
-      run: python -m build
-
-    - name: Publish to PyPI
-      uses: pypa/gh-action-pypi-publish@release/v1
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+      - name: Requirements
+        run: pip install --upgrade build pip twine
+      - name: Build
+        run: python -m build .
+      - name: Check
+        run: twine check dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist
+  #Wheel:
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      os: [macos-latest, ubuntu-latest, windows-latest]
+  #  runs-on: ${{ matrix.os }}
+  #  steps:
+  #    - name: Checkout
+  #      uses: actions/checkout@v4
+  #    - name: Python
+  #      uses: actions/setup-python@v5
+  #      with:
+  #        python-version: 3.12
+  #    - name: Requirements
+  #      run: pip install --upgrade build pip twine
+  #    - name: Wheel
+  #      run: python -m build . --wheel
+  #    - name: Check
+  #      run: twine check dist/*
+  #    - uses: actions/upload-artifact@v4
+  #      with:
+  #        name: ${{ matrix.os }}-dist
+  #        path: dist
+  Twine:
+    # needs: [Source, Wheel]
+    needs: Source
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+      - uses: actions/setup-python@v5
+        with:
+          check-latest: true
+          python-version: 3.12
+      - name: Requirements
+        run: pip install --upgrade pip twine
+      - name: Upload
+        if: github.event_name == 'release'
+        run: twine upload -u __token__ -p ${{ secrets.PYPI_TOKEN }} dist/*
