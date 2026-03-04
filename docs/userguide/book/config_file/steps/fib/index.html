@@ -1,0 +1,295 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>FIB Settings - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="fib-step-settings"><a class="header" href="#fib-step-settings">FIB Step Settings</a></h1>
+<p>Specific settings for a FIB type step, which provides options for milling with the ion beam.</p>
+<p>Some intro text, image vs mill settings, do not need to be the same</p>
+<h2 id="image-settings"><a class="header" href="#image-settings">Image Settings</a></h2>
+<p>FIB steps have an internal set of imaging settings that follows the same convention as a standard image. This image is collected prior to any patterning or milling. Please see <a href="../image/index.html">here</a> for more information on <strong>Image Settings</strong>. If you do not need to mill with ion beam and only want to take an image, use an <strong>image</strong> type step instead. For FIB type steps, the image will always be taken with the ion beam.</p>
+<h2 id="mill"><a class="header" href="#mill">mill</a></h2>
+<p>FIB milling settings contain nested mappings for the beam settings and pattern settings.</p>
+<h3 id="beam"><a class="header" href="#beam">beam</a></h3>
+<p>Beam settings follow the same conventions as described in <a href="../image/#beam">beam settings</a>. This allows the user to change various settings between the image and pattern, such as using a lower accelerating voltage or beam current for ion imaging and a higher beam current and/or voltage for the actual milling operation.</p>
+<p>Although the user has the option to change other settings such as the <strong>horizontal field width</strong> (magnification) between imaging and milling, it is generally recommended to keep this value constant. As with the imaging operation in a FIB step type, only an ion beam can be used for patterning for these milling operations, which also means <strong>dynamic focus</strong> and <strong>tilt correction</strong> are not accessible for this data type. Users should also note that any <strong>scan rotation</strong> applied from the imaging settings in a FIB step type will be maintained when the milling pattern is placed, so care should be taken to ensure the patterning settings are determined at the same scanning conditions.</p>
+<h3 id="pattern"><a class="header" href="#pattern">pattern</a></h3>
+<p>Patterning settings for the ion beam contain various nested mappings depending on the type of patterning desired.</p>
+<ul>
+<li><strong>application_file</strong> (<em>str</em>): The application file preset, a string. All pattern types require the use of a preset recipe that controls various low-level settings of patterning such as <em>overlap</em> of adjacent pixels, <em>dwell time</em>, <em>defocus</em>, and <em>blur</em>. Nearly all microscopes will come with a variety of default recipes, including <strong>Si</strong> and <strong>Al</strong>, but many users also develop and create their own recipes. Any custom application files created by the user should be saved in the same directory location as the default application files in order to be accessed by this tool.</li>
+</ul>
+<p>When using the <a href="../../../gui/README.html">GUI</a>, a dynamic list of the available application files for your particular system will automatically be generated. When not using the GUI, users can determine this list themselves by running the following <code>python</code> script:</p>
+<pre><code class="language-python">import pytribeam.types as tbt
+import pytribeam.utilities as ut
+import pytribeam.factory as factory
+
+# define parameters for your specific microscope connection
+connection_host = "localhost" # a string or NoneType
+connection_port = None # a string or NoneType
+
+# create the microscope object and connect to it
+microscope = tbt.Microscope()
+ut.connect_microscope(
+    microscope=microscope,
+    connection_host=connection_host,
+    connection_port=connection_port,
+)
+
+# determine what application files are available on this connection
+found_application_files = factory.active_fib_applications(
+    microscope=microscope
+) # returns a list
+print("Found the following application files:")
+for item in found_application_files:
+    print(f"\t{item}")
+    
+</code></pre>
+<h4 id="type"><a class="header" href="#type">type</a></h4>
+<p>There are currently supported pattern types, which must be an enumerated member of the <em>FIBPatternType</em>* class in the <code>types</code> module. Currently supported pattern types include:</p>
+<ul>
+<li><strong>rectangle</strong>: A rectangle pattern type.</li>
+<li><strong>regular_cross_section</strong>: A regular cross-section pattern type.</li>
+<li><strong>cleaning_cross_section</strong>: A cleaning cross-section pattern type.</li>
+<li><strong>selected_area</strong>: Specialty functionality requiring some python scripting knoweldge to make arbitrary scan geometries. Details on usage can be found <a href="./selected_area_milling/index.html">here</a></li>
+</ul>
+<p>Settings for one and only one pattern type are supported for a given FIB step. If more complex milling geometries are desired, please see the section on the<a href="./selected_area_milling/index.html"><strong>selected_area</strong></a> pattern type.</p>
+<p>The <strong>rectangle</strong>, <strong>regular_cross_section</strong> and <strong>cleaning_cross_section</strong> pattern types all have the same set of parameters, namely:</p>
+<ul>
+<li>
+<p><strong>center</strong>: The center of the pattern using the <a href="../../../reference_frame/index.html#patterning-coordinate-system">Patterning coorindate system</a>.</p>
+<ul>
+<li><strong>x_um</strong> (<em>float</em>): location of the pattern center along the x-axis in microns, a float.</li>
+<li><strong>y_um</strong> (<em>float</em>): location of the pattern center along the y-axis in microns, a float.</li>
+</ul>
+</li>
+<li>
+<p><strong>width_um</strong> (<em>float</em>): The width of the pattern along the x-axis in microns, a float.</p>
+</li>
+<li>
+<p><strong>height_um</strong> (<em>float</em>): The height of the pattern along y-axis in microns, a float.</p>
+</li>
+<li>
+<p><strong>depth_um</strong> (<em>float</em>): The depth of the pattern along z-axis (into the sample) in microns, a float.</p>
+</li>
+<li>
+<p><strong>scan_direction</strong> (<em>str</em>): The scan direction controls the direction of scanning of box type patterns, which includes <strong>rectangle</strong>, <strong>regular_cross_section</strong> and <strong>cleaning_cross_Section</strong> patterns. The <strong>scan_direction</strong> must be an enumerated value in the <strong>FIBPatternScanDirection</strong> class in the <code>types</code> module. Currently supported values include:</p>
+<ul>
+<li><strong>BottomToTop</strong></li>
+<li><strong>TopToBottom</strong></li>
+<li><strong>LeftToRight</strong></li>
+<li><strong>RightToLeft</strong></li>
+<li><strong>DynamicTopToBottom</strong></li>
+<li><strong>DynamicAllDirections</strong></li>
+<li><strong>DynamicLeftToRight</strong></li>
+</ul>
+</li>
+<li>
+<p><strong>scan_type</strong> (<em>str</em>): Controls the sequence of points scanned in combination with the <strong>scan_direction</strong> parameter. Must be a member of the <strong>FIPatternScanType</strong> enum class defined in the <code>types</code> module. Currently supported values include:</p>
+<ul>
+<li><strong>Serpentine</strong>: Reverse direction (left-to-right switch to right-to-left, or top-to-bottom switches to bottom-to-top) on every subsequent line.</li>
+<li><strong>Raster</strong>: Repeat the patterning direction (left-to-right, bottom-to-top, etc.) on every line.</li>
+</ul>
+</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../config_file/steps/laser/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../config_file/steps/fib/selected_area_milling/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../config_file/steps/laser/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../config_file/steps/fib/selected_area_milling/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

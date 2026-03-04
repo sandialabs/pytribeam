@@ -1,0 +1,246 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>GUI - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../highlight.css">
+        <link rel="stylesheet" href="../tomorrow-night.css">
+        <link rel="stylesheet" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="gui"><a class="header" href="#gui">GUI</a></h1>
+<p><code>pytribeam</code> includes a native GUI built on python standard libraries to assist users with the creation of <a href="../config_file/index.html">configuration files</a> and to start and monitor experiments. Use of the GUI is the recommended mode of operation of the package, but users can also run an experiment directly from the command line (see <a href="../cli/index.html">command line interface</a> for more details on this functionality).</p>
+<p>After a successful install of the package following the <a href="../installation/index.html">installation instructions</a>, users can launch the GUI in one of two ways:</p>
+<ul>
+<li>running the command <code>pytribeam_gui</code> from any console. The console must stay open while the GUI application is running.</li>
+<li>running the included <code>GUI.ps1</code> script with powershell by right-clicking on the icon and selecting "Run with PowerShell". This will only open the GUI window.</li>
+</ul>
+<p>Users should see the following landing page when loading the GUI:</p>
+<p><img src="landing_page.png" alt="landing_page" /></p>
+<p>The langing page is broken up into several sections, namely:</p>
+<ul>
+<li><a href="#menu-bar"><strong>Menu Bar</strong></a></li>
+<li><a href="#experiment-configuration"><strong>Experiment Configuration</strong></a></li>
+<li><a href="#acquisition-management"><strong>Acquisition Management</strong></a></li>
+<li><a href="#acquisition-monitoring"><strong>Acquisition Monitoring</strong></a></li>
+</ul>
+<h2 id="menu-bar"><a class="header" href="#menu-bar">Menu Bar</a></h2>
+<p>The top menu bar provides various functionalities, including:</p>
+<ul>
+<li><strong>Help</strong>: This will attempt to open the user guide, either a local version of the userguide, or the online version stored <a href="https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html">here</a>. If you want a local version, please download the built book (the entirety of the <code>book</code> folder) from the <code>gh-pages</code> branch <a href="https://github.com/sandialabs/pytribeam/tree/gh-pages/docs/userguide">here</a> and put it in the following location relative to where you installed the package: <code>./docs/userguide/</code>.</li>
+<li><strong>Clear terminal</strong>: Clear any messages below the welcome message in the central console window.</li>
+<li><strong>Test connections</strong>: Checks whether <code>pytribeam</code> can successfully talk with the Laser and any 3rd party EBSD or EDS detectors. A window will pop-up displaying the results of the test. Thermo Fisher Scientific's Laser application must be open to connect, and EBSD and EDS connectivity additionally requires a connection to the Laser.</li>
+<li><strong>Export Log</strong>: Opens <code>Save As...</code> file dialog to export the contents of the terminal to a text file.</li>
+<li><strong>Change Theme</strong>: Switch between <em>Dark</em> and <em>Light</em> themes for the GUI.</li>
+<li><strong>Exit</strong>: Exits the program. This should not be performed while an acquisition is running, instead the experiment should be stopped as described <a href="#acquisition-management">below</a>.</li>
+</ul>
+<h2 id="experiment-configuration"><a class="header" href="#experiment-configuration">Experiment Configuration</a></h2>
+<p>The upper-left side of the GUI contains tools for creating, editing, and validating configuration files. A new configuration file can be created by clicking the <strong>Create</strong> button, which opens up a new window with the <strong>TriBeam Configurator</strong>, details on which can be found <a href="./configurator/index.html">here</a>.</p>
+<p>Exisiting configuration files can be loaded by clicking the <strong>Load</strong> button, which will open up a file browser. Once a configuration file is created or loaded, the configurator can be reopened by clicking the <strong>Edit</strong> button or validated by clicking the <strong>Validate</strong>  button. Validation includes a full-suite of checks on configuration files intended to catch any invalid or improper settings that can stop an acquisition from running. This validation is always performed at the start/continuation of an experiment, but its use in the GUI can help to identify any errors prior to the start of an acquisition.</p>
+<h2 id="acquisition-management"><a class="header" href="#acquisition-management">Acquisition Management</a></h2>
+<p>The bottom-left side of the GUI contains various buttons for starting and stopping an acquisition, and also provides the user with direct control over what slice and step to begin acquiring a dataset. This includes the following buttons:</p>
+<ul>
+<li><strong>Start experiment</strong>: Begin acquisition at the currently displayed starting slice and step.</li>
+<li><strong>Stop after current step</strong>: Cleanly exit data acquistion at the end of the step currently being exectued.</li>
+<li><strong>Stop after current slice</strong>: Cleanly exit data acquisiton at the end of the slice currently being collected (will complete all remaining steps on that slice in order).</li>
+<li><strong>Hard stop</strong>: Stops the experiment as quickly as possible by severing the microscope connection. Also throws the <code>Esc</code> command to the xTUI to stop any in-process stage movements. Control over insertable devices already in motion is not guaranteed after this has been pressed, but no additional commands will be sent to the microscope by <code>pytribeam</code> after this button has been pressed.</li>
+</ul>
+<h2 id="acquisition-monitoring"><a class="header" href="#acquisition-monitoring">Acquisition Monitoring</a></h2>
+<p>The right-side of the GUI contains a large terminal window to capture output from the data acquisition that updates the user on current activities such as stage destination positions, whether detectors are being inserted or retracted, beam voltage adjustments, and more. Any warning or error messages generated during an acquisition will also be output to this terminal. The terminal currently has no limit on output length (10 million ASCII characters, over 100,000 lines, should take less than 10 MB of RAM), but this may change in the future. It is advisable to clear the terminal using the Menu bar when restarting/resuming an experiment to avoid any potential performance issues. Below the terminal window is high-level data related to total experiment progress, the current slice and step, as well as an average slice time.</p>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../config_file/example/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../gui/configurator/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../config_file/example/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../gui/configurator/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
