@@ -177,9 +177,13 @@ omit =
 
 [paths]
     source = 
-        src/ # running from pytribeam root on an offline machine
-        C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src # full path to 'pytribeam/src' on a laser system
-        C:/Users/User/Documents/pytribeam/src # full path to `pytribeam/src` on a different laser system
+        # running from pytribeam root on an offline machine
+        src
+        # full path to 'pytribeam/src' on a laser system
+        C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src
+        # full path to `pytribeam/src` on a different laser system
+        C:/Users/User/Documents/pytribeam/src
+        C:/Users/apolon/Codebases/pytribeam/src
 
 ```
 
