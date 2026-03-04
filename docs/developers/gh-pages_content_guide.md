@@ -124,21 +124,43 @@ pytest --cov=pytribeam --cov-report=html:coverage_reports/simulator/htmlcov/ --c
 ```
 A `.coverage` file will be generated in the root directory of `pytribeam`. Move the `.coverage` file into the `coverage_reports/simulator` folder.
 
+#### TODO test improvements
+
+- Stop test suite on hard ware if test fails
+    - insert/rectract EBSD is not self contained if it fails
+- check for test independence 
+- order tests in increasing complexity
+- some tests won't work on some systems (CBS stage restrictions)
+- need decorators for:
+    - offline machines
+    - machines with lasers
+    - machines with CBS stage restriction locks (only the windows 7 Helios)
+    - machine that doesn't fit into above (a fib with newer XtUI software)
+- auto add location of root directory to the .coveragerc?
+
+
 ### How to run test suite on hardware:
 The microscope must first be prepared in order to safely run all tests. It is highly recommended to remove any sample and sample holder from the tool. **DO NOT run hardware tests if you are unfamiliar with the process.**
 
 Prepare the microscope by doing the following:
 
 - Remove CBS stage restrictions (non-Windows 7 machines)
-- Turn on electron beam, focus and link Z
+- Turn on electron beam, focus and link Z (WD of 15 mm for no sample)
 - For laser systems only:
     - Open laser app and disable laser interlock (turn the key so laser can fire)
+        - Unlock the objective in the laser GUI
+    - Ensure spin mill sample holder selected
     - Open EBSD software, enable proximity sensor and override alerts (Oxford only)
-
+    - Manually check connections:
+        - Open GUI and run "test connections" to ensure no "Error" states
+        - Insert the EDS detector for a second and re-run "test connections", EDS detector should be "indeterminate"
+        - Retract EDS detector
+- (potentially optional) Discover tests in testing tab
 From the root directory of `pytribeam`, run the following from command from a terminal, this will generate both a .xml and .html version of test coverage:
 ```sh
-pytest --cov=pytribeam --cov-report=html:coverage_reports/hardware/htmlcov/ --cov-report=xml:coverage_reports/hardware/coverage.xml --cov-report term-missing
+pytest -x --cov=pytribeam --cov-report=html:coverage_reports/hardware/htmlcov/ --cov-report=xml:coverage_reports/hardware/coverage.xml --cov-report term-missing
 ```
+"-x" will stop suite if an error is encountered
 
 A `.coverage` file will be generated in the root directory of `pytribeam`. Move the `.coverage` file into the `coverage_reports/hardware` folder.
 
