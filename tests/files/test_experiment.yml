@@ -13,7 +13,7 @@ general:
   EBSD_OEM: null #Oxford, EDAX, or null
   EDS_OEM: null
   exp_dir: C:\_temp
-  h5_log_name: "log"
+  h5_log_name: log
   step_count: 2
 
 steps:
@@ -55,7 +55,7 @@ steps:
     scan:
       rotation_deg:     180.0
       dwell_time_us:    1.0
-      resolution:       "768x512"
+      resolution:       768x512
     bit_depth:          8
 
   image_after_laser:
@@ -96,5 +96,5 @@ steps:
     scan:
       rotation_deg:     180.0
       dwell_time_us:    1.0
-      resolution:       "768x512"
+      resolution:       768x512
     bit_depth:          8

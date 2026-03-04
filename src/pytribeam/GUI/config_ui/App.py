@@ -1,16 +1,79 @@
-import ctypes
 from pathlib import Path
 from copy import deepcopy
 import tkinter as tk
 from tkinter import messagebox
-import yaml
 
 import pytribeam.utilities as ut
 import pytribeam.types as tbt
 import pytribeam.factory as factory
 import pytribeam.laser as laser
+from pytribeam.constants import Conversions
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 import pytribeam.GUI.config_ui.lookup as lut
+
+# Import refactored modules
+from pytribeam.GUI.common import AppResources
+from pytribeam.GUI.config_ui.pipeline_model import flatten_dict, unflatten_dict
+from pytribeam.GUI.config_ui.microscope_interface import (
+    MicroscopeInterface,
+    format_stage_info,
+)
+from pytribeam.GUI.config_ui.validator import ConfigValidator
+from pytribeam.GUI.config_ui.editor_controller import EditorController
+from pytribeam.GUI.config_ui.parameter_tracker import ParameterTracker
+
+# TODO: Test all functionality on an actual microscope
+
+
+class Popup:
+    def __init__(self, master=None, title="Popup", message=""):
+        if master is None:
+            master = tk._get_default_root()
+        bg = master.cget("bg")
+        fg = ctk.calc_font_color(bg)
+
+        self.root = tk.Toplevel(master)
+        self.root.minsize(200, 70)
+        self.root.resizable(False, False)
+        self.root.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.root.title(title)
+        self.root.update_idletasks()
+        self.root.rowconfigure(0, weight=1)
+        self.root.columnconfigure(0, weight=1)
+        self.root.config(bg=bg)
+
+        width = int(max(map(len, message.split("\n"))) * 1.1)
+        height = message.count("\n") + 1
+        self.text = tk.Text(
+            self.root,
+            bg=bg,
+            fg=fg,
+            height=height,
+            width=width,
+            highlightthickness=0,
+            bd=0,
+            selectbackground="orange",
+            font=ctk.FONT,
+            padx=10,
+            pady=10,
+        )
+        self.text.insert("end", message)
+        self.text.config(state="disabled")
+        self.text.tag_config("tag", justify="left")
+        self.text.tag_add("tag", "1.0", tk.END)
+        self.text.pack()
+
+        self.b = ctk.Button(
+            self.root, text="OK", command=self.destroy, bg=bg, fg=fg, width=width // 2
+        )
+        self.b.pack(side="right")
+
+        self.root.grab_set()
+        self.root.mainloop()
+
+    def destroy(self):
+        self.root.quit()
+        self.root.destroy()
 
 
 class Configurator:
@@ -21,13 +84,13 @@ class Configurator:
             self.master, background=self.theme.bg, *args, **kwargs
         )
 
+        # Initialize resources
+        self.resources = AppResources.from_module_file(__file__)
+
         # Set app title, icon, size and grid structure
         self.YAML_PATH = yml_path
         self.update_title()
-        ico_path = Path(__file__).parent.parent.parent.parent.parent.joinpath(
-            "docs", "userguide", "src", "logos", "logo_color_alt.ico"
-        )
-        self.toplevel.iconbitmap(ico_path)
+        self.toplevel.iconbitmap(self.resources.icon_path)
         self.toplevel.geometry("1000x700")
         self.toplevel.update_idletasks()
         self.toplevel.rowconfigure(0, weight=1)
@@ -40,14 +103,35 @@ class Configurator:
             "write", self._yaml_version_updated
         )
 
+        # Initialize EditorController
+        self.controller = EditorController(version=float(self.yml_version.get()))
+
+        # Initialize ParameterTracker for managing UI variable bindings
+        self.param_tracker = ParameterTracker(self.controller)
+
+        # Register callbacks for controller events
+        self.controller.register_callback("pipeline_created", self._on_pipeline_created)
+        self.controller.register_callback("pipeline_loaded", self._on_pipeline_loaded)
+        self.controller.register_callback("pipeline_changed", self._on_pipeline_changed)
+        self.controller.register_callback("step_selected", self._on_step_selected)
+        self.controller.register_callback("step_added", self._on_step_added)
+        self.controller.register_callback("step_removed", self._on_step_removed)
+        self.controller.register_callback(
+            "parameter_changed", self._on_parameter_changed
+        )
+        self.controller.register_callback(
+            "step_validation_complete", self._on_step_validation_complete
+        )
+        self.controller.register_callback(
+            "pipeline_validation_complete", self._on_pipeline_validation_complete
+        )
+
         # Fill the toplevel with the editor window
         self._fill_toplevel(redraw=False)
 
-        # Initialize class variables
+        # Initialize class variables (kept for backward compatibility during migration)
         self.STEP_INDEX = -1
         self.STEP = ""
-        self.CONFIG = {}
-        self.PYVARS = {}
         self.clean_exit = False
         self.frames_dict = {}
         self.pipeline_buttons = {}
@@ -57,7 +141,6 @@ class Configurator:
             self.load_config(self.YAML_PATH)
         else:
             self.new_config(ask_save=False)
-            # self.create_pipeline_step("general")
 
         self.toplevel.protocol("WM_DELETE_WINDOW", self.quit)
 
@@ -122,6 +205,11 @@ class Configurator:
             font=ctk.MENU_FONT,
             # bg=self.theme.bg,
             activebackground=self.theme.accent1,
+        )
+        microscope_menu.add_command(
+            label="View position & WD's",
+            command=self.show_stage_position,
+            font=ctk.MENU_FONT,
         )
         microscope_menu.add_command(
             label="Import stage position...",
@@ -254,6 +342,7 @@ class Configurator:
 
     def _yaml_version_updated(self, *args):
         """Function called when the yaml version is updated."""
+        self.controller.set_version(float(self.yml_version.get()))
         self._update_editor()
 
     def update_title(self):
@@ -262,6 +351,195 @@ class Configurator:
             self.toplevel.title("TriBeam Configurator - Untitled")
         else:
             self.toplevel.title(f"TriBeam Configurator - {self.YAML_PATH}")
+
+    def save_exit(self):
+        """Validate and save the current configuration and exit the application."""
+        # Save first
+        if self.YAML_PATH is None:
+            yml_path = tk.filedialog.asksaveasfilename(
+                parent=self.toplevel,
+                defaultextension=".yml",
+                filetypes=[
+                    ("YAML files", "*.yml"),
+                    ("YAML files", "*.yaml"),
+                    ("All files", "*.*"),
+                ],
+            )
+            if yml_path == "" or yml_path is None:
+                return
+            self.YAML_PATH = yml_path
+        else:
+            yml_path = self.YAML_PATH
+
+        # Save the configuration
+        success, error = self.controller.save_pipeline(Path(yml_path))
+        if success:
+            self.YAML_PATH = yml_path
+        else:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error saving configuration",
+                message=f"{error}",
+            )
+            return False
+
+        # Validate first, exiting if invalid
+        valid = self.validate_full()
+        if not valid:
+            return False
+        # Exit
+        self.clean_exit = True
+        self.toplevel.destroy()
+
+    def quit(self):
+        if self.clean_exit:
+            self.toplevel.destroy()
+        else:
+            save = messagebox.askyesno(
+                parent=self.toplevel,
+                title="Save current",
+                message="Do you want to save the current configuration?",
+            )
+            if save:
+                self.save_exit()
+            else:
+                self.toplevel.destroy()
+
+    # -------- Controller Callbacks -------- #
+
+    def _on_pipeline_created(self, pipeline):
+        """Handle pipeline creation."""
+        self._on_step_selected(0, pipeline.general)
+
+    def _on_pipeline_loaded(self, pipeline):
+        """Handle pipeline load."""
+        self.yml_version.trace_remove("write", self.yml_version.trace_id)
+        self.yml_version.set(str(pipeline.version))
+        self.yml_version.trace_id = self.yml_version.trace_add(
+            "write", self._yaml_version_updated
+        )
+        self._update_pipeline()
+        self._update_editor()
+
+    def _on_pipeline_changed(self, pipeline):
+        """Handle pipeline changes."""
+        self._update_pipeline()
+
+    def _on_step_selected(self, index, step):
+        """Handle step selection."""
+        self.STEP_INDEX = index
+        self.STEP = step.step_type if hasattr(step, "step_type") else "general"
+        self._update_pipeline()
+        self._update_editor()
+
+    def _on_step_added(self, step):
+        """Handle step addition."""
+        self._update_pipeline()
+
+    def _on_step_removed(self, index):
+        """Handle step removal."""
+        self._update_pipeline()
+        # Select general or previous step
+        new_index = max(0, index - 1)
+        self.controller.select_step(new_index)
+
+    def _on_parameter_changed(self, path, value):
+        """Handle parameter change from controller."""
+        # Mark configuration as unvalidated
+        try:
+            self.status_label.config(
+                text="UNVALIDATED", bg=self.theme.yellow, fg=self.theme.yellow_fg
+            )
+        except tk.TclError:
+            pass  # Widget may not exist yet
+
+        # If step name changed, update pipeline display
+        if "step_name" in path:
+            self._update_pipeline_names()
+
+    def _on_step_validation_complete(self, index, success, message):
+        """Handle step validation completion."""
+        if index == self.STEP_INDEX:
+            if success:
+                self.status_label.config(
+                    text="VALID", bg=self.theme.green, fg=self.theme.green_fg
+                )
+            else:
+                self.status_label.config(
+                    text="INVALID", bg=self.theme.red, fg=self.theme.red_fg
+                )
+
+    def _on_pipeline_validation_complete(self, success, message):
+        """Handle pipeline validation completion."""
+        if success:
+            self.status_label.config(
+                text="VALID", bg=self.theme.green, fg=self.theme.green_fg
+            )
+        else:
+            self.status_label.config(
+                text="INVALID", bg=self.theme.red, fg=self.theme.red_fg
+            )
+
+    # -------- Microscope Connection -------- #
+
+    def _create_microscope_connection(self):
+        """Create microscope interface with connection settings from config."""
+        # Get general settings for connection
+        general_db = self.controller.pipeline.general.parameters
+        host = general_db.get("connection_host", "localhost")
+        port = general_db.get("connection_port", "")
+        port = int(port) if port != "" else None
+        interface = MicroscopeInterface(host=host, port=port)
+
+        # Try to connect using both the default and custom host/port
+        hosts_to_try = [host, "localhost"] if host != "localhost" else [host]
+        ports_to_try = [port, None] if port is not None else [port]
+        tries = []
+        for h in hosts_to_try:
+            for p in ports_to_try:
+                interface.host = h
+                interface.port = p
+                tries.append(f"{h}:{p}")
+
+                try:
+                    interface.connect()
+                    return interface
+                except ConnectionError:
+                    continue
+
+        # If we reach here, all connection attempts failed
+        messagebox.showerror(
+            parent=self.toplevel,
+            title="ConnectionError",
+            message=f"Failed to connect to microscope. Tried {','.join(tries)}.",
+        )
+        return None
+
+    def show_stage_position(self):
+        """Display current stage position and working distances."""
+        interface = self._create_microscope_connection()
+        if interface is None:
+            return
+
+        try:
+            stage_info = interface.get_stage_info()
+            message = format_stage_info(stage_info)
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Failed to get stage position: {e}",
+            )
+            return
+        finally:
+            interface.disconnect()
+
+        # Present it as a popup
+        Popup(
+            master=self.toplevel,
+            title="Current stage position",
+            message=message,
+        )
 
     def update_step_imaging_from_scope(self):
         """Update the imaging settings of the current step based on the current microscope settings."""
@@ -272,108 +550,120 @@ class Configurator:
                 message=f"{self.STEP} step does not have imaging settings.",
             )
             return
-        status, general_set = self.validate_general(return_config=True, suppress=True)
-        if not status:
+
+        interface = self._create_microscope_connection()
+        if interface is None:
             return
-        general_set = general_set["general"]
-        Microscope = tbt.Microscope()
-        ut.connect_microscope(
-            Microscope,
-            quiet_output=True,
-            connection_host=general_set["connection_host"],
-            connection_port=general_set["connection_port"],
-        )
-        # Get the settings
-        imaging_settings = factory.active_image_settings(Microscope)
-        # Disconnect the microscope
-        ut.disconnect_microscope(Microscope)
+
+        try:
+            # Get the settings
+            imaging_settings = interface.get_imaging_settings()
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Failed to get imaging settings: {e}",
+            )
+            return
+        finally:
+            interface.disconnect()
         # First set the beam type (special case)
-        # key = get_key(["beam", "type"], self.CONFIG[self.STEP_INDEX])
-        value = imaging_settings.beam.__getattribute__("type").value
-        # If this is a fib step, we check if the beam is ion, if not, we raise a warning and abort
-        if self.STEP == "fib" and value != "ion":
+        beam_type = imaging_settings.beam.__getattribute__("type").value
+        # For FIB / EBSD / EDS steps, the beam must be ion / electron / electron, otherwise raise an error
+        if self.STEP == "fib" and beam_type != "ion":
             messagebox.showerror(
                 parent=self.toplevel,
                 title="Error",
                 message="Importing imaging conditions for a FIB step requires the active beam to be an ion beam.",
             )
             return
-        # If it is a fib step, copy imaging conditions to the mill setting
+        elif self.STEP == "ebsd" and beam_type != "electron":
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message="Importing imaging conditions for an EBSD step requires the active beam to be an electron beam.",
+            )
+            return
+        elif self.STEP == "eds" and beam_type != "electron":
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message="Importing imaging conditions for an EDS step requires the active beam to be an electron beam.",
+            )
+            return
+        # Image steps do not have a parent key (the step is the parent key), but FIB steps have imaging parameters within an Image and Mill parent
+        # For image steps, we just use the keys to the specific parameter (i.e. beam/type), but with the FIB we have to pass the parent (i.e. image/beam/type)
+        # Since FIB also shares parameters between milling and imaging, we iterate twice to fill both parents
+        # Note that milling does not have detector or scan parameters, so those are only updated for the image.
         if self.STEP == "fib":
-            self.CONFIG[self.STEP_INDEX]["mill/beam/type"] = _check_value_type(
-                value, str
+            parent_keys = ["mill/", "image/"]
+        else:
+            parent_keys = [""]
+        for pkey in parent_keys:
+            self.controller.update_parameter(
+                f"{pkey}beam/type",
+                beam_type,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/voltage_kv"] = _check_value_type(
-                imaging_settings.beam.settings.voltage_kv, float
+            self.controller.update_parameter(
+                f"{pkey}beam/voltage_kv",
+                imaging_settings.beam.settings.voltage_kv,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/current_na"] = _check_value_type(
-                imaging_settings.beam.settings.current_na, float
+            self.controller.update_parameter(
+                f"{pkey}beam/current_na",
+                imaging_settings.beam.settings.current_na,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/voltage_tol_kv"] = (
-                _check_value_type(imaging_settings.beam.settings.voltage_tol_kv, float)
+            self.controller.update_parameter(
+                f"{pkey}beam/voltage_tol_kv",
+                imaging_settings.beam.settings.voltage_tol_kv,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/current_tol_na"] = (
-                _check_value_type(imaging_settings.beam.settings.current_tol_na, float)
+            self.controller.update_parameter(
+                f"{pkey}beam/current_tol_na",
+                imaging_settings.beam.settings.current_tol_na,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/hfw_mm"] = _check_value_type(
-                imaging_settings.beam.settings.hfw_mm, float
+            self.controller.update_parameter(
+                f"{pkey}beam/hfw_mm",
+                imaging_settings.beam.settings.hfw_mm,
             )
-            self.CONFIG[self.STEP_INDEX]["mill/beam/working_dist_mm"] = (
-                _check_value_type(imaging_settings.beam.settings.working_dist_mm, float)
+            self.controller.update_parameter(
+                f"{pkey}beam/working_dist_mm",
+                imaging_settings.beam.settings.working_dist_mm,
             )
-        # Do beam stuff
-        # fib steps contain a nested "image" subdictionary that should be filled
-        # identically to a conventional "image" step
-        if self.STEP == "fib":
-            prefix = "image/"
-        elif self.STEP == "image":
-            prefix = ""
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/type"] = _check_value_type(value, str)
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/voltage_kv"] = _check_value_type(
-            imaging_settings.beam.settings.voltage_kv, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/current_na"] = _check_value_type(
-            imaging_settings.beam.settings.current_na, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/voltage_tol_kv"] = _check_value_type(
-            imaging_settings.beam.settings.voltage_tol_kv, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/current_tol_na"] = _check_value_type(
-            imaging_settings.beam.settings.current_tol_na, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/hfw_mm"] = _check_value_type(
-            imaging_settings.beam.settings.hfw_mm, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}beam/working_dist_mm"] = _check_value_type(
-            imaging_settings.beam.settings.working_dist_mm, float
-        )
-        # Now set the detector settings
-        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/type"] = _check_value_type(
-            imaging_settings.detector.type, str
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/mode"] = _check_value_type(
-            imaging_settings.detector.mode, str
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/brightness"] = _check_value_type(
-            imaging_settings.detector.brightness, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}detector/contrast"] = _check_value_type(
-            imaging_settings.detector.contrast, float
-        )
-        # Now the scan settings
-        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/rotation_deg"] = _check_value_type(
-            imaging_settings.scan.rotation_deg, float
-        )
-        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/dwell_time_us"] = _check_value_type(
-            imaging_settings.scan.dwell_time_us, float
-        )
-        value = imaging_settings.scan.__getattribute__("resolution")
-        value = _check_value_type(f"{value.width}x{value.height}", str)
-        self.CONFIG[self.STEP_INDEX][f"{prefix}scan/resolution"] = value
-        # Last is the bit depth
-        self.CONFIG[self.STEP_INDEX][f"{prefix}bit_depth"] = _check_value_type(
-            imaging_settings.bit_depth, int
-        )
+            if "mill" not in pkey:
+                self.controller.update_parameter(
+                    f"{pkey}detector/type",
+                    imaging_settings.detector.type,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}detector/mode",
+                    imaging_settings.detector.mode,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}detector/brightness",
+                    imaging_settings.detector.brightness,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}detector/contrast",
+                    imaging_settings.detector.contrast,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}scan/rotation_deg",
+                    imaging_settings.scan.rotation_deg,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}scan/dwell_time_us",
+                    imaging_settings.scan.dwell_time_us,
+                )
+                resolution = imaging_settings.scan.__getattribute__("resolution")
+                resolution_str = f"{resolution.width}x{resolution.height}"
+                self.controller.update_parameter(
+                    f"{pkey}scan/resolution",
+                    resolution_str,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}bit_depth",
+                    imaging_settings.bit_depth.value,
+                )
+
         # Update the editor
         self._update_editor()
 
@@ -386,35 +676,42 @@ class Configurator:
                 message="General step does not have a stage position.",
             )
             return
-        status, general_set = self.validate_general(return_config=True, suppress=True)
-        if not status:
+
+        interface = self._create_microscope_connection()
+        if interface is None:
             return
-        general_set = general_set["general"]
-        Microscope = tbt.Microscope()
-        ut.connect_microscope(
-            Microscope,
-            quiet_output=True,
-            connection_host=general_set["connection_host"],
-            connection_port=general_set["connection_port"],
-        )
-        current_position = factory.active_stage_position_settings(Microscope)
-        # Disconnect the microscope
-        ut.disconnect_microscope(Microscope)
+
+        try:
+            current_position = interface.get_stage_position()
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Failed to get stage position: {e}",
+            )
+            return
+        finally:
+            interface.disconnect()
         # Put the current position in the step
-        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/x_mm"] = (
-            _check_value_type(current_position.x_mm, float)
+        self.controller.update_parameter(
+            "step_general/stage/initial_position/x_mm",
+            current_position.x_mm,
         )
-        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/y_mm"] = (
-            _check_value_type(current_position.y_mm, float)
+        self.controller.update_parameter(
+            "step_general/stage/initial_position/y_mm",
+            current_position.y_mm,
         )
-        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/z_mm"] = (
-            _check_value_type(current_position.z_mm, float)
+        self.controller.update_parameter(
+            "step_general/stage/initial_position/z_mm",
+            current_position.z_mm,
         )
-        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/t_deg"] = (
-            _check_value_type(current_position.t_deg, float)
+        self.controller.update_parameter(
+            "step_general/stage/initial_position/t_deg",
+            current_position.t_deg,
         )
-        self.CONFIG[self.STEP_INDEX]["step_general/stage/initial_position/r_deg"] = (
-            _check_value_type(current_position.r_deg, float)
+        self.controller.update_parameter(
+            "step_general/stage/initial_position/r_deg",
+            current_position.r_deg,
         )
         # Update the editor
         self._update_editor()
@@ -430,20 +727,10 @@ class Configurator:
             )
             return
 
-        # Get the laser settings from the microscope, which first requires a microscope connection
-        status, general_set = self.validate_general(return_config=True, suppress=True)
-        if not status:
-            return
-        general_set = general_set["general"]
-        Microscope = tbt.Microscope()
-        ut.connect_microscope(
-            Microscope,
-            quiet_output=True,
-            connection_host=general_set["connection_host"],
-            connection_port=general_set["connection_port"],
-        )
+        # Try and grab the laser settings, stopping if errors show up.
+        interface = self._create_microscope_connection()
         try:
-            laser_state = factory.active_laser_state()
+            laser_state = interface.get_laser_state()
         except Exception as e:
             messagebox.showerror(
                 parent=self.toplevel,
@@ -451,80 +738,83 @@ class Configurator:
                 message=f"Error getting laser state: {e}",
             )
             return
-        ut.disconnect_microscope(Microscope)
-
-        # Convert the laser state to a dictionary
-        laser_state = laser.laser_state_to_db(laser_state)
+        finally:
+            if interface:
+                interface.disconnect()
 
         # Make any NoneType values into empty strings
         for key in laser_state.keys():
             if laser_state[key] is None:
                 laser_state[key] = ""
 
-        #TODO clear out only necessary sections, not the whole thing
-        # Empty the current laser db
-        # for key in self.CONFIG[self.STEP_INDEX].keys():
-        #     self.CONFIG[self.STEP_INDEX][key] = ""
+        # Update pulse parameters
+        self.controller.update_parameter(
+            "pulse/wavelength_nm", laser_state["wavelength_nm"]
+        )
+        self.controller.update_parameter("pulse/divider", laser_state["pulse_divider"])
+        self.controller.update_parameter(
+            "pulse/energy_uj", laser_state["pulse_energy_uj"]
+        )
 
-        # Pass the laser state values to the config file
-        self.CONFIG[self.STEP_INDEX]["pulse/wavelength_nm"] = laser_state[
-            "wavelength_nm"
-        ]
-        self.CONFIG[self.STEP_INDEX]["pulse/divider"] = laser_state["pulse_divider"]
-        self.CONFIG[self.STEP_INDEX]["pulse/energy_uj"] = laser_state["pulse_energy_uj"]
-        self.CONFIG[self.STEP_INDEX]["objective_position_mm"] = laser_state[
-            "objective_position_mm"
-        ]
-        self.CONFIG[self.STEP_INDEX]["beam_shift/x_um"] = laser_state["beam_shift_um_x"]
-        self.CONFIG[self.STEP_INDEX]["beam_shift/y_um"] = laser_state["beam_shift_um_y"]
-        self.CONFIG[self.STEP_INDEX]["pattern/mode"] = laser_state["laser_pattern_mode"]
-        self.CONFIG[self.STEP_INDEX]["pattern/rotation_deg"] = laser_state[
-            "laser_pattern_rotation_deg"
-        ]
-        self.CONFIG[self.STEP_INDEX]["pattern/pulses_per_pixel"] = laser_state[
-            "laser_pattern_pulses_per_pixel"
-        ]
-        self.CONFIG[self.STEP_INDEX]["pattern/pixel_dwell_ms"] = laser_state[
-            "laser_pattern_pixel_dwell_ms"
-        ]
+        # Update pattern geometry based on type
         if laser_state["geometry_type"] == "line":
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/passes"] = laser_state[
-                "passes"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/size_um"] = laser_state[
-                "size_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/pitch_um"] = laser_state[
-                "pitch_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/line/scan_type"] = laser_state[
-                "laser_scan_type"
-            ]
-        elif laser_state["geometry_type"] == "box":
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/passes"] = laser_state[
-                "passes"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_x_um"] = laser_state[
-                "size_x_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/size_y_um"] = laser_state[
-                "size_y_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_x_um"] = laser_state[
-                "pitch_x_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/pitch_y_um"] = laser_state[
-                "pitch_y_um"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/scan_type"] = laser_state[
-                "laser_scan_type"
-            ]
-            self.CONFIG[self.STEP_INDEX]["pattern/type/box/coordinate_ref"] = (
-                laser_state["coordinate_ref"].value
+            keys = ["passes", "size_um", "pitch_um"]
+            for key in keys:
+                self.controller.update_parameter(
+                    f"pattern/type/line/{key}", laser_state[key]
+                )
+            self.controller.update_parameter(
+                "pattern/type/line/scan_type", laser_state["laser_scan_type"]
             )
+        elif laser_state["geometry_type"] == "box":
+            keys = [
+                "passes",
+                "size_x_um",
+                "size_y_um",
+                "pitch_x_um",
+                "pitch_y_um",
+            ]
+            for key in keys:
+                self.controller.update_parameter(
+                    f"pattern/type/box/{key}", laser_state[key]
+                )
+            self.controller.update_parameter(
+                "pattern/type/box/scan_type", laser_state["laser_scan_type"]
+            )
+            self.controller.update_parameter(
+                "pattern/type/box/coordinate_ref",
+                laser_state["coordinate_ref"].value,
+            )
+
+        # Update beam shift
+        self.controller.update_parameter(
+            "beam_shift/x_um", laser_state["beam_shift_um_x"]
+        )
+        self.controller.update_parameter(
+            "beam_shift/y_um", laser_state["beam_shift_um_y"]
+        )
+
+        # Update special cases (such as naming is different between the two dictionaries)
+        self.controller.update_parameter(
+            "objective_position_mm", laser_state["objective_position_mm"]
+        )
+        self.controller.update_parameter(
+            "pattern/mode", laser_state["laser_pattern_mode"]
+        )
+        self.controller.update_parameter(
+            "pattern/rotation_deg", laser_state["laser_pattern_rotation_deg"]
+        )
+        self.controller.update_parameter(
+            "pattern/pulses_per_pixel", laser_state["laser_pattern_pulses_per_pixel"]
+        )
+        self.controller.update_parameter(
+            "pattern/pixel_dwell_ms", laser_state["laser_pattern_pixel_dwell_ms"]
+        )
 
         # Update the editor
         self._update_editor()
+
+    # -------- Configuration File Operations -------- #
 
     def new_config(self, ask_save=True):
         """Create a new configuration file by resetting the pipeline and editor.
@@ -537,14 +827,15 @@ class Configurator:
             )
             if save:
                 self.save_config()
-        for key in self.PYVARS.keys():
-            self.PYVARS[key].trace_vdelete("w", self.PYVARS[key].trace_id)
-        self.STEP_INDEX = -1
-        self.STEP = ""
-        self.CONFIG = {}
-        self.PYVARS = {}
+
+        # Clean up old UI bindings
+        self.param_tracker.clear()
+
+        # Create new pipeline via controller
+        self.controller.create_new_pipeline(version=float(self.yml_version.get()))
+
+        # Reset state
         self.YAML_PATH = None
-        self.create_pipeline_step("general")
         self.update_title()
 
     def load_config(self, path=None):
@@ -570,65 +861,23 @@ class Configurator:
             )
             if path == "" or path is None:
                 return
+
         path = Path(path)
-        # Clear the current configuration
-        self.STEP_INDEX = -1
-        self.STEP = ""
-        self.CONFIG = {}
-        # Remove all traces from the variables
-        for key in self.PYVARS.keys():
-            self.PYVARS[key].trace_vdelete("w", self.PYVARS[key].trace_id)
-        self.PYVARS = {}
-        # Read the yaml file
-        try:
-            yml_version = ut.yml_version(path)
-            db = ut.yml_to_dict(
-                yml_path_file=path,
-                version=yml_version,
-                required_keys=(
-                    "general",
-                    "config_file_version",
-                ),
-            )
-        except Exception as e:
+
+        # Clean up old UI bindings
+        self.param_tracker.clear()
+
+        # Load pipeline via controller
+        success, error = self.controller.load_pipeline(path)
+        if not success:
             messagebox.showerror(
-                parent=self.toplevel, title="Error reading yaml file", message=f"{e}"
+                parent=self.toplevel,
+                title="Error reading yaml file",
+                message=f"{error}",
             )
             return
-        # Extract relevant sections of the yaml file
-        general = db["general"]
-        steps = db["steps"]
-        # Give general a stype type
-        general["step_type"] = "general"
-        general = flatten_dict(general, sep="/")
-        # Flatten the nested dictionaries
-        flat_steps = {}
-        step_order = []
-        for step_name in steps.keys():
-            step = steps[step_name]
-            step_type = step["step_general"]["step_type"]
-            step_order.append(
-                (step_name, step_type, step["step_general"]["step_number"])
-            )
-            flat_step = flatten_dict(step, sep="/")
-            flat_step["step_general/step_name"] = step_name
-            # flat_step["step_general"]["step_name"] = step_name
-            flat_steps[step_name] = flat_step
-        # Put the steps in the correct order
-        step_order = sorted(step_order, key=lambda x: x[2])
-        self.CONFIG = {0: general}
-        for name, stype, number in step_order:
-            self.CONFIG[number] = flat_steps[name]
-        # Make all the values in the config file strings
-        for step in self.CONFIG.keys():
-            for key in self.CONFIG[step].keys():
-                self.CONFIG[step][key] = str(self.CONFIG[step][key])
-        # Set the step index to the general step and update the pipeline and editor windows
-        self.STEP_INDEX = 0
-        self.STEP = self.CONFIG[self.STEP_INDEX]["step_type"]
-        self.yml_version.set(str(yml_version))
-        self._update_pipeline()
-        self._update_editor()
+
+        # Update state
         self.YAML_PATH = str(path)
         self.update_title()
 
@@ -647,173 +896,108 @@ class Configurator:
             if yml_path == "" or yml_path is None:
                 return
             self.YAML_PATH = yml_path
-        config_db = self.format_config()
-        ut.dict_to_yml(config_db, self.YAML_PATH)
+
+        # Save via controller
+        success, error = self.controller.save_pipeline(Path(self.YAML_PATH))
+        if not success:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error saving configuration",
+                message=f"{error}",
+            )
+            return
+
         self.update_title()
 
-    def save_exit(self):
-        if self.YAML_PATH is None:
-            yml_path = tk.filedialog.asksaveasfilename(
-                parent=self.toplevel,
-                defaultextension=".yml",
-                filetypes=[
-                    ("YAML files", "*.yml"),
-                    ("YAML files", "*.yaml"),
-                    ("All files", "*.*"),
-                ],
-            )
-            if yml_path == "" or yml_path is None:
-                return
-        else:
-            yml_path = self.YAML_PATH
-        if self.export_pipeline(yml_path=yml_path):
-            self.clean_exit = True
-            self.YAML_PATH = yml_path
-            self.toplevel.destroy()
-
-    def quit(self):
-        if self.clean_exit:
-            self.toplevel.destroy()
-        else:
-            save = messagebox.askyesno(
-                parent=self.toplevel,
-                title="Save current",
-                message="Do you want to save the current configuration?",
-            )
-            if save:
-                self.save_exit()
-            else:
-                self.toplevel.destroy()
+    # -------- Pipeline Operations -------- #
 
     def create_pipeline_step(self, step_type):
         """Function called when a new pipeline step is created.
         Will focus the new step in the editor and update the pipeline."""
-        # print("Creating pipeline step...", step_type)
-        self.STEP = step_type
-        self.STEP_INDEX = len(self.CONFIG)
-        # print("Step index:", self.STEP_INDEX)
-        if self.STEP_INDEX == 0:
-            self.CONFIG[self.STEP_INDEX] = {"step_type": self.STEP}
+        if step_type == "general":
+            # Special case for general - just select it
+            self.controller.select_step(0)
         else:
-            self.CONFIG[self.STEP_INDEX] = {"step_general/step_type": self.STEP}
-        # Update the step name to have the step type and the number of this type of step
-        step_count = len(
-            [
-                v
-                for v in list(self.CONFIG.values())[1:]
-                if v["step_general/step_type"] == self.STEP
-            ]
-        )
-        if self.STEP_INDEX != 0:
-            self.CONFIG[self.STEP_INDEX][
-                "step_general/step_name"
-            ] = f"{self.STEP}_{step_count}"
-        else:
-            self._update_pipeline()
-        self._update_editor()
-
-        # Update the general to have an additional step
-        self.CONFIG[0]["step_count"] = len(self.CONFIG) - 1
+            # Add step via controller
+            step = self.controller.add_step(step_type)
+            # Select the newly added step
+            new_index = self.controller.get_step_count()
+            self.controller.select_step(new_index)
 
         # Set the pick step button back to "Add Step"
         self.pick_step_b.var.set("Add Step")
 
     def delete_pipeline_step(self, index):
         """Delete a pipeline step from the pipeline."""
-        # print("Deleting pipeline step:", self.CONFIG[index])
-        # Delete the config entry for the index to be deleted
-        del self.CONFIG[index]
-        # Update the step index if we deleted the active step
-        if self.STEP_INDEX == index:
-            self.STEP_INDEX = max(0, self.STEP_INDEX - 1)
-        elif self.STEP_INDEX > index:
-            self.STEP_INDEX -= 1
-        # Re-key the config dictionary
-        self.CONFIG = {i: v for i, v in enumerate(self.CONFIG.values())}
-        if self.STEP_INDEX == 0:
-            self.STEP = self.CONFIG[self.STEP_INDEX]["step_type"]
-        else:
-            self.STEP = self.CONFIG[self.STEP_INDEX]["step_general/step_type"]
-        # Update the pipeline and editor
-        self._update_pipeline()
-        self._update_editor()
-        # Update the general to have one less step
-        self.CONFIG[0]["step_count"] = len(self.CONFIG) - 1
+        # Can't delete general (index 0)
+        if index == 0:
+            return
+
+        # Delete step via controller
+        self.controller.remove_step(index)
 
     def move_pipeline_step(self, index, direction):
         """Move a pipeline step up or down in the pipeline."""
-        # print("Moving pipeline step...", self.CONFIG[index], direction)
-        # Return if the first step is trying to be moved up or the last step down
-        if index == 1 and direction == -1:
+        # Can't move general (index 0)
+        if index == 0:
             return
-        if index == len(self.CONFIG) - 1 and direction == 1:
-            return
-        # Edit the config directly
-        self.CONFIG[index], self.CONFIG[index + direction] = (
-            self.CONFIG[index + direction],
-            self.CONFIG[index],
-        )
-        # If the moved steps don't touch the current step, just update the pipeline
-        if abs(self.STEP_INDEX - index) > 1:
-            pass
-        # If we are moving a neighboring step, update the step index in the opposite direction
-        elif index != self.STEP_INDEX:
-            self.STEP_INDEX -= direction
-        # If we are moving the current step, update the step index in the same direction
-        else:
-            self.STEP_INDEX += direction
-        # Update the pipeline (editor doesnt change here)
-        self._update_pipeline()
-        self._update_editor()
+
+        # Move step via controller
+        self.controller.move_step(index, direction)
 
     def duplicate_pipeline_step(self, index):
         """Duplicate a pipeline step."""
-        # print("Duplicating pipeline step...", self.CONFIG[index])
-        # Copy the step and add it to the end of the pipeline
-        new_step = deepcopy(self.CONFIG[index])
-        index = len(self.CONFIG)
-        self.CONFIG[index] = new_step
-        step_count = len(
-            [
-                v
-                for v in list(self.CONFIG.values())[1:]
-                if v["step_general/step_type"] == new_step["step_general/step_type"]
-            ]
-        )
-        self.CONFIG[index]["step_general/step_name"] = f"{self.STEP}_{step_count}"
-        # Update the pipeline and editor
-        # self._update_pipeline()
-        self._update_editor()
-        # Update the general to have an additional step
-        self.CONFIG[0]["step_count"] = len(self.CONFIG) - 1
+        # Can't duplicate general (index 0)
+        if index == 0:
+            return
+
+        # Duplicate step via controller
+        new_step = self.controller.duplicate_step(index)
+        if new_step:
+            # Select the newly duplicated step
+            new_index = self.controller.get_step_count()
+            self.controller.select_step(new_index)
 
     def select_pipeline_step(self, option):
         """Based on the selected step, update the editor with the new step."""
-        # print("Selecting pipeline step...", option)
         index = int(option.split(".")[0])
-        self.STEP_INDEX = index
-        if index == 0:
-            self.STEP = self.CONFIG[index]["step_type"]
-        else:
-            self.STEP = self.CONFIG[self.STEP_INDEX]["step_general/step_type"]
-        self._update_pipeline()
-        self._update_editor()
+        self.controller.select_step(index)
+
+    def _update_pipeline_names(self):
+        """Updates the text on the buttons in the pipeline window"""
+        labels = ["0. general"]
+        labels.extend(
+            [
+                f"{i+1}. {s.name} ({s.step_type})"
+                for i, s in enumerate(self.controller.pipeline.steps)
+            ]
+        )
+
+        for i, label in enumerate(labels):
+            row_i = i + 2
+            try:
+                button = self.pipeline.grid_slaves(row=row_i)[0]
+                button.config(text=label)
+            except IndexError:
+                continue
 
     def _update_pipeline(self):
         """Update the pipeline based on the current configuration.
         This does not remove the widgets, it just updates the text and command of the buttons.
         """
         #  Create all possible options for the pipeline based on the config file
-        options = []
-        for i, v in self.CONFIG.items():
-            if i == 0:
-                options.append(f"{i}. {v['step_type']}")
-            else:
-                options.append(
-                    f"{i}. {v['step_general/step_name']} ({v['step_general/step_type']})"
-                )
+        options = ["0. general"]
+        options.extend(
+            [
+                f"{i+1}. {s.name} ({s.step_type})"
+                for i, s in enumerate(self.controller.pipeline.steps)
+            ]
+        )
         # Get the maximum row of the current pipeline
-        _, row = self.pipeline.grid_size()
+        try:
+            _, row = self.pipeline.grid_size()
+        except tk.TclError:
+            return
         # Loop over the options and update the pipeline
         for i, option in enumerate(options):
             row_i = i + 2
@@ -823,12 +1007,12 @@ class Configurator:
                 kw = {
                     "font": ctk.FONT,
                     "relief": "raised",
-                    "bg": self.theme.accent1,
-                    "fg": self.theme.accent1_fg,
+                    "bg": self.theme.bg,
+                    "fg": self.theme.fg,
                     # "h_bg": self.theme.accent1,
                     # "h_fg": self.theme.accent1_fg,
-                    # "activebackground": self.theme.accent1,
-                    # "activeforeground": self.theme.accent1_fg
+                    "activebackground": self.theme.accent1,
+                    "activeforeground": self.theme.accent1_fg,
                 }
             else:
                 kw = {
@@ -837,8 +1021,8 @@ class Configurator:
                     "bg": self.theme.bg,
                     "fg": self.theme.fg,
                     # "highlightcolor": self.theme.accent1,
-                    # "activebackground": self.theme.bg,
-                    # "activeforeground": self.theme.fg,
+                    "activebackground": self.theme.bg,
+                    "activeforeground": self.theme.fg,
                 }
 
             # Create tooltip options and state
@@ -881,14 +1065,13 @@ class Configurator:
             # If the row is not the end of the pipeline, update the button with the new option (in case it has changed)
             else:
                 button = self.pipeline.grid_slaves(row_i)[0]
-                button.bg = self.theme.bg
                 button.config(
                     text=option,
                     command=lambda a=option: self.select_pipeline_step(a),
                     **kw,
                 )
 
-            # Change the state of tthe commands in the right click menu based on position
+            # Change the state of the commands in the right click menu based on position
             if i != 0:
                 for j, state in enumerate(right_click_states):
                     key = list(right_click_map.keys())[j]
@@ -908,13 +1091,10 @@ class Configurator:
         ctk.utils.scroll_with_mousewheel(
             self.pipeline, self.pipeline.canvas, apply_to_children=True
         )
-        # Update the step numbers in the config file
-        for step_number in self.CONFIG.keys():
-            if step_number != 0:
-                self.CONFIG[step_number]["step_general/step_number"] = str(step_number)
+
+    # -------- Editor Operations -------- #
 
     def _update_editor(self):
-        # print("Updating editor...", self.STEP)
         # Create an empty frame dictionary that we will populate
         frames_dict = {}
         # Get current row and the step type
@@ -965,11 +1145,6 @@ class Configurator:
                                 fg=self.theme.fg,
                                 font=ctk.FONT,
                             )
-                            # f = ctk.ToggledFrame(
-                            #     frames[parentframe_name],
-                            #     bg=self.theme.bg,
-                            #     text=label_key,
-                            # )
                             f.grid(
                                 row=rows[parentframe_name],
                                 column=0,
@@ -1008,26 +1183,15 @@ class Configurator:
 
     def _create_editor_entry(self, row, value, path, frame):
         """Helper function to create a widget in the editor for a specific parameter."""
-        # Create the tkinter variable and store it in the PYVARS dictionary
-        var = tk.StringVar(self.editor, name=path)
-        self.PYVARS[path] = var
-
-        # Now trace the variable
-        self.PYVARS[path].trace_id = self.PYVARS[path].trace_add(
-            "write", self._var_update
+        # Create the tracked variable using ParameterTracker
+        # The tracker automatically handles validation and updates to the controller
+        var = self.param_tracker.create_variable(
+            param_path=path,
+            dtype=value.dtype,
+            default=value.default,
         )
 
-        # Set the value of the variable to the value in the config file
-        if path in self.CONFIG[self.STEP_INDEX].keys():
-            # print("Setting value:", self.CONFIG[self.STEP_INDEX][path])
-            var.set(self.CONFIG[self.STEP_INDEX][path])
-        else:
-            self.CONFIG[self.STEP_INDEX][path] = ""
-            var.set(value.default)
-
         # Create the widgets and place them on the grid
-        # local_frame = tk.Frame(frame, bg=self.theme.bg)
-        # local_frame.grid(row=row, column=0, columnspan=3, sticky="nsew", pady=5)
         kwargs = deepcopy(value.widget_kwargs)
         kwargs.update({"font": ctk.FONT, "bg": self.theme.bg_off})
         if value.widget == ctk.Entry:
@@ -1039,9 +1203,12 @@ class Configurator:
         )
         widget = value.widget(
             frame,
-            var=self.PYVARS[path],
+            var=var,
             **kwargs,
         )
+        # Ensure checkbuttons are selected if the current value is True
+        if type(value.default) == bool and var.get():
+            widget.select()
         # label.pack(side="left", padx=(0, 10))
         # widget.pack(side="left")
         label.grid(row=row, column=0, sticky="nsew", pady=2)
@@ -1054,339 +1221,80 @@ class Configurator:
     def _clear_editor(self, row):
         """Clear the editor by removing all widgets and traces.
         This is useful when switching between steps."""
-        # Disconnect currently traced variables. They will be reconnected when the editor is updated
-        relevant_keys = list(self.PYVARS.keys())
-        for key in relevant_keys:
-            self.PYVARS[key].trace_vdelete("w", self.PYVARS[key].trace_id)
-        self.PYVARS = {}
+        # Clear all tracked variables and their traces
+        self.param_tracker.clear()
 
         # Remove the old widgets
         for i in range(2, row + 1):
             for widget in self.editor.grid_slaves(row=i - 1):
                 widget.destroy()
 
-    def _var_update(self, *args):
-        """Update the config dictionary with the new value of the variable.
-        This is called whenever a variable is changed."""
-        string = args[0]
-        if self.PYVARS[string].get() != self.CONFIG[self.STEP_INDEX][string]:
-            try:
-                self.status_label.config(
-                    text="UNVALIDATED", bg=self.theme.yellow, fg=self.theme.yellow_fg
-                )
-            except tk.TclError:
-                pass
-        # print("New value:", self.PYVARS[string].get())
-        # print("Old value:", self.CONFIG[self.STEP_INDEX][string])
-        self.CONFIG[self.STEP_INDEX][string] = self.PYVARS[string].get()
-        # print("Updated config:", self.CONFIG[self.STEP_INDEX][string])
-        if "step_name" in string:
-            self._update_pipeline()
+    # -------- Validation Operations -------- #
 
-    def export_pipeline(self, yml_path, force_valid=True):
-        """Export the pipeline to a yaml file.
-        This will prompt the user for a file path and then write the yaml file.
-        Checks are performed to ensure the yaml file is correct."""
-        # Validate the pipeline before writing the yaml file
-        status, config_db = self.validate_full(return_config=True)
-        if not status and force_valid:
-            return False
-        # Write the yaml file
-        ut.dict_to_yml(config_db, yml_path)
-        return True
-
-    def _entries_to_nested(self, out_dict):
-        """Helper function for exporting the pipeline to a yaml file.
-        This function takes the flat dictionary and converts it to a nested dictionary.
-        """
-        out_dict_nested = {}
-        for step in out_dict.keys():
-            if step == "general":
-                step_type = "general"
-            else:
-                step_type = out_dict[step]["step_general/step_type"]
-            out_dict_nested[step] = deepcopy(
-                lut.get_lut(step_type.lower(), float(self.yml_version.get()))
-            )
-            for key in out_dict_nested[step].keys():
-                if isinstance(out_dict_nested[step][key], dict):
-                    for nkey in out_dict_nested[step][key].keys():
-                        if isinstance(out_dict_nested[step][key][nkey], dict):
-                            for nnkey in out_dict_nested[step][key][nkey].keys():
-                                if isinstance(
-                                    out_dict_nested[step][key][nkey][nnkey], dict
-                                ):
-                                    for nnnkey in out_dict_nested[step][key][nkey][
-                                        nnkey
-                                    ].keys():
-                                        dtype = out_dict_nested[step][key][nkey][nnkey][
-                                            nnnkey
-                                        ].dtype
-                                        path = f"{key}/{nkey}/{nnkey}/{nnnkey}"
-                                        out_dict_nested[step][key][nkey][nnkey][
-                                            nnnkey
-                                        ] = self._check_value_type(
-                                            out_dict[step][path], dtype
-                                        )
-                                else:
-                                    dtype = out_dict_nested[step][key][nkey][
-                                        nnkey
-                                    ].dtype
-                                    path = f"{key}/{nkey}/{nnkey}"
-                                    out_dict_nested[step][key][nkey][nnkey] = (
-                                        self._check_value_type(
-                                            out_dict[step][path], dtype
-                                        )
-                                    )
-                        else:
-                            dtype = out_dict_nested[step][key][nkey].get("dtype", None)
-                            path = f"{key}/{nkey}"
-                            out_dict_nested[step][key][nkey] = self._check_value_type(
-                                out_dict[step][path], dtype
-                            )
-                else:
-                    dtype = out_dict_nested[step][key].dtype
-                    path = key
-                    out_dict_nested[step][key] = self._check_value_type(
-                        out_dict[step][path], dtype
-                    )
-
-        # Remove the step names from the config file
-        for step_number, step in enumerate(out_dict_nested.keys()):
-            if step != "general":
-                out_dict_nested[step]["step_general"].pop("step_name")
-                # Put in step number and reorder
-                _temp = {"step_number": step_number}
-                _temp.update(out_dict_nested[step]["step_general"])
-                out_dict_nested[step]["step_general"] = _temp
-        return out_dict_nested
-
-    def format_config(self, step=None):
-        # Create a copy of the config file
-        config_db = deepcopy(self.CONFIG)
-        # Prepare the general step, including type checking
-        general = config_db.pop(0)
-        general.pop("step_type")
-        # general.pop("step_general/step_name")
-        general_db_flat = lut.get_lut("general", float(self.yml_version.get()))
-        general_db_flat.flatten()
-        params = list(general.keys())
-        for param in params:
-            if param not in list(general_db_flat.keys()):
-                general.pop(param)
-            else:
-                general[param] = _check_value_type(
-                    general[param], general_db_flat[param].dtype
-                )
-        general = unflatten_dict(general, sep="/")
-        # If we are only formatting the general step, return the general step
-        if step == 0:
-            return {
-                "config_file_version": float(self.yml_version.get()),
-                "general": general,
-            }
-        # Re-key steps using step names
-        for step_num in list(config_db.keys()):
-            if step is not None and step_num != step:
-                config_db.pop(step_num)
-            else:
-                step_name = config_db[step_num]["step_general/step_name"]
-                config_db[step_name] = config_db.pop(step_num)
-        # Unflatten the dictionary so that it can be written to a yaml file
-        # Perform data type checking as well
-        for step_name in config_db.keys():
-            db_flat = deepcopy(
-                lut.get_lut(
-                    config_db[step_name]["step_general/step_type"].lower(),
-                    float(self.yml_version.get()),
-                )
-                # lut.LUT[config_db[step_name]["step_general/step_type"].lower()]
-            )
-            db_flat.flatten()
-            params = list(config_db[step_name].keys())
-            for param in params:
-                if param not in db_flat.keys():
-                    config_db[step_name].pop(param)
-                else:
-                    config_db[step_name][param] = _check_value_type(
-                        config_db[step_name][param], db_flat[param].dtype
-                    )
-            config_db[step_name].pop("step_general/step_name")
-            config_db[step_name] = unflatten_dict(config_db[step_name], sep="/")
-        # Format the dictionary as version, general, steps
-        config_db = {
-            "config_file_version": float(self.yml_version.get()),
-            "general": general,
-            "steps": config_db,
-        }
-        return config_db
-
-    def validate_full(self, return_config=False):
+    def validate_full(self):
         """Validate the full pipeline to make sure it is correct."""
-        # Make sure there are no duplicate step names
-        if self.CONFIG[0]["step_count"] == 0:
-            return (
-                messagebox.showerror(
-                    parent=self.toplevel,
-                    title="Error writing yaml file",
-                    message="No steps found!\nPlease add at least one step.",
-                ),
-                False,
-            )
-        names = [
-            v["step_general/step_name"]
-            for v in self.CONFIG.values()
-            if "step_general/step_name" in v.keys()
-        ]
-        if len(names) != len(set(names)):
+        # Validate structure first
+        success, message = self.controller.validate_structure()
+        if not success:
             messagebox.showerror(
                 parent=self.toplevel,
-                title="Error writing yaml file",
-                message="Duplicate step names found!\nAll steps must have unique names.",
+                title="Error validating pipeline structure",
+                message=message,
             )
-            return
-        # Format the config into the Schema/yml format
-        config_db = self.format_config()
-        # Check the pipeline to make sure it is correct
-        status = self.schema_check_pipeline(config_db)
-        if status:
-            self.status_label.config(
-                text="VALID", bg=self.theme.green, fg=self.theme.green_fg
-            )
-        else:
-            self.status_label.config(text="INVALID", bg=self.theme.red_fg)
-        if return_config:
-            return status, config_db
-        else:
-            return status
+            return success
 
-    def validate_step(self, return_config=False):
+        # Validate full pipeline
+        success, message = self.controller.validate_full()
+
+        pre = "" if success else "un"
+        messagebox.showinfo(
+            parent=self.toplevel,
+            title=f"Schema check completed {pre}successfully",
+            message=message,
+        )
+        return success
+
+    def validate_step(self):
         """Validate the current step to make sure it is correct."""
-        config_db = self.format_config(step=self.STEP_INDEX)
-        if return_config:
-            return self.schema_check_pipeline(config_db), config_db
-        else:
-            return self.schema_check_pipeline(config_db)
+        # Get step index
+        step_index = self.STEP_INDEX
+        if step_index == 0:
+            self.validate_general()
+            return
 
-    def validate_general(self, return_config=False, suppress=False):
-        config_db = self.format_config(step=0)
-        if return_config:
-            return self.schema_check_pipeline(config_db, suppress=suppress), config_db
-        else:
-            return self.schema_check_pipeline(config_db, suppress=suppress)
+        # Get microscope connection
+        microscope = self._create_microscope_connection()
+        if microscope is None:
+            return False
 
-    def schema_check_pipeline(self, config_db, suppress=False):
-        """Perform schema checking on the pipeline to make sure it is correct."""
-        yml_format = ut.yml_format(version=1.0)
-        success = True
-        info = []
-        # Do general first so that the microscope object is created
         try:
-            general_set = factory.general(config_db["general"], yml_format=yml_format)
-            info.append(("General", "passed"))
-        except Exception as e:
-            info.append(("General", f"failed: {type(e).__name__}, {e}"))
-            general_set = None
-            success = False
-        # If we are checking steps, create the microscope object and check the steps
-        if "steps" in config_db.keys() and general_set is not None:
-            # Create the microscope object
-            Microscope = tbt.Microscope()
-            ut.connect_microscope(
-                Microscope,
-                quiet_output=True,
-                connection_host=general_set.connection.host,
-                connection_port=general_set.connection.port,
+            # Validate step
+            success, message = self.controller.validate_step(
+                step_index, microscope._microscope
             )
-            # Loop over the steps and perform schema checking
-            for step_name in config_db["steps"].keys():
-                try:
-                    _ = factory.step(
-                        Microscope,
-                        step_name=step_name,
-                        step_settings=config_db["steps"][step_name],
-                        general_settings=general_set,
-                        yml_format=yml_format,
-                    )
-                    info.append((step_name, "passed"))
-                except Exception as e:
-                    info.append((step_name, f"failed: {type(e).__name__}, {e}"))
-                    success = False
-        message = "\n".join([f"{step} - {status}" for step, status in info])
-        if success and not suppress:
+
+            pre = "" if success else "un"
             messagebox.showinfo(
                 parent=self.toplevel,
-                title="Schema check completed successfully",
+                title=f"Schema check completed {pre}successfully",
                 message=message,
             )
-            return True
-        elif not success:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Schema check completed unsuccessfully",
-                message=message,
-            )
-            return False
-        else:
-            return True
+            return success
+        finally:
+            microscope.disconnect()
 
+    def validate_general(self):
+        """Validate the general step to make sure it is correct."""
+        # Validate general step
+        success, message = self.controller.validate_general()
 
-def _check_value_type(value, dtype):
-    """Data type handler for exporting the pipeline to a yaml file.
-    Requires a dtype to be passed in to convert the value to the correct type.
-    Converts '', 'null', 'None' to None, 'True' or 'true' to True, 'False' or 'false' to False.
-    """
-    if type(value) == str:
-        value = value.strip()
-    if value in ["", "null", "None", None]:
-        return None
-    if dtype is None:
-        return value
-    if value in ["True", "true"]:
-        return True
-    elif value in ["False", "false"]:
-        return False
-    else:
-        return dtype(value)
-
-
-def flatten_dict(d, parent_key="", sep="/"):
-    """Takes a nested dictionary and flattens it to a single level dictionary.
-    Nested keys are combined using a separator.
-    A parent key can be passed in to add to the beginning of all keys."""
-    items = []
-    for k, v in d.items():
-        new_key = parent_key + sep + k if parent_key else k
-        try:
-            items.extend(flatten_dict(v, new_key, sep=sep).items())
-        except:
-            items.append((new_key, v))
-    return dict(items)
-
-
-def unflatten_dict(d, sep="/"):
-    """Takes a flattened dictionary and unflattens it to a nested dictionary."""
-    items = {}
-    for k, v in d.items():
-        keys = k.split(sep)
-        sub_items = items
-        for key in keys[:-1]:
-            sub_items = sub_items.setdefault(key, {})
-        sub_items[keys[-1]] = v
-    return items
-
-
-def get_key(keywords, dictionary):
-    """Get the key from a dictionary based on a list of keywords.
-    This is useful for finding a key in a flattened dictionary."""
-    if not isinstance(keywords, list):
-        check = lambda x, y: x in y
-    else:
-        check = lambda x, y: all([i in y for i in x])
-    for key in dictionary.keys():
-        if check(keywords, key):
-            return key
-    return None
+        pre = "" if success else "un"
+        messagebox.showinfo(
+            parent=self.toplevel,
+            title=f"Schema check completed {pre}successfully",
+            message=message,
+        )
+        return success
 
 
 if __name__ == "__main__":
@@ -1395,7 +1303,6 @@ if __name__ == "__main__":
         root.withdraw()
         configurator = Configurator(root, theme=ctk.Theme("dark"))
         root.wait_window(configurator.toplevel)
-        # print("Configurator closed.")
         root.deiconify()
 
     root = tk.Tk()

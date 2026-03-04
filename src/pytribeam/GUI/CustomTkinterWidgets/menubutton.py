@@ -64,10 +64,12 @@ class MenuButton(tk.Menubutton):
         )
         self.menu = tk.Menu(self, **kw)
         self["menu"] = self.menu
+        self.options = options
         self.set_options(options, command)
 
     def set_options(self, options, command=None):
         """Set the options for the menubutton."""
+        self.options = options
         # Clear the menu
         self.menu.delete(0, tk.END)
         for opt in options:
@@ -169,16 +171,32 @@ class EntryMenuButton(ttk.Combobox):
         )
 
         # Set the style to use the correct background and foreground colors
+        # Note: On Windows, ttk.Combobox fieldbackground cannot be reliably styled
+        # The entry field will remain white, so we use dark text for visibility
         self.bg = bg or DEFAULT_COLOR
         self.fg = fg or calc_font_color(self.bg)
+        # Force dark text on white background for readability in the entry field
+        entry_fg = calc_font_color("#FFFFFF")  # Calculate text color for white background
+
         custom_style = f"EMB_{len(EntryMenuButton.style)}.TCombobox"
         EntryMenuButton.style.append(custom_style)
-        style.configure(custom_style, padding=(1, 1, 1, 1))
+        style.configure(
+            custom_style,
+            padding=(1, 1, 1, 1),
+            fieldbackground="white",  # Explicitly set to white since we can't override it
+            background=self.bg,
+            foreground=entry_fg,  # Dark text for white background
+            selectbackground="#0078D7",  # Standard blue selection
+            selectforeground="white",
+            arrowcolor=entry_fg,
+        )
         style.map(
             custom_style,
-            background=[("", self.bg)],
-            fieldbackground=[("", self.bg)],
-            foreground=[("", self.fg)],
+            fieldbackground=[("readonly", "white"), ("disabled", "#F0F0F0"), ("", "white")],
+            background=[("readonly", self.bg), ("disabled", self.bg), ("", self.bg)],
+            foreground=[("readonly", entry_fg), ("disabled", "#808080"), ("", entry_fg)],
+            selectbackground=[("", "#0078D7")],
+            selectforeground=[("", "white")],
         )
         self.configure(style=custom_style)
 

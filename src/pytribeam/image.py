@@ -1571,10 +1571,25 @@ def collect_multiple_images(
 
     """
     # TODO test this
+
+    # Ensure that an insertable detector is done first so that inserting the detector doesn't interfere with other detectors
+    # Will need to make sure that only one insertable detector at a time
+    insertable_detector = [
+        devices.detector_state(
+            microscope=_set.microscope,
+            detector=_set.detector,
+        )
+        is not None
+        for _set in multiple_img_settings
+    ]
+    if any(insertable_detector):
+        start = multiple_img_settings[insertable_detector.index(True)]
+        multiple_img_settings = [start] + multiple_img_settings
+
     warnings.warn("Method not yet tested")
     views = []
     for quad in range(1, num_frames + 1):
-        img_settings = multiple_img_settings[quad]
+        img_settings = multiple_img_settings[quad - 1]
         resolution = img_settings.scan.resolution
         if not isinstance(resolution, tbt.PresetResolution):
             raise ValueError(
@@ -1584,7 +1599,7 @@ def collect_multiple_images(
         microscope = img_settings.microscope
         beam = img_settings.beam
         views.append(quad)
-        set_view(microscope=microscope, quad=quad)
+        set_view(microscope=microscope, quad=img_settings.beam.default_view)
         prepare_imaging(microscope=microscope, beam=beam, img_settings=img_settings)
     frames = microscope.imaging.grab_multiple_frames(
         tbt.GrabFrameSettings(bit_depth=img_settings.bit_depth, views=views)

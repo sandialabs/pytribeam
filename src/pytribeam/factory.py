@@ -100,7 +100,7 @@ validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, sett
 validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
     Perform schema checking for detector setting dictionary.
 
-validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, connection_host: str, connection_port: str, ebsd_oem: str, eds_oem: str) -> bool
+validate_EBSD_EDS_settings(ebsd_oem: str, eds_oem: str) -> bool
     Check EBSD and EDS OEM and connection for supported OEMs.
 
 validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
@@ -1462,6 +1462,7 @@ def ebsd(
         raise KeyError(
             f"Invalid .yml file, for step '{step_name}', an EBSD type step. 'concurrent_EDS' key is '{concurrent_EDS}' of type {type(concurrent_EDS)} but must be boolean (True/False) or of NoneType (null in .yml)."
         )
+
     ebsd_settings = tbt.EBSDSettings(
         image=image_settings,
         enable_eds=enable_eds,
@@ -2142,9 +2143,6 @@ def validate_detector_settings(
 
 
 def validate_EBSD_EDS_settings(
-    yml_format: tbt.YMLFormatVersion,
-    connection_host: str,
-    connection_port: str,
     ebsd_oem: str,
     eds_oem: str,
 ) -> bool:
@@ -2210,21 +2208,29 @@ def validate_EBSD_EDS_settings(
         raise SystemError(
             "EBSD and/or EDS control requested, but Laser API not accessible, so cannot use EBSD and EDS control. Please restart Laser API, or if not installed, change OEM to 'null', or leave blank in settings file."
         )
-    microscope = tbt.Microscope()
-    ut.connect_microscope(
-        microscope=microscope,
-        quiet_output=True,
-        connection_host=connection_host,
-        connection_port=connection_port,
-    )
-    if tbt.ExternalDeviceOEM(eds_oem) != tbt.ExternalDeviceOEM.NONE:
-        devices.retract_EDS(microscope=microscope)
-    if tbt.ExternalDeviceOEM(ebsd_oem) != tbt.ExternalDeviceOEM.NONE:
-        devices.retract_EBSD(microscope=microscope)
-    ut.disconnect_microscope(
-        microscope=microscope,
-        quiet_output=True,
-    )
+
+    ###################### PROPOSED CHANGE ######################
+    # Retracting devices here is unnecessary
+    # This causes devices to retract during validation
+    # Device retraction is needed only when startin/ending experiments
+    # Both of which are outside the scope of validation and already handled elsewhere
+    ###################### PROPOSED CHANGE ######################
+    # microscope = tbt.Microscope()
+    # ut.connect_microscope(
+    #     microscope=microscope,
+    #     quiet_output=True,
+    #     connection_host=connection_host,
+    #     connection_port=connection_port,
+    # )
+    # if tbt.ExternalDeviceOEM(eds_oem) != tbt.ExternalDeviceOEM.NONE:
+    #     devices.retract_EDS(microscope=microscope)
+    # if tbt.ExternalDeviceOEM(ebsd_oem) != tbt.ExternalDeviceOEM.NONE:
+    #     devices.retract_EBSD(microscope=microscope)
+    # ut.disconnect_microscope(
+    #     microscope=microscope,
+    #     quiet_output=True,
+    # )
+
     return True
 
 
@@ -2295,9 +2301,6 @@ def validate_general_settings(
 
     # check EBSD and EDS
     validate_EBSD_EDS_settings(
-        yml_format=yml_format,
-        connection_host=connection_host,
-        connection_port=connection_port,
         ebsd_oem=ebsd_oem,
         eds_oem=eds_oem,
     )

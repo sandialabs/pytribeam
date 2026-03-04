@@ -535,8 +535,11 @@ def nostdout():
     """
     save_stdout = sys.stdout
     sys.stdout = tbt.DummyFile()
-    yield
-    sys.stdout = save_stdout
+    try:
+        yield
+    finally:
+        # Always restore stdout, even if KeyboardInterrupt or other exceptions occur
+        sys.stdout = save_stdout
 
 
 def step_count(

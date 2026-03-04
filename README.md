@@ -14,4 +14,26 @@
 
 Installation instructions and more can be found in the [User Guide](https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html).
 
-More info coming soon!
+## Citing ``pytribeam``
+
+If ``pytribeam`` has been useful in your research, we invite you to cite the following paper on it's development and use:
+
+Polonsky, A.T., Lamb, J.D., Hovey, C.B. et al. pyTriBeam: Open-Source Software for Enhanced 3D Data Collection in TriBeam Microscopes. Integr Mater Manuf Innov (2026). https://doi.org/10.1007/s40192-026-00449-2
+
+Or using BibTeX:
+```bibtex
+@article{Polonsky2026,
+  title = {pyTriBeam: Open-Source Software for Enhanced 3D Data Collection in TriBeam Microscopes},
+  ISSN = {2193-9772},
+  url = {http://dx.doi.org/10.1007/s40192-026-00449-2},
+  DOI = {10.1007/s40192-026-00449-2},
+  journal = {Integrating Materials and Manufacturing Innovation},
+  publisher = {Springer Science and Business Media LLC},
+  author = {Polonsky,  Andrew T. and Lamb,  James D. and Hovey,  Chad B. and Schroader,  Haydn and Echlin,  McLean P. and Pollock,  Tresa M.},
+  year = {2026},
+  month = feb 
+}
+```
+
+
+

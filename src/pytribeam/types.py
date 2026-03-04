@@ -220,9 +220,6 @@ FIBPattern(NamedTuple)
 FIBSettings(NamedTuple)
     FIB settings for the microscope.
 
-EBSDGridType(IntEnum)
-    Enum for EBSD grid types.
-
 EBSDSettings(NamedTuple)
     EBSD settings for the microscope.
 
@@ -1935,22 +1932,6 @@ class FIBSettings(NamedTuple):
     pattern: FIBPattern
 
 
-class EBSDGridType(IntEnum):
-    """
-    Enum for EBSD grid types.
-
-    Attributes
-    ----------
-    SQUARE : int
-        Square grid type.
-    HEXAGONAL : int
-        Hexagonal grid type.
-    """
-
-    SQUARE = 1
-    HEXAGONAL = 0
-
-
 class EBSDSettings(NamedTuple):
     """
     EBSD settings for the microscope.
@@ -2367,6 +2348,6 @@ class YMLFormatVersion(YMLFormat, Enum):
         },
         # custom_step_settings={
         #     "script_path": Path,
-        #     "script_type": ScriptType,
+        #     "executable_path": Path,
         # }
     )

@@ -712,12 +712,12 @@ def perform_step(
 
     # retract all devices
     print("\tRetracting all devices...")
-    with ut.nostdout():
-        devices.retract_all_devices(
-            microscope=microscope,
-            enable_EBSD=enable_EBSD,
-            enable_EDS=enable_EDS,
-        )
+    # with ut.nostdout():
+    devices.retract_all_devices(
+        microscope=microscope,
+        enable_EBSD=enable_EBSD,
+        enable_EDS=enable_EDS,
+    )
     print("\tDevices retracted.")
 
     # move stage to starting position for slice
@@ -750,12 +750,12 @@ def perform_step(
 
     # retract all devices
     print("\tRetracting all devices...")
-    with ut.nostdout():
-        devices.retract_all_devices(
-            microscope=microscope,
-            enable_EBSD=enable_EBSD,
-            enable_EDS=enable_EDS,
-        )
+    # with ut.nostdout():
+    devices.retract_all_devices(
+        microscope=microscope,
+        enable_EBSD=enable_EBSD,
+        enable_EDS=enable_EDS,
+    )
     print("\tDevices retracted. Step Complete.\n")
 
 

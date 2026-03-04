@@ -49,3 +49,6 @@ Thumbs.db
 # Other files to ignore
 *.sqlite3
 *.db
+
+# Test dir
+tests/test_dir/*
