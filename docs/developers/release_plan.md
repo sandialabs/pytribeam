@@ -15,6 +15,7 @@
 - auto add location of root directory to the .coveragerc?
 - GUI tests
 - Track all machine types in constants
+- setup environment for different AS version
   
 ## deployment
 
