@@ -16,6 +16,7 @@
 - GUI tests
 - Track all machine types in constants
 - setup environment for different AS version
+- multi-AS version support: can we require 100% code coverage on specific functions?
   
 ## deployment
 
