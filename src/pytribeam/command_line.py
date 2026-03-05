@@ -112,8 +112,7 @@ def run_experiment():
                 value = int(input(prompt))
                 if value > 0:
                     return value  # Return the valid integer
-                else:
-                    print("Invalid input. Please enter an integer greater than 0.")
+                print("Invalid input. Please enter an integer greater than 0.")
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 

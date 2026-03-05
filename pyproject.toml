@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytribeam"
-version = "0.0.1"
+version = "0.0.2"
 description = "automated data collection on TriBeam tools"
 readme = "README.md"
 requires-python = "==3.8.12"
@@ -46,8 +46,8 @@ ignore = [
 ]
 
 [project.urls]
-documentation = "https://gitlab-ex.sandia.gov/tribeam/pytribeam/"
-repository = "https://gitlab-ex.sandia.gov/tribeam/pytribeam"
+documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"
+repository = "https://github.com/sandialabs/pytribeam"
 
 # CLI Entry Points
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html
