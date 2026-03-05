@@ -13,6 +13,12 @@
     - machines with CBS stage restriction locks (only the windows 7 Helios)
     - machine that doesn't fit into above (a fib with newer XtUI software)
 - auto add location of root directory to the .coveragerc?
+- Some kind of cleanup/setup procedure before/after hardware tests:
+    - lock/unlock laser objective
+    - move laser objective to safe position
+    - stage start pos/end pos
+    - beam voltages on/off
+    - all detectors retracted
 - GUI tests
 - Track all machine types in constants
 - setup environment for different AS version
