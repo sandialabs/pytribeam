@@ -10,6 +10,10 @@
 [lint_badge]: https://sandialabs.github.io/pytribeam/badges/lint.svg
 [version_badge]: https://sandialabs.github.io/pytribeam/badges/version.svg
 
+## Development work
+
+See release target [here](https://github.com/sandialabs/pytribeam/blob/dev/docs/developers/release_plan.md).
+
 ## Getting Started
 
 Installation instructions and more can be found in the [User Guide](https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html).
