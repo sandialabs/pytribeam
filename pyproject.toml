@@ -4,35 +4,39 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pytribeam"
+version = "0.0.2"
+description = "automated data collection on TriBeam tools"
+readme = "README.md"
+requires-python = "==3.8.12"
 authors = [
   { name="Andrew Polonsky", email="apolon@sandia.gov" },
   { name="Chad Hovey", email="chovey@sandia.gov" },
   { name="James Lamb", email="jdlamb@sandia.gov" },
 ]
-description = "automated data collection on TriBeam tools"
-readme = "README.md"
-requires-python = "==3.8.12"
+
 dependencies = [
-    "black",
-    "pytest",
-    "pytest-cov",
+    # "black",  # now handled by ruff
+    "pytest==8.3.3",
+    "pytest-cov==5.0.0",
     "schema",
 ]
-version = '0.0.2'
 
 [project.optional-dependencies]
 dev = [
-    "black",
+    # "black", # now handled by ruff
     #"docstr-coverage",
     #"docutils<0.18,>=0.14",
-    "flake8",
+    # "flake8",  # now handled by ruff
     #"jinja2",
     #"nbsphinx",
     #"pdbp",
-    'pycodestyle',
-    "pytest==8.3.3",
-    "pytest-cov==5.0.0",
+    # "pycodestyle",  # now handled by ruff
+    # "pytest==8.3.3",  # already in dependencies
+    # "pytest-cov==5.0.0",  # already in dependencies
+    "h5py",
+    "numpy",
     "pdoc",
+    "ruff",
 ]
 
 [docstr-coverage]
@@ -53,3 +57,13 @@ pytribeam_info ="pytribeam.command_line:module_info"
 pytribeam_gui="pytribeam.command_line:launch_gui"
 pytribeam_exp="pytribeam.command_line:run_experiment"
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+line-length = 88
+target-version = ["py38"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=src/pytribeam --cov-report=xml --cov-report=html"
