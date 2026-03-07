@@ -696,6 +696,9 @@ class Device(IntEnum):
     OPTICAL_MICROSCOPE = as_enums.ImagingDevice.OPTICAL_MICROSCOPE
     VOLUMESCOPE_APPROACH_CAMERA = as_enums.ImagingDevice.VOLUMESCOPE_APPROACH_CAMERA
 
+    def __str__(self):
+        return self.name
+
 
 class DummyFile(object):
     """

@@ -3,11 +3,103 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 import datetime
+from typing import Any, Set, List
 
 from pytribeam import utilities
 from pytribeam import types as tbt
 from pytribeam import factory
 from pytribeam.GUI import CustomTkinterWidgets as ctk
+
+import autoscript_sdb_microscope_client.structures as as_structs
+
+
+def _is_public_name(name: str) -> bool:
+    """Return ``True`` if *name* does not start with an underscore.
+
+    Hidden attributes (``_private`` or ``__dunder__``) are filtered out.
+    """
+    return not name.startswith("_")
+
+
+def _collect(
+    obj: Any,
+    prefix: str,
+    visited: Set[int],
+) -> List[str]:
+    """Recursive helper for :func:`collect_attribute_paths`.
+
+    Parameters
+    ----------
+    obj:
+        The current object being inspected.
+    prefix:
+        Dot-separated prefix representing the path to *obj*.
+    visited:
+        Set of ``id`` values already seen to prevent infinite loops.
+    """
+    # Guard against circular references.
+    obj_id = id(obj)
+    if obj_id in visited:
+        return []
+    visited.add(obj_id)
+
+    results: List[str] = []
+    for name in dir(obj):
+        if not _is_public_name(name):
+            continue
+        try:
+            attr = getattr(obj, name)
+        except Exception:
+            # Some descriptors may raise; skip them.
+            continue
+
+        full_path = f"{prefix}.{name}" if prefix else name
+
+        if callable(attr):
+            continue
+        elif isinstance(attr, str) or isinstance(attr, bool) or isinstance(attr, int) or isinstance(attr, float) or isinstance(attr, list) or isinstance(attr, tuple) or isinstance(attr, dict):
+            results.append((full_path, attr))
+        elif isinstance(attr, as_structs.StagePosition):
+            results.extend([
+                (full_path + ".coordinate_system", attr.coordinate_system),
+                (full_path + ".x", attr.x),
+                (full_path + ".y", attr.y),
+                (full_path + ".z", attr.z),
+                (full_path + ".t", attr.t),
+                (full_path + ".r", attr.r),
+            ])
+        else:
+            results.extend(_collect(attr, full_path, visited))
+
+    return results
+
+
+def collect_attribute_paths(obj: Any, name: str = None) -> List[str]:
+    """Return a list of dot-separated attribute paths for *obj*.
+
+    The function walks the public attribute tree of *obj* and records the path
+    to every callable (function, method, built-in) it encounters. Sub-objects that
+    are modules or classes are explored recursively. Private attributes (those
+    beginning with an underscore) and non-callable values are omitted.
+
+    Parameters
+    ----------
+    obj:
+        The root Python object to introspect - typically a module.
+    name:
+        Optional explicit name for the root object. If omitted, ``obj``'s
+        ``__name__`` attribute (when present) is used; otherwise an empty prefix
+        is assumed.
+
+    Returns
+    -------
+    List[str]
+        A list of strings such as ``"pkg.f1"``, ``"pkg.submod.g2"``.
+    """
+    root_name = name or getattr(obj, "__name__", "")
+    # If the root has no useful name, start with an empty prefix.
+    prefix = root_name if root_name else ""
+    return _collect(obj, prefix, set())
 
 
 def get_microscope_state(host: str, port: int) -> dict:
@@ -19,21 +111,17 @@ def get_microscope_state(host: str, port: int) -> dict:
         connection_port=None,
     )
 
-    beam = factory.active_beam_with_settings(microscope)
-    detector = factory.active_detector_settings(microscope)
-    image_settings = factory.active_image_settings(microscope)
-    image_device = factory.active_imaging_device(microscope)
-    scan = factory.active_scan_settings(microscope)
-    position = factory.active_stage_position_settings(microscope)
+    state = {}
 
-    beam = str(beam)
-    detector = str(detector)
-    image_settings = str(image_settings)
-    image_device = str(image_device)
-    scan = str(scan)
-    position = str(position)
+    for s in ["beams", "detector", "gas", "patterning", "specimen", "state", "vacuum", "imaging"]:
+        state[s] = {k: i for (k, i) in collect_attribute_paths(getattr(microscope, s), "scope." + s)}
+    
+    for q in [1, 2, 3, 4]:
+        microscope.imaging.set_active_view(q)
+        device = str(tbt.Device(microscope.imaging.get_active_device()))
+        state["imaging"][f"scope.imaging.quad{q}.active_device"] =  device
 
-    return dict(beam=beam, detector=detector, image_settings=image_settings, image_device=image_device, scan=scan, position=position)
+    return state
 
 
 def ensure_file_exists():
