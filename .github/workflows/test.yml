@@ -1,3 +1,4 @@
+# This workflow will not run without Autoscript.
 name: Test
 
 on:
