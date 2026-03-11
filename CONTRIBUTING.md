@@ -21,11 +21,10 @@ python -m venv .venv
 # (b) uv method
 uv venv
 
-# both methods
+# for both methods (a) and (b)
 source .venv/bin/activate       # bash
 source .venv/bin/activate.fish  # fish shell
 ```
-
 
 Install the code in editable form,
 
@@ -39,7 +38,12 @@ uv pip install -e .[dev]
 
 ## CI/CD
 
-We separate the concerns of test, build, release, and publish throughout the `.github/workflows/` files.
+We separate the concerns of test, build, release, and publish throughout the `.github/workflows/` files:
+
+* [`test.yml`](/.github/workflows/test.yml)
+* [`release.yml`](/.github/workflows/release.yml)
+
+These YAML files cover:
 
 * **Test (Verification)**
   * **Purpose:** To ensure that the code is functional and hasn't introduced regressions (broken existing features).
