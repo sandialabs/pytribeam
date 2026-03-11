@@ -1,0 +1,32 @@
+# This workflow will not run without Autoscript.
+name: Test
+
+on:
+  push:
+    branches:
+      - '**' # Trigger on any branch push
+  pull_request:
+    branches:
+      - '**' # Trigger on any pull request
+  workflow_call: # CRITICAL: Allows this workflow to be called by others
+
+jobs:
+  test:
+    name: Run Subset of Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.8.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run Pytest
+        run: pytest tests/test_example.py
