@@ -1,0 +1,38 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: pyTriBeam
+message: >-
+  If you use this software, please cite it using these
+  metadata.
+type: software
+authors:
+  - given-names: Andrew
+    family-names: Polonsky
+    email: apolon@sandia.gov
+    affiliation: Sandia National Laboratories
+    orcid: 'https://orcid.org/0000-0003-4515-9827'
+  - given-names: James
+    family-names: Lamb
+    email: jdlamb@sandia.gov
+    affiliation: Sandia National Laboratories
+    orcid: 'https://orcid.org/0000-0002-1409-9799'
+  - given-names: Chad
+    family-names: Hovey
+    affiliation: Sandia National Laboratories
+    email: chovey@sandia.gov
+    orcid: 'https://orcid.org/0000-0003-0915-5765'
+identifiers:
+  - type: doi
+    value: 10.1007/s40192-026-00449-2
+    description: Paper on software development and use
+repository-code: 'https://github.com/sandialabs/pytribeam'
+url: 'https://sandialabs.github.io/pytribeam/'
+abstract: Automated data collection for the TriBeam microscope
+keywords:
+  - 3D materials science
+  - serial sectioning
+  - tomography
+  - automation
+license: MIT

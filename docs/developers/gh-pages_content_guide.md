@@ -1,4 +1,4 @@
-As autoscript cannot be installed in a virtual environment and requires a license, content for githubpages must be generated locally on a licensed machine. This file contains instructions and commands to create content for github pages for the gh-pages branch.
+As autoscript requires a license, content for GitHub pages must be generated locally on a licensed machine. This file contains instructions and commands to create content for github pages for the gh-pages branch.
 
 # overwriting gh-pages
 
@@ -82,6 +82,8 @@ curl -k -L -o badges/userguide.svg "https://img.shields.io/badge/userguide-Book-
 
 ## api docs
 
+Run the following in a git bash terminal on Windows:
+
 ```sh
 pdoc ./src/pytribeam/  -o ./docs/api
 test -d badges/ || mkdir -p badges
@@ -111,18 +113,103 @@ anybadge -o -l api -v "$DOCSTRING_COVERAGE% coverage" -f badges/api.svg -c "$COL
 In order to run tests, the user must install ``pyTriBeam`` in editable mode and add their computer name to the list of machines in the ``Constants`` module. To find your hardware name, you can run the following from a python terminal:
 
 ```python
+import platform
+print(platform.node())
+```
+
+### How to run test suite on simulator:
+Go to the root directory of `pytribeam` and run the following in a git bash terminal window. This will generate both a .xml and .html version of the coverage report.
+```sh
+pytest --cov=pytribeam --cov-report=html:coverage_reports/simulator/htmlcov/ --cov-report=xml:coverage_reports/simulator/coverage.xml --cov-report term-missing
+```
+A `.coverage` file will be generated in the root directory of `pytribeam`. Move the `.coverage` file into the `coverage_reports/simulator` folder.
+
+#### TODO test improvements
+
+- Stop test suite on hard ware if test fails
+    - insert/rectract EBSD is not self contained if it fails
+- check for test independence 
+- order tests in increasing complexity
+- some tests won't work on some systems (CBS stage restrictions)
+- need decorators for:
+    - offline machines
+    - machines with lasers
+    - machines with CBS stage restriction locks (only the windows 7 Helios)
+    - machine that doesn't fit into above (a fib with newer XtUI software)
+- auto add location of root directory to the .coveragerc?
+
+
+### How to run test suite on hardware:
+The microscope must first be prepared in order to safely run all tests. It is highly recommended to remove any sample and sample holder from the tool. **DO NOT run hardware tests if you are unfamiliar with the process.**
+
+Prepare the microscope by doing the following:
+
+- Remove CBS stage restrictions (non-Windows 7 machines)
+- Turn on electron beam, focus and link Z (WD of 15 mm for no sample)
+- For laser systems only:
+    - Open laser app and disable laser interlock (turn the key so laser can fire)
+        - Unlock the objective in the laser GUI
+    - Ensure spin mill sample holder selected
+    - Open EBSD software, enable proximity sensor and override alerts (Oxford only)
+    - Manually check connections:
+        - Open GUI and run "test connections" to ensure no "Error" states
+        - Insert the EDS detector for a second and re-run "test connections", EDS detector should be "indeterminate"
+        - Retract EDS detector
+- (potentially optional) Discover tests in testing tab
+From the root directory of `pytribeam`, run the following from command from a terminal, this will generate both a .xml and .html version of test coverage:
+```sh
+pytest -x --cov=pytribeam --cov-report=html:coverage_reports/hardware/htmlcov/ --cov-report=xml:coverage_reports/hardware/coverage.xml --cov-report term-missing
+```
+"-x" will stop suite if an error is encountered
+
+A `.coverage` file will be generated in the root directory of `pytribeam`. Move the `.coverage` file into the `coverage_reports/hardware` folder.
+
+### Combine test coverage
+
+Combining test coverage reports allows us to account for differences in coverage for tests that can only run on specific hardware versions (e.g. systems with a laser) or that can run on a simulated microscope environment. When combining coverage reports, it is assumed to be performed on a non-microscope machine with an internet connection (with an `Offline` autoscript install). In order to combine coverage reports, the `.coveragerc` file must include the paths to all `pytribeam/src` directories used to generate `.coverage` files. A working example from 2/18/26 is given below:
+
+`.coveragerc`:
+```
+[run]
+omit =
+    # omit GUI files from tests
+    src/pytribeam/GUI/*
+
+[paths]
+    source = 
+        # running from pytribeam root on an offline machine
+        src
+        # full path to 'pytribeam/src' on a laser system
+        C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src
+        # full path to `pytribeam/src` on a different laser system
+        C:/Users/User/Documents/pytribeam/src
+        C:/Users/apolon/Codebases/pytribeam/src
 
 ```
-Run test suite on TriBeam:
-			0. Remove CBS stage restructions
-                1. Turn on ebeam, focus and link Z
-                2. open laser app and disable laser interlock (turn the key so laser can fire)
-                3. Open EBSD software, enable proximity sensor and override alerts (Oxford only)
 
-combine coverage, now make badge in git-bash terminal:
+
+Combine coverage reports using the generated `.coverage` files:
 
 ```sh
-# pip install anybadge
+coverage combine --append --keep ./coverage_reports/simulator/.coverage ./coverage_reports/hardware/.coverage
+```
+
+Then generate a html report from the combined `.coverage` file, which should appear in the root directory of `pytribeam`:
+
+```sh
+coverage html -d ./coverage_reports/combined/htmlcov
+```
+
+Alternatively (or additionally), an .xml report can be generated from the combined `.coverage` file:
+
+```sh
+coverage xml -o ./coverage_reports/combined/coverage.xml
+```
+
+Now make badge in git-bash terminal:
+
+```sh
+pip install anybadge # if needed, should already be installed in local environment
 test -d badges/ || mkdir -p badges/
 LINES_COVERED=$(grep -oP 'lines-covered="\K[0-9]+' coverage_reports/combined/coverage.xml)
 LINES_VALID=$(grep -oP 'lines-valid="\K[0-9]+' coverage_reports/combined/coverage.xml)
@@ -140,18 +227,17 @@ else \
 fi
 ```
 
-combined test coverage, delete .gitignore to push these up
-
 ## lint logs
+
+To generate a lint.log file and badge for lint score, run the following commands in a git bash terminal: 
 
 ```sh
 mkdir -p logs/
-# pylint --output-format=text src/pytribeam | tee logs/lint.log || pylint-exit $?
 
-# ignore GUI for linting
+# optionally ignore GUI for linting
 # pylint -v --ignore=GUI src/pytribeam | tee logs/lint.log || pylint-exit $?
 
-pylint -v src/pytribeam | tee logs/lint.log || pylint-exit $? #ignore GUI for linting
+pylint -v src/pytribeam | tee logs/lint.log || pylint-exit $?
 
 test -d badges/ || mkdir -p badges/
 PYLINT_SCORE=$(sed -n 's/^Your code has been rated at \([-0-9.]*\)\/.*/\1/p' logs/lint.log)
@@ -159,3 +245,5 @@ anybadge -o --label=lint --file=badges/lint.svg --value=${PYLINT_SCORE} 2=red 4=
 ```
 
 ## versioning
+
+Notes to come
