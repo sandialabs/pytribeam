@@ -100,7 +100,7 @@ validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, sett
 validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
     Perform schema checking for detector setting dictionary.
 
-validate_EBSD_EDS_settings(ebsd_oem: str, eds_oem: str) -> bool
+validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, ebsd_oem: str, eds_oem: str, edax_settings: dict) -> bool
     Check EBSD and EDS OEM and connection for supported OEMs.
 
 validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
@@ -815,7 +815,20 @@ def general(
             h5_log_name = h5_log_name[: -len(log_extension)]
         # step count
         step_count = general_db["step_count"]
+        EDAX_settings = None
         yml_version = 1.0
+
+    if yml_format.version >= 1.1:
+        edax_db = general_db["EDAX_settings"]
+        EDAX_settings = tbt.EDAXConfig(
+            save_directory=edax_db["save_directory"],
+            project_name=edax_db["project_name"],
+            connection=tbt.MicroscopeConnection(
+                host=edax_db["connection"]["host"],
+                port=edax_db["connection"]["port"],
+            ),
+        )
+        yml_version = 1.1
 
     general_settings = tbt.GeneralSettings(
         yml_version=yml_version,
@@ -829,6 +842,7 @@ def general(
         EDS_OEM=eds_oem,
         exp_dir=Path(exp_dir),
         h5_log_name=h5_log_name,
+        EDAX_settings=EDAX_settings,
         step_count=step_count,
     )
 
@@ -1463,10 +1477,36 @@ def ebsd(
             f"Invalid .yml file, for step '{step_name}', an EBSD type step. 'concurrent_EDS' key is '{concurrent_EDS}' of type {type(concurrent_EDS)} but must be boolean (True/False) or of NoneType (null in .yml)."
         )
 
+    # TODO validate and check
+    if yml_format.version >= 1.0:
+        scan_box = None
+        grid_type = None
+        save_patterns = None
+    if yml_format.version >= 1.1:
+        edax_settings = step_settings.get("edax_settings")
+        scan_db = edax_settings.get("scan_box")
+        # We use brackets instead of parentheses here since grid type is the name not the value
+        grid_type = tbt.EBSDGridType[edax_settings.get("grid_type")]
+        save_patterns = edax_settings.get("save_patterns")
+        x_start_um = scan_db.get("x_start_um")
+        y_start_um = scan_db.get("y_start_um")
+        x_size_um = scan_db.get("x_size_um")
+        y_size_um = scan_db.get("y_size_um")
+        step_size_um = scan_db.get("step_size_um")
+        scan_box = tbt.EBSDScanBox(
+            x_start_um=x_start_um,
+            y_start_um=y_start_um,
+            x_size_um=x_size_um,
+            y_size_um=y_size_um,
+            step_size_um=step_size_um,
+        )
     ebsd_settings = tbt.EBSDSettings(
         image=image_settings,
         enable_eds=enable_eds,
         enable_ebsd=True,
+        scan_box=scan_box,
+        grid_type=grid_type,
+        save_patterns=save_patterns,
     )
     return ebsd_settings
 
@@ -2143,8 +2183,10 @@ def validate_detector_settings(
 
 
 def validate_EBSD_EDS_settings(
+    yml_format: tbt.YMLFormatVersion,
     ebsd_oem: str,
     eds_oem: str,
+    edax_settings: dict = None,
 ) -> bool:
     """
     Check EBSD and EDS OEM and connection for supported OEMs.
@@ -2231,6 +2273,54 @@ def validate_EBSD_EDS_settings(
     #     quiet_output=True,
     # )
 
+    if edax_settings is not None:
+        schema = Schema(
+            {
+                "save_directory": And(
+                    str,
+                    error=f"Requested 'save_directory' of '{edax_settings['save_directory']}', which must be a string.",
+                ),
+                "project_name": And(
+                    str,
+                    error=f'Requested "project_name" of "{edax_settings["project_name"]}", which must be a string.',
+                ),
+            },
+            ignore_extra_keys=True,
+        )
+
+        try:
+            schema.validate(edax_settings)
+        except UnboundLocalError:
+            raise ValueError(
+                f"Error. Unsupported yml version {yml_format.version} provided."
+            )
+
+        connection_db = edax_settings["connection"]
+        schema_connection = Schema(
+            {
+                "host": And(
+                    str,
+                    error=f'Requested "host" of "{connection_db["host"]}", which must be a string.',
+                ),
+                "port": And(
+                    int,
+                    error=f'Requested "port" of "{connection_db["port"]}", which must be an int.',
+                ),
+            }
+        )
+        try:
+            schema_connection.validate(connection_db)
+        except UnboundLocalError:
+            raise ValueError(
+                f"Error. Unsupported yml version {yml_format.version} provided."
+            )
+
+        connection = fs_laser.connect_EDAX(
+            ebsd_host=edax_settings["connection"]["host"],
+            ebsd_port=edax_settings["connection"]["port"],
+        )
+        fs_laser.disconnect_EDAX(connection=connection)
+
     return True
 
 
@@ -2277,6 +2367,9 @@ def validate_general_settings(
         eds_oem = settings.get("EDS_OEM")
         exp_dir = settings.get("exp_dir")
         h5_log_name = settings.get("h5_log_name")
+        edax_settings = None
+    if yml_format.version >= 1.1:
+        edax_settings = settings.get("EDAX_settings")
 
     # Validate the non-numeric values
     # Check sectioning axis
@@ -2301,8 +2394,10 @@ def validate_general_settings(
 
     # check EBSD and EDS
     validate_EBSD_EDS_settings(
+        yml_format=yml_format,
         ebsd_oem=ebsd_oem,
         eds_oem=eds_oem,
+        edax_settings=edax_settings,
     )
 
     # Check exp dir
