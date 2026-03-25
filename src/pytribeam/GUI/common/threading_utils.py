@@ -38,21 +38,23 @@ class StoppableThread(threading.Thread):
             kwargs: Keyword arguments for target function
             name: Optional thread name for debugging
         """
+        self._user_target = target
+        self._result: Dict[str, Any] = {"value": None, "error": None}
+        self._thread_id: Optional[int] = None
+
         super().__init__(
             target=self._wrapped_target,
             args=args,
             kwargs=kwargs or {},
             name=name,
         )
-        self._target = target
-        self._result: Dict[str, Any] = {"value": None, "error": None}
-        self._thread_id: Optional[int] = None
+
         self.daemon = False
 
     def _wrapped_target(self, *args, **kwargs):
         """Wrap target to capture result/errors."""
         try:
-            result = self._target(*args, **kwargs)
+            result = self._user_target(*args, **kwargs)
             self._result["value"] = result
             return result
         except Exception as e:

@@ -1,0 +1,22 @@
+# python=3.8
+
+Pillow<10.0.0
+numpy
+matplotlib
+colorama
+opencv_python
+
+h5py
+pyyaml
+pandas
+jsonschema
+scikit-image
+requests
+
+autoscript-core @ ./autoscript_core-5.31.0-py3-none-any.whl
+autoscript-sdb-microscope-client @ ./autoscript_sdb_microscope_client-4.12.1-py3-none-any.whl
+autoscript-toolkit @ ./autoscript_toolkit-4.12.1-py3-none-any.whl
+thermoscientific_logging @ ./thermoscientific_logging-5.31.0-py3-none-any.whl
+# autoscript-sdb-application-tests @ ./autoscript_sdb_application_tests-4.12.1-py3-none-any.whl
+# autoscript-sdb-microscope-client-tests @ ./autoscript_sdb_microscope_client_tests-4.12.1-py3-none-any.whl
+# autoscript-toolkit-cognex-extension @ ./autoscript_toolkit_cognex_extension-4.12.1-py3-none-any.whl

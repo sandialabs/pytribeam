@@ -1,7 +1,11 @@
 [run]
 omit =
     # omit GUI files from tests
-    src/pytribeam/GUI/*
+    # src/pytribeam/GUI/*
+    src/pytribeam/GUI/CustomTkinterWidgets/*
+    src/pytribeam/GUI/runner_util/ui_components.py
+    src/pytribeam/GUI/runner.py
+    src/pytribeam/GUI/config_ui/App.py
 
 [paths]
     source = 

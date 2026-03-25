@@ -10,6 +10,7 @@ logo = "src/logos/logo_color.png"
 build-dir = "docs/userguide/book"
 
 [preprocessor.cmdrun]
+command = "mdbook-cmdrun"
 
 [preprocessor.katex]
 after = ["links"]
