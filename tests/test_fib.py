@@ -10,7 +10,6 @@ import pytest
 from PIL import Image as pil_img
 import numpy as np
 from skimage import filters, measure
-import cv2
 
 # Local
 import pytribeam.constants as cs
