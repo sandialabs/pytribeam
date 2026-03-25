@@ -22,19 +22,13 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    # "black", # now handled by ruff
-    #"docstr-coverage",
-    #"docutils<0.18,>=0.14",
-    # "flake8",  # now handled by ruff
-    #"jinja2",
-    #"nbsphinx",
-    #"pdbp",
-    # "pycodestyle",  # now handled by ruff
-    # "h5py",
-    # "numpy",
     "pdoc",
     "pytest==8.3.3",
     "pytest-cov==5.0.0",
+    "anybadge",
+    "pylint",
+    "pylint-exit",
+    "interrogate",
 ]
 
 # pdoc configuration
