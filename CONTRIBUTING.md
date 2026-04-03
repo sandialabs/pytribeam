@@ -79,7 +79,7 @@ Step:
 
 * Log into your [PyPI](https://pypi.org) account
 * Go your project's **Manage** page (or your accounts **Publishing** settings if you are setting it up for the first time.)
-* Look for the **Publishing**tab
+* Look for the **Publishing** tab
 * Click **Add new publisher**
 * Select **GitHub** as the source
 * Enter the following details:
