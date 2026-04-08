@@ -5,6 +5,9 @@ logs/
 docs/api/
 docs/userguide/book/
 
+# Version file that is created on build every time
+src/pytribeam/_version.py
+
 # Python cache files
 __pycache__/
 *.py[cod]

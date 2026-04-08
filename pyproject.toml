@@ -68,6 +68,9 @@ local_scheme = "no-local-version"  # Ensures clean versions like 0.0.9 instead o
 [tool.hatch.build.targets.wheel]
 packages = ["src/pytribeam"]
 
+[tool.hatch.build.hooks.vcs]
+version-file = "src/pytribeam/_version.py"  # File to be generated when compiled
+
 # [tool.ruff]
 # line-length = 88
 # target-version = ["py38"]
