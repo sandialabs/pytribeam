@@ -1,4 +1,6 @@
 [build-system]
+# requires = ["setuptools>=61.0", "wheel"]
+# build-backend = "setuptools.build_meta"
 requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
@@ -7,7 +9,7 @@ name = "pytribeam"
 # version = "0.0.2"
 dynamic = ["version"]  # Removed static version, now determined by VCS
 description = "automated data collection on TriBeam tools"
-requires-python = "==3.8.12"
+requires-python = ">=3.8.12,<3.9"
 readme = "README.md"
 authors = [
   { name="Andrew Polonsky", email="apolon@sandia.gov" },
@@ -65,6 +67,9 @@ local_scheme = "no-local-version"  # Ensures clean versions like 0.0.9 instead o
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pytribeam"]
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/pytribeam/_version.py"  # File to be generated when compiled
 
 # [tool.ruff]
 # line-length = 88
