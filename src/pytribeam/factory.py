@@ -100,7 +100,7 @@ validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, sett
 validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
     Perform schema checking for detector setting dictionary.
 
-validate_EBSD_EDS_settings(ebsd_oem: str, eds_oem: str) -> bool
+validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, ebsd_oem: str, eds_oem: str, edax_settings: dict) -> bool
     Check EBSD and EDS OEM and connection for supported OEMs.
 
 validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
@@ -2143,6 +2143,7 @@ def validate_detector_settings(
 
 
 def validate_EBSD_EDS_settings(
+    yml_format: tbt.YMLFormatVersion,
     ebsd_oem: str,
     eds_oem: str,
 ) -> bool:
@@ -2301,6 +2302,7 @@ def validate_general_settings(
 
     # check EBSD and EDS
     validate_EBSD_EDS_settings(
+        yml_format=yml_format,
         ebsd_oem=ebsd_oem,
         eds_oem=eds_oem,
     )
