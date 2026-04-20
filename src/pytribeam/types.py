@@ -151,18 +151,6 @@ ViewQuad(IntEnum)
 VacuumState(Enum)
     Enum adapter for autoscript VacuumState enum.
 
-EdaxMappingStatus(Enum)
-    Enum adapter for EDAX EDS mapping status.
-
-EdaxEbsdCameraStatus(Enum)
-    Enum adapter for EDAX EBSD camera status.
-
-EdaxEdsDetectorStatus(Enum)
-    Enum adapter for EDAX EDS detector status.
-
-EdaxEdsDetectorSlideStatus(Enum)
-    Enum adapter for EDAX EDS detector slide status.
-
 Beam(NamedTuple)
     A generic Beam type, used as a template for concrete beam types.
 
@@ -171,9 +159,6 @@ BeamLimits(NamedTuple)
 
 ElectronBeam(Beam)
     The specific beam type 'electron'.
-
-EDAXConfig(NamedTuple)
-    EDAX configuration settings.
 
 GeneralSettings(NamedTuple)
     General settings object.
@@ -234,12 +219,6 @@ FIBPattern(NamedTuple)
 
 FIBSettings(NamedTuple)
     FIB settings for the microscope.
-
-EBSDGridType(IntEnum)
-    Enum for EBSD grid types.
-
-EBSDScanBox(NamedTuple)
-    EBSD scan box settings.
 
 EBSDSettings(NamedTuple)
     EBSD settings for the microscope.
@@ -1481,181 +1460,6 @@ class VacuumState(Enum):
     VENTING: str = as_enums.VacuumState.VENTING
 
 
-class EdaxMappingStatus(Enum):
-    """
-    Enum adapter EDAX mapping status
-
-    Attributes
-    ----------
-    NOT_READY : str
-        Not ready state.
-    READY : str
-        Ready state.
-    SETUP_ACTIVE : str
-        Setup active state.
-    SETUP_COMPLETE : str
-        Setup complete state.
-    SETUP_PAUSED : str
-        Setup paused state.
-    SETUP_RESUMED : str
-        Setup resumed state.
-    SETUP_ABORTED : str
-        Setup aborted state.
-    SETUP_STOPPED : str
-        Setup stopped state.
-    SETUP_ERROR : str
-        Setup error state.
-    MAPPING_ACTIVE : str
-        Mapping active state.
-    MAPPING_COMPLETE : str
-        Mapping complete state.
-    MAPPING_PAUSED : str
-        Mapping paused state.
-    MAPPING_RESUMED : str
-        Mapping resumed state.
-    MAPPING_ABORTED : str
-        Mapping aborted state.
-    MAPPING_STOPPED : str
-        Mapping stopped state.
-    MAPPING_ERROR : str
-        Mapping error state.
-    UNKNOWN : str
-        Unknown state.
-    """
-
-    NOT_READY: str = "notready"
-    READY: str = "ready"
-    SETUP_ACTIVE: str = "setupactive"
-    SETUP_COMPLETE: str = "setupcomplete"
-    SETUP_PAUSED: str = "setuppaused"
-    SETUP_RESUMED: str = "setupresumed"
-    SETUP_ABORTED: str = "setupaborted"
-    SETUP_STOPPED: str = "setupstopped"
-    SETUP_ERROR: str = "setuperror"
-    MAPPING_ACTIVE: str = "mappingactive"
-    MAPPING_COMPLETE: str = "mappingcomplete"
-    MAPPING_PAUSED: str = "mappingpaused"
-    MAPPING_RESUMED: str = "mappingresumed"
-    MAPPING_ABORTED: str = "mappingaborted"
-    MAPPING_STOPPED: str = "mappingstopped"
-    MAPPING_ERROR: str = "mappingerror"
-    UNKNOWN: str = "unknownerror"
-
-
-class EdaxEbsdCameraStatus(Enum):
-    """
-    Enum adapter for EDAX EBSD camera status.
-
-    Attributes
-    ----------
-    SLIDE_OUT : str
-        Slide out state.
-    SLIDE_IN : str
-        Slide in state.
-    SLIDE_MOVING_OUT : str
-        Slide moving out state.
-    SLIDE_MOVING_IN : str
-        Slide moving in state.
-    SLIDE_HIGH_COUNT : str
-        Slide high count state.
-    SLIDE_NO_POWER : str
-        Slide no power state.
-    SLIDE_MID : str
-        Slide mid state.
-    SLIDE_STOPPED : str
-        Slide stopped state.
-    SLIDE_ERROR : str
-        Slide error state.
-    SLIDE_INIT : str
-        Slide init state.
-    SLIDE_MOVE_MID_IN : str
-        Slide move mid in state.
-    SLIDE_MOVE_MID_OUT : str
-        Slide move mid out state.
-    SLIDE_WATCHDOG : str
-        Slide watchdog state.
-    SLIDE_MOVE_WDOG : str
-        Slide move watchdog state.
-    SLIDE_DISABLED : str
-        Slide disabled state.
-    SLIDE_MOVE_TOUCH : str
-        Slide move touch state.
-    SLIDE_TOUCH_SENSE : str
-        Slide touch sense state.
-    UNKNOWN : str
-        Unknown state.
-    """
-
-    SLIDE_OUT: str = "slideout"
-    SLIDE_IN: str = "slidein"
-    SLIDE_MOVING_OUT: str = "slidemovingout"
-    SLIDE_MOVING_IN: str = "slidemovingin"
-    SLIDE_HIGH_COUNT: str = "slidehighcount"
-    SLIDE_NO_POWER: str = "slidenopower"
-    SLIDE_MID: str = "slidemid"
-    SLIDE_STOPPED: str = "slidestopped"
-    SLIDE_ERROR: str = "slideerror"
-    SLIDE_INIT: str = "slideinit"
-    SLIDE_MOVE_MID_IN: str = "slidemovemidin"
-    SLIDE_MOVE_MID_OUT: str = "slidemovemidout"
-    SLIDE_WATCHDOG: str = "slidewatchdog"
-    SLIDE_MOVE_WDOG: str = "slidemovewdog"
-    SLIDE_DISABLED: str = "slidedisabled"
-    SLIDE_MOVE_TOUCH: str = "slidemovetouch"
-    SLIDE_TOUCH_SENSE: str = "slidetouchsense"
-    UNKNOWN: str = "unknown"
-
-
-class EdaxEdsDetectorStatus(Enum):
-    """
-    Enum adapter for EDAX EDS detector status.
-
-    Attributes
-    ----------
-    NOT_READY : str
-        Not ready state.
-    READY : str
-        Ready state.
-    """
-
-    NOT_READY: str = "notready"
-    READY: str = "ready"
-
-
-class EdaxEdsDetectorSlideStatus(Enum):
-    """
-    Enum adapter for EDAX EDS detector slide status.
-
-    Attributes
-    ----------
-    SLIDE_OUT : str
-        Slide out state.
-    SLIDE_IN : str
-        Slide in state.
-    UNKNOWN : str
-        Unknown state.
-    """
-
-    SLIDE_OUT: str = "slideout"
-    SLIDE_IN: str = "slidein"
-    UNKNOWN: str = "unknown"
-
-
-class EmailUpdateConfig(NamedTuple):
-    """Email configuration for sending notifications"""
-
-    ssh_host: str
-    ssh_port: int
-    ssh_user: str
-    ssh_key_path: str
-    smtp_server: str
-    smtp_port: int
-    sender: str
-    sender_password: str
-    recipients: List[str]
-    update_frequency: int  # in slices
-
-
 ### DERIVED CLASSES ###
 
 
@@ -1725,14 +1529,6 @@ class ElectronBeam(Beam):
     device: Device = Device.ELECTRON_BEAM
 
 
-class EDAXConfig(NamedTuple):
-    """General configuration for EDAX"""
-
-    save_directory: Path  # on EDAX computer
-    project_name: str
-    connection: MicroscopeConnection = None
-
-
 class GeneralSettings(NamedTuple):
     """
     General settings object.
@@ -1782,8 +1578,6 @@ class GeneralSettings(NamedTuple):
     exp_dir: Path
     h5_log_name: str
     step_count: int
-    email_update_settings: EmailUpdateConfig = None
-    EDAX_settings: EDAXConfig = None
 
     @property
     def log_filepath(self) -> Path:
@@ -2138,47 +1932,6 @@ class FIBSettings(NamedTuple):
     pattern: FIBPattern
 
 
-class EBSDGridType(IntEnum):
-    """
-    Enum for EBSD grid types.
-
-    Attributes
-    ----------
-    SQUARE : int
-        Square grid type.
-    HEXAGONAL : int
-        Hexagonal grid type.
-    """
-
-    SQUARE = 1
-    HEXAGONAL = 0
-
-
-class EBSDScanBox(NamedTuple):
-    """
-    EBSD scan box settings.
-
-    Attributes
-    ----------
-    x_start_um : float
-        The x-coordinate of the start position in micrometers.
-    y_start_um : float
-        The y-coordinate of the start position in micrometers.
-    x_size_um : float
-        The width of the scan box in micrometers.
-    y_size_um : float
-        The height of the scan box in micrometers.
-    step_size_um : float
-        The step size for the scan in micrometers.
-    """
-
-    x_start_um: float
-    y_start_um: float
-    x_size_um: float
-    y_size_um: float
-    step_size_um: float
-
-
 class EBSDSettings(NamedTuple):
     """
     EBSD settings for the microscope.
@@ -2196,9 +1949,6 @@ class EBSDSettings(NamedTuple):
     image: ImageSettings
     enable_eds: bool
     enable_ebsd: bool = True
-    scan_box: EBSDScanBox = None
-    grid_type: int = EBSDGridType.SQUARE
-    save_patterns: bool = True
 
 
 class EDSSettings(NamedTuple):
@@ -2574,101 +2324,6 @@ class YMLFormatVersion(YMLFormat, Enum):
             "EDS_OEM" "exp_dir": Path,
             "h5_log_name": str,
             "step_count": int,
-        },
-        step_count_key="step_count",
-        # step settings
-        step_section_key="steps",
-        step_general_key="step_general",
-        step_type_key="step_type",
-        step_frequency_key="frequency",
-        step_stage_settings_key="stage",
-        step_general_settings={
-            "step_number": int,
-            "step_type": StepType,
-            "frequency": int,
-            "stage": StagePositionUser,
-        },
-        image_step_settings={
-            "beam_type": BeamType,
-            "beam_settings": BeamSettings,
-            "detector": Detector,
-            "scan": Scan,
-            "bit_depth": ColorDepth,
-            "tiling_settings": ImageTileSettings,
-        },
-        # custom_step_settings={
-        #     "script_path": Path,
-        #     "executable_path": Path,
-        # }
-    )
-    V_1_1 = YMLFormat(
-        version=1.1,
-        # general settings
-        general_section_key="general",
-        non_step_section_count=2,
-        step_number_key="step_number",
-        general_exp_settings={
-            "slice_thickness_um": float,
-            "max_slice_num": int,
-            "pre_tilt_deg": float,
-            "sectioning_axis": SectioningAxis,
-            "stage_translational_tol_um": float,
-            "stage_angular_tol_deg": float,
-            "connection_host": str,
-            "connection_port": int,
-            "EBSD_OEM": ExternalDeviceOEM,
-            "EDS_OEM" "exp_dir": Path,
-            "h5_log_name": str,
-            "step_count": int,
-            "EDAX_settings": EDAXConfig,
-        },
-        step_count_key="step_count",
-        # step settings
-        step_section_key="steps",
-        step_general_key="step_general",
-        step_type_key="step_type",
-        step_frequency_key="frequency",
-        step_stage_settings_key="stage",
-        step_general_settings={
-            "step_number": int,
-            "step_type": StepType,
-            "frequency": int,
-            "stage": StagePositionUser,
-        },
-        image_step_settings={
-            "beam_type": BeamType,
-            "beam_settings": BeamSettings,
-            "detector": Detector,
-            "scan": Scan,
-            "bit_depth": ColorDepth,
-            "tiling_settings": ImageTileSettings,
-        },
-        # custom_step_settings={
-        #     "script_path": Path,
-        #     "executable_path": Path,
-        # }
-    )
-    V_1_2 = YMLFormat(
-        version=1.2,
-        # general settings
-        general_section_key="general",
-        non_step_section_count=2,
-        step_number_key="step_number",
-        general_exp_settings={
-            "slice_thickness_um": float,
-            "max_slice_num": int,
-            "pre_tilt_deg": float,
-            "sectioning_axis": SectioningAxis,
-            "stage_translational_tol_um": float,
-            "stage_angular_tol_deg": float,
-            "connection_host": str,
-            "connection_port": int,
-            "EBSD_OEM": ExternalDeviceOEM,
-            "EDS_OEM" "exp_dir": Path,
-            "h5_log_name": str,
-            "step_count": int,
-            "email_updates": EmailUpdateConfig,
-            "EDAX_settings": EDAXConfig,
         },
         step_count_key="step_count",
         # step settings

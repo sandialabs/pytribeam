@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*' # Trigger only on version tags (e.g., v1.0.0)
+  workflow_dispatch:  # allows manual triggering of the workflow from the GitHub Actions tab
+
+jobs:
+  # 1. TEST JOB: Runs Pytest
+  test:
+    uses: ./.github/workflows/test.yml  # Reuse the test workflow defined in test.yml
+
+  # 2. BUILD: Only runs if 'test' passes
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Required for versioning tools to see tags
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.8.12' # to match pyproject.toml exactly
+
+      - name: Build
+        run: |
+          pip install build
+          python -m build .
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+  # 3. GITHUB RELEASE: Creates the release on GitHub and attaches the build files
+  github-release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Needed to create releases and upload assets
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          generate_release_notes: true # Automatically generate release notes based on commits since the last release
+          draft: false # Set to true if you want to create a draft release instead of publishing immediately
+          prerelease: false # Set to true if this is a pre-release (e.g., alpha, beta)
+
+  # 4. PUBLISH: Only runs if 'build' passes
+  publish:
+    needs: [build, github-release] # Ensure both build and GitHub release steps succeed before publishing
+    runs-on: ubuntu-latest
+    # Optional: Use environment protection rule for manual approval before publishing
+    environment: pypi
+    permissions:
+      id-token: write # Needed for authentication with PyPI using GitHub Actions
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1

@@ -15,7 +15,6 @@ import pytribeam.types as tbt
 from pytribeam import workflow, stage, insertable_devices, utilities
 from pytribeam.GUI.common import AppConfig, StoppableThread
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
-from pytribeam.email import send_update_email
 
 
 @dataclass
@@ -75,7 +74,6 @@ class ExperimentController:
         self._callbacks: Dict[str, Callable] = {}
         self._thread: Optional[StoppableThread] = None
         self._slice_times: List[float] = []
-        self._send_emails: bool = False
         self.experiment_settings: Optional[tbt.ExperimentSettings] = None
 
     def clear_experiment_settings(self):
@@ -179,12 +177,6 @@ class ExperimentController:
             self._notify("validation_failed", error)
             return False
         self.experiment_settings = experiment_settings
-
-        # Get email settings
-        if experiment_settings.general_settings.email_update_settings:
-            email_settings = experiment_settings.general_settings.email_update_settings
-            if email_settings.sender is not None:
-                self._send_emails = True
 
         # Reset stop flags
         self.state = ExperimentState(
@@ -349,7 +341,6 @@ class ExperimentController:
         except Exception as e:
             message = f"Unexpected error in step {step_index} of slice {slice_number}: {e.__class__.__name__}: {e}"
             print(message)
-            self._send_email(message, error=True)
             self._log_error(e, slice_number, step_index)
             self._try_stop_stage(experiment_settings.microscope)
             return False
@@ -400,19 +391,6 @@ class ExperimentController:
         total_work = total_slices * total_steps
         self.state.progress_percent = int((completed_steps / total_work) * 100)
         self._notify("state_changed", self.state)
-        if self._send_emails:
-            end_of_slice = step_num == total_steps
-            update_frequency = (
-                self.experiment_settings.general_settings.email_update_settings.update_frequency
-            )
-            if end_of_slice and (slice_num % update_frequency == 0):
-                message = (
-                    f"Experiment update:\n"
-                    f"Current slice: {slice_num}/{total_slices}\n"
-                    f"Progress: {self.state.progress_percent}%\n"
-                    f"Estimated remaining time: {self.state.remaining_time_str}\n"
-                )
-                self._send_email(message, error=False)
 
     def _update_timing_stats(self, current_slice: int, total_slices: int):
         """Update timing statistics.
@@ -495,66 +473,6 @@ class ExperimentController:
             # Convert to 1-based step name
             final_step_name = experiment_settings.step_sequence[final_step].name
             self._notify("experiment_stopped", final_slice, final_step_name)
-
-    def _send_email(self, message: str, error: bool = False):
-        """Send error or update email."""
-        if not self._send_emails:
-            return
-        try:
-            if error:
-                subject = "Experiment error"
-                attachments = None
-            else:
-                subject = "Experiment update"
-                attachments = None
-            ssh_host = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_host
-            )
-            ssh_port = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_port
-            )
-            ssh_user = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_user
-            )
-            ssh_key_path = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_key_path
-            )
-            sender_email = (
-                self.experiment_settings.general_settings.email_update_settings.sender
-            )
-            sender_password = (
-                self.experiment_settings.general_settings.email_update_settings.sender_password
-            )
-            recipients = (
-                self.experiment_settings.general_settings.email_update_settings.recipients
-            )
-            smtp_server = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_server
-            )
-            smtp_port = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_port
-            )
-
-            success, response = send_update_email(
-                ssh_host=ssh_host,
-                ssh_port=ssh_port,
-                ssh_user=ssh_user,
-                ssh_key_path=ssh_key_path,
-                sender_email=sender_email,
-                sender_password=sender_password,
-                recipients=recipients,
-                smtp_server=smtp_server,
-                smtp_port=smtp_port,
-                subject=subject,
-                body=message,
-                attachments=attachments,
-            )
-            if success:
-                print(f"-----> {subject} email sent successfully")
-            else:
-                print(f"Warning: Failed to send {subject.lower()} email: {response}")
-        except Exception as e:
-            print(f"Warning: Failed to send email: {e}")
 
     def request_stop_after_step(self):
         """Request experiment stop after current step completes."""

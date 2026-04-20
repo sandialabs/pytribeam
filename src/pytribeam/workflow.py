@@ -315,12 +315,7 @@ def _(
     )
 
     # take map
-    laser.map_ebsd(
-        general_settings=general_settings,
-        step_settings=step_settings,
-        slice_number=slice_number,
-        step=step,
-    )
+    laser.map_ebsd()
 
     # retract detector(s)
     devices.retract_EBSD(microscope=microscope)
@@ -536,11 +531,6 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
         status = devices.connect_EBSD()
         if status == tbt.RetractableDeviceState.ERROR:
             raise SystemError("EBSD camera is connected but in error state.")
-        if (
-            general_settings.EBSD_OEM == tbt.ExternalDeviceOEM.EDAX
-            and general_settings.yml_version >= 1.1
-        ):
-            laser.ebsd_preflight(general_settings=general_settings)
     if enable_EDS:
         status = devices.connect_EDS()
         if status == tbt.RetractableDeviceState.ERROR:

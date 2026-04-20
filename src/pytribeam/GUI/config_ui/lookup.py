@@ -24,7 +24,6 @@ fib_scan_dirs = [i.value for i in tbt.FIBPatternScanDirection]
 fib_scan_types = [i.value for i in tbt.FIBPatternScanType]
 bit_depths = [i.value for i in tbt.ColorDepth]
 rotation_sides = [i.value for i in tbt.RotationSide]
-ebsd_grid_types = [i.name for i in tbt.EBSDGridType]  # Use names for better readability, requires tbt.EBSDGridType[selection] instead of tbt.EBSDGridType(selection)
 
 # Options need empty values
 beam_types.append("")
@@ -163,154 +162,6 @@ class LUT:
         return self._entries
 
 
-### EDAX LUT ###
-edax_host = LUTField(
-    "EDAX Host Address",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The host IP address of the computer that runs the EDAX machines.",
-    str,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_port = LUTField(
-    "EDAX Port",
-    "",
-    ctk.Entry,
-    {"dtype": int},
-    "The port used to access the computer that runs the EDAX machines.",
-    int,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_save_directory = LUTField(
-    "Save Folder",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The folder on the EDAX PC where the collected EBSD images should be saved.",
-    str,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_project_name = LUTField(
-    "Project Name",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The name under which to save the EBSD images on the EDAX PC.",
-    str,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_connection_lut = LUT("connection")
-edax_connection_lut.add_entry("host", edax_host)
-edax_connection_lut.add_entry("port", edax_port)
-edax_settings_lut = LUT("EDAX_settings")
-edax_settings_lut.add_entry("connection", edax_connection_lut)
-edax_settings_lut.add_entry("save_directory", edax_save_directory)
-edax_settings_lut.add_entry("project_name", edax_project_name)
-
-### Email LUT ###
-email_ssh_host = LUTField(
-    "SSH Tunnel Host",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The IP address of the host to tunnel through for the email server.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_ssh_port = LUTField(
-    "SSH Tunnel Port",
-    1025,
-    ctk.Entry,
-    {"dtype": int},
-    "The port to tunnel through for the email server.",
-    int,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_ssh_user = LUTField(
-    "SSH Tunnel User",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The username of the PC hosting the SSH tunnel.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_ssh_key_path = LUTField(
-    "SSH Key Path",
-    "",
-    ctk.PathEntry,
-    {"dtype": str, "directory": False, "operation": "open"},
-    "The path to the SSH private key used for passwordless authentication through tunnel.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_smtp_server = LUTField(
-    "SMTP Server",
-    "smtp.gmail.com",
-    ctk.Entry,
-    {"dtype": str},
-    "The SMTP server to use for sending the email.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_smtp_port = LUTField(
-    "SMTP Port",
-    587,
-    ctk.Entry,
-    {"dtype": int},
-    "The port of the SMTP server to use for sending the email.",
-    int,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_sender = LUTField(
-    "Email User",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The email address used to send the email.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_password = LUTField(
-    "Email Password",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The password for the email address used to send the email. For Gmail, this should be a 'App Password' generated from the Google account settings.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_recipients = LUTField(
-    "Recipients",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The email addresses to send the email to. Separate multiple addresses with commas.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_update_frequency = LUTField(
-    "Update Frequency (slices)",
-    50,
-    ctk.Entry,
-    {"dtype": int},
-    "The frequency (in number of slices) at which to send email updates.",
-    int,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-email_lut = LUT("email")
-email_lut.add_entry("ssh_host", email_ssh_host)
-email_lut.add_entry("ssh_port", email_ssh_port)
-email_lut.add_entry("ssh_user", email_ssh_user)
-email_lut.add_entry("ssh_key_path", email_ssh_key_path)
-email_lut.add_entry("smtp_server", email_smtp_server)
-email_lut.add_entry("smtp_port", email_smtp_port)
-email_lut.add_entry("sender", email_sender)
-email_lut.add_entry("sender_password", email_password)
-email_lut.add_entry("recipients", email_recipients)
-email_lut.add_entry("update_frequency", email_update_frequency)
-
 ### General LUT ###
 slice_thickness_um = LUTField(
     "Slice Thickness (um)",
@@ -444,8 +295,6 @@ general_lut.add_entry("EBSD_OEM", deepcopy(ebsd_oem))
 general_lut.add_entry("EDS_OEM", deepcopy(eds_oem))
 general_lut.add_entry("exp_dir", deepcopy(exp_dir))
 general_lut.add_entry("h5_log_name", deepcopy(h5_log_name))
-general_lut.add_entry("email_update_settings", deepcopy(email_lut))
-general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
 general_lut.add_entry("step_count", deepcopy(step_count))
 
 ### STAGE ###
@@ -1022,80 +871,6 @@ ebsd_concurrent_eds = LUTField(
     bool,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
-edax_x_start_um = LUTField(
-    "X Start (um)",
-    "",
-    ctk.Entry,
-    {"dtype": float},
-    "The starting X position of the EBSD scan in micrometers.",
-    float,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_y_start_um = LUTField(
-    "Y Start (um)",
-    "",
-    ctk.Entry,
-    {"dtype": float},
-    "The starting Y position of the EBSD scan in micrometers.",
-    float,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_x_size_um = LUTField(
-    "X Size (um)",
-    "",
-    ctk.Entry,
-    {"dtype": float},
-    "The horizontal span of the EBSD scan in micrometers.",
-    float,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_y_size_um = LUTField(
-    "Y Size (um)",
-    "",
-    ctk.Entry,
-    {"dtype": float},
-    "The vertical span of the EBSD scan in micrometers.",
-    float,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_step_size_um = LUTField(
-    "Step Size (um)",
-    "",
-    ctk.Entry,
-    {"dtype": float},
-    "The step size of the EBSD scan in micrometers.",
-    float,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_grid_type = LUTField(
-    "Grid Type",
-    ebsd_grid_types[-1],
-    ctk.MenuButton,
-    {"dtype": str, "options": ebsd_grid_types},
-    "The type of grid to use for the EBSD scan. 0 is hexagonal, 1 is square.",
-    str,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_save_patterns = LUTField(
-    "Save Patterns",
-    False,
-    ctk.Checkbutton,
-    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
-    "Whether to save the patterns.",
-    bool,
-    tbt.Limit(min=1.1, max=max(VERSIONS)),
-)
-edax_scan_box_lut = LUT("scan_box")
-edax_scan_box_lut.add_entry("x_start_um", edax_x_start_um)
-edax_scan_box_lut.add_entry("y_start_um", edax_y_start_um)
-edax_scan_box_lut.add_entry("x_size_um", edax_x_size_um)
-edax_scan_box_lut.add_entry("y_size_um", edax_y_size_um)
-edax_scan_box_lut.add_entry("step_size_um", edax_step_size_um)
-edax_params_lut = LUT("edax_settings")
-edax_params_lut.add_entry("scan_box", edax_scan_box_lut)
-edax_params_lut.add_entry("scan_box", edax_scan_box_lut)
-edax_params_lut.add_entry("grid_type", edax_grid_type)
-edax_params_lut.add_entry("save_patterns", edax_save_patterns)
 ebsd_lut = LUT("ebsd")
 ebsd_lut.add_entry("step_general", deepcopy(common_lut))
 ebsd_lut.add_entry("beam", deepcopy(beam_lut))
@@ -1103,7 +878,6 @@ ebsd_lut.add_entry("detector", deepcopy(detector_lut))
 ebsd_lut.add_entry("scan", deepcopy(scan_lut))
 ebsd_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 ebsd_lut.add_entry("concurrent_EDS", deepcopy(ebsd_concurrent_eds))
-ebsd_lut.add_entry("edax_settings", deepcopy(edax_params_lut))
 # EBSD should be electron beam types only, and should have a step type and name of ebsd
 
 ### PFIB ###
