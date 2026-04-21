@@ -100,7 +100,7 @@ validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, sett
 validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
     Perform schema checking for detector setting dictionary.
 
-validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, ebsd_oem: str, eds_oem: str, edax_settings: dict) -> bool
+validate_EBSD_EDS_settings(yml_format: tbt.YMLFormatVersion, connection_host: str, connection_port: str, ebsd_oem: str, eds_oem: str, edax_settings: dict) -> bool
     Check EBSD and EDS OEM and connection for supported OEMs.
 
 validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
@@ -815,7 +815,40 @@ def general(
             h5_log_name = h5_log_name[: -len(log_extension)]
         # step count
         step_count = general_db["step_count"]
+        EDAX_settings = None
+        email_settings = None
         yml_version = 1.0
+
+    if yml_format.version >= 1.1:
+        edax_db = general_db["EDAX_settings"]
+        EDAX_settings = tbt.EDAXConfig(
+            save_directory=edax_db["save_directory"],
+            project_name=edax_db["project_name"],
+            connection=tbt.MicroscopeConnection(
+                host=edax_db["connection"]["host"],
+                port=edax_db["connection"]["port"],
+            ),
+        )
+        email_settings = None
+        yml_version = 1.1
+
+    if yml_format.version >= 1.2:
+        email_db = general_db.get("email_update_settings")
+        # Only create EmailUpdateConfig if email settings are actually provided
+        if email_db and not ut.none_value_dictionary(email_db):
+            email_settings = tbt.EmailUpdateConfig(
+                ssh_host=email_db["ssh_host"],
+                ssh_port=email_db["ssh_port"],
+                ssh_user=email_db["ssh_user"],
+                ssh_key_path=email_db["ssh_key_path"],
+                smtp_server=email_db["smtp_server"],
+                smtp_port=email_db["smtp_port"],
+                sender=email_db["sender"],
+                sender_password=email_db["sender_password"],
+                recipients=email_db["recipients"].split(","),
+                update_frequency=email_db["update_frequency"],
+            )
+        yml_version = 1.2
 
     general_settings = tbt.GeneralSettings(
         yml_version=yml_version,
@@ -829,6 +862,8 @@ def general(
         EDS_OEM=eds_oem,
         exp_dir=Path(exp_dir),
         h5_log_name=h5_log_name,
+        email_update_settings=email_settings,
+        EDAX_settings=EDAX_settings,
         step_count=step_count,
     )
 
@@ -1463,10 +1498,36 @@ def ebsd(
             f"Invalid .yml file, for step '{step_name}', an EBSD type step. 'concurrent_EDS' key is '{concurrent_EDS}' of type {type(concurrent_EDS)} but must be boolean (True/False) or of NoneType (null in .yml)."
         )
 
+    # TODO validate and check
+    if yml_format.version >= 1.0:
+        scan_box = None
+        grid_type = None
+        save_patterns = None
+    if yml_format.version >= 1.1:
+        edax_settings = step_settings.get("edax_settings")
+        scan_db = edax_settings.get("scan_box")
+        # We use brackets instead of parentheses here since grid type is the name not the value
+        grid_type = tbt.EBSDGridType[edax_settings.get("grid_type")]
+        save_patterns = edax_settings.get("save_patterns")
+        x_start_um = scan_db.get("x_start_um")
+        y_start_um = scan_db.get("y_start_um")
+        x_size_um = scan_db.get("x_size_um")
+        y_size_um = scan_db.get("y_size_um")
+        step_size_um = scan_db.get("step_size_um")
+        scan_box = tbt.EBSDScanBox(
+            x_start_um=x_start_um,
+            y_start_um=y_start_um,
+            x_size_um=x_size_um,
+            y_size_um=y_size_um,
+            step_size_um=step_size_um,
+        )
     ebsd_settings = tbt.EBSDSettings(
         image=image_settings,
         enable_eds=enable_eds,
         enable_ebsd=True,
+        scan_box=scan_box,
+        grid_type=grid_type,
+        save_patterns=save_patterns,
     )
     return ebsd_settings
 
@@ -2144,8 +2205,11 @@ def validate_detector_settings(
 
 def validate_EBSD_EDS_settings(
     yml_format: tbt.YMLFormatVersion,
+    connection_host: str,
+    connection_port: str,
     ebsd_oem: str,
     eds_oem: str,
+    edax_settings: dict = None,
 ) -> bool:
     """
     Check EBSD and EDS OEM and connection for supported OEMs.
@@ -2232,6 +2296,117 @@ def validate_EBSD_EDS_settings(
     #     quiet_output=True,
     # )
 
+    if edax_settings is not None:
+        schema = Schema(
+            {
+                "save_directory": And(
+                    str,
+                    error=f"Requested 'save_directory' of '{edax_settings['save_directory']}', which must be a string.",
+                ),
+                "project_name": And(
+                    str,
+                    error=f'Requested "project_name" of "{edax_settings["project_name"]}", which must be a string.',
+                ),
+            },
+            ignore_extra_keys=True,
+        )
+
+        try:
+            schema.validate(edax_settings)
+        except UnboundLocalError:
+            raise ValueError(
+                f"Error. Unsupported yml version {yml_format.version} provided."
+            )
+
+        connection_db = edax_settings["connection"]
+        schema_connection = Schema(
+            {
+                "host": And(
+                    str,
+                    error=f'Requested "host" of "{connection_db["host"]}", which must be a string.',
+                ),
+                "port": And(
+                    int,
+                    error=f'Requested "port" of "{connection_db["port"]}", which must be an int.',
+                ),
+            }
+        )
+        try:
+            schema_connection.validate(connection_db)
+        except UnboundLocalError:
+            raise ValueError(
+                f"Error. Unsupported yml version {yml_format.version} provided."
+            )
+
+        connection = fs_laser.connect_EDAX(
+            ebsd_host=edax_settings["connection"]["host"],
+            ebsd_port=edax_settings["connection"]["port"],
+        )
+        fs_laser.disconnect_EDAX(connection=connection)
+
+    return True
+
+
+def validate_email_settings(
+    yml_format: tbt.YMLFormatVersion,
+    email_settings: dict,
+) -> bool:
+    """Schema checking for email setting dictionary, format specified by yml_format"""
+    # Check the ssh_key
+    schema = Schema(
+        {
+            "ssh_host": And(
+                str,
+                error=f"Requested 'ssh_host' of '{email_settings['ssh_host']}', which must be a string.",
+            ),
+            "ssh_port": And(
+                int,
+                error=f"Requested 'ssh_port' of '{email_settings['ssh_port']}', which must be an int.",
+            ),
+            "ssh_user": And(
+                str,
+                error=f"Requested 'ssh_user' of '{email_settings['ssh_user']}', which must be a string.",
+            ),
+            "ssh_key_path": And(
+                str,
+                lambda x: Path(x).is_file(),
+                error=f"Requested 'ssh_key' of '{email_settings['ssh_key_path']}', which must be a string path to a valid file.",
+            ),
+            "smtp_server": And(
+                str,
+                error=f"Requested 'smtp_server' of '{email_settings['smtp_server']}', which must be a string.",
+            ),
+            "smtp_port": And(
+                int,
+                error=f"Requested 'smtp_port' of '{email_settings['smtp_port']}', which must be an int.",
+            ),
+            "sender": And(
+                str,
+                error=f"Requested 'sender' of '{email_settings['sender']}', which must be a string.",
+            ),
+            "sender_password": And(
+                str,
+                error=f"Requested 'sender_password' of '{email_settings['sender_password']}', which must be a string.",
+            ),
+            "recipients": And(
+                str,
+                error=f"Requested 'recipient' of '{email_settings['recipients']}', which must be a string.",
+            ),
+            "update_frequency": And(
+                int,
+                lambda x: x > 0,
+                error=f"Requested 'update_frequency' of '{email_settings['update_frequency']}', which must be a positive int (greater than 0).",
+            ),
+        },
+        ignore_extra_keys=True,
+    )
+
+    try:
+        schema.validate(email_settings)
+    except UnboundLocalError:
+        raise ValueError(
+            f"Error. Unsupported yml version {yml_format.version} provided."
+        )
     return True
 
 
@@ -2278,6 +2453,12 @@ def validate_general_settings(
         eds_oem = settings.get("EDS_OEM")
         exp_dir = settings.get("exp_dir")
         h5_log_name = settings.get("h5_log_name")
+        edax_settings = None
+        email_settings = None
+    if yml_format.version >= 1.1:
+        edax_settings = settings.get("EDAX_settings")
+    if yml_format.version >= 1.2:
+        email_settings = settings.get("email_update_settings")
 
     # Validate the non-numeric values
     # Check sectioning axis
@@ -2303,9 +2484,19 @@ def validate_general_settings(
     # check EBSD and EDS
     validate_EBSD_EDS_settings(
         yml_format=yml_format,
+        connection_host=connection_host,
+        connection_port=connection_port,
         ebsd_oem=ebsd_oem,
         eds_oem=eds_oem,
+        edax_settings=edax_settings,
     )
+
+    # Check the email settings (only validate if settings are provided and not empty)
+    if email_settings is not None and not ut.none_value_dictionary(email_settings):
+        validate_email_settings(
+            yml_format=yml_format,
+            email_settings=email_settings,
+        )
 
     # Check exp dir
     try:
