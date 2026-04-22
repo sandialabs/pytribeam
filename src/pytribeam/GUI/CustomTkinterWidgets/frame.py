@@ -189,7 +189,6 @@ class Frame3d(ttk.Frame):
 
         # create style
         if frame_style not in Frame3d.styles:
-
             self.img = self.create_image()
 
             # create elements
@@ -311,7 +310,6 @@ class ExpandableFrame(ttk.Frame):
 
 
 class ToggledFrame(tk.Frame):
-
     def __init__(self, parent, text="", **kwargs):
         # Handle style
         bg = kwargs.pop("bg", get_widget_attribute(parent, "background"))

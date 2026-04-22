@@ -176,7 +176,9 @@ class EntryMenuButton(ttk.Combobox):
         self.bg = bg or DEFAULT_COLOR
         self.fg = fg or calc_font_color(self.bg)
         # Force dark text on white background for readability in the entry field
-        entry_fg = calc_font_color("#FFFFFF")  # Calculate text color for white background
+        entry_fg = calc_font_color(
+            "#FFFFFF"
+        )  # Calculate text color for white background
 
         custom_style = f"EMB_{len(EntryMenuButton.style)}.TCombobox"
         EntryMenuButton.style.append(custom_style)
@@ -192,9 +194,17 @@ class EntryMenuButton(ttk.Combobox):
         )
         style.map(
             custom_style,
-            fieldbackground=[("readonly", "white"), ("disabled", "#F0F0F0"), ("", "white")],
+            fieldbackground=[
+                ("readonly", "white"),
+                ("disabled", "#F0F0F0"),
+                ("", "white"),
+            ],
             background=[("readonly", self.bg), ("disabled", self.bg), ("", self.bg)],
-            foreground=[("readonly", entry_fg), ("disabled", "#808080"), ("", entry_fg)],
+            foreground=[
+                ("readonly", entry_fg),
+                ("disabled", "#808080"),
+                ("", entry_fg),
+            ],
             selectbackground=[("", "#0078D7")],
             selectforeground=[("", "white")],
         )
