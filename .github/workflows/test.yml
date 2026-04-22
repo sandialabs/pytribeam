@@ -10,6 +10,17 @@ on:
       - '**' # Trigger on any pull request
   workflow_call: # CRITICAL: Allows this workflow to be called by others
 
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Force all JavaScript actions to run on Node 24 (The 2026 Standard)
+  # After 02 June 2026, the following line can be removed since on that date,
+  # Node.js 24 will be the GitHub default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   test:
     name: Pytest (Run Subset of Tests)
