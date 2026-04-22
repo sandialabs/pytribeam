@@ -12,7 +12,7 @@ on:
 
 jobs:
   test:
-    name: Run Subset of Tests
+    name: Pytest (Run Subset of Tests)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -23,6 +23,7 @@ jobs:
         with:
           python-version: '3.8.12'
           enable-cache: true
+          cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
       - name: Install dependencies
         run: uv pip install -e ".[dev]"
