@@ -37,7 +37,7 @@ jobs:
           cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
       - name: Install dependencies
-        run: uv pip install -e ".[dev]"
+        run: uv sync --dev
 
       - name: Run Pytest
         run: uv run pytest tests/test_example.py
