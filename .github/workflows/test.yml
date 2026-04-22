@@ -23,7 +23,7 @@ env:
 
 jobs:
   test:
-    name: Pytest (Run Subset of Tests)
+    name: Test (ruff format, pylint, pytest)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
