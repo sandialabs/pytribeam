@@ -412,7 +412,22 @@ class ExperimentController:
                     f"Progress: {self.state.progress_percent}%\n"
                     f"Estimated remaining time: {self.state.remaining_time_str}\n"
                 )
-                self._send_email(message, error=False)
+                attachments = self._get_update_attachments(slice_num)
+                self._send_email(message, attachments, error=False)
+
+    def _get_update_attachments(self, slice_num: int) -> List[Path]:
+        """
+        Generate an attachment for the email update.
+        Currently, it just grabs the filepath of the first imaging step in the workflow.
+        Could be changed to send an image from a user specified step.
+        """
+        directory = self.experiment_settings.general_settings.exp_dir
+        step = [step for step in self.experiment_settings.step_sequence if step.type == tbt.StepType.IMAGE or step.type == tbt.StepType.EBSD]
+        if len(step) == 0:
+            return None
+        step = step[0]
+        filepath = directory / step.name / f"{slice_num:04}.tif"
+        return [filepath]
 
     def _update_timing_stats(self, current_slice: int, total_slices: int):
         """Update timing statistics.
@@ -496,17 +511,15 @@ class ExperimentController:
             final_step_name = experiment_settings.step_sequence[final_step].name
             self._notify("experiment_stopped", final_slice, final_step_name)
 
-    def _send_email(self, message: str, error: bool = False):
+    def _send_email(self, message: str, attachments: List[Path] = None, error: bool = False):
         """Send error or update email."""
         if not self._send_emails:
             return
         try:
             if error:
                 subject = "Experiment error"
-                attachments = None
             else:
                 subject = "Experiment update"
-                attachments = None
             ssh_host = (
                 self.experiment_settings.general_settings.email_update_settings.ssh_host
             )
