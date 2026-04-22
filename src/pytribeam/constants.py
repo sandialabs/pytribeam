@@ -273,9 +273,7 @@ class Constants(NamedTuple):
 
     # Test suite constants
     test_hardware_movement = True
-    offline_machines = [
-        "S1099177", "S1125518"
-    ]
+    offline_machines = ["S1099177", "S1125518"]
     microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
 
     # error message display constants

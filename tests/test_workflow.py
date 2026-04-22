@@ -5,7 +5,9 @@ import platform
 
 # 3rd party libraries
 import pytest
-from PIL import Image as pil_img  # appears to be unused import, can we delete this line?
+from PIL import (
+    Image as pil_img,
+)  # appears to be unused import, can we delete this line?
 import yaml
 
 # Local

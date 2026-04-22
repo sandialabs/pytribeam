@@ -142,6 +142,7 @@ validate_fib_selected_area_settings(settings: dict, yml_format: tbt.YMLFormatVer
 step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_settings: tbt.GeneralSettings, yml_format: tbt.YMLFormatVersion) -> tbt.Step
     Create a step object for different step types, including validation.
 """
+
 ## python standard libraries
 from pathlib import Path
 import platform
@@ -3417,7 +3418,7 @@ def validate_fib_selected_area_settings(
                             abs_tol=Constants.stream_pattern_base_dwell_us / 1e5,
                         ),
                     ),
-                    error=f"In 'fib' step_type for step '{step_name}' and pattern type '{pattern_type.value}', 'dwell_us' parameter must be a positive float and an integer multiple of the base dwell time, { Constants.stream_pattern_base_dwell_us * Conversions.US_TO_NS} ns. '{settings['dwell_us']}' us of type '{type(settings['dwell_us'])}' was requested.",
+                    error=f"In 'fib' step_type for step '{step_name}' and pattern type '{pattern_type.value}', 'dwell_us' parameter must be a positive float and an integer multiple of the base dwell time, {Constants.stream_pattern_base_dwell_us * Conversions.US_TO_NS} ns. '{settings['dwell_us']}' us of type '{type(settings['dwell_us'])}' was requested.",
                 ),
                 "repeats": And(
                     int,

@@ -55,6 +55,7 @@ CCD_view(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIG
 specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_hfw_mm, delay_s=Constants.specimen_current_delay_s) -> float
     Measure the specimen current using the electron beam and return the value in nA.
 """
+
 # Default python modules
 # from functools import singledispatch
 import os

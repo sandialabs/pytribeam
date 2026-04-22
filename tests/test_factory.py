@@ -50,7 +50,9 @@ def test_active_image_settings():
     microscope.imaging.set_active_device(tbt.Device.ELECTRON_BEAM.value)
     microscope.beams.electron_beam.high_voltage.value = 5.0 * Conversions.KV_TO_V
     microscope.beams.electron_beam.beam_current.value = 10.0 * Conversions.NA_TO_A
-    microscope.beams.electron_beam.horizontal_field_width.value = 0.9 * Conversions.MM_TO_M
+    microscope.beams.electron_beam.horizontal_field_width.value = (
+        0.9 * Conversions.MM_TO_M
+    )
     microscope.beams.electron_beam.working_distance.value = 4.1 * Conversions.MM_TO_M
     found_beam = factory.active_beam_with_settings(microscope=microscope)
 
@@ -64,12 +66,22 @@ def test_active_image_settings():
             current_tol_na=cs.Constants().current_tol_ratio * 10.0,
         )
     )
-    assert found_beam.settings.voltage_kv == pytest.approx(known_beam.settings.voltage_kv)
-    assert found_beam.settings.current_na == pytest.approx(known_beam.settings.current_na)
+    assert found_beam.settings.voltage_kv == pytest.approx(
+        known_beam.settings.voltage_kv
+    )
+    assert found_beam.settings.current_na == pytest.approx(
+        known_beam.settings.current_na
+    )
     assert found_beam.settings.hfw_mm == pytest.approx(known_beam.settings.hfw_mm)
-    assert found_beam.settings.working_dist_mm == pytest.approx(known_beam.settings.working_dist_mm)
-    assert found_beam.settings.voltage_tol_kv == pytest.approx(known_beam.settings.voltage_tol_kv)
-    assert found_beam.settings.current_tol_na == pytest.approx(known_beam.settings.current_tol_na)
+    assert found_beam.settings.working_dist_mm == pytest.approx(
+        known_beam.settings.working_dist_mm
+    )
+    assert found_beam.settings.voltage_tol_kv == pytest.approx(
+        known_beam.settings.voltage_tol_kv
+    )
+    assert found_beam.settings.current_tol_na == pytest.approx(
+        known_beam.settings.current_tol_na
+    )
 
     # detector
     microscope.detector.type.value = tbt.DetectorType.ETD.value
@@ -100,7 +112,9 @@ def test_active_image_settings():
     )
 
     # scanning
-    microscope.beams.electron_beam.scanning.rotation.value = 30.0 * Conversions.DEG_TO_RAD
+    microscope.beams.electron_beam.scanning.rotation.value = (
+        30.0 * Conversions.DEG_TO_RAD
+    )
     microscope.beams.electron_beam.scanning.dwell_time.value = 1.0 * Conversions.US_TO_S
     microscope.beams.electron_beam.scanning.resolution.value = (
         tbt.PresetResolution.PRESET_1024X884.value
@@ -381,18 +395,24 @@ def test_laser(test_dir):
     assert found_laser.pulse.polarization == known_laser.pulse.polarization
 
     # test optics
-    assert found_laser.objective_position_mm == pytest.approx(known_laser.objective_position_mm)
+    assert found_laser.objective_position_mm == pytest.approx(
+        known_laser.objective_position_mm
+    )
     assert found_laser.beam_shift_um.x == pytest.approx(known_laser.beam_shift_um.x)
     assert found_laser.beam_shift_um.y == pytest.approx(known_laser.beam_shift_um.y)
 
     # test pattern
     # general
-    assert found_laser.pattern.rotation_deg == pytest.approx(known_laser.pattern.rotation_deg)
+    assert found_laser.pattern.rotation_deg == pytest.approx(
+        known_laser.pattern.rotation_deg
+    )
     assert found_laser.pattern.mode == known_laser.pattern.mode
     assert found_laser.pattern.pulses_per_pixel == pytest.approx(
         known_laser.pattern.pulses_per_pixel
     )
-    assert found_laser.pattern.pixel_dwell_ms == pytest.approx(known_laser.pattern.pixel_dwell_ms)
+    assert found_laser.pattern.pixel_dwell_ms == pytest.approx(
+        known_laser.pattern.pixel_dwell_ms
+    )
 
     # box
     assert found_laser.pattern.geometry.passes == known_laser.pattern.geometry.passes
@@ -408,9 +428,12 @@ def test_laser(test_dir):
     assert found_laser.pattern.geometry.pitch_y_um == pytest.approx(
         known_laser.pattern.geometry.pitch_y_um
     )
-    assert found_laser.pattern.geometry.scan_type == known_laser.pattern.geometry.scan_type
     assert (
-        found_laser.pattern.geometry.coordinate_ref == known_laser.pattern.geometry.coordinate_ref
+        found_laser.pattern.geometry.scan_type == known_laser.pattern.geometry.scan_type
+    )
+    assert (
+        found_laser.pattern.geometry.coordinate_ref
+        == known_laser.pattern.geometry.coordinate_ref
     )
 
     microscope.disconnect()
@@ -526,15 +549,23 @@ def test_fib(test_dir):
     )
 
     # image scan scheck
-    assert found_fib.image.scan.rotation_deg == pytest.approx(known_fib.image.scan.rotation_deg)
-    assert found_fib.image.scan.dwell_time_us == pytest.approx(known_fib.image.scan.dwell_time_us)
+    assert found_fib.image.scan.rotation_deg == pytest.approx(
+        known_fib.image.scan.rotation_deg
+    )
+    assert found_fib.image.scan.dwell_time_us == pytest.approx(
+        known_fib.image.scan.dwell_time_us
+    )
     assert found_fib.image.scan.resolution == known_fib.image.scan.resolution
 
     # image detector check
     assert found_fib.image.detector.mode == pytest.approx(known_fib.image.detector.mode)
     assert found_fib.image.detector.type == pytest.approx(known_fib.image.detector.type)
-    assert found_fib.image.detector.contrast == pytest.approx(known_fib.image.detector.contrast)
-    assert found_fib.image.detector.brightness == pytest.approx(known_fib.image.detector.brightness)
+    assert found_fib.image.detector.contrast == pytest.approx(
+        known_fib.image.detector.contrast
+    )
+    assert found_fib.image.detector.brightness == pytest.approx(
+        known_fib.image.detector.brightness
+    )
 
     # mill beam check
     assert found_fib.mill_beam.settings.voltage_kv == pytest.approx(
@@ -559,12 +590,19 @@ def test_fib(test_dir):
     assert found_fib.pattern.geometry.center_um.y == pytest.approx(
         known_fib.pattern.geometry.center_um.y
     )
-    assert found_fib.pattern.geometry.width_um == pytest.approx(known_fib.pattern.geometry.width_um)
+    assert found_fib.pattern.geometry.width_um == pytest.approx(
+        known_fib.pattern.geometry.width_um
+    )
     assert found_fib.pattern.geometry.height_um == pytest.approx(
         known_fib.pattern.geometry.height_um
     )
-    assert found_fib.pattern.geometry.depth_um == pytest.approx(known_fib.pattern.geometry.depth_um)
-    assert found_fib.pattern.geometry.scan_direction == known_fib.pattern.geometry.scan_direction
+    assert found_fib.pattern.geometry.depth_um == pytest.approx(
+        known_fib.pattern.geometry.depth_um
+    )
+    assert (
+        found_fib.pattern.geometry.scan_direction
+        == known_fib.pattern.geometry.scan_direction
+    )
     assert found_fib.pattern.geometry.scan_type == known_fib.pattern.geometry.scan_type
 
 
@@ -624,7 +662,9 @@ def test_general(test_dir):
         step_count=1,
     )
 
-    assert general_settings.slice_thickness_um == pytest.approx(known_settings.slice_thickness_um)
+    assert general_settings.slice_thickness_um == pytest.approx(
+        known_settings.slice_thickness_um
+    )
     assert general_settings.max_slice_number == known_settings.max_slice_number
     assert general_settings.pre_tilt_deg == pytest.approx(known_settings.pre_tilt_deg)
     assert general_settings.sectioning_axis == known_settings.sectioning_axis
