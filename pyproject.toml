@@ -36,6 +36,7 @@ dev = [
     "pdoc",
     "pytest==8.3.3",
     "pytest-cov==5.0.0",
+    "ruff",
 ]
 
 # pdoc configuration
@@ -69,6 +70,9 @@ packages = ["src/pytribeam"]
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/pytribeam/_version.py"  # File to be generated when compiled
+# By creating the _version.py file, pytrieam can access its own version number at
+# runtime (typically from ._version import __version__) without needing to query
+# the Git repo or metadata present on the user's system.
 
 # [tool.ruff]
 # line-length = 88
