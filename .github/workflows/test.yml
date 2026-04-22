@@ -39,5 +39,11 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pylint
+        run: uv run pylint src/pytribeam
+
       - name: Run Pytest
         run: uv run pytest tests/test_example.py
