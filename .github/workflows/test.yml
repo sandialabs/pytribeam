@@ -28,6 +28,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+        with:
+            fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -39,6 +41,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      - name: Build Check
+        run: uv build
+
       - name: Run Ruff Format Check
         run: uv run ruff format --check
 
@@ -47,3 +52,4 @@ jobs:
 
       - name: Run Pytest
         run: uv run pytest tests/test_example.py
+
