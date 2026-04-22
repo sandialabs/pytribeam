@@ -12,7 +12,7 @@ on:
 
 # Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: test-${{ github.ref }}
   cancel-in-progress: true
 
 env:
