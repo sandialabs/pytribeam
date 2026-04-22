@@ -31,9 +31,10 @@ dev = [
     #"nbsphinx",
     #"pdbp",
     # "pycodestyle",  # now handled by ruff
-    # "h5py",
-    # "numpy",
+    "h5py",
+    "numpy",
     "pdoc",
+    "pylint",
     "pytest==8.3.3",
     "pytest-cov==5.0.0",
     "ruff",
