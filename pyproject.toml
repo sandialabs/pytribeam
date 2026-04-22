@@ -15,7 +15,6 @@ authors = [
   { name="Andrew Polonsky", email="apolon@sandia.gov" },
   { name="Chad Hovey", email="chovey@sandia.gov" },
   { name="James Lamb", email="jdlamb@sandia.gov" },
-  { name="James Lamb", email="jdlamb@sandia.gov" },
 ]
 
 dependencies = [
