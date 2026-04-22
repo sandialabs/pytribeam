@@ -25,7 +25,7 @@ import pytribeam.utilities as ut
 def test_dir() -> str:
     """The relative path and file string locating the default yml test file."""
 
-    return Path(__file__).parent.joinpath("files")
+    return str(Path(__file__).parent.joinpath("files"))
 
 
 #### tests ####
@@ -746,21 +746,11 @@ def test_move_to_position_hardware():
         stage_tolerance=stage_tolerance,
     )
     found_pos = factory.active_stage_position_settings(microscope=microscope)
-    assert found_pos.x_mm == pytest.approx(
-        position_1.x_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.y_mm == pytest.approx(
-        position_1.y_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.z_mm == pytest.approx(
-        position_1.z_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.r_deg == pytest.approx(
-        position_1.r_deg, abs=stage_tolerance.angular_deg
-    )
-    assert found_pos.t_deg == pytest.approx(
-        position_1.t_deg, abs=stage_tolerance.angular_deg
-    )
+    assert found_pos.x_mm == pytest.approx(position_1.x_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.y_mm == pytest.approx(position_1.y_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.z_mm == pytest.approx(position_1.z_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.r_deg == pytest.approx(position_1.r_deg, abs=stage_tolerance.angular_deg)
+    assert found_pos.t_deg == pytest.approx(position_1.t_deg, abs=stage_tolerance.angular_deg)
 
     # ensure it tilts down first for change in r-axis
     # should then only move tilt axis back up after r-axis
@@ -782,21 +772,11 @@ def test_move_to_position_hardware():
         stage_tolerance=stage_tolerance,
     )
     found_pos = factory.active_stage_position_settings(microscope=microscope)
-    assert found_pos.x_mm == pytest.approx(
-        position_2.x_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.y_mm == pytest.approx(
-        position_2.y_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.z_mm == pytest.approx(
-        position_2.z_mm, abs=stage_tolerance.translational_um
-    )
-    assert found_pos.r_deg == pytest.approx(
-        position_2.r_deg, abs=stage_tolerance.angular_deg
-    )
-    assert found_pos.t_deg == pytest.approx(
-        position_2.t_deg, abs=stage_tolerance.angular_deg
-    )
+    assert found_pos.x_mm == pytest.approx(position_2.x_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.y_mm == pytest.approx(position_2.y_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.z_mm == pytest.approx(position_2.z_mm, abs=stage_tolerance.translational_um)
+    assert found_pos.r_deg == pytest.approx(position_2.r_deg, abs=stage_tolerance.angular_deg)
+    assert found_pos.t_deg == pytest.approx(position_2.t_deg, abs=stage_tolerance.angular_deg)
 
     stage.home_stage(microscope=microscope)
 

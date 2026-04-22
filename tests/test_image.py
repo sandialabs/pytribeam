@@ -21,7 +21,7 @@ import pytribeam.utilities as ut
 def test_dir() -> str:
     """The relative path and file string locating the default yml test file."""
 
-    return Path(__file__).parent.joinpath("files")
+    return str(Path(__file__).parent.joinpath("files"))
 
 
 #### tests ####
@@ -84,8 +84,7 @@ def test_beam_dwell_time():
         delay_s=0.0,
     )
     assert (
-        microscope.beams.electron_beam.scanning.dwell_time.value
-        == dwell_us * Conversions.US_TO_S
+        microscope.beams.electron_beam.scanning.dwell_time.value == dwell_us * Conversions.US_TO_S
     )
 
     i_beam = tbt.IonBeam(settings=settings)
@@ -97,10 +96,7 @@ def test_beam_dwell_time():
         delay_s=0.0,
     )
 
-    assert (
-        microscope.beams.ion_beam.scanning.dwell_time.value
-        == dwell_us * Conversions.US_TO_S
-    )
+    assert microscope.beams.ion_beam.scanning.dwell_time.value == dwell_us * Conversions.US_TO_S
 
     microscope.disconnect()
 
@@ -122,8 +118,7 @@ def test_beam_hfw():
         delay_s=0.0,
     )
     assert (
-        microscope.beams.electron_beam.horizontal_field_width.value
-        == hfw_mm * Conversions.MM_TO_M
+        microscope.beams.electron_beam.horizontal_field_width.value == hfw_mm * Conversions.MM_TO_M
     )
 
     microscope.beams.ion_beam.horizontal_field_width.value == 0.5
@@ -136,10 +131,7 @@ def test_beam_hfw():
         delay_s=0.0,
     )
 
-    assert (
-        microscope.beams.ion_beam.horizontal_field_width.value
-        == hfw_mm * Conversions.MM_TO_M
-    )
+    assert microscope.beams.ion_beam.horizontal_field_width.value == hfw_mm * Conversions.MM_TO_M
 
     microscope.disconnect()
 
@@ -158,24 +150,15 @@ def test_beam_ready():
 
     microscope.beams.electron_beam.blank()
     microscope.beams.electron_beam.turn_off()
-    assert (
-        not microscope.beams.electron_beam.is_on
-        and microscope.beams.electron_beam.is_blanked
-    )
+    assert not microscope.beams.electron_beam.is_on and microscope.beams.electron_beam.is_blanked
 
     img.beam_ready(e_beam, microscope, delay_s=0)
 
-    assert (
-        microscope.beams.electron_beam.is_on
-        and not microscope.beams.electron_beam.is_blanked
-    )
+    assert microscope.beams.electron_beam.is_on and not microscope.beams.electron_beam.is_blanked
 
     # check we skip through code correctly when beam already on and unblanked
     img.beam_ready(e_beam, microscope, delay_s=0)
-    assert (
-        microscope.beams.electron_beam.is_on
-        and not microscope.beams.electron_beam.is_blanked
-    )
+    assert microscope.beams.electron_beam.is_on and not microscope.beams.electron_beam.is_blanked
 
     i_beam = tbt.IonBeam(settings=settings)
     microscope.beams.ion_beam.blank()
@@ -273,8 +256,7 @@ def test_beam_scan_rotation():
     )
 
     assert (
-        microscope.beams.ion_beam.scanning.rotation.value
-        == rotation_deg * Conversions.DEG_TO_RAD
+        microscope.beams.ion_beam.scanning.rotation.value == rotation_deg * Conversions.DEG_TO_RAD
     )
 
     microscope.disconnect()
@@ -329,13 +311,8 @@ def test_beam_working_dist():
 
     e_beam = tbt.ElectronBeam(settings=settings)
     wd_mm = 4.3
-    img.beam_working_distance(
-        beam=e_beam, microscope=microscope, wd_mm=wd_mm, delay_s=0.0
-    )
-    assert (
-        microscope.beams.electron_beam.working_distance.value
-        == wd_mm * Conversions.MM_TO_M
-    )
+    img.beam_working_distance(beam=e_beam, microscope=microscope, wd_mm=wd_mm, delay_s=0.0)
+    assert microscope.beams.electron_beam.working_distance.value == wd_mm * Conversions.MM_TO_M
 
     i_beam = tbt.IonBeam(settings=settings)
     wd_mm = 5.35  # overwrite
@@ -346,9 +323,7 @@ def test_beam_working_dist():
         delay_s=0.0,
     )
 
-    assert (
-        microscope.beams.ion_beam.working_distance.value == wd_mm * Conversions.MM_TO_M
-    )
+    assert microscope.beams.ion_beam.working_distance.value == wd_mm * Conversions.MM_TO_M
 
     microscope.disconnect()
 
@@ -688,9 +663,7 @@ def test_collect_single_image_insertable(test_dir):
     except FileNotFoundError:
         pass
 
-    devices.retract_all_devices(
-        microscope=microscope, enable_EBSD=False, enable_EDS=False
-    )
+    devices.retract_all_devices(microscope=microscope, enable_EBSD=False, enable_EDS=False)
 
     # call the function
     img.collect_single_image(
@@ -704,9 +677,7 @@ def test_collect_single_image_insertable(test_dir):
     assert microscope.beams.electron_beam.scanning.rotation.value == pytest.approx(
         0.0 * Conversions.DEG_TO_RAD
     )
-    devices.retract_all_devices(
-        microscope=microscope, enable_EBSD=False, enable_EDS=False
-    )
+    devices.retract_all_devices(microscope=microscope, enable_EBSD=False, enable_EDS=False)
 
     # get dims of image to check
     with pil_img.open(str(temp_path)) as stnd_img:

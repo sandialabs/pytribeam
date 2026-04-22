@@ -22,7 +22,7 @@ import pytribeam.types as tbt
 def test_dir() -> str:
     """The relative path and file string locating the default yml test file."""
 
-    return Path(__file__).parent.joinpath("files")
+    return str(Path(__file__).parent.joinpath("files"))
 
 
 #### tests ####
@@ -144,9 +144,7 @@ def test_in_interval():
 @pytest.mark.skipif(
     not any(
         platform.uname().node.lower() in machine.lower()
-        for machine in (
-            cs.Constants.offline_machines + cs.Constants.microscope_machines
-        )
+        for machine in (cs.Constants.offline_machines + cs.Constants.microscope_machines)
     ),
     reason="Run only on machines prescribed in Constants module.",
 )
