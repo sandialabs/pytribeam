@@ -6,6 +6,17 @@ on:
       - 'v*' # Trigger only on version tags (e.g., v1.0.0)
   workflow_dispatch:  # allows manual triggering of the workflow from the GitHub Actions tab
 
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Force all JavaScript actions to run on Node 24 (The 2026 Standard)
+  # After 02 June 2026, the following line can be removed since on that date,
+  # Node.js 24 will be the GitHub default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # GitHub will swtich on 02 June 2026 to Node.js 24 as the default for JavaScript actions, but until then, this ensures all actions use Node.js 24 to avoid any issues with older versions. After 02 June 2026, this line can be safely removed.
+
 jobs:
   # 1. TEST JOB: Runs Pytest
   test:
@@ -20,15 +31,15 @@ jobs:
         with:
           fetch-depth: 0 # Required for versioning tools to see tags
 
-      - name: Set up Python
-        uses: actions/setup-python@v6
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
         with:
-          python-version: '3.8.12' # to match pyproject.toml exactly
+          python-version: '3.8.12'
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
       - name: Build
-        run: |
-          pip install build
-          python -m build .
+        run: uv build
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@v7
