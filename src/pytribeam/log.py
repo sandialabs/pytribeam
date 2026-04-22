@@ -28,6 +28,7 @@ specimen_current(step_number: int, step_name: str, slice_number: int, log_filepa
 current_time() -> tbt.TimeStamp
     Get the current time as a timestamp.
 """
+
 # Default python modules
 # from functools import singledispatch
 import os

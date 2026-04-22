@@ -1,11 +1,13 @@
 ## python standard libraries
 from pathlib import Path
 import platform
-import time
+# import time  # unused import
 
 # 3rd party libraries
 import pytest
-from PIL import Image as pil_img
+from PIL import (
+    Image as pil_img,
+)  # appears to be unused import, can we delete this line?
 import yaml
 
 # Local
@@ -110,7 +112,6 @@ def test_run_custom_script(monkeypatch):
         start_step=start_step,
         yml_path=temp_yml,
     )
-    aa = 2
     # captured = capsys.readouterr()
     # assert captured.out == 2
 
