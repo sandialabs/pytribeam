@@ -1060,7 +1060,7 @@ def get_autoscript_version() -> str:
     return version
 
 
-def get_laser_version() -> str:
+def is_laser_available() -> str:
     """
     Get the version of ThermoFisher Laser Control API for the present system
     
@@ -1070,9 +1070,7 @@ def get_laser_version() -> str:
         The version of the Laser API
     """
     try:
-        ### TODO: Figure out how to get the version of the laser API
         import Laser.PythonControl as tfs_laser
-        version = tfs_laser.__version__
+        return True
     except ImportError:
-        version = "none"
-    return version
+        return False
