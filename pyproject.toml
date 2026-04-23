@@ -88,3 +88,9 @@ python_files = ["test_*.py", "*_test.py"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "--cov=src/pytribeam --cov-report=xml --cov-report=html"
+markers = [
+    "detached: test is always runnable and does not require AutoScript or hardware",
+    "simulated: test requires a simulated/offline microscope system",
+    "hardware: test requires a physical hardware system",
+    "laser_hardware: test requires a physical hardware system with laser support",
+]

@@ -1041,3 +1041,38 @@ def run_on_microscope_machine(func):
         func()
 
     return wrapper_func
+
+
+def get_autoscript_version() -> str:
+    """
+    Get the version of autoscript for the present system
+    
+    Returns
+    -------
+    version : str
+        The version of autoscript
+    """
+    try:
+        import autoscript_sdb_microscope_client as asmc
+        version = asmc.build_information.INFO_VERSIONSHORT
+    except ImportError:
+        version = "none"
+    return version
+
+
+def get_laser_version() -> str:
+    """
+    Get the version of ThermoFisher Laser Control API for the present system
+    
+    Returns
+    -------
+    version : str
+        The version of the Laser API
+    """
+    try:
+        ### TODO: Figure out how to get the version of the laser API
+        import Laser.PythonControl as tfs_laser
+        version = tfs_laser.__version__
+    except ImportError:
+        version = "none"
+    return version
