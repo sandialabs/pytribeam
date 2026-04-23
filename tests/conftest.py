@@ -89,7 +89,7 @@ def is_hardware_system() -> bool:
 
 def has_laser_hardware() -> bool:
     """Return True if the current environment has laser hardware available."""
-    return ut.get_laser_version() != "none"
+    return ut.is_laser_available()
 
 
 # ----------------------------------------------------------------------
