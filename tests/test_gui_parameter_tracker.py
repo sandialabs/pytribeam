@@ -1,27 +1,11 @@
 # tests/test_gui_parameter_tracker.py
 """Tests for :class:`pytribeam.GUI.config_ui.parameter_tracker.ParameterTracker`."""
 
+import tkinter as tk
 import pytest
 
 from pytribeam.GUI.config_ui.parameter_tracker import ParameterTracker
 from pytribeam.GUI.config_ui.editor_controller import EditorController
-
-
-# ----------------------------------------------------------------------
-# Display detection
-# ----------------------------------------------------------------------
-try:
-    import tkinter as tk
-    _root = tk.Tk()
-    _root.withdraw()
-    _root.destroy()
-    HAS_DISPLAY = True
-except Exception:
-    HAS_DISPLAY = False
-
-requires_display = pytest.mark.skipif(
-    not HAS_DISPLAY, reason="No display available for tkinter"
-)
 
 
 # ----------------------------------------------------------------------
@@ -52,6 +36,19 @@ def fake_lut(monkeypatch):
     monkeypatch.setattr("pytribeam.GUI.config_ui.editor_controller.lut.VERSIONS", [1.0])
 
 
+@pytest.fixture(scope="module")
+def tk_root():
+    """Provide a tk root for tkinter variable creation."""
+    import tkinter as tk
+    try:
+        root = tk.Tk()
+        root.withdraw()
+    except Exception as e:
+        pytest.skip(f"Tk not available: {e}")
+    yield root
+    root.destroy()
+
+
 @pytest.fixture
 def controller():
     ctrl = EditorController(version=1.0)
@@ -60,8 +57,10 @@ def controller():
 
 
 @pytest.fixture
-def tracker(controller):
-    return ParameterTracker(controller)
+def tracker(controller, tk_root):
+    t = ParameterTracker(controller, master=tk_root)
+    yield t
+    t.clear()
 
 
 # ----------------------------------------------------------------------
@@ -179,35 +178,21 @@ class TestValidateBool:
 # ----------------------------------------------------------------------
 # _create_typed_variable
 # ----------------------------------------------------------------------
-@requires_display
 class TestCreateTypedVariable:
 
-    @pytest.fixture(autouse=True)
-    def tk_root(self):
-        """Provide a tk root for tkinter variable creation."""
-        import tkinter as tk
-        self.root = tk.Tk()
-        self.root.withdraw()
-        yield
-        self.root.destroy()
-
     def test_bool_creates_booleanvar(self, tracker):
-        import tkinter as tk
         var = tracker._create_typed_variable(bool)
         assert isinstance(var, tk.BooleanVar)
 
     def test_int_creates_stringvar(self, tracker):
-        import tkinter as tk
         var = tracker._create_typed_variable(int)
         assert isinstance(var, tk.StringVar)
 
     def test_float_creates_stringvar(self, tracker):
-        import tkinter as tk
         var = tracker._create_typed_variable(float)
         assert isinstance(var, tk.StringVar)
 
     def test_str_creates_stringvar(self, tracker):
-        import tkinter as tk
         var = tracker._create_typed_variable(str)
         assert isinstance(var, tk.StringVar)
 
@@ -262,31 +247,15 @@ class TestGetVariable:
     def test_returns_none_for_unknown_path(self, tracker):
         assert tracker.get_variable("unknown/path") is None
 
-    @requires_display
     def test_returns_variable_for_known_path(self, tracker):
-        import tkinter as tk
-        root = tk.Tk()
-        root.withdraw()
-        try:
-            var = tracker.create_variable("beam/voltage_kv", float, default="5.0")
-            assert tracker.get_variable("beam/voltage_kv") is var
-        finally:
-            root.destroy()
+        var = tracker.create_variable("beam/voltage_kv", float, default="5.0")
+        assert tracker.get_variable("beam/voltage_kv") is var
 
 
 # ----------------------------------------------------------------------
 # create_variable and clear
 # ----------------------------------------------------------------------
-@requires_display
 class TestCreateAndClear:
-
-    @pytest.fixture(autouse=True)
-    def tk_root(self):
-        import tkinter as tk
-        self.root = tk.Tk()
-        self.root.withdraw()
-        yield
-        self.root.destroy()
 
     def test_create_variable_stores_variable(self, tracker):
         tracker.create_variable("beam/voltage_kv", float, default="5.0")
@@ -325,16 +294,7 @@ class TestCreateAndClear:
 # ----------------------------------------------------------------------
 # load_from_controller
 # ----------------------------------------------------------------------
-@requires_display
 class TestLoadFromController:
-
-    @pytest.fixture(autouse=True)
-    def tk_root(self):
-        import tkinter as tk
-        self.root = tk.Tk()
-        self.root.withdraw()
-        yield
-        self.root.destroy()
 
     def test_load_syncs_variables(self, tracker, controller):
         # Set a value in the controller
