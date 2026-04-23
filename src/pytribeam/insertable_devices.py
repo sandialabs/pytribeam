@@ -58,22 +58,12 @@ specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_h
 
 # Default python modules
 # from functools import singledispatch
-import os
-from pathlib import Path
 import time
 import warnings
-import math
-from typing import NamedTuple, List, Tuple
-from types import ModuleType
-
-# Autoscript included modules
-import numpy as np
-from matplotlib import pyplot as plt
 
 # 3rd party module
 
 # Local scripts
-import pytribeam.utilities as ut
 import pytribeam.constants as cs
 from pytribeam.constants import Constants
 import pytribeam.image as img

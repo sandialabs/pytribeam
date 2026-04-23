@@ -4,21 +4,13 @@ import math
 
 # 3rd party libraries
 import pytest
-from schema import And, Or, Schema, SchemaError
 
 # Local
-# import pytribeam.utilities as ut
-# import pytribeam.image as img
 import pytribeam.constants as cs
 
 
-@pytest.fixture
-def test_dir() -> str:
-    """The relative path and file string locating the default yml test file."""
 
-    return Path(__file__).parent.joinpath("files")
-
-
+@pytest.mark.simulated
 def test_constants():
     assert all(
         [
@@ -31,6 +23,7 @@ def test_constants():
     )
 
 
+@pytest.mark.simulated
 def test_conversions():
     """Tests unit converions"""
     aa = cs.Conversions()

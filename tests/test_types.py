@@ -1,15 +1,14 @@
 ## python standard libraries
-from pathlib import Path
 
 # 3rd party libraries
 import pytest
 
 # Local
-# import pytribeam.image as img
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
 
 
+@pytest.mark.simulated
 def test_resolution():
     """Tests construction of resolution object"""
     cust_res = tbt.Resolution(width=5, height=7)
@@ -26,6 +25,7 @@ def test_resolution():
     assert preset_res.value == "1024x884"
 
 
+@pytest.mark.simulated
 def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     """helper function for test image"""
     return tbt.ImageSettings(
@@ -58,6 +58,7 @@ def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     )
 
 
+@pytest.mark.simulated
 def electron_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     """helper function for test image"""
     return tbt.ImageSettings(
@@ -87,6 +88,7 @@ def electron_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     )
 
 
+@pytest.mark.simulated
 def test_image():
     """Tests construction of image object"""
     microscope = tbt.Microscope()
@@ -111,6 +113,7 @@ def test_image():
     assert bb.scan.resolution.value == "4x3"
 
 
+@pytest.mark.simulated
 def test_beam_type():
     """Tests if beam type is assigned corrected and property returned"""
     microscope = tbt.Microscope()

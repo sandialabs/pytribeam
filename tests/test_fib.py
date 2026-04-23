@@ -1,91 +1,42 @@
-## python standard libraries
+# python standard libraries
 from pathlib import Path
-import platform
-import time
-import warnings
-from enum import Enum
 
 # 3rd party libraries
 import pytest
 from PIL import Image as pil_img
 import numpy as np
 from skimage import filters, measure
-import cv2
 
 # Local
-import pytribeam.constants as cs
-from pytribeam.constants import Conversions, Constants
-import pytribeam.insertable_devices as devices
-import pytribeam.image as img
-import pytribeam.factory as factory
-import pytribeam.stage as stage
+from pytribeam.constants import Conversions
 import pytribeam.types as tbt
-import pytribeam.utilities as ut
 import pytribeam.fib as fib
 
 
-@pytest.fixture
-def test_dir() -> str:
-    """The relative path and file string locating the default yml test file."""
-
-    return Path(__file__).parent.joinpath("files")
+# ----------------
+# Helper functions
+# ----------------
 
 
-# @ut.run_on_standalone_machine
-def test_shutter_mode():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
+def stream_pattern(
+    microscope: tbt.Microscope,
+    recipe_path: Path,
+    mask_path: Path,
+):
 
-    shutter = microscope.beams.electron_beam.protective_shutter
-    shutter.mode.value = tbt.ProtectiveShutterMode.OFF
-    status = shutter.mode.value
-    assert status == tbt.ProtectiveShutterMode.OFF == "Off"
-
-    fib.shutter_control(microscope=microscope)
-    new_status = shutter.mode.value
-    assert new_status == tbt.ProtectiveShutterMode.AUTOMATIC == "Automatic"
-
-    microscope.disconnect()
-
-
-def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
-    """helper function for test image"""
-    return tbt.ImageSettings(
+    return tbt.FIBSettings(
         microscope=microscope,
-        beam=tbt.IonBeam(
-            settings=tbt.BeamSettings(
-                voltage_kv=5.0,
-                voltage_tol_kv=0.5,
-                current_na=5.0,
-                current_tol_na=0.5,
-                hfw_mm=0.75,
-                working_dist_mm=10.021,
+        image=ion_image(microscope=microscope),
+        mill_beam=mill_beam(),
+        pattern=tbt.FIBPattern(
+            application="Si",
+            type=tbt.FIBPatternType.SELECTED_AREA,
+            geometry=tbt.FIBStreamPattern(
+                dwell_us=1.0,
+                repeats=3,
+                recipe_file=recipe_path,
+                mask_file=mask_path,
             ),
-        ),
-        detector=tbt.Detector(
-            type=tbt.DetectorType.ETD,
-            mode=tbt.DetectorMode.SECONDARY_ELECTRONS,
-            brightness=0.2,
-            contrast=0.3,
-        ),
-        scan=tbt.Scan(
-            rotation_deg=0.0,
-            dwell_time_us=1.0,
-            resolution=tbt.PresetResolution.PRESET_768X512,
-        ),
-        bit_depth=tbt.ColorDepth.BITS_8,
-    )
-
-
-def mill_beam() -> tbt.Beam:
-    return tbt.IonBeam(
-        settings=tbt.BeamSettings(
-            voltage_kv=30.0,
-            voltage_tol_kv=1.5,
-            current_na=51.0,
-            current_tol_na=1.0,
-            hfw_mm=0.75,
-            working_dist_mm=15.001,
         ),
     )
 
@@ -159,26 +110,46 @@ def cleaning_cross_section_pattern(microscope: tbt.Microscope):
     )
 
 
-# @ut.run_on_standalone_machine
-def test_prepare_milling():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
-
-    fib_settings = rectangle_pattern(microscope=microscope)
-    fib.prepare_milling(
+def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
+    """helper function for test image"""
+    return tbt.ImageSettings(
         microscope=microscope,
-        application=fib_settings.pattern.application,
+        beam=tbt.IonBeam(
+            settings=tbt.BeamSettings(
+                voltage_kv=5.0,
+                voltage_tol_kv=0.5,
+                current_na=5.0,
+                current_tol_na=0.5,
+                hfw_mm=0.75,
+                working_dist_mm=10.021,
+            ),
+        ),
+        detector=tbt.Detector(
+            type=tbt.DetectorType.ETD,
+            mode=tbt.DetectorMode.SECONDARY_ELECTRONS,
+            brightness=0.2,
+            contrast=0.3,
+        ),
+        scan=tbt.Scan(
+            rotation_deg=0.0,
+            dwell_time_us=1.0,
+            resolution=tbt.PresetResolution.PRESET_768X512,
+        ),
+        bit_depth=tbt.ColorDepth.BITS_8,
     )
 
-    with pytest.raises(ValueError) as err:
-        fib.prepare_milling(microscope=microscope, application="invalid")
-    assert err.type == ValueError
-    assert (
-        err.value.args[0]
-        == f"Invalid application file on this system, there is no patterning application with name: 'invalid'."
+
+def mill_beam() -> tbt.Beam:
+    return tbt.IonBeam(
+        settings=tbt.BeamSettings(
+            voltage_kv=30.0,
+            voltage_tol_kv=1.5,
+            current_na=51.0,
+            current_tol_na=1.0,
+            hfw_mm=0.75,
+            working_dist_mm=15.001,
+        ),
     )
-    microscope.patterning.clear_patterns()
-    microscope.disconnect()
 
 
 def validate_box_pattern(pattern: tbt.FIBBoxPattern, fib_settings: tbt.FIBSettings):
@@ -208,150 +179,141 @@ def validate_box_pattern(pattern: tbt.FIBBoxPattern, fib_settings: tbt.FIBSettin
     return
 
 
-# @ut.run_on_standalone_machine
-def test_create_rectangle_pattern():
+# -----
+# Tests
+# -----
+
+
+@pytest.mark.simulated
+def test_shutter_mode():
     microscope = tbt.Microscope()
     microscope.connect("localhost")
 
-    # rectangle pattern
+    shutter = microscope.beams.electron_beam.protective_shutter
+    shutter.mode.value = tbt.ProtectiveShutterMode.OFF
+    status = shutter.mode.value
+    assert status == tbt.ProtectiveShutterMode.OFF == "Off"
+
+    fib.shutter_control(microscope=microscope)
+    new_status = shutter.mode.value
+    assert new_status == tbt.ProtectiveShutterMode.AUTOMATIC == "Automatic"
+
+    microscope.disconnect()
+
+
+@pytest.mark.simulated
+def test_prepare_milling():
+    microscope = tbt.Microscope()
+    microscope.connect("localhost")
+
     fib_settings = rectangle_pattern(microscope=microscope)
     fib.prepare_milling(
         microscope=microscope,
         application=fib_settings.pattern.application,
     )
-    pattern = fib.create_pattern(
-        fib_settings.pattern.geometry,
-        microscope=microscope,
+
+    with pytest.raises(ValueError) as err:
+        fib.prepare_milling(microscope=microscope, application="invalid")
+    assert err.type == ValueError
+    assert (
+        err.value.args[0]
+        == f"Invalid application file on this system, there is no patterning application with name: 'invalid'."
     )
-    assert isinstance(pattern, tbt.as_dynamics.RectanglePattern)
-    validate_box_pattern(pattern, fib_settings)
     microscope.patterning.clear_patterns()
     microscope.disconnect()
 
 
-# @ut.run_on_standalone_machine
-def test_create_regular_cross_section_pattern():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
+class TestPatterns:
 
-    # pattern
-    fib_settings = regular_cross_section_pattern(microscope=microscope)
-    fib.prepare_milling(
-        microscope=microscope,
-        application=fib_settings.pattern.application,
-    )
-    pattern = fib.create_pattern(
-        fib_settings.pattern.geometry,
-        microscope=microscope,
-    )
-    assert isinstance(pattern, tbt.as_dynamics.RegularCrossSectionPattern)
-    validate_box_pattern(pattern, fib_settings)
-    microscope.patterning.clear_patterns()
-    microscope.disconnect()
+    @pytest.mark.simulated
+    def test_create_rectangle_pattern(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
 
-
-# @ut.run_on_standalone_machine
-def test_create_cleaning_cross_section_pattern():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
-
-    # pattern
-    fib_settings = cleaning_cross_section_pattern(microscope=microscope)
-    fib.prepare_milling(
-        microscope=microscope,
-        application=fib_settings.pattern.application,
-    )
-    pattern = fib.create_pattern(
-        fib_settings.pattern.geometry,
-        microscope=microscope,
-        # input_image_path=None,
-    )
-    assert isinstance(pattern, tbt.as_dynamics.CleaningCrossSectionPattern)
-    validate_box_pattern(pattern, fib_settings)
-    microscope.patterning.clear_patterns()
-    microscope.disconnect()
+        # rectangle pattern
+        fib_settings = rectangle_pattern(microscope=microscope)
+        fib.prepare_milling(
+            microscope=microscope,
+            application=fib_settings.pattern.application,
+        )
+        pattern = fib.create_pattern(
+            fib_settings.pattern.geometry,
+            microscope=microscope,
+        )
+        assert isinstance(pattern, tbt.as_dynamics.RectanglePattern)
+        validate_box_pattern(pattern, fib_settings)
+        microscope.patterning.clear_patterns()
+        microscope.disconnect()
 
 
-def process_image(in_path: Path, out_path: Path):
-    """Helper function to generate mask for fib stream pattern"""
-    with pil_img.open(in_path) as test_img:
-        # threshold
-        fib_img = np.asarray(test_img)
-        threshold = filters.threshold_otsu(fib_img)
-        segmented = fib_img > threshold
+    @pytest.mark.simulated
+    def test_create_regular_cross_section_pattern(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
 
-    # label connected components
-    labeled_img, num_features = measure.label(
-        segmented,
-        return_num=True,
-        connectivity=1,
-    )
-
-    # find largest componet:
-    largest = None
-    max_size = 0
-    for component in range(1, num_features + 1):
-        size = np.sum(labeled_img == component)
-        if size > max_size:
-            max_size = size
-            largest = component
-
-    # mask largest component
-    mask = labeled_img == largest
-
-    # write out image
-    mask = pil_img.fromarray(mask)
-    mask.save(out_path)
+        # pattern
+        fib_settings = regular_cross_section_pattern(microscope=microscope)
+        fib.prepare_milling(
+            microscope=microscope,
+            application=fib_settings.pattern.application,
+        )
+        pattern = fib.create_pattern(
+            fib_settings.pattern.geometry,
+            microscope=microscope,
+        )
+        assert isinstance(pattern, tbt.as_dynamics.RegularCrossSectionPattern)
+        validate_box_pattern(pattern, fib_settings)
+        microscope.patterning.clear_patterns()
+        microscope.disconnect()
 
 
-def stream_pattern(
-    microscope: tbt.Microscope,
-    recipe_path: Path,
-    mask_path: Path,
-):
+    @pytest.mark.simulated
+    def test_create_cleaning_cross_section_pattern(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
 
-    return tbt.FIBSettings(
-        microscope=microscope,
-        image=ion_image(microscope=microscope),
-        mill_beam=mill_beam(),
-        pattern=tbt.FIBPattern(
-            application="Si",
-            type=tbt.FIBPatternType.SELECTED_AREA,
-            geometry=tbt.FIBStreamPattern(
-                dwell_us=1.0,
-                repeats=3,
-                recipe_file=recipe_path,
-                mask_file=mask_path,
-            ),
-        ),
-    )
+        # pattern
+        fib_settings = cleaning_cross_section_pattern(microscope=microscope)
+        fib.prepare_milling(
+            microscope=microscope,
+            application=fib_settings.pattern.application,
+        )
+        pattern = fib.create_pattern(
+            fib_settings.pattern.geometry,
+            microscope=microscope,
+            # input_image_path=None,
+        )
+        assert isinstance(pattern, tbt.as_dynamics.CleaningCrossSectionPattern)
+        validate_box_pattern(pattern, fib_settings)
+        microscope.patterning.clear_patterns()
+        microscope.disconnect()
 
 
-def test_create_stream_pattern():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
+    @pytest.mark.simulated
+    def test_create_stream_pattern(self, fib_stream_assets):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
 
-    test_dir = Path(__file__).parent.joinpath("files")
-    mask_path = test_dir.joinpath("fib_mask_test.tif")
-    recipe_path = test_dir.joinpath("fib_stream_recipe.py")
-    img_path = test_dir.joinpath("fib_image.tif")
+        mask_path = fib_stream_assets["mask"]
+        recipe_path = fib_stream_assets["recipe"]
+        img_path = fib_stream_assets["input_image"]
 
-    # pattern
-    fib_settings = stream_pattern(
-        microscope=microscope, recipe_path=recipe_path, mask_path=mask_path
-    )
-    fib.prepare_milling(
-        microscope=microscope,
-        application=fib_settings.pattern.application,
-    )
-    pattern = fib.create_pattern(
-        fib_settings.pattern.geometry,
-        microscope=microscope,
-        kwargs={"input_image_path": img_path},
-    )
-    assert isinstance(pattern, tbt.as_dynamics.StreamPattern)
+        # pattern
+        fib_settings = stream_pattern(
+            microscope=microscope, recipe_path=recipe_path, mask_path=mask_path
+        )
+        fib.prepare_milling(
+            microscope=microscope,
+            application=fib_settings.pattern.application,
+        )
+        pattern = fib.create_pattern(
+            fib_settings.pattern.geometry,
+            microscope=microscope,
+            kwargs={"input_image_path": img_path},
+        )
+        assert isinstance(pattern, tbt.as_dynamics.StreamPattern)
 
-    mask_path.unlink()
+        mask_path.unlink()
 
-    microscope.patterning.clear_patterns()
-    microscope.disconnect()
+        microscope.patterning.clear_patterns()
+        microscope.disconnect()

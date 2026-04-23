@@ -95,13 +95,9 @@ run_on_microscope_machine(func)
 """
 
 # Default python modules
-import os
 from pathlib import Path
-import time
-import warnings
-import math
-from typing import Dict, NamedTuple, Tuple, Any, List
-from enum import Enum, IntEnum
+from typing import Dict, Tuple, Any, List
+from enum import Enum
 import platform
 import pytest
 from functools import singledispatch

@@ -15,15 +15,9 @@ Conversions : NamedTuple
 """
 
 # Default python modules
-import os
-from pathlib import Path
-import time
-import warnings
 import math
-from typing import Dict, NamedTuple, Tuple, List
-import platform
+from typing import NamedTuple
 
-import pytest
 import numpy as np
 import h5py
 
@@ -273,7 +267,7 @@ class Constants(NamedTuple):
 
     # Test suite constants
     test_hardware_movement = True
-    offline_machines = ["S1099177", "S1125518"]
+    offline_machines = ["S1099177", "S1125518", "daasplus2130w11", "daasplus2131w11", "daasplus2132w11", "daasplus2134w11"]
     microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
 
     # error message display constants

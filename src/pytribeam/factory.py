@@ -145,18 +145,14 @@ step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_se
 
 ## python standard libraries
 from pathlib import Path
-import platform
-import time
-from typing import NamedTuple, List, Union
+from typing import List, Union
 import warnings
 from functools import singledispatch
 import math
 
 
 # 3rd party libraries
-import pytest
-from schema import And, Or, Schema, SchemaError
-import jsonschema
+from schema import And, Or, Schema
 
 # Local
 import pytribeam.insertable_devices as devices
