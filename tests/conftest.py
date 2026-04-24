@@ -68,18 +68,21 @@ def _matches_machine_list(machine_names: Iterable[str]) -> bool:
 def is_simulated_system() -> bool:
     """Return True if running on a configured simulated/offline microscope system."""
     import pytribeam.constants as cs
+
     return _matches_machine_list(cs.Constants.offline_machines)
 
 
 def is_hardware_system() -> bool:
     """Return True if running on a configured physical microscope system."""
     import pytribeam.constants as cs
+
     return _matches_machine_list(cs.Constants.microscope_machines)
 
 
 def has_laser_hardware() -> bool:
     """Return True if the current environment has laser hardware available."""
     import pytribeam.utilities as ut
+
     return ut.is_laser_available()
 
 
