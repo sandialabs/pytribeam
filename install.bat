@@ -172,6 +172,9 @@ call :RUN "Import test: pytribeam" "%PYTHON%" -c "import pytribeam; print('pytri
 
 echo.
 echo [INFO] Install completed successfully.
+
+echo .
+echo To see available commands, please run `pytribeam.exe` in your terminal.
 goto :EOF
 
 :FAIL
