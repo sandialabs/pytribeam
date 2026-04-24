@@ -43,7 +43,7 @@ set "CMDLINE=!CMDLINE! %1"
 shift
 goto RUN_MORE
 :RUN_EXEC
-echo [CMD ] !CMDLINE!
+REM echo [CMD ] !CMDLINE!
 REM Run the command in a child cmd, capture its exit code immediately
 cmd /v:on /c "!CMDLINE!"
 set "RC=!ERRORLEVEL!"
@@ -95,12 +95,9 @@ call :REQUIRE_FILE "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\packaging-26.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\trove_classifiers-2026.1.14.14-py3-none-any.whl" || goto :FAIL
-call :REQUIRE_FILE "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" || goto :FAIL
-call :REQUIRE_FILE "%WHEELHOUSE%\mypy_extensions-1.0.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\tomli-2.0.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\click-8.1.7-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" || goto :FAIL
-call :REQUIRE_FILE "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pathspec-0.12.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\iniconfig-2.0.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pluggy-1.5.0-py3-none-any.whl" || goto :FAIL
@@ -109,13 +106,17 @@ call :REQUIRE_FILE "%WHEELHOUSE%\contextlib2-21.6.0-py2.py3-none-any.whl" || got
 call :REQUIRE_FILE "%WHEELHOUSE%\exceptiongroup-1.2.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\schema-0.7.5-py2.py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\setuptools_scm-6.4.0-py3-none-any.whl" || goto :FAIL
-call :REQUIRE_FILE "%WHEELHOUSE%\vcs_versioning-0.0.1-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\hatchling-1.26.3-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\hatch_vcs-0.4.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pytest-7.4.3-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pytest_cov-4.1.0-py3-none-any.whl" || goto :FAIL
-call :REQUIRE_FILE "%WHEELHOUSE%\black-24.2.0-cp38-cp38-win_amd64.whl" || goto :FAIL
+call :REQUIRE_FILE "%WHEELHOUSE%\ruff-0.15.11-py3-none-win_amd64.whl" || goto :FAIL
+REM call :REQUIRE_FILE "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" || goto :FAIL
+REM call :REQUIRE_FILE "%WHEELHOUSE%\mypy_extensions-1.0.0-py3-none-any.whl" || goto :FAIL
+REM call :REQUIRE_FILE "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" || goto :FAIL
+REM call :REQUIRE_FILE "%WHEELHOUSE%\vcs_versioning-0.0.1-py3-none-any.whl" || goto :FAIL
+REM call :REQUIRE_FILE "%WHEELHOUSE%\black-24.2.0-cp38-cp38-win_amd64.whl" || goto :FAIL
 
 
 REM ============================================================
@@ -125,34 +126,36 @@ REM:MAIN
 echo.
 echo Installing pyTriBeam...
 call :RUN "Upgrade/install pip wheel"        %PIP% install "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" --no-index || goto :FAIL
-REM call :RUN "Install setuptools wheel"         %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
 
-
-REM Install dependencies (explicit wheel paths + find-links as backup)
+REM pip uninstall vcs_versioning, editables, colorama, click, contextlib2, schema, setuptools, packaging, tomli, setuptools_scm, trove_classifiers, pluggy, pathspec, hatchling, hatch_vcs, iniconfig, exceptiongroup, pytest, coverage, pytest_cov, ruff, typing_extensions, mypy_extensions, platformdirs, black, pytribeam
+REM Install dependencies
+call :RUN "Install setuptools"         %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install colorama"           %PIP% install "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install packaging"          %PIP% install "%WHEELHOUSE%\packaging-26.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install trove_classifiers"  %PIP% install "%WHEELHOUSE%\trove_classifiers-2026.1.14.14-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install typing_extensions"  %PIP% install "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install mypy_extensions"    %PIP% install "%WHEELHOUSE%\mypy_extensions-1.0.0-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install tomli"              %PIP% install "%WHEELHOUSE%\tomli-2.0.1-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install click"              %PIP% install "%WHEELHOUSE%\click-8.1.7-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install colorama"           %PIP% install "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install platformdirs"       %PIP% install "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install pathspec"           %PIP% install "%WHEELHOUSE%\pathspec-0.12.1-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install iniconfig"          %PIP% install "%WHEELHOUSE%\iniconfig-2.0.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install pluggy"             %PIP% install "%WHEELHOUSE%\pluggy-1.5.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install coverage"           %PIP% install "%WHEELHOUSE%\coverage-7.5.1-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
 call :RUN "Install contextlib2"        %PIP% install "%WHEELHOUSE%\contextlib2-21.6.0-py2.py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install exceptiongroup"     %PIP% install "%WHEELHOUSE%\exceptiongroup-1.2.1-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install schema"             %PIP% install "%WHEELHOUSE%\schema-0.7.5-py2.py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install setuptools_scm"     %PIP% install "%WHEELHOUSE%\setuptools_scm-6.4.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install vcs_versioning"     %PIP% install "%WHEELHOUSE%\vcs_versioning-0.0.1-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install editables"          %PIP% install "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install trove_classifiers"  %PIP% install "%WHEELHOUSE%\trove_classifiers-2026.1.14.14-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install pluggy"             %PIP% install "%WHEELHOUSE%\pluggy-1.5.0-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install pathspec"           %PIP% install "%WHEELHOUSE%\pathspec-0.12.1-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install hatchling"          %PIP% install "%WHEELHOUSE%\hatchling-1.26.3-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install hatch_vcs"          %PIP% install "%WHEELHOUSE%\hatch_vcs-0.4.0-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install iniconfig"          %PIP% install "%WHEELHOUSE%\iniconfig-2.0.0-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install exceptiongroup"     %PIP% install "%WHEELHOUSE%\exceptiongroup-1.2.1-py3-none-any.whl" --no-index || goto :FAIL
 call :RUN "Install pytest"             %PIP% install "%WHEELHOUSE%\pytest-7.4.3-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install coverage"           %PIP% install "%WHEELHOUSE%\coverage-7.5.1-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
 call :RUN "Install pytest_cov"         %PIP% install "%WHEELHOUSE%\pytest_cov-4.1.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Install black"              %PIP% install "%WHEELHOUSE%\black-24.2.0-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
+call :RUN "Install editables"          %PIP% install "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" --no-index || goto :FAIL
+call :RUN "Install ruff"               %PIP% install "%WHEELHOUSE%\ruff-0.15.11-py3-none-win_amd64.whl" --no-index || goto :FAIL
 
+REM black needs mypy-extensions, platformdirs, typing-extensions
+REM call :RUN "Install typing_extensions"  %PIP% install "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call :RUN "Install mypy_extensions"    %PIP% install "%WHEELHOUSE%\mypy_extensions-1.0.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call :RUN "Install platformdirs"       %PIP% install "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" --no-index || goto :FAIL
+REM call :RUN "Install black"              %PIP% install "%WHEELHOUSE%\black-24.2.0-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
+REM call :RUN "Install vcs_versioning"     %PIP% install "%WHEELHOUSE%\vcs_versioning-0.0.1-py3-none-any.whl" --no-index || goto :FAIL
 
 REM Install pyTriBeam from the current folder
 call :RUN "Install pyTriBeam" %PIP% install -e . --no-index --no-build-isolation --find-links "%WHEELHOUSE%" || goto :FAIL
