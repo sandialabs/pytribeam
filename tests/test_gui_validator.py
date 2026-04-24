@@ -27,14 +27,16 @@ class FakeLUT(dict):
 @pytest.fixture(autouse=True)
 def fake_lut(monkeypatch):
     def get_lut(step_type, version):
-        return FakeLUT({
-            "step_general/step_type": FakeField(str, "image"),
-            "step_general/step_name": FakeField(str, "step"),
-            "step_general/step_number": FakeField(int, 1),
-            "beam/voltage_kv": FakeField(float, 5.0),
-            "enabled": FakeField(bool, True),
-            "step_count": FakeField(int, 0),
-        })
+        return FakeLUT(
+            {
+                "step_general/step_type": FakeField(str, "image"),
+                "step_general/step_name": FakeField(str, "step"),
+                "step_general/step_number": FakeField(int, 1),
+                "beam/voltage_kv": FakeField(float, 5.0),
+                "enabled": FakeField(bool, True),
+                "step_count": FakeField(int, 0),
+            }
+        )
 
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.get_lut", get_lut)
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.VERSIONS", [1.0])
@@ -55,14 +57,15 @@ def pipeline():
 # ValidationResult
 # ----------------------------------------------------------------------
 class TestValidationResult:
-
     def test_success_result_str(self):
         r = ValidationResult(success=True, step_name="general")
         assert "general" in str(r)
         assert "passed" in str(r)
 
     def test_failure_result_str(self):
-        r = ValidationResult(success=False, step_name="image_step", message="Missing field")
+        r = ValidationResult(
+            success=False, step_name="image_step", message="Missing field"
+        )
         text = str(r)
         assert "image_step" in text
         assert "failed" in text
@@ -98,7 +101,6 @@ class TestValidationResult:
 # ConfigValidator.set_version
 # ----------------------------------------------------------------------
 class TestSetVersion:
-
     def test_set_version_changes_format(self, validator):
         # Calling set_version should not raise
         validator.set_version(1.0)
@@ -112,7 +114,6 @@ class TestSetVersion:
 # check_has_steps
 # ----------------------------------------------------------------------
 class TestCheckHasSteps:
-
     def test_empty_pipeline_fails(self, validator, pipeline):
         result = validator.check_has_steps(pipeline)
         assert result.success is False
@@ -132,7 +133,6 @@ class TestCheckHasSteps:
 # check_duplicate_names
 # ----------------------------------------------------------------------
 class TestCheckDuplicateNames:
-
     def test_unique_names_passes(self, validator, pipeline):
         pipeline.add_step("image", name="alpha")
         pipeline.add_step("image", name="beta")
@@ -155,7 +155,6 @@ class TestCheckDuplicateNames:
 # validate_pipeline_structure
 # ----------------------------------------------------------------------
 class TestValidatePipelineStructure:
-
     def test_empty_pipeline_returns_two_results(self, validator, pipeline):
         results = validator.validate_pipeline_structure(pipeline)
         assert len(results) == 2
@@ -182,7 +181,6 @@ class TestValidatePipelineStructure:
 # get_summary
 # ----------------------------------------------------------------------
 class TestGetSummary:
-
     def test_all_passed_summary(self):
         results = [
             ValidationResult(success=True, step_name="s1"),
@@ -230,7 +228,6 @@ class TestGetSummary:
 # validate_general (mocked factory)
 # ----------------------------------------------------------------------
 class TestValidateGeneral:
-
     def test_success_case(self, validator, monkeypatch):
         fake_settings = MagicMock()
         monkeypatch.setattr(
@@ -273,7 +270,6 @@ class TestValidateGeneral:
 # validate_step (mocked factory)
 # ----------------------------------------------------------------------
 class TestValidateStep:
-
     def test_success_case(self, validator, monkeypatch):
         fake_settings = MagicMock()
         monkeypatch.setattr(
@@ -323,8 +319,9 @@ class TestValidateStep:
 # validate_pipeline_model
 # ----------------------------------------------------------------------
 class TestValidatePipelineModel:
-
-    def test_delegates_to_validate_full_pipeline(self, validator, pipeline, monkeypatch):
+    def test_delegates_to_validate_full_pipeline(
+        self, validator, pipeline, monkeypatch
+    ):
         """validate_pipeline_model converts to dict and delegates."""
         called_with = {}
 
@@ -343,13 +340,14 @@ class TestValidatePipelineModel:
 # validate_full_pipeline (mocked)
 # ----------------------------------------------------------------------
 class TestValidateFullPipeline:
-
     def test_general_failure_stops_early(self, validator, monkeypatch):
         # Make validate_general fail
         monkeypatch.setattr(
             validator,
             "validate_general",
-            lambda d: ValidationResult(success=False, step_name="general", message="fail"),
+            lambda d: ValidationResult(
+                success=False, step_name="general", message="fail"
+            ),
         )
         results = validator.validate_full_pipeline({"general": {}, "steps": {"s": {}}})
         # Should only have one result (general) and not proceed to steps

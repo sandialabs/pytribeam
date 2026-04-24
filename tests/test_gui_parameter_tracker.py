@@ -25,11 +25,13 @@ class FakeLUT(dict):
 @pytest.fixture(autouse=True)
 def fake_lut(monkeypatch):
     def get_lut(step_type, version):
-        return FakeLUT({
-            "step_general/step_type": FakeField(str, "image"),
-            "beam/voltage_kv": FakeField(float, 5.0),
-            "enabled": FakeField(bool, True),
-        })
+        return FakeLUT(
+            {
+                "step_general/step_type": FakeField(str, "image"),
+                "beam/voltage_kv": FakeField(float, 5.0),
+                "enabled": FakeField(bool, True),
+            }
+        )
 
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.get_lut", get_lut)
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.VERSIONS", [1.0])
@@ -40,6 +42,7 @@ def fake_lut(monkeypatch):
 def tk_root():
     """Provide a tk root for tkinter variable creation."""
     import tkinter as tk
+
     try:
         root = tk.Tk()
         root.withdraw()
@@ -67,7 +70,6 @@ def tracker(controller, tk_root):
 # Initialization
 # ----------------------------------------------------------------------
 class TestInit:
-
     def test_tracker_has_empty_variables(self, tracker):
         assert len(tracker.variables) == 0
 
@@ -83,7 +85,6 @@ class TestInit:
 # _validate_int
 # ----------------------------------------------------------------------
 class TestValidateInt:
-
     def test_valid_integer_string(self, tracker):
         assert tracker._validate_int("42") == "42"
 
@@ -120,7 +121,6 @@ class TestValidateInt:
 # _validate_float
 # ----------------------------------------------------------------------
 class TestValidateFloat:
-
     def test_valid_float_string(self, tracker):
         assert tracker._validate_float("3.14") == "3.14"
 
@@ -153,7 +153,6 @@ class TestValidateFloat:
 # _validate_bool
 # ----------------------------------------------------------------------
 class TestValidateBool:
-
     def test_true_bool(self, tracker):
         assert tracker._validate_bool(True) is True
 
@@ -164,7 +163,9 @@ class TestValidateBool:
     def test_string_truthy(self, tracker, true_val):
         assert tracker._validate_bool(true_val) is True
 
-    @pytest.mark.parametrize("false_val", ["false", "False", "FALSE", "0", "no", "NO", ""])
+    @pytest.mark.parametrize(
+        "false_val", ["false", "False", "FALSE", "0", "no", "NO", ""]
+    )
     def test_string_falsy(self, tracker, false_val):
         assert tracker._validate_bool(false_val) is False
 
@@ -179,7 +180,6 @@ class TestValidateBool:
 # _create_typed_variable
 # ----------------------------------------------------------------------
 class TestCreateTypedVariable:
-
     def test_bool_creates_booleanvar(self, tracker):
         var = tracker._create_typed_variable(bool)
         assert isinstance(var, tk.BooleanVar)
@@ -201,7 +201,6 @@ class TestCreateTypedVariable:
 # _create_default_validator
 # ----------------------------------------------------------------------
 class TestCreateDefaultValidator:
-
     def test_int_validator_validates_int(self, tracker):
         v = tracker._create_default_validator(int)
         assert v("5") == "5"
@@ -228,7 +227,6 @@ class TestCreateDefaultValidator:
 # add_custom_validator
 # ----------------------------------------------------------------------
 class TestCustomValidator:
-
     def test_add_replaces_existing_validator(self, tracker):
         tracker.validators["my/path"] = lambda x: x
         tracker.add_custom_validator("my/path", lambda x: "custom")
@@ -243,7 +241,6 @@ class TestCustomValidator:
 # get_variable
 # ----------------------------------------------------------------------
 class TestGetVariable:
-
     def test_returns_none_for_unknown_path(self, tracker):
         assert tracker.get_variable("unknown/path") is None
 
@@ -256,7 +253,6 @@ class TestGetVariable:
 # create_variable and clear
 # ----------------------------------------------------------------------
 class TestCreateAndClear:
-
     def test_create_variable_stores_variable(self, tracker):
         tracker.create_variable("beam/voltage_kv", float, default="5.0")
         assert "beam/voltage_kv" in tracker.variables
@@ -271,12 +267,15 @@ class TestCreateAndClear:
 
     def test_create_bool_variable(self, tracker):
         import tkinter as tk
+
         var = tracker.create_variable("enabled", bool, default=True)
         assert isinstance(var, tk.BooleanVar)
 
     def test_create_variable_with_custom_validator(self, tracker):
         custom = lambda v: v
-        tracker.create_variable("beam/voltage_kv", float, default="5.0", validator=custom)
+        tracker.create_variable(
+            "beam/voltage_kv", float, default="5.0", validator=custom
+        )
         assert tracker.validators["beam/voltage_kv"] is custom
 
     def test_clear_removes_all_variables(self, tracker):
@@ -295,7 +294,6 @@ class TestCreateAndClear:
 # load_from_controller
 # ----------------------------------------------------------------------
 class TestLoadFromController:
-
     def test_load_syncs_variables(self, tracker, controller):
         # Set a value in the controller
         controller.update_parameter("beam/voltage_kv", "99.9")

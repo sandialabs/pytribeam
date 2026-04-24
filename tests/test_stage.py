@@ -14,7 +14,6 @@ import pytribeam.types as tbt
 
 
 class TestStagePositionEncoding:
-
     @pytest.mark.simulated
     def test_coordinate_system(self):
         """Test setting of default coordinate system"""
@@ -35,7 +34,6 @@ class TestStagePositionEncoding:
 
         microscope.disconnect()
         # assert 4 == 2
-
 
     @pytest.mark.simulated
     def test_encoder_to_user_position(self):
@@ -60,7 +58,6 @@ class TestStagePositionEncoding:
         assert user_pos.t_deg == pytest.approx(encoder_pos.t * Conversions.RAD_TO_DEG)
 
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_user_to_encoder_position(self):
@@ -89,7 +86,6 @@ class TestStagePositionEncoding:
 
 
 class TestTargetPositions:
-
     @pytest.mark.simulated
     def test_no_pretilt(self) -> None:
         """helper function for test_target_position"""
@@ -280,7 +276,6 @@ class TestTargetPositions:
 
 
 class TestStageLimits:
-
     @pytest.mark.simulated
     def test_safe(self):
         """Test determination of safe position"""
@@ -355,7 +350,6 @@ class TestStageLimits:
 
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_axis_in_range(self):
         """Tests whether axis is within stage tolerance"""
@@ -426,7 +420,6 @@ class TestStageLimits:
 
 
 class TestMoveStage:
-
     @pytest.mark.simulated
     def test_stop_movement(self):
         """Test stopping of microscope stage"""
@@ -519,7 +512,6 @@ class TestMoveStage:
 
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_home_stage(self):
         """tests move to home position"""
@@ -557,7 +549,6 @@ class TestMoveStage:
         )
 
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_move_stage(self):
@@ -603,7 +594,6 @@ class TestMoveStage:
 
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_move_completed(self):
         """tests move_completed function"""
@@ -635,7 +625,6 @@ class TestMoveStage:
         assert completed == False
 
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_move_to_position_simulator(self):
@@ -697,7 +686,6 @@ class TestMoveStage:
         assert found_pos.r_deg == pytest.approx(position.r_deg)
         assert found_pos.t_deg == pytest.approx(position.t_deg)
         microscope.disconnect()
-
 
     @pytest.mark.hardware
     def test_move_to_position_hardware(self):

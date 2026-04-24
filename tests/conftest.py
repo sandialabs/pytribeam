@@ -63,7 +63,9 @@ def _node_name() -> str:
 def _matches_machine_list(machine_names: Iterable[str]) -> bool:
     """Return True if the current hostname matches any configured machine name."""
     node = _node_name()
-    return any(node in machine.lower() or machine.lower() in node for machine in machine_names)
+    return any(
+        node in machine.lower() or machine.lower() in node for machine in machine_names
+    )
 
 
 def is_simulated_system() -> bool:
@@ -587,7 +589,13 @@ def config_factory(config_dir: Path):
         def test_something(config_factory):
             path = config_factory("image_config.yml")
     """
-    def _factory(name: str, *, exp_dir: str | None = None, overrides: dict[str, Any] | None = None) -> Path:
+
+    def _factory(
+        name: str,
+        *,
+        exp_dir: str | None = None,
+        overrides: dict[str, Any] | None = None,
+    ) -> Path:
         resolved_exp_dir = exp_dir if exp_dir is not None else str(config_dir)
         data = build_named_config(name, exp_dir=resolved_exp_dir)
         if overrides:
@@ -619,16 +627,11 @@ def _deep_update(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any
     """Recursively update a nested dictionary."""
     result = deepcopy(base)
     for key, value in updates.items():
-        if (
-            key in result
-            and isinstance(result[key], dict)
-            and isinstance(value, dict)
-        ):
+        if key in result and isinstance(result[key], dict) and isinstance(value, dict):
             result[key] = _deep_update(result[key], value)
         else:
             result[key] = value
     return result
-
 
 
 # ----------------------------------------------------------------------

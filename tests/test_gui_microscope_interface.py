@@ -36,7 +36,6 @@ def connected_iface(monkeypatch):
 # Initialization
 # ----------------------------------------------------------------------
 class TestInit:
-
     def test_default_host_port(self, iface):
         assert iface.host == "localhost"
         assert iface.port == ""
@@ -55,7 +54,6 @@ class TestInit:
 # is_connected property
 # ----------------------------------------------------------------------
 class TestIsConnected:
-
     def test_false_when_no_microscope(self, iface):
         assert iface.is_connected is False
 
@@ -75,7 +73,6 @@ class TestIsConnected:
 # connect
 # ----------------------------------------------------------------------
 class TestConnect:
-
     def test_connect_success(self, iface, monkeypatch):
         fake_microscope = MagicMock()
         monkeypatch.setattr(
@@ -90,7 +87,9 @@ class TestConnect:
         assert iface.is_connected is True
         assert iface._microscope is fake_microscope
 
-    def test_connect_when_already_connected_is_no_op(self, connected_iface, monkeypatch):
+    def test_connect_when_already_connected_is_no_op(
+        self, connected_iface, monkeypatch
+    ):
         original_microscope = connected_iface._microscope
         call_count = {"n": 0}
 
@@ -140,7 +139,6 @@ class TestConnect:
 # disconnect
 # ----------------------------------------------------------------------
 class TestDisconnect:
-
     def test_disconnect_clears_microscope(self, connected_iface, monkeypatch):
         monkeypatch.setattr(
             "pytribeam.GUI.config_ui.microscope_interface.ut.disconnect_microscope",
@@ -152,7 +150,9 @@ class TestDisconnect:
     def test_disconnect_when_not_connected_does_nothing(self, iface):
         iface.disconnect()  # should not raise
 
-    def test_disconnect_exception_does_not_propagate(self, connected_iface, monkeypatch):
+    def test_disconnect_exception_does_not_propagate(
+        self, connected_iface, monkeypatch
+    ):
         monkeypatch.setattr(
             "pytribeam.GUI.config_ui.microscope_interface.ut.disconnect_microscope",
             lambda m: (_ for _ in ()).throw(RuntimeError("hardware error")),
@@ -165,7 +165,6 @@ class TestDisconnect:
 # ensure_connected
 # ----------------------------------------------------------------------
 class TestEnsureConnected:
-
     def test_raises_when_not_connected(self, iface):
         with pytest.raises(MicroscopeConnectionError, match="Not connected"):
             iface.ensure_connected()
@@ -178,7 +177,6 @@ class TestEnsureConnected:
 # Context manager
 # ----------------------------------------------------------------------
 class TestContextManager:
-
     def test_enter_calls_connect(self, iface, monkeypatch):
         calls = []
         monkeypatch.setattr(iface, "connect", lambda: calls.append("connect"))
@@ -215,7 +213,6 @@ class TestContextManager:
 # get_stage_position
 # ----------------------------------------------------------------------
 class TestGetStagePosition:
-
     def test_raises_when_not_connected(self, iface):
         with pytest.raises(MicroscopeConnectionError):
             iface.get_stage_position()
@@ -234,7 +231,9 @@ class TestGetStagePosition:
             "pytribeam.GUI.config_ui.microscope_interface.factory.active_stage_position_settings",
             lambda m: (_ for _ in ()).throw(RuntimeError("hardware error")),
         )
-        with pytest.raises(MicroscopeConnectionError, match="Failed to get stage position"):
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get stage position"
+        ):
             connected_iface.get_stage_position()
 
 
@@ -242,7 +241,6 @@ class TestGetStagePosition:
 # test_connection
 # ----------------------------------------------------------------------
 class TestTestConnection:
-
     def test_success(self, iface, monkeypatch):
         monkeypatch.setattr(iface, "connect", lambda: None)
         monkeypatch.setattr(iface, "disconnect", lambda: None)
@@ -276,7 +274,6 @@ class TestTestConnection:
 # get_working_distances
 # ----------------------------------------------------------------------
 class TestGetWorkingDistances:
-
     def test_raises_when_not_connected(self, iface):
         with pytest.raises(MicroscopeConnectionError):
             iface.get_working_distances()
@@ -286,7 +283,9 @@ class TestGetWorkingDistances:
             "pytribeam.GUI.config_ui.microscope_interface.ut.beam_type",
             lambda beam, m: (_ for _ in ()).throw(RuntimeError("beam error")),
         )
-        with pytest.raises(MicroscopeConnectionError, match="Failed to get working distances"):
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get working distances"
+        ):
             connected_iface.get_working_distances()
 
 
@@ -294,7 +293,6 @@ class TestGetWorkingDistances:
 # get_stage_info
 # ----------------------------------------------------------------------
 class TestGetStageInfo:
-
     def test_raises_when_not_connected(self, iface):
         with pytest.raises(MicroscopeConnectionError):
             iface.get_stage_info()
@@ -326,7 +324,6 @@ class TestGetStageInfo:
 # get_imaging_settings
 # ----------------------------------------------------------------------
 class TestGetImagingSettings:
-
     def test_raises_when_not_connected(self, iface):
         with pytest.raises(MicroscopeConnectionError):
             iface.get_imaging_settings()
@@ -345,7 +342,9 @@ class TestGetImagingSettings:
             "pytribeam.GUI.config_ui.microscope_interface.factory.active_image_settings",
             lambda m: (_ for _ in ()).throw(RuntimeError("image error")),
         )
-        with pytest.raises(MicroscopeConnectionError, match="Failed to get imaging settings"):
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get imaging settings"
+        ):
             connected_iface.get_imaging_settings()
 
 
@@ -353,7 +352,6 @@ class TestGetImagingSettings:
 # get_laser_state
 # ----------------------------------------------------------------------
 class TestGetLaserState:
-
     def test_returns_state(self, iface, monkeypatch):
         fake_state = MagicMock()
         fake_db = {"power": 10}
@@ -373,7 +371,9 @@ class TestGetLaserState:
             "pytribeam.GUI.config_ui.microscope_interface.factory.active_laser_state",
             lambda: (_ for _ in ()).throw(RuntimeError("laser error")),
         )
-        with pytest.raises(MicroscopeConnectionError, match="Failed to get laser state"):
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get laser state"
+        ):
             iface.get_laser_state()
 
 
@@ -381,7 +381,6 @@ class TestGetLaserState:
 # check_device_connections
 # ----------------------------------------------------------------------
 class TestCheckDeviceConnections:
-
     def test_returns_status_dict(self, monkeypatch):
         fake_status = {"EDS": True, "EBSD": False}
         monkeypatch.setattr(
@@ -405,7 +404,6 @@ class TestCheckDeviceConnections:
 # format_stage_info
 # ----------------------------------------------------------------------
 class TestFormatStageInfo:
-
     @pytest.fixture
     def stage_info(self):
         return {

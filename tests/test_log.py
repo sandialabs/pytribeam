@@ -25,13 +25,11 @@ def test_create_file(temp_dir):
 
 
 class TestStoreLogData:
-
     def test_current_time(self):
         now = datetime.datetime.now()
         unix_now = int(now.timestamp())
         time = log.current_time()
         assert time.unix - unix_now < 5
-
 
     def test_experiment_settings(self, config_factory):
         yml_path = config_factory("image_config.yml")
@@ -53,6 +51,7 @@ class TestStoreLogData:
         )
 
         import shutil
+
         shutil.copy(h5_path, Path("//snl/home/tribeam-team/DaaS/Downloads/1.h5"))
         shutil.copy(yml_path, Path("//snl/home/tribeam-team/DaaS/Downloads/1.yml"))
         shutil.copy(yml_path_out, Path("//snl/home/tribeam-team/DaaS/Downloads/2.yml"))
@@ -62,7 +61,6 @@ class TestStoreLogData:
         with open(yml_path_out, "r") as f:
             found = yaml.safe_load(f)
         assert known == found
-
 
     def test_position(self, temp_dir):
         temp_file = temp_dir.joinpath(
@@ -108,7 +106,6 @@ class TestStoreLogData:
             known_position.r_deg, abs=Constants.default_stage_tolerance.angular_deg
         )
         microscope.disconnect()
-
 
     def test_laser_power(self, temp_dir):
         temp_file = temp_dir.joinpath(
@@ -159,7 +156,6 @@ class TestStoreLogData:
 
         assert data["Slice"][0] == slice_number
         assert data["Slice"][1] == slice_number_2
-
 
     def test_sample_current(self, temp_dir):
         temp_file = temp_dir.joinpath(

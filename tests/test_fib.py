@@ -224,7 +224,6 @@ def test_prepare_milling():
 
 
 class TestPatterns:
-
     @pytest.mark.simulated
     def test_create_rectangle_pattern(self):
         microscope = tbt.Microscope()
@@ -244,7 +243,6 @@ class TestPatterns:
         validate_box_pattern(pattern, fib_settings)
         microscope.patterning.clear_patterns()
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_create_regular_cross_section_pattern(self):
@@ -266,7 +264,6 @@ class TestPatterns:
         microscope.patterning.clear_patterns()
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_create_cleaning_cross_section_pattern(self):
         microscope = tbt.Microscope()
@@ -287,7 +284,6 @@ class TestPatterns:
         validate_box_pattern(pattern, fib_settings)
         microscope.patterning.clear_patterns()
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_create_stream_pattern(self, fib_stream_assets):

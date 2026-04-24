@@ -27,24 +27,26 @@ class FakeLUT(dict):
 @pytest.fixture
 def fake_lut(monkeypatch):
     def get_lut(step_type, version):
-        lut = FakeLUT({
-            "step_general/step_type": FakeField(str, "image"),
-            "step_general/step_name": FakeField(str, "step"),
-            "step_general/step_number": FakeField(int, 1),
-            "beam/voltage_kv": FakeField(float, 5.0),
-            "enabled": FakeField(bool, True),
-            "step_count": FakeField(int, 0),
-        })
+        lut = FakeLUT(
+            {
+                "step_general/step_type": FakeField(str, "image"),
+                "step_general/step_name": FakeField(str, "step"),
+                "step_general/step_number": FakeField(int, 1),
+                "beam/voltage_kv": FakeField(float, 5.0),
+                "enabled": FakeField(bool, True),
+                "step_count": FakeField(int, 0),
+            }
+        )
         return lut
 
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.get_lut", get_lut)
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.VERSIONS", [1.0])
 
+
 # ----------------------------------------------------------------------
 # StepConfig
 # ----------------------------------------------------------------------
 class TestStepConfig:
-
     def test_set_and_get_param(self):
         step = StepConfig(1, "image", "img")
         step.set_param("beam/voltage_kv", "5")
@@ -65,11 +67,11 @@ class TestStepConfig:
         step.clear_params()
         assert step.parameters == {}
 
+
 # ----------------------------------------------------------------------
 # Type conversion
 # ----------------------------------------------------------------------
 class TestTypeConversion:
-
     def test_bool_conversion(self):
         assert _check_value_type("True", bool) is True
         assert _check_value_type("false", bool) is False
@@ -85,22 +87,22 @@ class TestTypeConversion:
     def test_invalid_conversion_returns_original(self):
         assert _check_value_type("abc", int) == "abc"
 
+
 # ----------------------------------------------------------------------
 # Pipeline creation
 # ----------------------------------------------------------------------
 class TestPipelineCreation:
-
     def test_create_new(self, fake_lut):
         pipeline = PipelineConfig.create_new()
 
         assert pipeline.get_step_count() == 0
         assert pipeline.general.get_param("step_count") == "0"
 
+
 # ----------------------------------------------------------------------
 # Step manipulation
 # ----------------------------------------------------------------------
 class TestPipelineSteps:
-
     def test_add_step(self, fake_lut):
         p = PipelineConfig.create_new()
         step = p.add_step("image")
@@ -130,11 +132,11 @@ class TestPipelineSteps:
         assert dup is not None
         assert p.get_step_count() == 2
 
+
 # ----------------------------------------------------------------------
 # Name validation
 # ----------------------------------------------------------------------
 class TestValidation:
-
     def test_duplicate_names(self, fake_lut):
         p = PipelineConfig.create_new()
         p.add_step("image", name="same")
@@ -144,11 +146,11 @@ class TestValidation:
         assert not valid
         assert "same" in dup
 
+
 # ----------------------------------------------------------------------
 # flatten/unflatten
 # ----------------------------------------------------------------------
 class TestDictUtilities:
-
     def test_flatten(self):
         d = {"a": {"b": 1}}
         assert flatten_dict(d) == {"a/b": 1}
@@ -157,11 +159,11 @@ class TestDictUtilities:
         d = {"a/b": 1}
         assert unflatten_dict(d) == {"a": {"b": 1}}
 
+
 # ----------------------------------------------------------------------
 # Version migration
 # ----------------------------------------------------------------------
 class TestVersionMigration:
-
     def test_set_version_updates_steps(self, fake_lut):
         p = PipelineConfig.create_new(version=1.0)
         p.add_step("image")

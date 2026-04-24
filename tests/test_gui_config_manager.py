@@ -6,6 +6,7 @@ import os
 import time
 from pathlib import Path
 import pathlib
+
 pathlib.PosixPath = pathlib.WindowsPath
 
 import pytest
@@ -31,8 +32,7 @@ def temp_base_dir(tmp_path: Path) -> Path:
 # Helper functions
 # ----------------------------------------------------------------------
 def write_config_json(path: Path, data: dict):
-    """Write a JSON config file to *path* with the supplied *data*.
-    """
+    """Write a JSON config file to *path* with the supplied *data*."""
     path.parent.mkdir(parents=True, exist_ok=True)
     with open(path, "w") as f:
         json.dump(data, f, indent=2)
@@ -51,7 +51,9 @@ class TestAppConfigFromEnv:
             ("posix", "XDG_DATA_HOME", ".local/share"),
         ],
     )
-    def test_respects_environment(self, monkeypatch, tmp_path, os_name, env_var, expected_subdir):
+    def test_respects_environment(
+        self, monkeypatch, tmp_path, os_name, env_var, expected_subdir
+    ):
         # Arrange – set environment to a known temporary location
         fake_base = tmp_path / "fake_base"
         fake_base.mkdir()

@@ -3,6 +3,7 @@ from copy import deepcopy
 
 from pytribeam.GUI.config_ui.lookup import LUT, LUTField, VersionedLUT
 
+
 # ----------------------------------------------------------------------
 # Fixtures
 # ----------------------------------------------------------------------
@@ -47,11 +48,11 @@ def nested_lut(field_int, field_bool):
 
     return root
 
+
 # ----------------------------------------------------------------------
 # Basic behavior
 # ----------------------------------------------------------------------
 class TestLUTBasics:
-
     def test_add_and_get_entry(self, field_int):
         lut = LUT("test")
         lut["a"] = field_int
@@ -71,11 +72,11 @@ class TestLUTBasics:
         copy = deepcopy(nested_lut)
         assert nested_lut == copy
 
+
 # ----------------------------------------------------------------------
 # Flattening
 # ----------------------------------------------------------------------
 class TestFlattening:
-
     def test_flatten_produces_paths(self, nested_lut):
         nested_lut.flatten()
         keys = nested_lut.entries.keys()
@@ -95,15 +96,16 @@ class TestFlattening:
         nested_lut.unflatten()
         assert nested_lut == original
 
+
 # ----------------------------------------------------------------------
 # Dict-like behavior
 # ----------------------------------------------------------------------
 class TestMappingInterface:
-
     def test_items_keys_values(self, nested_lut):
         assert list(nested_lut.keys()) == ["beam"]
         assert len(list(nested_lut.values())) == 1
         assert len(list(nested_lut.items())) == 1
+
 
 # ----------------------------------------------------------------------
 # VersionedLUT
@@ -119,8 +121,8 @@ def always_true(version, interval, mode):
 def always_false(version, interval, mode):
     return False
 
-class TestVersionedLUT:
 
+class TestVersionedLUT:
     def test_invalid_version(self, monkeypatch):
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.VERSIONS", [1])
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.LUTs", {"image": LUT("x")})
@@ -137,32 +139,36 @@ class TestVersionedLUT:
         with pytest.raises(ValueError):
             vlut.get_lut("unknown", 1)
 
-    def test_filters_out_of_range_fields(
-        self, monkeypatch, field_int
-    ):
+    def test_filters_out_of_range_fields(self, monkeypatch, field_int):
         lut = LUT("image")
         lut["a"] = field_int
 
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.VERSIONS", [1])
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.LUTs", {"image": lut})
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.ut.in_interval", always_false)
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.ut.in_interval", always_false
+        )
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval
+        )
 
         vlut = VersionedLUT()
         filtered = vlut.get_lut("image", 1)
 
         assert filtered.entries == {}
 
-    def test_keeps_valid_fields(
-        self, monkeypatch, field_int
-    ):
+    def test_keeps_valid_fields(self, monkeypatch, field_int):
         lut = LUT("image")
         lut["a"] = field_int
 
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.VERSIONS", [1])
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.LUTs", {"image": lut})
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.ut.in_interval", always_true)
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.ut.in_interval", always_true
+        )
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval
+        )
 
         vlut = VersionedLUT()
         filtered = vlut.get_lut("image", 1)
@@ -195,15 +201,18 @@ class TestVersionedLUT:
             start, end = interval
             return start <= version <= end
 
-
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.VERSIONS", [1])
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.LUTs", {"image": root})
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.ut.in_interval", selective_interval)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.ut.in_interval", selective_interval
+        )
 
         class DummyInterval:
             CLOSED = "closed"
 
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval
+        )
 
         vlut = VersionedLUT()
         filtered = vlut.get_lut("image", 1)
@@ -215,9 +224,7 @@ class TestVersionedLUT:
         # Only one child remains
         assert list(filtered["beam"].entries.keys()) == ["voltage"]
 
-    def test_empty_nested_groups_removed(
-        self, monkeypatch, field_int
-    ):
+    def test_empty_nested_groups_removed(self, monkeypatch, field_int):
         """
         If all children of a nested LUT are filtered out,
         the parent container must also be removed.
@@ -232,16 +239,19 @@ class TestVersionedLUT:
         # Filter EVERYTHING out
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.VERSIONS", [1])
         monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.LUTs", {"image": root})
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.ut.in_interval", lambda *a: False)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.ut.in_interval", lambda *a: False
+        )
 
         class DummyInterval:
             CLOSED = "closed"
 
-        monkeypatch.setattr("pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval)
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.lookup.tbt.IntervalType", DummyInterval
+        )
 
         vlut = VersionedLUT()
         filtered = vlut.get_lut("image", 1)
 
         # Entire structure should disappear
         assert filtered.entries == {}
-

@@ -13,6 +13,7 @@ from pytribeam.GUI.common.threading_utils import (
     generate_escape_keypress,
 )
 
+
 # ----------------------------------------------------------------------
 # Fixtures
 # ----------------------------------------------------------------------
@@ -20,6 +21,7 @@ from pytribeam.GUI.common.threading_utils import (
 def short_task():
     def task(x, y):
         return x + y
+
     return task
 
 
@@ -27,6 +29,7 @@ def short_task():
 def error_task():
     def task():
         raise RuntimeError("boom")
+
     return task
 
 
@@ -34,13 +37,14 @@ def error_task():
 def sleep_task():
     def task():
         time.sleep(5)
+
     return task
+
 
 # ----------------------------------------------------------------------
 # StoppableThread
 # ----------------------------------------------------------------------
 class TestStoppableThread:
-
     def test_returns_result(self, short_task):
         t = StoppableThread(target=short_task, args=(2, 3))
         t.start()
@@ -95,7 +99,6 @@ class TestStoppableThread:
 # ThreadManager
 # ----------------------------------------------------------------------
 class TestThreadManager:
-
     def test_run_async_and_get_thread(self, short_task):
         tm = ThreadManager()
         t = tm.run_async("worker", short_task, args=(1, 2))
@@ -129,6 +132,7 @@ class TestThreadManager:
         tm.cleanup()
         assert tm.get_thread("done") is None
 
+
 # ----------------------------------------------------------------------
 # Fake widget
 # ----------------------------------------------------------------------
@@ -160,7 +164,6 @@ class DummyWidget:
 # TextRedirector
 # ----------------------------------------------------------------------
 class TestTextRedirector:
-
     def test_write_to_widget(self):
         widget = DummyWidget()
         r = TextRedirector(widget)
@@ -200,11 +203,11 @@ class TestTextRedirector:
         monkeypatch.setattr("builtins.open", fail_open)
         r.write("safe")  # should not crash
 
+
 # ----------------------------------------------------------------------
 # generate_escape_keypress
 # ----------------------------------------------------------------------
 class TestGenerateEscapeKeypress:
-
     def test_non_windows_raises(self, monkeypatch):
         monkeypatch.setattr(sys, "platform", "linux")
         with pytest.raises(OSError):

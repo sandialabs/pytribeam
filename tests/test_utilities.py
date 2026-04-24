@@ -11,7 +11,6 @@ import pytribeam.utilities as ut
 import pytribeam.types as tbt
 
 
-
 # https://stackoverflow.com/questions/16039463/how-to-access-the-py-test-capsys-from-inside-a-test
 # @pytest.fixture(autouse=True)
 # def capsys(capsys):
@@ -97,13 +96,11 @@ def test_valid_enum_entry():
 
 
 class TestYAMLUtilities:
-
     @pytest.mark.simulated
     def test_yml_format(self):
         yml_version = 1.0
         yml_format = ut.yml_format(version=yml_version)
         assert type(yml_format) == tbt.YMLFormatVersion
-
 
     @pytest.mark.simulated
     def test_yaml_to_dict(self, config_factory):
@@ -197,7 +194,6 @@ class TestYAMLUtilities:
         }
 
         assert known_db == found_db
-
 
     @pytest.mark.simulated
     def test_read_step_settings(self, config_factory):

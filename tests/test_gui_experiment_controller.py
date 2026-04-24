@@ -19,7 +19,6 @@ from pytribeam.GUI.runner_util.experiment_controller import (
 # ExperimentState
 # ----------------------------------------------------------------------
 class TestExperimentState:
-
     def test_default_values(self):
         s = ExperimentState()
         assert s.current_slice == 1
@@ -57,7 +56,6 @@ class TestExperimentState:
 # Initialization
 # ----------------------------------------------------------------------
 class TestInit:
-
     def test_default_init(self):
         ctrl = ExperimentController()
         assert ctrl.config_path is None
@@ -75,7 +73,6 @@ class TestInit:
 # set_config_path
 # ----------------------------------------------------------------------
 class TestSetConfigPath:
-
     def test_set_path(self, tmp_path):
         ctrl = ExperimentController()
         path = tmp_path / "new.yml"
@@ -94,7 +91,6 @@ class TestSetConfigPath:
 # Callback system
 # ----------------------------------------------------------------------
 class TestCallbacks:
-
     def test_register_and_fire(self):
         ctrl = ExperimentController()
         received = {}
@@ -108,7 +104,9 @@ class TestCallbacks:
 
     def test_callback_exception_does_not_propagate(self):
         ctrl = ExperimentController()
-        ctrl.register_callback("bad", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
+        ctrl.register_callback(
+            "bad", lambda: (_ for _ in ()).throw(RuntimeError("boom"))
+        )
         ctrl._notify("bad")  # should not raise
 
     def test_callback_replaced(self):
@@ -123,8 +121,7 @@ class TestCallbacks:
         ctrl = ExperimentController()
         received = {}
         ctrl.register_callback(
-            "multi",
-            lambda *a, **kw: received.update({"a": a, "kw": kw})
+            "multi", lambda *a, **kw: received.update({"a": a, "kw": kw})
         )
         ctrl._notify("multi", 1, 2, k="v")
         assert received["a"] == (1, 2)
@@ -135,7 +132,6 @@ class TestCallbacks:
 # clear_experiment_settings
 # ----------------------------------------------------------------------
 class TestClearExperimentSettings:
-
     def test_clears_when_none(self):
         ctrl = ExperimentController()
         ctrl.clear_experiment_settings()  # should not raise
@@ -175,7 +171,9 @@ class TestClearExperimentSettings:
 
         monkeypatch.setattr(
             "pytribeam.GUI.runner_util.experiment_controller.utilities.disconnect_microscope",
-            lambda m, **kw: (_ for _ in ()).throw(Exception("Client is already disconnected.")),
+            lambda m, **kw: (_ for _ in ()).throw(
+                Exception("Client is already disconnected.")
+            ),
         )
 
         ctrl.experiment_settings = fake_settings
@@ -187,7 +185,6 @@ class TestClearExperimentSettings:
 # validate_config
 # ----------------------------------------------------------------------
 class TestValidateConfig:
-
     def test_no_path_returns_failure(self):
         ctrl = ExperimentController()
         ok, settings, err = ctrl.validate_config()
@@ -242,7 +239,6 @@ class TestValidateConfig:
 # Stop requests (while not running)
 # ----------------------------------------------------------------------
 class TestStopRequests:
-
     def test_request_stop_step_when_not_running(self):
         ctrl = ExperimentController()
         ctrl.request_stop_after_step()  # should be a no-op
@@ -274,7 +270,9 @@ class TestStopRequests:
         ctrl = ExperimentController()
         ctrl.state.is_running = True
         received = {}
-        ctrl.register_callback("stop_requested", lambda kind: received.update({"kind": kind}))
+        ctrl.register_callback(
+            "stop_requested", lambda kind: received.update({"kind": kind})
+        )
         ctrl.request_stop_after_step()
         assert received["kind"] == "step"
 
@@ -282,7 +280,9 @@ class TestStopRequests:
         ctrl = ExperimentController()
         ctrl.state.is_running = True
         received = {}
-        ctrl.register_callback("stop_requested", lambda kind: received.update({"kind": kind}))
+        ctrl.register_callback(
+            "stop_requested", lambda kind: received.update({"kind": kind})
+        )
         ctrl.request_stop_after_slice()
         assert received["kind"] == "slice"
 
@@ -294,7 +294,9 @@ class TestStopRequests:
         ctrl = ExperimentController()
         ctrl.state.is_running = True
         received = {}
-        ctrl.register_callback("stop_requested", lambda kind: received.update({"kind": kind}))
+        ctrl.register_callback(
+            "stop_requested", lambda kind: received.update({"kind": kind})
+        )
         ctrl.request_stop_now()
         assert ctrl.state.should_stop_now is True
         assert received["kind"] == "now"
@@ -304,15 +306,14 @@ class TestStopRequests:
 # _update_progress
 # ----------------------------------------------------------------------
 class TestUpdateProgress:
-
     def test_progress_calculation(self):
         ctrl = ExperimentController()
         state_updates = []
-        ctrl.register_callback("state_changed", lambda s: state_updates.append(s.progress_percent))
-
-        ctrl._update_progress(
-            slice_num=1, step_num=5, total_slices=10, total_steps=10
+        ctrl.register_callback(
+            "state_changed", lambda s: state_updates.append(s.progress_percent)
         )
+
+        ctrl._update_progress(slice_num=1, step_num=5, total_slices=10, total_steps=10)
         # (1-1)*10 + 5 = 5 / (10*10) * 100 = 5%
         assert ctrl.state.progress_percent == 5
         assert 5 in state_updates
@@ -326,9 +327,7 @@ class TestUpdateProgress:
 
     def test_progress_first_step(self):
         ctrl = ExperimentController()
-        ctrl._update_progress(
-            slice_num=1, step_num=1, total_slices=5, total_steps=4
-        )
+        ctrl._update_progress(slice_num=1, step_num=1, total_slices=5, total_steps=4)
         # (1-1)*4 + 1 = 1 / 20 * 100 = 5%
         assert ctrl.state.progress_percent == 5
 
@@ -344,7 +343,6 @@ class TestUpdateProgress:
 # _update_timing_stats
 # ----------------------------------------------------------------------
 class TestUpdateTimingStats:
-
     def test_no_slice_times_is_no_op(self):
         ctrl = ExperimentController()
         ctrl._slice_times = []
@@ -382,7 +380,6 @@ class TestUpdateTimingStats:
 # _check_detector_warning
 # ----------------------------------------------------------------------
 class TestCheckDetectorWarning:
-
     def _make_settings(self, enable_ebsd: bool, enable_eds: bool):
         settings = MagicMock()
         settings.enable_EBSD = enable_ebsd
@@ -432,7 +429,6 @@ class TestCheckDetectorWarning:
 # start_experiment (state management, no hardware)
 # ----------------------------------------------------------------------
 class TestStartExperiment:
-
     def test_already_running_returns_false(self):
         ctrl = ExperimentController()
         ctrl.state.is_running = True
@@ -449,7 +445,9 @@ class TestStartExperiment:
 
     def test_invalid_config_fires_validation_failed(self, monkeypatch):
         ctrl = ExperimentController()
-        monkeypatch.setattr(ctrl, "validate_config", lambda: (False, None, "bad config"))
+        monkeypatch.setattr(
+            ctrl, "validate_config", lambda: (False, None, "bad config")
+        )
         failures = []
         ctrl.register_callback("validation_failed", lambda m: failures.append(m))
         result = ctrl.start_experiment()
@@ -461,7 +459,6 @@ class TestStartExperiment:
 # _log_error
 # ----------------------------------------------------------------------
 class TestLogError:
-
     def test_creates_error_log(self, monkeypatch, tmp_path):
         from pytribeam.GUI.common.config_manager import AppConfig
 
@@ -487,7 +484,6 @@ class TestLogError:
 # _try_stop_stage
 # ----------------------------------------------------------------------
 class TestTryStopStage:
-
     def test_stops_stage_without_crash(self, monkeypatch):
         # stage.stop raises SystemError on successful stop (by design in the code)
         monkeypatch.setattr(

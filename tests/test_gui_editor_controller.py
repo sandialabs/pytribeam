@@ -26,15 +26,18 @@ class FakeLUT(dict):
 @pytest.fixture(autouse=True)
 def fake_lut(monkeypatch):
     """Monkeypatch LUT access so no real schema is required."""
+
     def get_lut(step_type, version):
-        return FakeLUT({
-            "step_general/step_type": FakeField(str, "image"),
-            "step_general/step_name": FakeField(str, "step"),
-            "step_general/step_number": FakeField(int, 1),
-            "beam/voltage_kv": FakeField(float, 5.0),
-            "enabled": FakeField(bool, True),
-            "step_count": FakeField(int, 0),
-        })
+        return FakeLUT(
+            {
+                "step_general/step_type": FakeField(str, "image"),
+                "step_general/step_name": FakeField(str, "step"),
+                "step_general/step_number": FakeField(int, 1),
+                "beam/voltage_kv": FakeField(float, 5.0),
+                "enabled": FakeField(bool, True),
+                "step_count": FakeField(int, 0),
+            }
+        )
 
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.get_lut", get_lut)
     monkeypatch.setattr("pytribeam.GUI.config_ui.pipeline_model.lut.VERSIONS", [1.0])
@@ -58,7 +61,6 @@ def controller_with_pipeline(controller):
 # Initialization
 # ----------------------------------------------------------------------
 class TestInit:
-
     def test_default_state(self, controller):
         assert controller.pipeline is None
         assert controller.current_step_index == 0
@@ -76,7 +78,6 @@ class TestInit:
 # Callback system
 # ----------------------------------------------------------------------
 class TestCallbacks:
-
     def test_register_and_fire_callback(self, controller):
         received = {}
 
@@ -121,7 +122,6 @@ class TestCallbacks:
 # Pipeline creation
 # ----------------------------------------------------------------------
 class TestCreateNewPipeline:
-
     def test_creates_pipeline(self, controller):
         controller.create_new_pipeline()
         assert controller.pipeline is not None
@@ -133,7 +133,9 @@ class TestCreateNewPipeline:
 
     def test_pipeline_created_callback_fired(self, controller):
         received = {}
-        controller.register_callback("pipeline_created", lambda p: received.update({"pipeline": p}))
+        controller.register_callback(
+            "pipeline_created", lambda p: received.update({"pipeline": p})
+        )
         controller.create_new_pipeline()
         assert "pipeline" in received
 
@@ -146,7 +148,6 @@ class TestCreateNewPipeline:
 # Load pipeline
 # ----------------------------------------------------------------------
 class TestLoadPipeline:
-
     def test_load_success(self, controller, tmp_path):
         fake_path = tmp_path / "test.yml"
         fake_pipeline = PipelineConfig.create_new(version=1.0)
@@ -162,7 +163,9 @@ class TestLoadPipeline:
     def test_load_failure_returns_error(self, controller, tmp_path):
         fake_path = tmp_path / "missing.yml"
 
-        with patch.object(PipelineConfig, "from_yaml", side_effect=FileNotFoundError("not found")):
+        with patch.object(
+            PipelineConfig, "from_yaml", side_effect=FileNotFoundError("not found")
+        ):
             success, err = controller.load_pipeline(fake_path)
 
         assert success is False
@@ -183,7 +186,9 @@ class TestLoadPipeline:
         fake_pipeline = PipelineConfig.create_new(version=1.0)
         received = {}
 
-        controller.register_callback("pipeline_loaded", lambda p: received.update({"p": p}))
+        controller.register_callback(
+            "pipeline_loaded", lambda p: received.update({"p": p})
+        )
 
         with patch.object(PipelineConfig, "from_yaml", return_value=fake_pipeline):
             controller.load_pipeline(fake_path)
@@ -195,7 +200,6 @@ class TestLoadPipeline:
 # Save pipeline
 # ----------------------------------------------------------------------
 class TestSavePipeline:
-
     def test_save_no_pipeline_returns_error(self, controller, tmp_path):
         success, err = controller.save_pipeline(tmp_path / "out.yml")
         assert success is False
@@ -237,7 +241,6 @@ class TestSavePipeline:
 # Step management
 # ----------------------------------------------------------------------
 class TestStepManagement:
-
     def test_add_step_increments_count(self, controller_with_pipeline):
         controller_with_pipeline.add_step("image")
         assert controller_with_pipeline.get_step_count() == 1
@@ -303,7 +306,6 @@ class TestStepManagement:
 # Step selection
 # ----------------------------------------------------------------------
 class TestStepSelection:
-
     def test_select_step_updates_index(self, controller_with_pipeline):
         controller_with_pipeline.add_step("image")
         controller_with_pipeline.select_step(1)
@@ -335,7 +337,6 @@ class TestStepSelection:
 # Parameter read/write
 # ----------------------------------------------------------------------
 class TestParameterAccess:
-
     def test_update_and_get_parameter(self, controller_with_pipeline):
         controller_with_pipeline.update_parameter("beam/voltage_kv", "10.0")
         value = controller_with_pipeline.get_parameter("beam/voltage_kv")
@@ -357,7 +358,9 @@ class TestParameterAccess:
         assert value == "10.5"
 
     def test_get_parameter_default_when_missing(self, controller_with_pipeline):
-        value = controller_with_pipeline.get_parameter("missing/path", default="fallback")
+        value = controller_with_pipeline.get_parameter(
+            "missing/path", default="fallback"
+        )
         assert value == "fallback"
 
     def test_update_no_current_step_does_nothing(self, controller):
@@ -368,7 +371,7 @@ class TestParameterAccess:
         received = {}
         controller_with_pipeline.register_callback(
             "parameter_changed",
-            lambda path, val: received.update({"path": path, "val": val})
+            lambda path, val: received.update({"path": path, "val": val}),
         )
         controller_with_pipeline.update_parameter("beam/voltage_kv", "5.0")
         assert received["path"] == "beam/voltage_kv"
@@ -378,7 +381,6 @@ class TestParameterAccess:
 # Step names and count
 # ----------------------------------------------------------------------
 class TestStepNamesAndCount:
-
     def test_step_count_no_pipeline(self, controller):
         assert controller.get_step_count() == 0
 
@@ -396,7 +398,6 @@ class TestStepNamesAndCount:
 # Renaming
 # ----------------------------------------------------------------------
 class TestRenaming:
-
     def test_rename_step_success(self, controller_with_pipeline):
         controller_with_pipeline.add_step("image")
         result = controller_with_pipeline.rename_step(1, "new_name")
@@ -415,7 +416,7 @@ class TestRenaming:
         received = {}
         controller_with_pipeline.register_callback(
             "step_renamed",
-            lambda idx, name: received.update({"idx": idx, "name": name})
+            lambda idx, name: received.update({"idx": idx, "name": name}),
         )
         controller_with_pipeline.rename_step(1, "renamed")
         assert received["name"] == "renamed"
@@ -425,7 +426,6 @@ class TestRenaming:
 # Versioning
 # ----------------------------------------------------------------------
 class TestVersioning:
-
     def test_get_version(self, controller):
         assert controller.get_version() == 1.0
 
@@ -454,7 +454,6 @@ class TestVersioning:
 # Validation
 # ----------------------------------------------------------------------
 class TestValidation:
-
     def test_validate_structure_no_pipeline(self, controller):
         success, msg = controller.validate_structure()
         assert success is False
@@ -475,19 +474,23 @@ class TestValidation:
         success, msg = controller_with_pipeline.validate_structure()
         assert success is False
 
-    def test_validate_general_fires_callback(self, controller_with_pipeline, monkeypatch):
+    def test_validate_general_fires_callback(
+        self, controller_with_pipeline, monkeypatch
+    ):
         received = {}
         controller_with_pipeline.register_callback(
-            "step_validation_complete",
-            lambda idx, ok, msg: received.update({"ok": ok})
+            "step_validation_complete", lambda idx, ok, msg: received.update({"ok": ok})
         )
         # Use a validator that returns failure (no real schema)
         from pytribeam.GUI.config_ui.validator import ValidationResult
-        mock_result = ValidationResult(success=False, step_name="general", message="fail")
+
+        mock_result = ValidationResult(
+            success=False, step_name="general", message="fail"
+        )
         monkeypatch.setattr(
             controller_with_pipeline.validator,
             "validate_general",
-            lambda d: mock_result
+            lambda d: mock_result,
         )
         controller_with_pipeline.validate_general()
         assert "ok" in received
@@ -497,7 +500,6 @@ class TestValidation:
 # Pipeline summary
 # ----------------------------------------------------------------------
 class TestPipelineSummary:
-
     def test_summary_no_pipeline(self, controller):
         summary = controller.get_pipeline_summary()
         assert summary["step_count"] == 0
@@ -519,7 +521,6 @@ class TestPipelineSummary:
 # is_modified
 # ----------------------------------------------------------------------
 class TestIsModified:
-
     def test_always_returns_false(self, controller):
         assert controller.is_modified() is False
 

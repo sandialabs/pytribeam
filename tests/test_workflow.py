@@ -30,8 +30,13 @@ def test_run_custom_script(monkeypatch, config_factory, tmp_path):
     start_slice = 1
     start_step = 1
     custom_script_path = tmp_path / "custom_script.py"
-    custom_script_path.write_text('if __name__ == "__main__":\n\tprint("Hello World!")\n', encoding="utf-8")
-    test_yml = config_factory("custom_config.yml", overrides = {"steps": {"custom_test": {"script_path": str(custom_script_path)}}})
+    custom_script_path.write_text(
+        'if __name__ == "__main__":\n\tprint("Hello World!")\n', encoding="utf-8"
+    )
+    test_yml = config_factory(
+        "custom_config.yml",
+        overrides={"steps": {"custom_test": {"script_path": str(custom_script_path)}}},
+    )
 
     # say yes to the continue question
     monkeypatch.setattr("builtins.input", lambda _: "y")

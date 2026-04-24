@@ -63,12 +63,11 @@ def small_test_pattern(microscope: tbt.Microscope) -> tbt.LaserSettings:
 # Tests
 # -----
 
-class TestLaserConnections:
 
+class TestLaserConnections:
     @pytest.mark.laser_hardware
     def test_laser_connected(self):
         assert laser.laser_connected() == True
-
 
     @pytest.mark.laser_hardware
     def test_device_connections(self):
@@ -81,7 +80,6 @@ class TestLaserConnections:
 
 
 class TestLaserSettings:
-
     @pytest.mark.laser_hardware
     def test_pattern_mode(self):
         coarse = tbt.LaserPatternMode.COARSE
@@ -91,7 +89,6 @@ class TestLaserSettings:
         fine = tbt.LaserPatternMode.FINE
         bb = laser.pattern_mode(mode=fine)
         assert bb == True
-
 
     @pytest.mark.laser_hardware
     def test_pulse_divider(self):
@@ -110,7 +107,6 @@ class TestLaserSettings:
         state = factory.active_laser_state()
         assert state.pulse_divider == 1
 
-
     @pytest.mark.laser_hardware
     def test_pulse_energy_uj(self):
         laser.tfs_laser.Laser_SetPulseEnergy_MicroJoules(10.0)
@@ -121,13 +117,13 @@ class TestLaserSettings:
             laser.pulse_energy_uj(100.0)
         assert err.type == ValueError
         assert (
-            err.value.args[0] == "Could not properly set pulse energy, requested '100.0' uJ"
+            err.value.args[0]
+            == "Could not properly set pulse energy, requested '100.0' uJ"
         )
 
         laser.pulse_energy_uj(5.0, energy_tol_uj=tolerance)
         state = factory.active_laser_state()
         assert state.pulse_energy_uj == pytest.approx(5.0, abs=tolerance)
-
 
     @pytest.mark.laser_hardware
     def test_set_wavelength(self):
@@ -141,7 +137,6 @@ class TestLaserSettings:
             wavelength=tbt.LaserWavelength.NM_515,
             frequency_khz=60,
         )
-
 
     @pytest.mark.laser_hardware
     def test_pulse_polarization(self):
@@ -179,7 +174,6 @@ class TestLaserSettings:
             == True
         )
 
-
     @pytest.mark.laser_hardware
     def test_objective_position(self):
         laser.objective_position(
@@ -196,7 +190,6 @@ class TestLaserSettings:
         )
 
         assert laser.retract_laser_objective() == True
-
 
     @pytest.mark.laser_hardware
     def test_pulse_settings(self):
@@ -223,7 +216,6 @@ class TestLaserSettings:
         )
         # TODO cannot check polarization state
 
-
     @pytest.mark.laser_hardware
     def test_beam_shift(self):
         laser.tfs_laser.BeamShift_Set_X(0.0)
@@ -244,7 +236,6 @@ class TestLaserSettings:
 
         laser.tfs_laser.BeamShift_Set_X(0.0)
         laser.tfs_laser.BeamShift_Set_Y(0.0)
-
 
     @pytest.mark.laser_hardware
     def test_read_power(self):
@@ -281,7 +272,6 @@ class TestLaserSettings:
         laser.tfs_laser.Laser_PulseDivider(1)
         laser.tfs_laser.Laser_SetPulseEnergy_MicroJoules(2.0)
 
-
     @pytest.mark.laser_hardware
     def test_apply_laser_settings(self):
         # connect to microscope
@@ -291,7 +281,6 @@ class TestLaserSettings:
         laser_settings = small_test_pattern(microscope=microscope)
 
         microscope.disconnect()
-
 
     @pytest.mark.laser_hardware
     def test_read_values(self):
@@ -340,7 +329,8 @@ class TestLaserSettings:
             known_state.pulse_energy_uj, abs=0.005
         )
         assert found_state.objective_position_mm == pytest.approx(
-            known_state.objective_position_mm, abs=cs.Constants.laser_objective_tolerance_mm
+            known_state.objective_position_mm,
+            abs=cs.Constants.laser_objective_tolerance_mm,
         )
         assert found_state.beam_shift_um.x == pytest.approx(
             known_state.beam_shift_um.x, abs=0.005
@@ -353,7 +343,6 @@ class TestLaserSettings:
 
 
 class TestLaserShutter:
-
     @pytest.mark.laser_hardware
     def test_insert_shutter(self):
         """tests laser shutter insert"""
@@ -375,7 +364,6 @@ class TestLaserShutter:
 
         microscope.disconnect()
 
-
     @pytest.mark.laser_hardware
     def test_retract_shutter(self):
         """tests laser shutter retract"""
@@ -395,7 +383,6 @@ class TestLaserShutter:
 
 
 class TestLaserPatterning:
-
     @pytest.mark.laser_hardware
     def test_create_pattern(self):
         pattern = tbt.LaserPattern(
@@ -431,7 +418,6 @@ class TestLaserPatterning:
 
         laser.create_pattern(pattern=line_pattern)
 
-
     @pytest.mark.laser_hardware
     def test_execute_patterning(self, capsys):
         # connect to microscope
@@ -455,7 +441,6 @@ class TestLaserPatterning:
         laser.retract_shutter(microscope=microscope)
 
         microscope.disconnect()
-
 
     @pytest.mark.laser_hardware
     def test_mill_region(self):

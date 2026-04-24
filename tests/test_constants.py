@@ -9,7 +9,6 @@ import pytest
 import pytribeam.constants as cs
 
 
-
 @pytest.mark.simulated
 def test_constants():
     assert all(

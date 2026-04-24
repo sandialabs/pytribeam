@@ -100,8 +100,12 @@ class TestAppResources:
     # ------------------------------------------------------------------
     # get_logo_path()
     # ------------------------------------------------------------------
-    @pytest.mark.parametrize("theme,expected_suffix", [("dark", "dark.png"), ("light", ".png")])
-    def test_get_logo_path_valid_themes(self, app_resources: AppResources, theme, expected_suffix):
+    @pytest.mark.parametrize(
+        "theme,expected_suffix", [("dark", "dark.png"), ("light", ".png")]
+    )
+    def test_get_logo_path_valid_themes(
+        self, app_resources: AppResources, theme, expected_suffix
+    ):
         logo_path = app_resources.get_logo_path(theme)
         assert isinstance(logo_path, Path)
         assert logo_path.name.endswith(expected_suffix)
@@ -113,14 +117,12 @@ class TestAppResources:
     # ------------------------------------------------------------------
     # verify_resources() & get_missing_resources()
     # ------------------------------------------------------------------
-    def test_verify_resources_all_present(self, app_resources: AppResources, monkeypatch):
+    def test_verify_resources_all_present(
+        self, app_resources: AppResources, monkeypatch
+    ):
         # Patch user_guide_path to point at the temporary index.html file
         guide_path = (
-            app_resources.base_path
-            / "docs"
-            / "userguide"
-            / "book"
-            / "index.html"
+            app_resources.base_path / "docs" / "userguide" / "book" / "index.html"
         )
         _patch_user_guide_path(monkeypatch, app_resources, guide_path)
 
@@ -133,16 +135,14 @@ class TestAppResources:
         }
         assert app_resources.get_missing_resources() == []
 
-    def test_verify_resources_some_missing(self, app_resources: AppResources, monkeypatch):
+    def test_verify_resources_some_missing(
+        self, app_resources: AppResources, monkeypatch
+    ):
         # Remove the dark logo to simulate a missing file
         (app_resources.logo_dark_path).unlink()
         # Patch user_guide_path to an existing file
         guide_path = (
-            app_resources.base_path
-            / "docs"
-            / "userguide"
-            / "book"
-            / "index.html"
+            app_resources.base_path / "docs" / "userguide" / "book" / "index.html"
         )
         _patch_user_guide_path(monkeypatch, app_resources, guide_path)
 
@@ -170,5 +170,3 @@ class TestAppResources:
         # The expected base path is the repository root (tmp_path)
         resources = AppResources.from_module_file(str(module_file))
         assert resources.base_path == tmp_path
-
-

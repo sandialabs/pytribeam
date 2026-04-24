@@ -16,6 +16,7 @@ import pytribeam.stage as stage
 # Helper functions
 # ----------------
 
+
 def prepare_stage_test_tilt(
     microscope: tbt.Microscope,
     stage_tolerance: tbt.StageTolerance,
@@ -55,16 +56,13 @@ def prepare_stage_test_tilt(
 
 
 class TestEBSDEDS:
-
     @pytest.mark.hardware
     def test_connect_EBSD(self):
         assert devices.connect_EBSD() == tbt.RetractableDeviceState.RETRACTED
 
-
     @pytest.mark.hardware
     def test_connect_EDS(self):
         assert devices.connect_EDS() == tbt.RetractableDeviceState.RETRACTED
-
 
     @pytest.mark.hardware
     def test_insert_retract_EDS(self):
@@ -92,7 +90,8 @@ class TestEBSDEDS:
 
         devices.insert_EDS(microscope=microscope)
         assert (
-            devices.external.EDS_CameraStatus() == tbt.RetractableDeviceState.INSERTED.value
+            devices.external.EDS_CameraStatus()
+            == tbt.RetractableDeviceState.INSERTED.value
         )
 
         devices.retract_EDS(microscope=microscope)
@@ -101,7 +100,6 @@ class TestEBSDEDS:
             == tbt.RetractableDeviceState.RETRACTED.value
         )
         microscope.disconnect()
-
 
     @pytest.mark.hardware
     def test_insert_retract_EBSD(self):
@@ -147,7 +145,6 @@ class TestEBSDEDS:
 
 
 class TestDeviceMovement:
-
     @pytest.mark.simulated
     def test_detector_insertable(self):
         microscope = tbt.Microscope()
@@ -192,7 +189,6 @@ class TestDeviceMovement:
 
         microscope.disconnect()
 
-
     @pytest.mark.hardware
     def test_detector_state(self):
         microscope = tbt.Microscope()
@@ -205,7 +201,6 @@ class TestDeviceMovement:
         detector_2 = tbt.DetectorType.ETD
         val_2 = devices.detector_state(microscope=microscope, detector=detector_2)
         assert val_2 == None
-
 
     @pytest.mark.hardware
     def test_insert_detector(self):
@@ -240,7 +235,9 @@ class TestDeviceMovement:
         )
         assert microscope.detector.state == tbt.RetractableDeviceState.INSERTED.value
 
-        current_t_deg = factory.active_stage_position_settings(microscope=microscope).t_deg
+        current_t_deg = factory.active_stage_position_settings(
+            microscope=microscope
+        ).t_deg
         assert ut.in_interval(
             val=current_t_deg,
             limit=tbt.Limit(
@@ -262,7 +259,6 @@ class TestDeviceMovement:
 
         microscope.disconnect()
 
-
     @pytest.mark.hardware
     def test_retract_all_devices(self):
         microscope = tbt.Microscope()
@@ -282,7 +278,6 @@ class TestDeviceMovement:
 
 
 class TestCollisions:
-
     @pytest.mark.hardware
     def test_detectors_will_collide(self):
         # TODO enable no stage restrictions first
@@ -322,7 +317,6 @@ class TestCollisions:
         )
         microscope.disconnect()
 
-
     @pytest.mark.hardware
     def test_no_CBS_insert(self):
         """Test that CBS detector won't insert if EDS is in"""
@@ -351,7 +345,8 @@ class TestCollisions:
         )
         devices.insert_EDS(microscope=microscope)
         assert (
-            devices.external.EDS_CameraStatus() == tbt.RetractableDeviceState.INSERTED.value
+            devices.external.EDS_CameraStatus()
+            == tbt.RetractableDeviceState.INSERTED.value
         )
 
         devices.device_access(microscope=microscope)
@@ -366,7 +361,6 @@ class TestCollisions:
 
         devices.retract_EDS(microscope=microscope)
         microscope.disconnect()
-
 
     @pytest.mark.hardware
     def test_no_EDS_insert(self):

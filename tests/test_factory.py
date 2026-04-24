@@ -21,7 +21,6 @@ import pytribeam.utilities as ut
 
 
 class TestObjects:
-
     @pytest.mark.simulated
     def test_beam_object_type(self):
         assert factory.beam_object_type(tbt.BeamType.ELECTRON) == tbt.ElectronBeam
@@ -29,7 +28,6 @@ class TestObjects:
 
 
 class TestActiveSettings:
-
     @pytest.mark.laser_hardware
     def test_active_laser_settings(self):
         """tests reading of active laser settings and its component functions"""
@@ -37,7 +35,6 @@ class TestActiveSettings:
         microscope.connect("localhost")
 
         factory.active_laser_settings(microscope=microscope)
-
 
     @pytest.mark.simulated
     def test_active_image_settings(self):
@@ -56,7 +53,9 @@ class TestActiveSettings:
         microscope.beams.electron_beam.horizontal_field_width.value = (
             0.9 * Conversions.MM_TO_M
         )
-        microscope.beams.electron_beam.working_distance.value = 4.1 * Conversions.MM_TO_M
+        microscope.beams.electron_beam.working_distance.value = (
+            4.1 * Conversions.MM_TO_M
+        )
         found_beam = factory.active_beam_with_settings(microscope=microscope)
 
         known_beam = tbt.ElectronBeam(
@@ -118,7 +117,9 @@ class TestActiveSettings:
         microscope.beams.electron_beam.scanning.rotation.value = (
             30.0 * Conversions.DEG_TO_RAD
         )
-        microscope.beams.electron_beam.scanning.dwell_time.value = 1.0 * Conversions.US_TO_S
+        microscope.beams.electron_beam.scanning.dwell_time.value = (
+            1.0 * Conversions.US_TO_S
+        )
         microscope.beams.electron_beam.scanning.resolution.value = (
             tbt.PresetResolution.PRESET_1024X884.value
         )
@@ -141,14 +142,15 @@ class TestActiveSettings:
 
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_active_stage_position(self):
         """tests active stage position"""
 
         microscope = tbt.Microscope()
         microscope.connect("localhost")
-        stage.coordinate_system(microscope=microscope, mode=tbt.StageCoordinateSystem.RAW)
+        stage.coordinate_system(
+            microscope=microscope, mode=tbt.StageCoordinateSystem.RAW
+        )
 
         microscope.specimen.stage.home()
 
@@ -188,7 +190,6 @@ class TestActiveSettings:
 
 
 class TestStepFactory:
-
     @pytest.mark.simulated
     def test_image(self, config_factory):
         # read config
@@ -267,7 +268,6 @@ class TestStepFactory:
 
         microscope.disconnect()
 
-
     @pytest.mark.simulated
     def test_ebsd(self, config_factory):
         # read config
@@ -304,7 +304,6 @@ class TestStepFactory:
         assert ebsd_object.image.beam.settings.tilt_correction == True
 
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_laser(self, config_factory):
@@ -395,7 +394,9 @@ class TestStepFactory:
         )
 
         # box
-        assert found_laser.pattern.geometry.passes == known_laser.pattern.geometry.passes
+        assert (
+            found_laser.pattern.geometry.passes == known_laser.pattern.geometry.passes
+        )
         assert found_laser.pattern.geometry.size_x_um == pytest.approx(
             known_laser.pattern.geometry.size_x_um
         )
@@ -409,7 +410,8 @@ class TestStepFactory:
             known_laser.pattern.geometry.pitch_y_um
         )
         assert (
-            found_laser.pattern.geometry.scan_type == known_laser.pattern.geometry.scan_type
+            found_laser.pattern.geometry.scan_type
+            == known_laser.pattern.geometry.scan_type
         )
         assert (
             found_laser.pattern.geometry.coordinate_ref
@@ -417,7 +419,6 @@ class TestStepFactory:
         )
 
         microscope.disconnect()
-
 
     @pytest.mark.simulated
     def test_fib(self, config_factory):
@@ -532,8 +533,12 @@ class TestStepFactory:
         assert found_fib.image.scan.resolution == known_fib.image.scan.resolution
 
         # image detector check
-        assert found_fib.image.detector.mode == pytest.approx(known_fib.image.detector.mode)
-        assert found_fib.image.detector.type == pytest.approx(known_fib.image.detector.type)
+        assert found_fib.image.detector.mode == pytest.approx(
+            known_fib.image.detector.mode
+        )
+        assert found_fib.image.detector.type == pytest.approx(
+            known_fib.image.detector.type
+        )
         assert found_fib.image.detector.contrast == pytest.approx(
             known_fib.image.detector.contrast
         )
@@ -577,8 +582,9 @@ class TestStepFactory:
             found_fib.pattern.geometry.scan_direction
             == known_fib.pattern.geometry.scan_direction
         )
-        assert found_fib.pattern.geometry.scan_type == known_fib.pattern.geometry.scan_type
-
+        assert (
+            found_fib.pattern.geometry.scan_type == known_fib.pattern.geometry.scan_type
+        )
 
     @pytest.mark.simulated
     def test_general(self, config_factory):
@@ -641,7 +647,9 @@ class TestStepFactory:
             known_settings.slice_thickness_um
         )
         assert general_settings.max_slice_number == known_settings.max_slice_number
-        assert general_settings.pre_tilt_deg == pytest.approx(known_settings.pre_tilt_deg)
+        assert general_settings.pre_tilt_deg == pytest.approx(
+            known_settings.pre_tilt_deg
+        )
         assert general_settings.sectioning_axis == known_settings.sectioning_axis
         assert general_settings.stage_tolerance.translational_um == pytest.approx(
             known_settings.stage_tolerance.translational_um

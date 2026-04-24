@@ -6,7 +6,11 @@ from pathlib import Path
 
 import pytest
 
-from pytribeam.GUI.common.logging_config import setup_logging, get_logger, cleanup_old_logs
+from pytribeam.GUI.common.logging_config import (
+    setup_logging,
+    get_logger,
+    cleanup_old_logs,
+)
 
 
 # ----------------------------------------------------------------------
@@ -21,6 +25,7 @@ def temp_log_dir(tmp_path: Path) -> Path:
 @pytest.fixture
 def fixed_timestamp(monkeypatch):
     """Freeze datetime.now() to a predictable value."""
+
     class FixedDatetime(datetime):
         @classmethod
         def now(cls, tz=None):
@@ -61,13 +66,17 @@ class TestSetupLogging:
     # ------------------------------------------------------------------
     # Directory behavior
     # ------------------------------------------------------------------
-    def test_creates_log_directory(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_creates_log_directory(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         logger = setup_logging(log_dir=temp_log_dir)
 
         assert temp_log_dir.exists()
         assert isinstance(logger, logging.Logger)
 
-    def test_uses_default_directory_when_none(self, monkeypatch, tmp_path, fixed_timestamp, clean_pytribeam_logger):
+    def test_uses_default_directory_when_none(
+        self, monkeypatch, tmp_path, fixed_timestamp, clean_pytribeam_logger
+    ):
         monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
 
         logger = setup_logging(log_dir=None)
@@ -79,7 +88,9 @@ class TestSetupLogging:
     # ------------------------------------------------------------------
     # File naming
     # ------------------------------------------------------------------
-    def test_log_filename_contains_timestamp(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_log_filename_contains_timestamp(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         setup_logging(log_dir=temp_log_dir, log_prefix="testapp")
 
         files = list(temp_log_dir.glob("*.log"))
@@ -89,15 +100,21 @@ class TestSetupLogging:
     # ------------------------------------------------------------------
     # Handlers
     # ------------------------------------------------------------------
-    def test_logger_has_file_and_console_handlers(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_logger_has_file_and_console_handlers(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         logger = setup_logging(log_dir=temp_log_dir)
 
         assert len(logger.handlers) == 2
         assert any(isinstance(h, logging.FileHandler) for h in logger.handlers)
         assert any(isinstance(h, logging.StreamHandler) for h in logger.handlers)
 
-    def test_handler_levels_respected(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
-        logger = setup_logging(log_dir=temp_log_dir, level=logging.DEBUG, console_level=logging.ERROR)
+    def test_handler_levels_respected(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
+        logger = setup_logging(
+            log_dir=temp_log_dir, level=logging.DEBUG, console_level=logging.ERROR
+        )
 
         if isinstance(logger.handlers[0], logging.FileHandler):
             file_handler = logger.handlers[0]
@@ -109,7 +126,9 @@ class TestSetupLogging:
         assert file_handler.level == logging.DEBUG
         assert console_handler.level == logging.ERROR
 
-    def test_replaces_existing_handlers(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_replaces_existing_handlers(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         logger = logging.getLogger("pytribeam.GUI")
         logger.addHandler(logging.NullHandler())
 
@@ -120,7 +139,9 @@ class TestSetupLogging:
     # ------------------------------------------------------------------
     # Formatter behavior
     # ------------------------------------------------------------------
-    def test_file_formatter_format(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_file_formatter_format(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         logger = setup_logging(log_dir=temp_log_dir)
         if isinstance(logger.handlers[0], logging.FileHandler):
             file_handler = logger.handlers[0]
@@ -132,7 +153,9 @@ class TestSetupLogging:
         assert "%(name)s" in fmt
         assert "%(levelname)s" in fmt
 
-    def test_console_formatter_format(self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger):
+    def test_console_formatter_format(
+        self, temp_log_dir, fixed_timestamp, clean_pytribeam_logger
+    ):
         logger = setup_logging(log_dir=temp_log_dir)
         if isinstance(logger.handlers[0], logging.FileHandler):
             console_handler = logger.handlers[1]
