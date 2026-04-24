@@ -90,7 +90,9 @@ def pytest_collection_modifyitems(config, items):
     """Skip marked tests automatically based on the current environment."""
     SIMULATED_ONLY_REASON = "requires a simulated microscope environment"
     HARDWARE_ONLY_REASON = "requires physical microscope hardware"
-    LASER_HARDWARE_ONLY_REASON = "requires physical microscope hardware with laser support"
+    LASER_HARDWARE_ONLY_REASON = (
+        "requires physical microscope hardware with laser support"
+    )
 
     CAN_RUN_DETACHED = True
     try:
