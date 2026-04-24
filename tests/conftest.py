@@ -86,18 +86,22 @@ def has_laser_hardware() -> bool:
     return ut.is_laser_available()
 
 
-CAN_RUN_DETACHED = True
-CAN_RUN_SIMULATED = is_simulated_system()
-CAN_RUN_HARDWARE = is_hardware_system()
-CAN_RUN_LASER_HARDWARE = is_hardware_system() and has_laser_hardware()
-
-SIMULATED_ONLY_REASON = "requires a simulated microscope environment"
-HARDWARE_ONLY_REASON = "requires physical microscope hardware"
-LASER_HARDWARE_ONLY_REASON = "requires physical microscope hardware with laser support"
-
-
 def pytest_collection_modifyitems(config, items):
     """Skip marked tests automatically based on the current environment."""
+    SIMULATED_ONLY_REASON = "requires a simulated microscope environment"
+    HARDWARE_ONLY_REASON = "requires physical microscope hardware"
+    LASER_HARDWARE_ONLY_REASON = "requires physical microscope hardware with laser support"
+
+    CAN_RUN_DETACHED = True
+    try:
+        CAN_RUN_SIMULATED = is_simulated_system()
+        CAN_RUN_HARDWARE = is_hardware_system()
+        CAN_RUN_LASER_HARDWARE = is_hardware_system() and has_laser_hardware()
+    except ModuleNotFoundError:
+        CAN_RUN_SIMULATED = False
+        CAN_RUN_HARDWARE = False
+        CAN_RUN_LASER_HARDWARE = False
+
     skip_simulated = pytest.mark.skip(reason=SIMULATED_ONLY_REASON)
     skip_hardware = pytest.mark.skip(reason=HARDWARE_ONLY_REASON)
     skip_laser_hardware = pytest.mark.skip(reason=LASER_HARDWARE_ONLY_REASON)
