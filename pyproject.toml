@@ -34,6 +34,7 @@ dev = [
     "h5py",
     "numpy",
     "pyyaml",
+    "pillow",
     "pdoc",
     "pylint",
     "pytest==8.3.3",

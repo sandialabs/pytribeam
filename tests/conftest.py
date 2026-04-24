@@ -645,6 +645,7 @@ def _deep_update(base: dict[str, Any], updates: dict[str, Any]) -> dict[str, Any
 @pytest.fixture
 def fib_stream_input_image(tmp_path: Path) -> Path:
     """Create a simple grayscale input image with a bright circular region."""
+
     path = tmp_path / "fib_image.tif"
 
     size = (256, 256)
