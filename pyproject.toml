@@ -33,7 +33,7 @@ dev = [
     # "pycodestyle",  # now handled by ruff
     "h5py",
     "numpy",
-    "yaml",
+    "pyyaml",
     "pdoc",
     "pylint",
     "pytest==8.3.3",
