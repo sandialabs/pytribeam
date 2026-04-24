@@ -1042,7 +1042,7 @@ def run_on_microscope_machine(func):
 def get_autoscript_version() -> str:
     """
     Get the version of autoscript for the present system
-    
+
     Returns
     -------
     version : str
@@ -1050,6 +1050,7 @@ def get_autoscript_version() -> str:
     """
     try:
         import autoscript_sdb_microscope_client as asmc
+
         version = asmc.build_information.INFO_VERSIONSHORT
     except ImportError:
         version = "none"
@@ -1059,7 +1060,7 @@ def get_autoscript_version() -> str:
 def is_laser_available() -> str:
     """
     Get the version of ThermoFisher Laser Control API for the present system
-    
+
     Returns
     -------
     version : str
@@ -1067,6 +1068,7 @@ def is_laser_available() -> str:
     """
     try:
         import Laser.PythonControl as tfs_laser
+
         return True
     except ImportError:
         return False
