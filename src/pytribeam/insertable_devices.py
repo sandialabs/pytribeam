@@ -115,7 +115,9 @@ def detector_insertable(
 
     # check if it is insertable
     try:
-        microscope.detector.state
+        state = microscope.detector.state
+        if state == tbt.RetractableDeviceState.STATIONARY.value:
+            return False
         return True
     except Exception:
         return False
