@@ -20,11 +20,16 @@ import pytribeam.types as tbt
 import pytribeam.utilities as ut
 
 
-class TestObjects:
+class TestBeamObjectType:
     @pytest.mark.simulated
     def test_beam_object_type(self):
         assert factory.beam_object_type(tbt.BeamType.ELECTRON) == tbt.ElectronBeam
         assert factory.beam_object_type(tbt.BeamType.ION) == tbt.IonBeam
+
+    @pytest.mark.simulated
+    def test_beam_object_type_invalid(self):
+        with pytest.raises(ValueError):
+            factory.beam_object_type("test")
 
 
 class TestActiveSettings:
@@ -33,8 +38,39 @@ class TestActiveSettings:
         """tests reading of active laser settings and its component functions"""
         microscope = tbt.Microscope()
         microscope.connect("localhost")
-
         factory.active_laser_settings(microscope=microscope)
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_active_imaging_device_electron(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        microscope.imaging.set_active_device(1)
+        assert (
+            factory.active_imaging_device(microscope=microscope).type
+            == tbt.BeamType.ELECTRON
+        )
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_active_imaging_device_ion(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        microscope.imaging.set_active_device(2)
+        assert (
+            factory.active_imaging_device(microscope=microscope).type
+            == tbt.BeamType.ION
+        )
+        microscope.disconnect()
+
+    @pytest.mark.hardware
+    def test_active_imaging_device_invalid(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        microscope.imaging.set_active_device(3)
+        with pytest.raises(ValueError):
+            factory.active_imaging_device(microscope=microscope)
+        microscope.disconnect()
 
     @pytest.mark.simulated
     def test_active_image_settings(self):
@@ -190,10 +226,78 @@ class TestActiveSettings:
 
 
 class TestStepFactory:
-    @pytest.mark.simulated
-    def test_image(self, config_factory):
+    @pytest.fixture
+    def general_settings(self, config_factory):
         # read config
         test_file = config_factory("general_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+
+        general_db = ut.general_settings(db, yml_format=yml_format)
+
+        general_settings = factory.general(
+            general_db=general_db,
+            yml_format=yml_format,
+        )
+        return general_settings
+
+    @pytest.mark.simulated
+    def test_general(self, general_settings):
+        known_settings = tbt.GeneralSettings(
+            yml_version=1.0,
+            slice_thickness_um=2.0,
+            max_slice_number=400,
+            pre_tilt_deg=36.0,
+            sectioning_axis=tbt.SectioningAxis.Z,
+            stage_tolerance=tbt.StageTolerance(
+                translational_um=0.5,
+                angular_deg=0.02,
+            ),
+            connection=tbt.MicroscopeConnection(
+                host="localhost",
+                # port=None,
+            ),
+            EBSD_OEM=tbt.ExternalDeviceOEM.NONE,
+            EDS_OEM=tbt.ExternalDeviceOEM.NONE,
+            exp_dir=general_settings.exp_dir,
+            h5_log_name="log",
+            step_count=1,
+        )
+
+        assert general_settings.slice_thickness_um == pytest.approx(
+            known_settings.slice_thickness_um
+        )
+        assert general_settings.max_slice_number == known_settings.max_slice_number
+        assert general_settings.pre_tilt_deg == pytest.approx(
+            known_settings.pre_tilt_deg
+        )
+        assert general_settings.sectioning_axis == known_settings.sectioning_axis
+        assert general_settings.stage_tolerance.translational_um == pytest.approx(
+            known_settings.stage_tolerance.translational_um
+        )
+        assert general_settings.stage_tolerance.angular_deg == pytest.approx(
+            known_settings.stage_tolerance.angular_deg
+        )
+        assert general_settings.connection.host == known_settings.connection.host
+        assert general_settings.connection.port == known_settings.connection.port
+        assert general_settings.EBSD_OEM == known_settings.EBSD_OEM
+        assert general_settings.EDS_OEM == known_settings.EDS_OEM
+        assert general_settings.exp_dir == known_settings.exp_dir
+        assert general_settings.h5_log_name == known_settings.h5_log_name
+        assert general_settings.step_count == known_settings.step_count
+
+    @pytest.mark.simulated
+    def test_image(self, config_factory, general_settings):
+        # read config
+        test_file = config_factory("image_config.yml")
         yml_version = 1.0
         yml_format = ut.yml_format(version=yml_version)
         db = ut.yml_to_dict(
@@ -232,6 +336,16 @@ class TestStepFactory:
         assert image_object.scan.resolution.value == "768x512"
         assert image_object.scan.resolution == tbt.PresetResolution.PRESET_768X512
 
+        # Make sure the Step function matched the above object
+        step_image_object = factory.step(
+            microscope=microscope,
+            step_name=image_step_name,
+            step_settings=image_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert image_object == step_image_object.operation_settings
+
         new_db = copy.deepcopy(image_step_settings)
         new_db["beam"]["voltage_kv"] = 900.0
         new_db["beam"]["voltage_tol_kv"] = -10
@@ -269,7 +383,7 @@ class TestStepFactory:
         microscope.disconnect()
 
     @pytest.mark.simulated
-    def test_ebsd(self, config_factory):
+    def test_ebsd(self, config_factory, general_settings):
         # read config
         test_file = config_factory("ebsd_config.yml")
         yml_version = 1.0
@@ -283,7 +397,7 @@ class TestStepFactory:
             ),
         )
         # get image step settings
-        image_step_name, image_step_settings = ut.step_settings(
+        ebsd_step_name, ebsd_step_settings = ut.step_settings(
             db,
             step_number_key="step_number",
             step_number_val=1,
@@ -296,17 +410,74 @@ class TestStepFactory:
         ## create image object
         ebsd_object = factory.ebsd(
             microscope=microscope,
-            step_settings=image_step_settings,
-            step_name=image_step_name,
+            step_settings=ebsd_step_settings,
+            step_name=ebsd_step_name,
             yml_format=yml_format,
         )
 
         assert ebsd_object.image.beam.settings.tilt_correction == True
 
+        # Make sure the Step function matched the above object
+        step_ebsd_object = factory.step(
+            microscope=microscope,
+            step_name=ebsd_step_name,
+            step_settings=ebsd_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert ebsd_object == step_ebsd_object.operation_settings
+
         microscope.disconnect()
 
     @pytest.mark.simulated
-    def test_laser(self, config_factory):
+    def test_eds(self, config_factory, general_settings):
+        # read config
+        test_file = config_factory("eds_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+        # get image step settings
+        eds_step_name, eds_step_settings = ut.step_settings(
+            db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+
+        # connect to microscope
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        ## create image object
+        eds_object = factory.eds(
+            microscope=microscope,
+            step_settings=eds_step_settings,
+            step_name=eds_step_name,
+            yml_format=yml_format,
+        )
+
+        assert eds_object.enable_eds == True
+
+        # Make sure the Step function matched the above object
+        step_eds_object = factory.step(
+            microscope=microscope,
+            step_name=eds_step_name,
+            step_settings=eds_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert eds_object == step_eds_object.operation_settings
+
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_laser(self, config_factory, general_settings):
         # read config
         test_file = config_factory("laser_config.yml")
         yml_version = 1.0
@@ -418,10 +589,20 @@ class TestStepFactory:
             == known_laser.pattern.geometry.coordinate_ref
         )
 
+        # Make sure the Step function matched the above object
+        step_laser_object = factory.step(
+            microscope=microscope,
+            step_name=laser_step_name,
+            step_settings=laser_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert found_laser == step_laser_object.operation_settings
+
         microscope.disconnect()
 
     @pytest.mark.simulated
-    def test_fib(self, config_factory):
+    def test_fib(self, config_factory, general_settings):
         # read config
         test_file = config_factory("fib_config.yml")
         yml_version = 1.0
@@ -507,7 +688,6 @@ class TestStepFactory:
                 ),
             ),
         )
-        microscope.disconnect()
 
         # image beam check
         assert found_fib.image.beam.settings.voltage_kv == pytest.approx(
@@ -586,10 +766,31 @@ class TestStepFactory:
             found_fib.pattern.geometry.scan_type == known_fib.pattern.geometry.scan_type
         )
 
+        # Make sure the Step function matched the above object
+        step_fib_object = factory.step(
+            microscope=microscope,
+            step_name=fib_step_name,
+            step_settings=fib_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert found_fib == step_fib_object.operation_settings
+
+        microscope.disconnect()
+
     @pytest.mark.simulated
-    def test_general(self, config_factory):
+    def test_custom(self, config_factory, tmp_path, general_settings):
         # read config
-        test_file = config_factory("general_config.yml")
+        custom_script_path = tmp_path / "custom_script.py"
+        custom_script_path.write_text(
+            'if __name__ == "__main__":\n\tprint("Hello World!")\n', encoding="utf-8"
+        )
+        test_file = config_factory(
+            "custom_config.yml",
+            overrides={
+                "steps": {"custom_test": {"script_path": str(custom_script_path)}}
+            },
+        )
         yml_version = 1.0
         yml_format = ut.yml_format(version=yml_version)
         db = ut.yml_to_dict(
@@ -601,66 +802,95 @@ class TestStepFactory:
             ),
         )
 
-        general_db = ut.general_settings(db, yml_format=yml_format)
+        custom_step_name, custom_step_settings = ut.step_settings(
+            db, step_number_key="step_number", step_number_val=1, yml_format=yml_format
+        )
 
-        # with pytest.raises(ValueError) as err:
-        #     general_settings = factory.general(
-        #         general_db=general_db,
-        #         yml_format=yml_format,
-        #     )
-        # assert err.type == ValueError
-        # assert (
-        #     err.value.args[0]
-        #     == f'Requested experimental directory of "None", which is not a valid path.'
-        # )
-
-        # temp_dir = Path(__file__).parent.joinpath("temp_exp")
-        # general_db["exp_dir"] = str(temp_dir)
-
-        general_settings = factory.general(
-            general_db=general_db,
+        # connect to microscope
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        ## create custom object
+        custom_object = factory.custom(
+            microscope=microscope,
+            step_settings=custom_step_settings,
+            step_name=custom_step_name,
             yml_format=yml_format,
         )
 
-        known_settings = tbt.GeneralSettings(
-            yml_version=1.0,
-            slice_thickness_um=2.0,
-            max_slice_number=400,
-            pre_tilt_deg=36.0,
-            sectioning_axis=tbt.SectioningAxis.Z,
-            stage_tolerance=tbt.StageTolerance(
-                translational_um=0.5,
-                angular_deg=0.02,
-            ),
-            connection=tbt.MicroscopeConnection(
-                host="localhost",
-                # port=None,
-            ),
-            EBSD_OEM=tbt.ExternalDeviceOEM.NONE,
-            EDS_OEM=tbt.ExternalDeviceOEM.NONE,
-            exp_dir=test_file.parent,
-            h5_log_name="log",
-            step_count=1,
+        custom_object.executable_path == Path(
+            "C:/Program Files/Enthought/Python/envs/AutoScript/python.exe"
         )
+        custom_object.script_path == custom_script_path
 
-        assert general_settings.slice_thickness_um == pytest.approx(
-            known_settings.slice_thickness_um
+        # Make sure the Step function matched the above object
+        step_custom_object = factory.step(
+            microscope=microscope,
+            step_name=custom_step_name,
+            step_settings=custom_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
         )
-        assert general_settings.max_slice_number == known_settings.max_slice_number
-        assert general_settings.pre_tilt_deg == pytest.approx(
-            known_settings.pre_tilt_deg
+        assert custom_object == step_custom_object.operation_settings
+
+        microscope.disconnect()
+
+
+class TestLimits:
+    @pytest.mark.simulated
+    def test_stage_limits(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        assert factory.stage_limits(microscope)
+
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_beam_limits_ion(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        specified_beam = factory.beam_object_type(tbt.BeamType.ION)(
+            settings=tbt.BeamSettings()
         )
-        assert general_settings.sectioning_axis == known_settings.sectioning_axis
-        assert general_settings.stage_tolerance.translational_um == pytest.approx(
-            known_settings.stage_tolerance.translational_um
+        selected_beam = ut.beam_type(specified_beam, microscope)
+        assert factory.beam_limits(selected_beam, tbt.BeamType.ION)
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_beam_limits_electron(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        specified_beam = factory.beam_object_type(tbt.BeamType.ELECTRON)(
+            settings=tbt.BeamSettings()
         )
-        assert general_settings.stage_tolerance.angular_deg == pytest.approx(
-            known_settings.stage_tolerance.angular_deg
+        selected_beam = ut.beam_type(specified_beam, microscope)
+        assert factory.beam_limits(selected_beam, tbt.BeamType.ELECTRON)
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_scan_limits_electron(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        specified_beam = factory.beam_object_type(tbt.BeamType.ELECTRON)(
+            settings=tbt.BeamSettings()
         )
-        assert general_settings.connection.host == known_settings.connection.host
-        assert general_settings.connection.port == known_settings.connection.port
-        assert general_settings.EBSD_OEM == known_settings.EBSD_OEM
-        assert general_settings.EDS_OEM == known_settings.EDS_OEM
-        assert general_settings.exp_dir == known_settings.exp_dir
-        assert general_settings.h5_log_name == known_settings.h5_log_name
-        assert general_settings.step_count == known_settings.step_count
+        selected_beam = ut.beam_type(specified_beam, microscope)
+        assert factory.scan_limits(selected_beam)
+
+        microscope.disconnect()
+
+    @pytest.mark.simulated
+    def test_scan_limits_ion(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        specified_beam = factory.beam_object_type(tbt.BeamType.ION)(
+            settings=tbt.BeamSettings()
+        )
+        selected_beam = ut.beam_type(specified_beam, microscope)
+        assert factory.scan_limits(selected_beam)
+
+        microscope.disconnect()

@@ -540,6 +540,7 @@ class DetectorMode(Enum):
     # Need to add "Default"
     DEFAULT: str = "Default"
 
+
 class DetectorType(Enum):
     """
     Enum adapter for autoscript DetectorType enum.

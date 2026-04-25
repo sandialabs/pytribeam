@@ -224,6 +224,7 @@ def connect_microscope(
             microscope.connect(connection_host, connection_port)
         elif connection_host is not None:
             microscope.connect(connection_host)
+
         else:
             microscope.connect()
 

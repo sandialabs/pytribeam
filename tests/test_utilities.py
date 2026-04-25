@@ -11,6 +11,16 @@ import pytribeam.utilities as ut
 import pytribeam.types as tbt
 
 
+@pytest.fixture
+def verify_stdout(capsys):
+    def _verify(callable, args=[], kwargs={}, expected_msg=""):
+        callable(*args, **kwargs)
+        captured = capsys.readouterr()
+        assert captured.out == expected_msg
+
+    return _verify
+
+
 # https://stackoverflow.com/questions/16039463/how-to-access-the-py-test-capsys-from-inside-a-test
 # @pytest.fixture(autouse=True)
 # def capsys(capsys):
@@ -18,49 +28,47 @@ import pytribeam.types as tbt
 # @cs.run_on_standalone_machine
 # TODO get custom fixutre working with arg capsys, see above function
 @pytest.mark.simulated
-def test_microscope_connection(capsys):
+def test_microscope_connection(verify_stdout):
     microscope = tbt.Microscope()
 
     connect_msg = "Client connecting to [localhost:7520]...\nClient connected to [localhost:7520]\n"
     disconnect_msg = "Client disconnected\n"
 
     # API Usage
-    microscope.connect("localhost")
-    captured = capsys.readouterr()
-    assert captured.out == connect_msg
-    microscope.disconnect()
-    captured = capsys.readouterr()  # overwrite
-    assert captured.out == disconnect_msg
+    verify_stdout(microscope.connect, args=["localhost"], expected_msg=connect_msg)
+    verify_stdout(microscope.disconnect, expected_msg=disconnect_msg)
 
     # pytribeam noisy connect and disconnect:
-    ut.connect_microscope(
-        microscope=microscope,
-        quiet_output=False,
-        connection_host="localhost",
+    connect_kwargs = {
+        "microscope": microscope,
+        "quiet_output": False,
+        "connection_host": "localhost",
+        "connection_port": None,
+    }
+    disconnect_kwargs = {"microscope": microscope, "quiet_output": False}
+    verify_stdout(
+        ut.connect_microscope, kwargs=connect_kwargs, expected_msg=connect_msg
     )
-    captured = capsys.readouterr()  # overwrite
-    assert captured.out == connect_msg
-    ut.disconnect_microscope(
-        microscope=microscope,
-        quiet_output=False,
+    verify_stdout(
+        ut.disconnect_microscope, kwargs=disconnect_kwargs, expected_msg=disconnect_msg
     )
-    captured = capsys.readouterr()  # overwrite
-    assert captured.out == disconnect_msg
 
     # pytribeam quiet connect and disconnect:
-    ut.connect_microscope(
-        microscope=microscope,
-        quiet_output=True,
-        connection_host="localhost",
+    connect_kwargs["quiet_output"] = True
+    disconnect_kwargs["quiet_output"] = True
+    verify_stdout(ut.connect_microscope, kwargs=connect_kwargs, expected_msg="")
+    verify_stdout(ut.disconnect_microscope, kwargs=disconnect_kwargs, expected_msg="")
+
+    # pytribeam quiet connect and disconnect with a port:
+    connect_kwargs["connection_port"] = 7520
+    connect_kwargs["quiet_output"] = False
+    disconnect_kwargs["quiet_output"] = False
+    verify_stdout(
+        ut.connect_microscope, kwargs=connect_kwargs, expected_msg=connect_msg
     )
-    captured = capsys.readouterr()  # overwrite
-    assert captured.out == ""
-    ut.disconnect_microscope(
-        microscope=microscope,
-        quiet_output=True,
+    verify_stdout(
+        ut.disconnect_microscope, kwargs=disconnect_kwargs, expected_msg=disconnect_msg
     )
-    captured = capsys.readouterr()  # overwrite
-    assert captured.out == ""
 
 
 @pytest.mark.simulated

@@ -357,6 +357,51 @@ def build_named_config(name: str, *, exp_dir: str | None = None) -> dict[str, An
             steps=steps,
         )
 
+    if name == "eds_config.yml":
+        steps = {
+            "ebsd_test": {
+                "step_general": {
+                    "step_number": 1,
+                    "step_type": "eds",
+                    "frequency": 1,
+                    "stage": _base_stage(),
+                },
+                "beam": {
+                    "type": "electron",
+                    "voltage_kv": 5.0,
+                    "voltage_tol_kv": 0.5,
+                    "current_na": 5.0,
+                    "current_tol_na": 0.5,
+                    "hfw_mm": 0.9,
+                    "working_dist_mm": 4.093,
+                    "dynamic_focus": True,
+                    "tilt_correction": True,
+                },
+                "detector": {
+                    "type": "ETD",
+                    "mode": "SecondaryElectrons",
+                    "brightness": 0.2,
+                    "contrast": 0.3,
+                    "auto_cb": {
+                        "left": None,
+                        "top": None,
+                        "width": None,
+                        "height": None,
+                    },
+                },
+                "scan": {
+                    "rotation_deg": 0.0,
+                    "dwell_time_us": 1.0,
+                    "resolution": "768x512",
+                },
+                "bit_depth": 8,
+            }
+        }
+        return _full_config(
+            general=_base_general(exp_dir=exp_dir),
+            steps=steps,
+        )
+
     if name == "fib_config.yml":
         steps = {
             "fib_test": {
