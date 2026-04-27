@@ -192,11 +192,7 @@ class TestLaserSettings:
         assert laser.retract_laser_objective() == True
 
     @pytest.mark.laser_hardware
-    def test_pulse_settings(self):
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_pulse_settings(self, microscope):
         pulse_01 = tbt.LaserPulse(
             wavelength_nm=tbt.LaserWavelength.NM_1030,
             divider=2,
@@ -273,21 +269,12 @@ class TestLaserSettings:
         laser.tfs_laser.Laser_SetPulseEnergy_MicroJoules(2.0)
 
     @pytest.mark.laser_hardware
-    def test_apply_laser_settings(self):
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_apply_laser_settings(self, microscope):
         laser_settings = small_test_pattern(microscope=microscope)
 
-        microscope.disconnect()
-
     @pytest.mark.laser_hardware
-    def test_read_values(self):
+    def test_read_values(self, microscope):
         """tests laser state assumes test is run in startup mode"""
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
 
         small_test_pattern(microscope=microscope)
 
@@ -339,17 +326,11 @@ class TestLaserSettings:
             known_state.beam_shift_um.y, abs=0.005
         )
 
-        microscope.disconnect()
-
 
 class TestLaserShutter:
     @pytest.mark.laser_hardware
-    def test_insert_shutter(self):
+    def test_insert_shutter(self, microscope):
         """tests laser shutter insert"""
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         laser.tfs_laser.Shutter_Retract()
 
         assert laser.tfs_laser.Shutter_GetState() == "Retracted"
@@ -362,15 +343,9 @@ class TestLaserShutter:
 
         assert laser.tfs_laser.Shutter_GetState() == "Retracted"
 
-        microscope.disconnect()
-
     @pytest.mark.laser_hardware
-    def test_retract_shutter(self):
+    def test_retract_shutter(self, microscope):
         """tests laser shutter retract"""
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         laser.tfs_laser.Shutter_Insert()
 
         assert laser.tfs_laser.Shutter_GetState() == "Inserted"
@@ -378,8 +353,6 @@ class TestLaserShutter:
         assert laser.retract_shutter(microscope=microscope) == True
 
         assert laser.tfs_laser.Shutter_GetState() == "Retracted"
-
-        microscope.disconnect()
 
 
 class TestLaserPatterning:
@@ -419,13 +392,7 @@ class TestLaserPatterning:
         laser.create_pattern(pattern=line_pattern)
 
     @pytest.mark.laser_hardware
-    def test_execute_patterning(self, capsys):
-        # connect to microscope
-        microscope = tbt.Microscope()
-        ut.connect_microscope(
-            microscope=microscope, quiet_output=True, connection_host="localhost"
-        )
-
+    def test_execute_patterning(self, capsys, microscope):
         laser_settings = small_test_pattern(microscope=microscope)
 
         no_shutter_msg = "Error from Laser Control UI: Chamber shutter is not inserted. Use the Shutter_Insert function before calling this one."
@@ -440,16 +407,7 @@ class TestLaserPatterning:
         laser.execute_patterning()
         laser.retract_shutter(microscope=microscope)
 
-        microscope.disconnect()
-
     @pytest.mark.laser_hardware
-    def test_mill_region(self):
-        # connect to microscope
-        microscope = tbt.Microscope()
-        ut.connect_microscope(
-            microscope=microscope, quiet_output=True, connection_host="localhost"
-        )
-
+    def test_mill_region(self, microscope):
         laser_settings = small_test_pattern(microscope=microscope)
-
         laser.mill_region(laser_settings)

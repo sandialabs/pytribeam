@@ -8,24 +8,11 @@ import pytribeam.types as tbt
 import pytribeam.utilities as ut
 
 
-@pytest.mark.simulated
-def test_resolution():
-    """Tests construction of resolution object"""
-    cust_res = tbt.Resolution(width=5, height=7)
-    preset_res = tbt.PresetResolution.PRESET_1024X884
-
-    assert type(cust_res).__name__ == "Resolution"
-    assert type(preset_res).__name__ == "PresetResolution"
-    assert isinstance(preset_res, tbt.Resolution) == True
-    assert cust_res.width == 5
-    assert cust_res.height == 7
-    assert cust_res.value == "5x7"
-    assert preset_res.width == 1024
-    assert preset_res.height == 884
-    assert preset_res.value == "1024x884"
+# ----------------
+# Helper functions
+# ----------------
 
 
-@pytest.mark.simulated
 def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     """helper function for test image"""
     return tbt.ImageSettings(
@@ -58,7 +45,6 @@ def ion_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     )
 
 
-@pytest.mark.simulated
 def electron_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     """helper function for test image"""
     return tbt.ImageSettings(
@@ -88,10 +74,31 @@ def electron_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
     )
 
 
+# -----
+# Tests
+# -----
+
+
 @pytest.mark.simulated
-def test_image():
+def test_resolution():
+    """Tests construction of resolution object"""
+    cust_res = tbt.Resolution(width=5, height=7)
+    preset_res = tbt.PresetResolution.PRESET_1024X884
+
+    assert type(cust_res).__name__ == "Resolution"
+    assert type(preset_res).__name__ == "PresetResolution"
+    assert isinstance(preset_res, tbt.Resolution) == True
+    assert cust_res.width == 5
+    assert cust_res.height == 7
+    assert cust_res.value == "5x7"
+    assert preset_res.width == 1024
+    assert preset_res.height == 884
+    assert preset_res.value == "1024x884"
+
+
+@pytest.mark.simulated
+def test_image(microscope):
     """Tests construction of image object"""
-    microscope = tbt.Microscope()
     aa = electron_image(microscope=microscope)
 
     assert type(aa).__name__ == "ImageSettings"
@@ -114,9 +121,8 @@ def test_image():
 
 
 @pytest.mark.simulated
-def test_beam_type():
+def test_beam_type(microscope):
     """Tests if beam type is assigned corrected and property returned"""
-    microscope = tbt.Microscope()
     default_settings = tbt.BeamSettings()
 
     e_beam = tbt.ElectronBeam(

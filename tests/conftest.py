@@ -49,6 +49,62 @@ def temp_dir(tmp_path: Path) -> Path:
     return tmp_path
 
 
+@pytest.fixture
+def safe_microscope():
+    from pytribeam import types as tbt
+    from pytribeam import insertable_devices as devices
+    from pytribeam import stage
+
+    # Create microscope
+    try:
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        # Retract devices
+        if not devices.retract_all_devices(
+            microscope, enable_EBSD=True, enable_EDS=True
+        ):
+            pytest.skip("Unable to retract devices prior to test.")
+
+        # Home stage
+        stage_tolerance = tbt.StageTolerance(
+            translational_um=2.0,
+            angular_deg=0.5,
+        )
+        if not stage.home_stage(microscope, stage_tolerance=stage_tolerance):
+            pytest.skip("Unable to home stage prior to test.")
+
+        # Pass microscope object to test
+        yield microscope
+
+        # Cleanup and disconnect
+        # microscope.patterning.clear_patterns()
+        # stage.home_stage(microscope):
+        microscope.disconnect()
+
+    except ConnectionError:
+        pytest.skip("Microscope connection unavailable.")
+
+
+@pytest.fixture
+def microscope():
+    from pytribeam import types as tbt
+
+    # Create microscope
+    try:
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+
+        # Pass microscope object to test
+        yield microscope
+
+        # Cleanup and disconnect
+        # microscope.patterning.clear_patterns()
+        microscope.disconnect()
+    except ConnectionError:
+        pytest.skip("Microscope connection unavailable.")
+
+
 # ----------------------------------------------------------------------
 # Environment detection
 # ----------------------------------------------------------------------

@@ -453,8 +453,11 @@ def retract_all_devices(
             microscope=microscope,
             detector=detector,
         )
-        if state is not tbt.RetractableDeviceState.STATIONARY and state is not tbt.RetractableDeviceState.RETRACTED:
-        # if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
+        if (
+            state is not tbt.RetractableDeviceState.STATIONARY
+            and state is not tbt.RetractableDeviceState.RETRACTED
+        ):
+            # if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
             retract_device(
                 microscope=microscope,
                 detector=detector,

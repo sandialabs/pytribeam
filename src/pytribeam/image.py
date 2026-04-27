@@ -1583,7 +1583,9 @@ def collect_multiple_images(
         for _set in multiple_img_settings
     ]
     if sum(insertable_detector) > 1:
-        raise NotImplementedError("Collecting multiple images with more than one insertable detector is not supported.")
+        raise NotImplementedError(
+            "Collecting multiple images with more than one insertable detector is not supported."
+        )
     elif sum(insertable_detector) == 1:
         start = multiple_img_settings[insertable_detector.index(True)]
         multiple_img_settings = [start] + multiple_img_settings

@@ -15,11 +15,8 @@ import pytribeam.types as tbt
 
 class TestStagePositionEncoding:
     @pytest.mark.simulated
-    def test_coordinate_system(self):
+    def test_coordinate_system(self, microscope):
         """Test setting of default coordinate system"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         aa = stage.coordinate_system(microscope=microscope)
         assert aa == True
 
@@ -32,15 +29,9 @@ class TestStagePositionEncoding:
             )
         assert bb == True
 
-        microscope.disconnect()
-        # assert 4 == 2
-
     @pytest.mark.simulated
-    def test_encoder_to_user_position(self):
+    def test_encoder_to_user_position(self, microscope):
         """Tests conversion from microscope encoder position to user position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         encoder_pos = tbt.StagePositionEncoder(
             x=0.005,
             y=0.002,
@@ -57,14 +48,9 @@ class TestStagePositionEncoding:
         assert user_pos.r_deg == pytest.approx(encoder_pos.r * Conversions.RAD_TO_DEG)
         assert user_pos.t_deg == pytest.approx(encoder_pos.t * Conversions.RAD_TO_DEG)
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_user_to_encoder_position(self):
+    def test_user_to_encoder_position(self, microscope):
         """Tests conversion from microscope encoder position to user position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         user_pos = tbt.StagePositionUser(
             x_mm=5.0,
             y_mm=2.0,
@@ -82,16 +68,10 @@ class TestStagePositionEncoding:
         assert user_pos.r_deg == pytest.approx(encoder_pos.r * Conversions.RAD_TO_DEG)
         assert user_pos.t_deg == pytest.approx(encoder_pos.t * Conversions.RAD_TO_DEG)
 
-        microscope.disconnect()
-
 
 class TestTargetPositions:
     @pytest.mark.simulated
-    def test_no_pretilt(self) -> None:
-        """helper function for test_target_position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_no_pretilt(self, microscope) -> None:
         user_pos = tbt.StagePositionUser(
             x_mm=5.0,
             y_mm=2.0,
@@ -131,14 +111,8 @@ class TestTargetPositions:
         assert known_pos.r_deg == pytest.approx(found_pos.r_deg)
         assert known_pos.t_deg == pytest.approx(found_pos.t_deg)
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_pretilt(self) -> None:
-        """helper function for test_target_position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_pretilt(self, microscope) -> None:
         user_pos = tbt.StagePositionUser(
             x_mm=5.0,
             y_mm=2.0,
@@ -178,14 +152,8 @@ class TestTargetPositions:
         assert known_pos.r_deg == pytest.approx(found_pos.r_deg)
         assert known_pos.t_deg == pytest.approx(found_pos.t_deg)
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_fib_mill_rotation_side(self) -> None:
-        """helper function for test_target_position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_fib_mill_rotation_side(self, microscope) -> None:
         user_pos = tbt.StagePositionUser(
             x_mm=5.0,
             y_mm=2.0,
@@ -225,13 +193,9 @@ class TestTargetPositions:
         assert known_pos.r_deg == pytest.approx(found_pos.r_deg)
         assert known_pos.t_deg == pytest.approx(found_pos.t_deg)
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_ebeam_normal_rotation_side(self) -> None:
+    def test_ebeam_normal_rotation_side(self, microscope) -> None:
         """helper function for test_target_position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
 
         user_pos = tbt.StagePositionUser(
             x_mm=5.0,
@@ -272,16 +236,11 @@ class TestTargetPositions:
         assert known_pos.r_deg == pytest.approx(found_pos.r_deg)
         assert known_pos.t_deg == pytest.approx(found_pos.t_deg)
 
-        microscope.disconnect()
-
 
 class TestStageLimits:
     @pytest.mark.simulated
-    def test_safe(self):
+    def test_safe(self, microscope):
         """Test determination of safe position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
         good_pos = tbt.StagePositionUser(
             x_mm=5.0,
             y_mm=2.0,
@@ -348,16 +307,9 @@ class TestStageLimits:
 
         assert stage.safe(microscope=microscope, position=bad_pos_t) == False
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_axis_in_range(self):
+    def test_axis_in_range(self, safe_microscope):
         """Tests whether axis is within stage tolerance"""
-
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        stage.home_stage(microscope=microscope)
 
         target_position = tbt.StagePositionUser(
             x_mm=0.0,
@@ -374,7 +326,7 @@ class TestStageLimits:
 
         assert (
             stage.axis_in_range(
-                microscope=microscope,
+                microscope=safe_microscope,
                 axis=tbt.StageAxis.X,
                 target_position=target_position,
                 stage_tolerance=stage_tolerance,
@@ -383,7 +335,7 @@ class TestStageLimits:
         )
         assert (
             stage.axis_in_range(
-                microscope=microscope,
+                microscope=safe_microscope,
                 axis=tbt.StageAxis.Y,
                 target_position=target_position,
                 stage_tolerance=stage_tolerance,
@@ -392,7 +344,7 @@ class TestStageLimits:
         )
         assert (
             stage.axis_in_range(
-                microscope=microscope,
+                microscope=safe_microscope,
                 axis=tbt.StageAxis.Z,
                 target_position=target_position,
                 stage_tolerance=stage_tolerance,
@@ -401,7 +353,7 @@ class TestStageLimits:
         )
         assert (
             stage.axis_in_range(
-                microscope=microscope,
+                microscope=safe_microscope,
                 axis=tbt.StageAxis.R,
                 target_position=target_position,
                 stage_tolerance=stage_tolerance,
@@ -410,7 +362,7 @@ class TestStageLimits:
         )
         assert (
             stage.axis_in_range(
-                microscope=microscope,
+                microscope=safe_microscope,
                 axis=tbt.StageAxis.T,
                 target_position=target_position,
                 stage_tolerance=stage_tolerance,
@@ -426,104 +378,14 @@ class TestMoveStage:
         # TODO asynchronous calls....
         microscope = tbt.Microscope()
         microscope.connect("localhost")
-
         with pytest.raises(SystemError) as err:
             stage.stop(microscope=microscope)
         assert err.type == SystemError
         assert err.value.args[0] == "Microscope stage movement was halted."
 
     @pytest.mark.simulated
-    def test_move_axis(self):
-        """Tests single axis movement"""
-
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        stage.home_stage(microscope=microscope)
-
-        position = tbt.StagePositionUser(
-            x_mm=5.0,
-            y_mm=2.0,
-            z_mm=3.0,
-            r_deg=90.0,
-            t_deg=30.0,
-            coordinate_system=tbt.StageCoordinateSystem.RAW,
-        )
-        stage_tolerance = tbt.StageTolerance(
-            translational_um=0.5,
-            angular_deg=0.02,
-        )
-
-        stage.move_axis(
-            microscope=microscope,
-            axis=tbt.StageAxis.X,
-            target_position=position,
-            num_attempts=1,
-            stage_delay_s=0.0,
-        )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
-        assert found_pos.x_mm == pytest.approx(position.x_mm)
-
-        stage.move_axis(
-            microscope=microscope,
-            axis=tbt.StageAxis.Y,
-            target_position=position,
-            num_attempts=1,
-            stage_delay_s=0.0,
-        )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
-        assert found_pos.y_mm == pytest.approx(position.y_mm)
-
-        stage.move_axis(
-            microscope=microscope,
-            axis=tbt.StageAxis.Z,
-            target_position=position,
-            num_attempts=1,
-            stage_delay_s=0.0,
-        )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
-        assert found_pos.z_mm == pytest.approx(position.z_mm)
-
-        stage.move_axis(
-            microscope=microscope,
-            axis=tbt.StageAxis.R,
-            target_position=position,
-            num_attempts=1,
-            stage_delay_s=0.0,
-        )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
-        assert found_pos.r_deg == pytest.approx(position.r_deg)
-
-        stage.move_axis(
-            microscope=microscope,
-            axis=tbt.StageAxis.T,
-            target_position=position,
-            num_attempts=1,
-            stage_delay_s=0.0,
-        )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
-        assert found_pos.t_deg == pytest.approx(position.t_deg)
-
-        # assert found_pos.x_mm == pytest.approx(position.x_mm)
-        # assert found_pos.y_mm == pytest.approx(position.y_mm)
-        # assert found_pos.z_mm == pytest.approx(position.z_mm)
-        # assert found_pos.r_deg == pytest.approx(position.r_deg)
-        # assert found_pos.t_deg == pytest.approx(position.t_deg)
-
-        microscope.disconnect()
-
-    @pytest.mark.simulated
-    def test_home_stage(self):
+    def test_home_stage(self, microscope):
         """tests move to home position"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        # retract all devices
-        devices.retract_all_devices(
-            microscope=microscope,
-            enable_EBSD=True,
-            enable_EDS=True,
-        )
 
         stage_tolerance = tbt.StageTolerance(
             translational_um=0.5,
@@ -548,18 +410,77 @@ class TestMoveStage:
             cs.Constants.home_position.t_deg, abs=stage_tolerance.angular_deg
         )
 
-        microscope.disconnect()
+    @pytest.mark.simulated
+    def test_move_axis(self, safe_microscope):
+        """Tests single axis movement"""
+        position = tbt.StagePositionUser(
+            x_mm=5.0,
+            y_mm=2.0,
+            z_mm=3.0,
+            r_deg=90.0,
+            t_deg=30.0,
+            coordinate_system=tbt.StageCoordinateSystem.RAW,
+        )
+        stage_tolerance = tbt.StageTolerance(
+            translational_um=0.5,
+            angular_deg=0.02,
+        )
+
+        stage.move_axis(
+            microscope=safe_microscope,
+            axis=tbt.StageAxis.X,
+            target_position=position,
+            num_attempts=1,
+            stage_delay_s=0.0,
+        )
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
+        assert found_pos.x_mm == pytest.approx(position.x_mm)
+
+        stage.move_axis(
+            microscope=safe_microscope,
+            axis=tbt.StageAxis.Y,
+            target_position=position,
+            num_attempts=1,
+            stage_delay_s=0.0,
+        )
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
+        assert found_pos.y_mm == pytest.approx(position.y_mm)
+
+        stage.move_axis(
+            microscope=safe_microscope,
+            axis=tbt.StageAxis.Z,
+            target_position=position,
+            num_attempts=1,
+            stage_delay_s=0.0,
+        )
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
+        assert found_pos.z_mm == pytest.approx(position.z_mm)
+
+        stage.move_axis(
+            microscope=safe_microscope,
+            axis=tbt.StageAxis.R,
+            target_position=position,
+            num_attempts=1,
+            stage_delay_s=0.0,
+        )
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
+        assert found_pos.r_deg == pytest.approx(position.r_deg)
+
+        stage.move_axis(
+            microscope=safe_microscope,
+            axis=tbt.StageAxis.T,
+            target_position=position,
+            num_attempts=1,
+            stage_delay_s=0.0,
+        )
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
+        assert found_pos.t_deg == pytest.approx(position.t_deg)
 
     @pytest.mark.simulated
-    def test_move_stage(self):
+    def test_move_stage(self, safe_microscope):
         """Tests movement of stage to requested position"""
 
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        stage.home_stage(microscope=microscope)
-
-        found_pos_0 = factory.active_stage_position_settings(microscope=microscope)
+        found_pos_0 = factory.active_stage_position_settings(microscope=safe_microscope)
         assert found_pos_0.x_mm == pytest.approx(0.0)
         assert found_pos_0.y_mm == pytest.approx(0.0)
         assert found_pos_0.z_mm == pytest.approx(0.0)
@@ -581,21 +502,19 @@ class TestMoveStage:
         )
 
         stage.move_stage(
-            microscope=microscope,
+            microscope=safe_microscope,
             target_position=position,
             stage_tolerance=stage_tolerance,
         )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
         assert found_pos.x_mm == pytest.approx(position.x_mm)
         assert found_pos.y_mm == pytest.approx(position.y_mm)
         assert found_pos.z_mm == pytest.approx(position.z_mm)
         assert found_pos.r_deg == pytest.approx(position.r_deg)
         assert found_pos.t_deg == pytest.approx(position.t_deg)
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_move_completed(self):
+    def test_move_completed(self, safe_microscope):
         """tests move_completed function"""
 
         position = tbt.StagePositionUser(
@@ -611,32 +530,14 @@ class TestMoveStage:
             angular_deg=0.02,
         )
 
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        stage.home_stage(microscope=microscope)
-
-        completed = stage.move_completed(
-            microscope=microscope,
+        assert not stage.move_completed(
+            microscope=safe_microscope,
             target_position=position,
             stage_tolerance=stage_tolerance,
         )
 
-        assert completed == False
-
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_move_to_position_simulator(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
-        devices.retract_all_devices(
-            microscope=microscope,
-            enable_EBSD=False,
-            enable_EDS=False,
-        )
-        stage.home_stage(microscope=microscope)
+    def test_move_to_position_simulator(self, safe_microscope):
 
         # catch unsafe position error
         position = tbt.StagePositionUser(
@@ -653,7 +554,7 @@ class TestMoveStage:
         )
         with pytest.raises(ValueError) as err:
             stage.move_to_position(
-                microscope=microscope,
+                microscope=safe_microscope,
                 target_position=position,
                 stage_tolerance=stage_tolerance,
             )
@@ -675,31 +576,28 @@ class TestMoveStage:
             angular_deg=0.02,
         )
         stage.move_to_position(
-            microscope=microscope,
+            microscope=safe_microscope,
             target_position=position,
             stage_tolerance=stage_tolerance,
         )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
         assert found_pos.x_mm == pytest.approx(position.x_mm)
         assert found_pos.y_mm == pytest.approx(position.y_mm)
         assert found_pos.z_mm == pytest.approx(position.z_mm)
         assert found_pos.r_deg == pytest.approx(position.r_deg)
         assert found_pos.t_deg == pytest.approx(position.t_deg)
-        microscope.disconnect()
 
     @pytest.mark.hardware
-    def test_move_to_position_hardware(self):
+    def test_move_to_position_hardware(self, safe_microscope):
         """tests move_to_position() on physical instrument"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
 
         # retract all devices
         devices.retract_all_devices(
-            microscope=microscope,
+            microscope=safe_microscope,
             enable_EBSD=True,
             enable_EDS=True,
         )
-        stage.home_stage(microscope=microscope)
+        stage.home_stage(microscope=safe_microscope)
 
         position_1 = tbt.StagePositionUser(
             x_mm=5.0,
@@ -714,11 +612,11 @@ class TestMoveStage:
             angular_deg=0.02,
         )
         stage.move_to_position(
-            microscope=microscope,
+            microscope=safe_microscope,
             target_position=position_1,
             stage_tolerance=stage_tolerance,
         )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
         assert found_pos.x_mm == pytest.approx(
             position_1.x_mm, abs=stage_tolerance.translational_um
         )
@@ -750,11 +648,11 @@ class TestMoveStage:
             angular_deg=0.02,
         )
         stage.move_to_position(
-            microscope=microscope,
+            microscope=safe_microscope,
             target_position=position_2,
             stage_tolerance=stage_tolerance,
         )
-        found_pos = factory.active_stage_position_settings(microscope=microscope)
+        found_pos = factory.active_stage_position_settings(microscope=safe_microscope)
         assert found_pos.x_mm == pytest.approx(
             position_2.x_mm, abs=stage_tolerance.translational_um
         )
@@ -771,6 +669,4 @@ class TestMoveStage:
             position_2.t_deg, abs=stage_tolerance.angular_deg
         )
 
-        stage.home_stage(microscope=microscope)
-
-        microscope.disconnect()
+        stage.home_stage(microscope=safe_microscope)

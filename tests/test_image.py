@@ -15,17 +15,13 @@ import pytribeam.utilities as ut
 
 class TestBeam:
     @pytest.mark.simulated
-    def test_beam_current(self):
+    def test_beam_current(self, microscope):
         """Tests if beam currents can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         microscope.beams.electron_beam.beam_current.value = 5.0 * Conversions.NA_TO_A
         current_target_na = 40.0
 
-        bb = microscope.beams.electron_beam.beam_current.value
-        print(bb)
         img.beam_current(
             tbt.ElectronBeam(settings=settings),
             microscope=microscope,
@@ -34,13 +30,10 @@ class TestBeam:
             delay_s=0,
         )
         cc = microscope.beams.electron_beam.beam_current.value
-        print(cc)
         assert cc == current_target_na * Conversions.NA_TO_A
 
         current_target_na = 15.0  # overwrite
         microscope.beams.ion_beam.beam_current.value = 5.0 * Conversions.NA_TO_A
-        dd = microscope.beams.ion_beam.beam_current.value
-        print(dd)
         img.beam_current(
             tbt.IonBeam(settings=settings),
             microscope=microscope,
@@ -49,16 +42,11 @@ class TestBeam:
             delay_s=0,
         )
         ee = microscope.beams.ion_beam.beam_current.value
-        print(ee)
         assert ee == current_target_na * Conversions.NA_TO_A
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_dwell_time(self):
+    def test_beam_dwell_time(self, microscope):
         """Tests if beam dwell time can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         e_beam = tbt.ElectronBeam(settings=settings)
@@ -88,13 +76,9 @@ class TestBeam:
             == dwell_us * Conversions.US_TO_S
         )
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_hfw(self):
+    def test_beam_hfw(self, microscope):
         """Tests if beam horizontal field widths can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         microscope.beams.electron_beam.horizontal_field_width.value == 0.8
@@ -126,13 +110,9 @@ class TestBeam:
             == hfw_mm * Conversions.MM_TO_M
         )
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_ready(self):
+    def test_beam_ready(self, microscope):
         """Tests if beam can be turned on and unblanked correctly"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         microscope.imaging.set_active_device(tbt.Device.ELECTRON_BEAM.value)
@@ -174,12 +154,8 @@ class TestBeam:
             microscope.beams.ion_beam.is_on and not microscope.beams.ion_beam.is_blanked
         )
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_scan_resolution(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_beam_scan_resolution(self, microscope):
         settings = tbt.BeamSettings()
 
         e_beam = tbt.ElectronBeam(settings=settings)
@@ -227,13 +203,9 @@ class TestBeam:
             == "Requested a custom resolution of 4x3. Only preset resolutions allowed."
         )
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_scan_rotation(self):
+    def test_beam_scan_rotation(self, microscope):
         """Tests if beam scan rotation can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         e_beam = tbt.ElectronBeam(settings=settings)
@@ -263,20 +235,14 @@ class TestBeam:
             == rotation_deg * Conversions.DEG_TO_RAD
         )
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_beam_voltage(self):
+    def test_beam_voltage(self, microscope):
         """Tests if beam voltages can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         microscope.beams.electron_beam.high_voltage.value = 5.0 * Conversions.KV_TO_V
         voltage_target_kv = 10.0
 
-        bb = microscope.beams.electron_beam.high_voltage.value
-        print(bb)
         img.beam_voltage(
             tbt.ElectronBeam(settings=settings),
             microscope=microscope,
@@ -285,14 +251,11 @@ class TestBeam:
             delay_s=0,
         )
         cc = microscope.beams.electron_beam.high_voltage.value
-        print(cc)
         assert cc == voltage_target_kv * Conversions.KV_TO_V
 
         microscope.beams.ion_beam.high_voltage.value = 2.0 * Conversions.KV_TO_V
         voltage_target_kv = 10.0  # overwrite
 
-        bb = microscope.beams.ion_beam.high_voltage.value
-        print(bb)
         img.beam_voltage(
             tbt.IonBeam(settings=settings),
             microscope=microscope,
@@ -301,14 +264,11 @@ class TestBeam:
             delay_s=0,
         )
         cc = microscope.beams.ion_beam.high_voltage.value
-        print(cc)
         assert cc == voltage_target_kv * Conversions.KV_TO_V
 
     @pytest.mark.simulated
-    def test_beam_working_dist(self):
+    def test_beam_working_dist(self, microscope):
         """Tests if beam working distance can be correctly adjusted"""
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         settings = tbt.BeamSettings()
 
         e_beam = tbt.ElectronBeam(settings=settings)
@@ -335,15 +295,10 @@ class TestBeam:
             == wd_mm * Conversions.MM_TO_M
         )
 
-        microscope.disconnect()
-
 
 class TestDetector:
     @pytest.mark.simulated
-    def test_detector_cb(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
-
+    def test_detector_cb(self, microscope):
         microscope.imaging.set_active_device(tbt.Device.ELECTRON_BEAM.value)
         e_beam = factory.active_beam_with_settings(
             microscope=microscope,
@@ -403,9 +358,7 @@ class TestDetector:
         assert bb == pytest.approx(0.52)
 
     @pytest.mark.simulated
-    def test_detector_mode(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_detector_mode(self, microscope):
         devices.device_access(microscope=microscope)
 
         valid_detectors = microscope.detector.type.available_values
@@ -423,12 +376,8 @@ class TestDetector:
                 )
                 assert microscope.detector.mode.value == mode
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_detector_type(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_detector_type(self, microscope):
         devices.device_access(microscope=microscope)
 
         valid_detectors = microscope.detector.type.available_values
@@ -440,14 +389,10 @@ class TestDetector:
             # custom = detector.custom_settings
             assert microscope.detector.type.value == detector
 
-        microscope.disconnect()
-
 
 class TestSetImagingDevice:
     @pytest.mark.simulated
-    def test_set_beam_device(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_set_beam_device(self, microscope):
         devices.device_access(microscope=microscope)
         microscope.imaging.set_active_device(tbt.Device.ELECTRON_BEAM.value)
         assert microscope.imaging.get_active_device() == tbt.Device.ELECTRON_BEAM.value
@@ -459,9 +404,7 @@ class TestSetImagingDevice:
         assert microscope.imaging.get_active_device() == tbt.Device.ION_BEAM.value
 
     @pytest.mark.simulated
-    def test_set_view(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_set_view(self, microscope):
         settings = tbt.BeamSettings()
 
         microscope.imaging.set_active_view(2)
@@ -477,12 +420,8 @@ class TestSetImagingDevice:
         img.set_view(microscope=microscope, quad=tbt.ViewQuad.LOWER_RIGHT)
         assert microscope.imaging.get_active_view() == 4
 
-        microscope.disconnect()
-
     @pytest.mark.simulated
-    def test_set_device(self):
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
+    def test_set_device(self, microscope):
         devices.device_access(microscope=microscope)
         img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
         assert microscope.imaging.get_active_device() == tbt.Device.ELECTRON_BEAM.value
@@ -493,7 +432,7 @@ class TestSetImagingDevice:
 
 class TestCollectImage:
     @pytest.mark.simulated
-    def test_collect_single_image(self, config_factory):
+    def test_collect_single_image(self, config_factory, microscope):
         ## Preset resolution
 
         # read config
@@ -517,9 +456,6 @@ class TestCollectImage:
             yml_format=yml_format,
         )
 
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         # create image object
         image_object = factory.image(
             microscope=microscope,
@@ -547,9 +483,7 @@ class TestCollectImage:
             assert stnd_img.width == 768
             assert stnd_img.height == 512
 
-        microscope.disconnect()
-
-    def test_collect_single_image_custom_resolution(self, config_factory):
+    def test_collect_single_image_custom_resolution(self, config_factory, microscope):
         # read config
         test_file = config_factory("image_config_custom_resolution.yml")
         temp_image_path = test_file.parent.joinpath("test_image_custom_resolution.tif")
@@ -571,9 +505,6 @@ class TestCollectImage:
             yml_format=yml_format,
         )
 
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         # create image object
         image_object = factory.image(
             microscope=microscope,
@@ -601,11 +532,9 @@ class TestCollectImage:
             assert stnd_img.width == 400
             assert stnd_img.height == 800
 
-        microscope.disconnect()
-
     ### the main methods of the file
     @pytest.mark.hardware
-    def test_collect_single_image_insertable(self, config_factory):
+    def test_collect_single_image_insertable(self, config_factory, microscope):
         # read config
         test_file = config_factory("image_insertable_config.yml")
         temp_image_path = test_file.parent.joinpath("test_image_insertable.tif")
@@ -627,9 +556,6 @@ class TestCollectImage:
             yml_format=yml_format,
         )
 
-        # connect to microscope
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
         # create image object
         image_object = factory.image(
             microscope=microscope,
@@ -663,8 +589,6 @@ class TestCollectImage:
         with pil_img.open(str(temp_image_path)) as stnd_img:
             assert stnd_img.width == 3072
             assert stnd_img.height == 2048
-
-        microscope.disconnect()
 
     # TODO this test
     def test_collect_multiple_images(self):

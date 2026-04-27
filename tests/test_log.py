@@ -62,13 +62,11 @@ class TestStoreLogData:
             found = yaml.safe_load(f)
         assert known == found
 
-    def test_position(self, temp_dir):
+    def test_position(self, temp_dir, microscope):
         temp_file = temp_dir.joinpath(
             "temp_log.h5",
         )
         log.create_file(path=temp_file)
-        microscope = tbt.Microscope()
-        microscope.connect("localhost")
 
         known_position = factory.active_stage_position_settings(
             microscope=microscope,
@@ -105,7 +103,6 @@ class TestStoreLogData:
         assert found_position["R"] == pytest.approx(
             known_position.r_deg, abs=Constants.default_stage_tolerance.angular_deg
         )
-        microscope.disconnect()
 
     def test_laser_power(self, temp_dir):
         temp_file = temp_dir.joinpath(
