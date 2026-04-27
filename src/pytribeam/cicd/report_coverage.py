@@ -38,7 +38,11 @@ class CoverageMetric:
         """
         Calculates the coverage percentage.
         """
-        return (self.lines_covered / self.lines_valid * 100) if self.lines_valid > 0 else 0.0
+        return (
+            (self.lines_covered / self.lines_valid * 100)
+            if self.lines_valid > 0
+            else 0.0
+        )
 
     @property
     def color(self) -> str:
@@ -84,16 +88,14 @@ def get_report_html(
     }
     raw_color = coverage_metric.color
     score_color = color_map.get(raw_color, raw_color)
-    
+
     timestamp_ext = extend_timestamp(metadata.timestamp)
 
     # Programmatically construct the full report URL
     try:
         owner, repo_name = metadata.github_repo.split("/")
         subdir = "main" if metadata.ref_name == "main" else "dev"
-        full_report_url = (
-            f"https://{owner}.github.io/{repo_name}/{subdir}/reports/coverage/htmlcov/index.html"
-        )
+        full_report_url = f"https://{owner}.github.io/{repo_name}/{subdir}/reports/coverage/htmlcov/index.html"
     except ValueError:
         full_report_url = "#"
 
@@ -187,14 +189,14 @@ def generate_report(args: argparse.Namespace, metadata: ReportMetadata) -> None:
     Orchestrate report generation.
     """
     coverage_metric = get_coverage_metric(coverage_file=Path(args.input_file))
-    
+
     html_content = get_report_html(coverage_metric, metadata)
-    
+
     # Ensure output directory exists
     output_dir = os.path.dirname(args.output_file)
     if output_dir:
         os.makedirs(output_dir, exist_ok=True)
-        
+
     write_report(html_content, args.output_file)
 
     print(f"[OK] Coverage report generated: {args.output_file}")
