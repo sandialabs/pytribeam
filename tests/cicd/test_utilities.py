@@ -152,6 +152,8 @@ def test_extend_timestamp():
     expected_extended_ts2: str = (
         "2024-10-27 10:00:00 UTC (2024-10-27 06:00:00 EST / 2024-10-27 04:00:00 MST)"
     )
+    assert extend_timestamp(short_ts2) == expected_extended_ts2
+
     # The timezone abbreviations change depending on DST.
     # We should adjust the test to be less fragile to this.
 
