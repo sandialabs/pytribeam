@@ -1291,7 +1291,7 @@ def imaging_detector(img_settings: tbt.ImageSettings) -> bool:
         microscope=microscope,
         detector=detector,
     )
-    if detector_state is not None:
+    if detector_state is not tbt.RetractableDeviceState.STATIONARY:
         devices.insert_detector(
             microscope=microscope,
             detector=detector,
@@ -1579,10 +1579,12 @@ def collect_multiple_images(
             microscope=_set.microscope,
             detector=_set.detector,
         )
-        is not None
+        is not tbt.RetractableDeviceState.STATIONARY
         for _set in multiple_img_settings
     ]
-    if any(insertable_detector):
+    if sum(insertable_detector) > 1:
+        raise NotImplementedError("Collecting multiple images with more than one insertable detector is not supported.")
+    elif sum(insertable_detector) == 1:
         start = multiple_img_settings[insertable_detector.index(True)]
         multiple_img_settings = [start] + multiple_img_settings
 

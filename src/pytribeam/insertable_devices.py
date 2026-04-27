@@ -145,11 +145,15 @@ def detector_state(
         The state of the detector if it is insertable, None otherwise.
     """
     # check if the detector is being read by Autoscriptdevice_access(microscope)
+    # try:
+    #     return tbt.RetractableDeviceState(microscope.detector.state)
+    # except Exception:
+    #     return tbt.RetractableDeviceState.STATIONARY
     if not detector_insertable(
         microscope=microscope,
         detector=detector,
     ):
-        return None
+        return tbt.RetractableDeviceState.STATIONARY
     return tbt.RetractableDeviceState(microscope.detector.state)
 
 
@@ -449,7 +453,8 @@ def retract_all_devices(
             microscope=microscope,
             detector=detector,
         )
-        if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
+        if state is not tbt.RetractableDeviceState.STATIONARY and state is not tbt.RetractableDeviceState.RETRACTED:
+        # if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
             retract_device(
                 microscope=microscope,
                 detector=detector,

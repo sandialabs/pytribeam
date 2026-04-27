@@ -145,8 +145,21 @@ class TestEBSDEDS:
 
 
 class TestDeviceMovement:
+    @pytest.mark.hardware
+    def test_detector_state(self):
+        microscope = tbt.Microscope()
+        microscope.connect("localhost")
+        devices.device_access(microscope=microscope)
+        detector = tbt.DetectorType.CBS
+        val = devices.detector_state(microscope=microscope, detector=detector)
+        assert val != tbt.RetractableDeviceState.STATIONARY
+
+        detector_2 = tbt.DetectorType.ETD
+        val_2 = devices.detector_state(microscope=microscope, detector=detector_2)
+        assert val_2 == tbt.RetractableDeviceState.STATIONARY
+
     @pytest.mark.simulated
-    def test_detector_insertable(self):
+    def test_stationary_detector_insertable(self):
         microscope = tbt.Microscope()
         microscope.connect("localhost")
 
@@ -162,45 +175,60 @@ class TestDeviceMovement:
                 microscope=microscope,
                 detector=detector,
             )
-            if detector == "CBS":
-                assert insertable == True
-                state = devices.detector_state(
-                    microscope=microscope,
-                    detector=detector,
-                )
-                assert state == tbt.RetractableDeviceState.RETRACTED.value
-                continue
-            if detector == "External":
+            state = devices.detector_state(
+                microscope=microscope,
+                detector=detector,
+            )
+            if detector == tbt.DetectorType.ETD:
                 assert insertable == False
                 state = devices.detector_state(
                     microscope=microscope,
                     detector=detector,
                 )
-                assert state == None
-                continue
-            if detector == "ETD":
+                assert state == tbt.RetractableDeviceState.STATIONARY
+            elif detector == tbt.DetectorType.TLD:
                 assert insertable == False
                 state = devices.detector_state(
                     microscope=microscope,
                     detector=detector,
                 )
-                assert state == None
-                continue
+                assert state == tbt.RetractableDeviceState.STATIONARY
+            elif detector == tbt.DetectorType.EXTERNAL:
+                assert insertable == False
+                state = devices.detector_state(
+                    microscope=microscope,
+                    detector=detector,
+                )
+                assert state == tbt.RetractableDeviceState.STATIONARY
 
         microscope.disconnect()
 
     @pytest.mark.hardware
-    def test_detector_state(self):
+    def test_retractable_detector_insertable(self):
         microscope = tbt.Microscope()
         microscope.connect("localhost")
-        devices.device_access(microscope=microscope)
-        detector = tbt.DetectorType.CBS
-        val = devices.detector_state(microscope=microscope, detector=detector)
-        assert val != None
 
-        detector_2 = tbt.DetectorType.ETD
-        val_2 = devices.detector_state(microscope=microscope, detector=detector_2)
-        assert val_2 == None
+        devices.device_access(microscope=microscope)
+        valid_detectors = microscope.detector.type.available_values
+        for detector in valid_detectors:
+            detector = tbt.DetectorType(detector)  # overwrite
+            img.detector_type(
+                microscope=microscope,
+                detector=detector,
+            )
+            insertable = devices.detector_insertable(
+                microscope=microscope,
+                detector=detector,
+            )
+            state = devices.detector_state(
+                microscope=microscope,
+                detector=detector,
+            )
+            if detector == tbt.DetectorType.CBS:
+                assert insertable == True
+                assert state == tbt.RetractableDeviceState.RETRACTED
+
+        microscope.disconnect()
 
     @pytest.mark.hardware
     def test_insert_detector(self):
