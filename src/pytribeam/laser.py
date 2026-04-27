@@ -279,7 +279,7 @@ def pulse_energy_uj(
     ):
         raise ValueError(
             f"Could not properly set pulse energy, requested '{energy_uj}' uJ",
-            f"Current settings is {round(laser_state.pulse_energy_uj,3)} uJ",
+            f"Current settings is {round(laser_state.pulse_energy_uj, 3)} uJ",
         )
     return True
 
