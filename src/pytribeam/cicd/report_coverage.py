@@ -131,18 +131,6 @@ def get_report_html(
             color: #6a737d; font-size: 0.9em; margin-top: 10px;
         }}
         .metadata div {{ margin-bottom: 4px; }}
-        .nav {{
-            background: white; padding: 20px; border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
-        }}
-        .nav a {{
-            background: #0366d6; color: white; padding: 10px 20px;
-            text-decoration: none; border-radius: 6px; margin-right: 10px;
-            display: inline-block;
-        }}
-        .nav a:hover {{
-            background: #0256cc;
-        }}
         .section {{
             background: white; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
@@ -171,10 +159,6 @@ def get_report_html(
                 <div>&nbsp;</div>
                 <div><strong>Full report:</strong> <a href="{full_report_url}" style="color: #0366d6;">Detailed HTML Report</a></div>
             </div>
-        </div>
-
-        <div class="nav">
-            <a href="../../index.html">← Back to Dashboard</a>
         </div>
         
         <div class="footer">
