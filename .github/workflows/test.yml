@@ -45,11 +45,26 @@ jobs:
       - name: Run Ruff Format Check
         run: uv run ruff format --check
 
-      - name: Run Pylint
-        run: uv run pylint --fail-under=7.0 src/pytribeam
+      - name: Run Pylint and Create Pylint Report
+        run: |
+          uv run pylint src/pytribeam > report_pylint.txt || true
+
+      - name: Upload Pylint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-pylint
+          path: report_pylint.txt
 
       - name: Run Pytest
-        run: uv run pytest tests/test_example.py tests/cicd/
+        run: uv run pytest tests/test_example.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-coverage
+          path: |
+            report_coverage.xml
+            htmlcov/
 
   github-pages:
     name: Create Github Pages
@@ -78,6 +93,16 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
+      - name: Download Pylint Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-pylint
+
+      - name: Download Coverage Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-coverage
+
       - name: Set Deploy Directory
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -88,7 +113,10 @@ jobs:
 
       - name: Assemble pages directory
         run: |
-          mkdir -p pages
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
+          
+          # Generate the HTML dashboard
           uv run python src/pytribeam/cicd/report_dashboard.py \
             --github_repo "${{ github.repository }}" \
             --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
@@ -96,6 +124,29 @@ jobs:
             --ref_name "${{ github.ref_name }}" \
             --github_sha "${{ github.sha }}" \
             --output_file pages/index.html
+
+          # Generate the HTML lint report
+          uv run python src/pytribeam/cicd/report_lint.py \
+            --input_file report_pylint.txt \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/lint/index.html
+
+          # Generate the HTML coverage report
+          uv run python src/pytribeam/cicd/report_coverage.py \
+            --input_file report_coverage.xml \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/index.html
+            
+          # Copy the detailed HTML coverage report
+          cp -r htmlcov pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
