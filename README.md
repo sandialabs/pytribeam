@@ -10,6 +10,8 @@
 [lint_badge]: https://sandialabs.github.io/pytribeam/badges/lint.svg
 [version_badge]: https://img.shields.io/pypi/v/pytribeam?logo=pypi&logoColor=FBE072&label=PyPI&color=4B8BBE
 
+[![GitHub Pages badge](https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github)](https://sandialabs.github.io/pytribeam/)
+
 ## Development work
 
 See release target [here](https://github.com/sandialabs/pytribeam/blob/dev/docs/developers/release_plan.md).
