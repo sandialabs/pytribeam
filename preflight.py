@@ -42,7 +42,7 @@ def main() -> None:
     print("Starting Preflight Checks...")
 
     steps: List[str] = [
-        "uv run ruff check src/pytribeam/cicd/",
+        "uv run ruff format --check src/pytribeam/cicd/",
         "uv run pytest tests/cicd",
         "uv run pytest --no-cov tests/test_example.py",
     ]

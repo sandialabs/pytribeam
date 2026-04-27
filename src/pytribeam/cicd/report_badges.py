@@ -72,10 +72,10 @@ def generate_badge_svg(label: str, value: str, color_key: str) -> str:
         <path fill="url(#b)" d="M0 0h{total_w}v20H0z"/>
     </g>
     <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
-        <text x="{label_w/2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>
-        <text x="{label_w/2}" y="14">{label}</text>
-        <text x="{label_w + value_w/2}" y="15" fill="#010101" fill-opacity=".3">{value}</text>
-        <text x="{label_w + value_w/2}" y="14">{value}</text>
+        <text x="{label_w / 2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>
+        <text x="{label_w / 2}" y="14">{label}</text>
+        <text x="{label_w + value_w / 2}" y="15" fill="#010101" fill-opacity=".3">{value}</text>
+        <text x="{label_w + value_w / 2}" y="14">{value}</text>
     </g>
     </svg>"""
 
