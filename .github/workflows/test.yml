@@ -102,7 +102,7 @@ jobs:
             --output_file pages/index.html
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v7
+        uses: actions/upload-pages-artifact@v5
         with:
           path: './pages'
 
