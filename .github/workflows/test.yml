@@ -4,17 +4,13 @@ name: Test
 on:
   push:
     branches:
-      - main
-      - dev
-  pull_request:
-    branches:
       - '**'
-  workflow_dispatch: # Allows manual triggering from the Actions tab
-  workflow_call: # CRITICAL: Allows this workflow to be called by others
+  workflow_dispatch:
+  workflow_call:
 
-# Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled.
 concurrency:
-  group: test-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -102,7 +98,7 @@ jobs:
             --output_file pages/index.html
 
       - name: Upload artifact
-        uses: actions/upload-pages-artifact@v7
+        uses: actions/upload-pages-artifact@v5
         with:
           path: './pages'
 
