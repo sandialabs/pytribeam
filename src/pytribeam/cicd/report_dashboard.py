@@ -192,7 +192,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
     <footer class="mt-20 py-10 border-t border-slate-200 bg-white">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-sm text-slate-400">
-                &copy; 2026 Sandia National Laboratories | Released under MIT License
+                &copy; 2026 Sandia National Laboratories | Released under <a href="{github_url}/blob/main/LICENSE" class="text-blue-600 hover:underline">MIT License</a>
             </p>
         </div>
     </footer>
