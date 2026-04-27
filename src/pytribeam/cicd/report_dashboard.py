@@ -63,7 +63,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
             <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 mb-4">
                 <b>Project Dashboard</b></h1>
             <p class="text-lg text-slate-600 max-w-2xl mx-auto">
-                Access documentation and quality reports for the pyTriBeam.
+                Access documentation and quality reports for pyTriBeam.
             </p>
         </header>
 
@@ -164,8 +164,8 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
         </div>
 
         <section class="mt-16 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-            <h2 class="text-xl font-bold mb-6 border-b pb-2">Build Metadata</h2>
-            <div class="flex flex-col gap-2 text-sm text-slate-600">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Build Metadata</h2>
+            <div class="flex flex-col gap-0 text-sm leading-tight text-slate-600">
                 <div>
                     <span class="font-semibold">Generated:</span> {timestamp_ext}
                 </div>
