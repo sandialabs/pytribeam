@@ -37,6 +37,7 @@ image_processing(geometry: tbt.FIBStreamPattern, input_image_path: Path) -> bool
 mill_operation(step: tbt.Step, fib_settings: tbt.FIBSettings, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
     Perform a milling operation based on the provided step and settings.
 """
+
 # Default python modules
 from functools import singledispatch
 import os

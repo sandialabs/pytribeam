@@ -1,5 +1,4 @@
-""""This module tests the command_line services.
-"""
+""" "This module tests the command_line services."""
 
 # from pytribeam import command_line as cl
 from pytribeam import command_line as cl

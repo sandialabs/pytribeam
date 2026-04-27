@@ -380,10 +380,8 @@ def apply_gradient(img, gradient="vertical", colors=None, keep_transparency=True
     pixdata = img.load()
 
     if gradient in ("horizontal", "vertical", "diagonal"):
-
         for x in range(0, size[0]):
             for y in range(0, size[1]):
-
                 if gradient == "horizontal":
                     ratio1 = x / size[1]
                 elif gradient == "vertical":
@@ -413,7 +411,6 @@ def apply_gradient(img, gradient="vertical", colors=None, keep_transparency=True
 
         for x in range(0, size[0]):
             for y in range(0, size[1]):
-
                 # Find the distance to the center
                 distance_to_center = math.sqrt(
                     (x - size[0] / 2) ** 2 + (y - size[1] / 2) ** 2
