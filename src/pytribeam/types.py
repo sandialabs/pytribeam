@@ -2324,7 +2324,7 @@ class YMLFormatVersion(YMLFormat, Enum):
             "connection_host": str,
             "connection_port": int,
             "EBSD_OEM": ExternalDeviceOEM,
-            "EDS_OEM" "exp_dir": Path,
+            "EDS_OEMexp_dir": Path,
             "h5_log_name": str,
             "step_count": int,
         },

@@ -10,23 +10,46 @@ on:
       - '**' # Trigger on any pull request
   workflow_call: # CRITICAL: Allows this workflow to be called by others
 
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Force all JavaScript actions to run on Node 24 (The 2026 Standard)
+  # After 02 June 2026, the following line can be removed since on that date,
+  # Node.js 24 will be the GitHub default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # GitHub will swtich on 02 June 2026 to Node.js 24 as the default for JavaScript actions, but until then, this ensures all actions use Node.js 24 to avoid any issues with older versions. After 02 June 2026, this line can be safely removed.
+
 jobs:
   test:
-    name: Run Subset of Tests
+    name: Test (ruff format, pylint, pytest)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+            fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.8.12'
+          enable-cache: true
+          cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
       - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+        run: uv sync --all-extras --dev
+
+      - name: Build Check
+        run: uv build
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pylint
+        run: uv run pylint --fail-under=7.0 src/pytribeam
 
       - name: Run Pytest
-        run: pytest tests/test_example.py
+        run: uv run pytest tests/test_example.py
+
