@@ -6,6 +6,7 @@ This module extracts key coverage metrics from a coverage XML file and generates
 """
 
 import argparse
+import os
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass

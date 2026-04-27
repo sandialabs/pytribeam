@@ -39,84 +39,165 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>pyTriBeam | Project Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-        // Tailwind config for dark mode support
-        tailwind.config = {{
-            darkMode: 'class',
-        }}
-        
-        // Check for saved theme preference or system preference
-        if (localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {{
-            document.documentElement.classList.add('dark')
-        }} else {{
-            document.documentElement.classList.remove('dark')
-        }}
-
-        function toggleDarkMode() {{
-            if (document.documentElement.classList.contains('dark')) {{
-                document.documentElement.classList.remove('dark');
-                localStorage.setItem('theme', 'light');
-            }} else {{
-                document.documentElement.classList.add('dark');
-                localStorage.setItem('theme', 'dark');
-            }}
-        }}
-    </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+          rel="stylesheet">
     <style>
         body {{ font-family: 'Inter', sans-serif; }}
         .hover-card:hover {{ transform: translateY(-2px); transition: all 0.2s ease; }}
     </style>
-</head>
-<body class="bg-slate-50 text-slate-800 antialiased min-h-screen dark:bg-[#0d1117] dark:text-[#c9d1d9] transition-colors duration-300">
-    <nav class="bg-white border-b border-slate-200 sticky top-0 z-50 dark:bg-[#010409] dark:border-[#30363d]">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div class="flex items-center gap-4">
-                <span class="text-xl font-bold tracking-tight text-blue-600 dark:text-blue-400">pyTriBeam</span>
-                <button onclick="toggleDarkMode()" class="p-2 rounded-lg bg-slate-100 dark:bg-slate-800 hover:ring-2 ring-slate-300 transition-all">
-                    <span class="dark:hidden">🌙</span>
-                    <span class="hidden dark:inline">☀️</span>
-                </button>
-            </div>
-            <a href="{github_url}" class="text-sm font-medium hover:text-blue-600 dark:hover:text-blue-400 transition">GitHub Repository</a>
+    </head>
+    <body class="bg-slate-50 text-slate-800 antialiased min-h-screen">
+<nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <span class="text-xl font-bold tracking-tight text-blue-600">pyTriBeam</span>
+        </div>
+
+            <a href="{github_url}"
+               class="text-sm font-medium hover:text-blue-600 transition">GitHub Repository</a>
         </div>
     </nav>
 
     <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <header class="mb-12 text-center">
-            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 dark:text-[#f0f6fc] mb-4">
-                <b>Project Dashboard</b>
-            </h1>
-            <p class="text-lg text-slate-600 dark:text-[#8b949e] max-w-2xl mx-auto">
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 mb-4">
+                <b>Project Dashboard</b></h1>
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto">
                 Access documentation and quality reports for pyTriBeam.
             </p>
         </header>
 
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
             <section class="space-y-6">
-                <div class="flex items-center justify-between border-b-2 border-blue-200 dark:border-blue-900 pb-2">
-                    <h2 class="text-2xl font-bold flex items-center gap-2">🚀 Released</h2>
+                <div class="flex items-center justify-between border-b-2 border-blue-200 pb-2">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        🚀 Released
+                    </h2>
+                    <a href="{github_url}/tree/main"
+                       class="text-xs font-semibold bg-blue-100 text-blue-700
+                              px-2 py-1 rounded hover:bg-slate-300">main branch</a>
                 </div>
+
                 <div class="space-y-4">
                     <a href="main/book/jupyter/index.html"
-                       class="hover-card block p-5 bg-white dark:bg-[#161b22] rounded-xl shadow-sm border border-slate-200 dark:border-[#30363d] hover:border-blue-600 dark:hover:border-blue-400 group">
+                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                              border-slate-200 hover:border-blue-600 group">
                         <div class="flex justify-between items-start">
                             <div>
-                                <h3 class="font-bold text-lg group-hover:text-blue-600 dark:group-hover:text-blue-400">User's Manual</h3>
-                                <p class="text-sm text-slate-500 dark:text-[#8b949e] mt-1">Stable documentation for end-users.</p>
+                                <h3 class="font-bold text-lg group-hover:text-blue-600">
+                                    User's Manual</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Stable documentation for end-users.</p>
                             </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                Stable</span>
                         </div>
                     </a>
-                    </div>
-            </section>
-            
-            </div>
 
-        <section class="mt-16 bg-white dark:bg-[#0d1117] p-8 rounded-xl shadow-sm border border-slate-200 dark:border-[#30363d]">
-            <h2 class="text-xl font-bold mb-4 border-b dark:border-[#30363d] pb-2 text-slate-900 dark:text-[#f0f6fc]">Build Metadata</h2>
+                    <div class="grid grid-cols-2 gap-4">
+                        <a href="main/reports/lint/index.html"
+                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-blue-600">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Code Quality</span>
+                            <img src="main/badges/lint.svg" alt="Lint Score" class="h-5">
+                        </a>
+                        <a href="main/reports/coverage/index.html"
+                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-blue-600">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Test Coverage</span>
+                            <img src="main/badges/coverage.svg" alt="Coverage" class="h-5">
+                        </a>
+                    </div>
+                </div>
             </section>
+
+            <section class="space-y-6">
+                <div class="flex items-center justify-between border-b-2 border-orange-200 pb-2">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        🛠️ Development
+                    </h2>
+                    <a href="{github_url}/tree/dev"
+                       class="text-xs font-semibold bg-orange-100 text-orange-700
+                              px-2 py-1 rounded hover:bg-orange-200">dev branch</a>
+                </div>
+
+                <div class="space-y-4">
+                    <a href="dev/book/jupyter/index.html"
+                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                              border-slate-200 hover:border-orange-500 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-orange-600">
+                                    User's Manual</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Development documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                Latest</span>
+                        </div>
+                    </a>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <a href="dev/reports/lint/index.html"
+                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-orange-500">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Code Quality</span>
+                            <img src="dev/badges/lint.svg" alt="Lint Score" class="h-5">
+                        </a>
+                        <a href="dev/reports/coverage/index.html"
+                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-orange-500">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Test Coverage</span>
+                            <img src="dev/badges/coverage.svg" alt="Coverage" class="h-5">
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <section class="mt-16 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Build Metadata</h2>
+            <div class="flex flex-col gap-0 text-sm leading-tight text-slate-600">
+                <div>
+                    <span class="font-semibold">Generated:</span> {timestamp_ext}
+                </div>
+                <div>
+                    <span class="font-semibold">Run ID:</span>
+                    <a href="{run_url}" class="text-blue-600 hover:underline">{metadata.run_id}</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Branch:</span>
+                    <a href="{branch_url}" class="text-blue-600 hover:underline">{metadata.ref_name}</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Commit:</span>
+                    <a href="{commit_url}" class="text-blue-600 hover:underline">{metadata.github_sha[:7]}</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Repository:</span>
+                    <a href="{github_url}" class="text-blue-600 hover:underline">{metadata.github_repo}</a>
+                </div>
+            </div>
+        </section>
     </main>
-    </body>
+
+    <footer class="mt-20 py-10 border-t border-slate-200 bg-white">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-sm text-slate-400">
+                &copy; 2026 Sandia National Laboratories | Released under <a href="{github_url}/blob/main/LICENSE" class="text-blue-600 hover:underline">MIT License</a>
+            </p>
+        </div>
+    </footer>
+
+</body>
 </html>"""
 
 
