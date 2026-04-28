@@ -115,7 +115,7 @@ jobs:
         run: |
           # Lint badge (now using Python script)
           uv run python src/pytribeam/cicd/badge_lint.py \
-            --input_file report-lint/report_lint.txt \
+            --input_file report_lint.txt \
             --output_dir badges \
             --github_repo ${{ github.repository }} \
             --deploy_subdir ${{ env.DEPLOY_SUBDIR }} \
