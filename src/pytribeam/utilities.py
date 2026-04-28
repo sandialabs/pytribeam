@@ -963,34 +963,10 @@ def tabular_list(
     return result
 
 
-### Custom Decorators ###
+### Functions for tests and CI/CD###
 
 
-def hardware_movement(func):
-    """
-    Decorator to run a function only when hardware testing is enabled.
-
-    Parameters
-    ----------
-    func : function
-        The function to decorate.
-
-    Returns
-    -------
-    function
-        The decorated function.
-    """
-
-    @run_on_microscope_machine
-    def wrapper_func():
-        if not Constants.test_hardware_movement:
-            pytest.skip("Run only when hardware testing is enabled")
-        func()
-
-    return wrapper_func
-
-
-def run_on_standalone_machine(func):
+def get_test_description():
     """
     Decorator to run a function only on a standalone machine.
 
@@ -1004,40 +980,26 @@ def run_on_standalone_machine(func):
     function
         The decorated function.
     """
+    node = platform.uname().node.lower()
+    offline_machine = any(
+            node in machine.lower() or machine.lower() in node for machine in Constants.offline_machines
+    )
+    hardware_machine = any(
+            node in machine.lower() or machine.lower() in node for machine in Constants.microscope_machines
+    )
 
-    def wrapper_func():
-        current_machine = platform.uname().node.lower()
-        test_machines = [machine.lower() for machine in Constants().offline_machines]
-        if current_machine not in test_machines:
-            pytest.skip("Run on Offline License Machine Only.")
-        func()
+    laser_machine = is_laser_available()
 
-    return wrapper_func
+    api_version = get_autoscript_version()
 
+    if offline_machine:
+        description = "simulated_"
+    elif hardware_machine and laser_machine:
+        description = "laser_hardware_"
+    else:
+        description = "hardware_"
 
-def run_on_microscope_machine(func):
-    """
-    Decorator to run a function only on a microscope machine.
-
-    Parameters
-    ----------
-    func : function
-        The function to decorate.
-
-    Returns
-    -------
-    function
-        The decorated function.
-    """
-
-    def wrapper_func():
-        current_machine = platform.uname().node.lower()
-        test_machines = [machine.lower() for machine in Constants().microscope_machines]
-        if current_machine not in test_machines:
-            pytest.skip("Run on Microscope Machine Only.")
-        func()
-
-    return wrapper_func
+    return description + api_version
 
 
 def get_autoscript_version() -> str:
@@ -1058,7 +1020,7 @@ def get_autoscript_version() -> str:
     return version
 
 
-def is_laser_available() -> str:
+def is_laser_available() -> bool:
     """
     Get the version of ThermoFisher Laser Control API for the present system
 
