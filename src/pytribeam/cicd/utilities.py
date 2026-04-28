@@ -4,11 +4,13 @@ Utilities for CICD processes.
 """
 
 import argparse
+import json
 import re
 from datetime import datetime
 from typing import List, NamedTuple, Tuple
 
 import pytz
+import requests
 
 
 class ReportMetadata(NamedTuple):
@@ -94,41 +96,41 @@ def report_main_runner(main_func, args: argparse.Namespace) -> int:
     return 0
 
 
-# def badge_image_download(url: str, output_path: str) -> bool:
-#    """
-#    Download a badge SVG from a URL.
-#
-#    Args:
-#        url: The URL of the badge.
-#        output_path: Local file path to save the SVG.
-#
-#    Returns:
-#        True if successful, False otherwise.
-#    """
-#    try:
-#        response = requests.get(url, timeout=10)
-#        response.raise_for_status()
-#        with open(output_path, "wb") as f:
-#            f.write(response.content)
-#        return True
-#    except requests.RequestException as e:
-#        print(f"[X] Failed to download badge from {url}: {e}")
-#        return False
+def badge_image_download(url: str, output_path: str) -> bool:
+    """
+    Download a badge SVG from a URL.
+
+    Args:
+        url: The URL of the badge.
+        output_path: Local file path to save the SVG.
+
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        with open(output_path, "wb") as f:
+            f.write(response.content)
+        return True
+    except requests.RequestException as e:
+        print(f"[X] Failed to download badge from {url}: {e}")
+        return False
 
 
-# def badge_metadata_json_write(metadata: dict, output_path: str) -> None:
-#    """
-#    Write badge metadata to a JSON file.
-#
-#    Args:
-#        metadata: Dictionary containing metadata.
-#        output_path: Local file path to save the JSON.
-#    """
-#    try:
-#        with open(output_path, "w", encoding="utf-8") as f:
-#            json.dump(metadata, f, indent=2)
-#    except (IOError, TypeError) as e:
-#        print(f"[X] Failed to write JSON metadata to {output_path}: {e}")
+def badge_metadata_json_write(metadata: dict, output_path: str) -> None:
+    """
+    Write badge metadata to a JSON file.
+
+    Args:
+        metadata: Dictionary containing metadata.
+        output_path: Local file path to save the JSON.
+    """
+    try:
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(metadata, f, indent=2)
+    except (IOError, TypeError) as e:
+        print(f"[X] Failed to write JSON metadata to {output_path}: {e}")
 
 
 def get_score_color_lint(pylint_score: str) -> str:
