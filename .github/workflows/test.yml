@@ -47,16 +47,16 @@ jobs:
 
       - name: Run Pylint and Create Pylint Report
         run: |
-          uv run pylint src/pytribeam > report_pylint.txt || true
+          uv run pylint src/pytribeam > report_lint.txt || true
 
       - name: Upload Pylint Report
         uses: actions/upload-artifact@v7
         with:
-          name: report-pylint
-          path: report_pylint.txt
+          name: report-lint
+          path: report_lint.txt
 
       - name: Run Pytest
-        run: uv run pytest tests/test_example.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+        run: uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
 
       - name: Upload Coverage Artifacts
         uses: actions/upload-artifact@v7
@@ -96,7 +96,7 @@ jobs:
       - name: Download Pylint Report
         uses: actions/download-artifact@v7
         with:
-          name: report-pylint
+          name: report-lint
 
       - name: Download Coverage Report
         uses: actions/download-artifact@v7
@@ -111,12 +111,30 @@ jobs:
             echo "DEPLOY_SUBDIR=dev" >> $GITHUB_ENV
           fi
 
+      - name: Create badges
+        run: |
+          # Lint badge (now using Python script)
+          uv run python src/pytribeam/cicd/badge_lint.py \
+            --input_file report-lint/report_lint.txt \
+            --output_dir badges \
+            --github_repo ${{ github.repository }} \
+            --deploy_subdir ${{ env.DEPLOY_SUBDIR }} \
+            --run_id ${{ github.run_id }} \
+            --github_server_url ${{ github.server_url }}
+
       - name: Assemble pages directory
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/badges
           
-          # Generate the HTML dashboard
+          # Create badges (Must be done before dashboard or concurrently)
+          uv run python src/pytribeam/cicd/report_badges.py \
+            --lint_file report_lint.txt \
+            --coverage_file report_coverage.xml \
+            --output_dir pages/${{ env.DEPLOY_SUBDIR }}/badges
+
+          # Create the HTML dashboard
           uv run python src/pytribeam/cicd/report_dashboard.py \
             --github_repo "${{ github.repository }}" \
             --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
@@ -125,9 +143,9 @@ jobs:
             --github_sha "${{ github.sha }}" \
             --output_file pages/index.html
 
-          # Generate the HTML lint report
+          # Create the HTML lint report
           uv run python src/pytribeam/cicd/report_lint.py \
-            --input_file report_pylint.txt \
+            --input_file report_lint.txt \
             --github_repo "${{ github.repository }}" \
             --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
             --run_id "${{ github.run_id }}" \
@@ -135,7 +153,7 @@ jobs:
             --github_sha "${{ github.sha }}" \
             --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/lint/index.html
 
-          # Generate the HTML coverage report
+          # Create the HTML coverage report
           uv run python src/pytribeam/cicd/report_coverage.py \
             --input_file report_coverage.xml \
             --github_repo "${{ github.repository }}" \
@@ -147,6 +165,11 @@ jobs:
             
           # Copy the detailed HTML coverage report
           cp -r htmlcov pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/
+          
+          # Validation check to ensure files exist
+          ls -R pages/
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/lint.svg || echo "Lint badge missing"
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/coverage.svg || echo "Coverage badge missing"
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5

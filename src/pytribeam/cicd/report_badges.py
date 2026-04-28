@@ -58,7 +58,7 @@ def generate_badge_svg(label: str, value: str, color_key: str) -> str:
     value_w = len(value) * 7 + 10
     total_w = label_w + value_w
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="20">
+    return f"""<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="20" viewBox="0 0 {total_w} 20" preserveAspectRatio="xMidYMid meet">
     <linearGradient id="b" x2="0" y2="100%">
         <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
         <stop offset="1" stop-opacity=".1"/>
@@ -71,13 +71,13 @@ def generate_badge_svg(label: str, value: str, color_key: str) -> str:
         <path fill="{color}" d="M{label_w} 0h{value_w}v20H{label_w}z"/>
         <path fill="url(#b)" d="M0 0h{total_w}v20H0z"/>
     </g>
-    <g fill="#fff" text-anchor="middle" font-family="DejaVu Sans,Verdana,Geneva,sans-serif" font-size="11">
+    <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,DejaVu Sans,sans-serif" font-size="11">
         <text x="{label_w / 2}" y="15" fill="#010101" fill-opacity=".3">{label}</text>
         <text x="{label_w / 2}" y="14">{label}</text>
         <text x="{label_w + value_w / 2}" y="15" fill="#010101" fill-opacity=".3">{value}</text>
         <text x="{label_w + value_w / 2}" y="14">{value}</text>
     </g>
-</svg>"""
+    </svg>"""
 
 
 def main():
