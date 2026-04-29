@@ -125,8 +125,9 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
         }}
         .metadata {{
             color: #6a737d; font-size: 0.9em; margin-top: 10px;
+            line-height: 1.25;
         }}
-        .metadata div {{ margin-bottom: 4px; }}
+        .metadata div {{ margin-bottom: 0px; }}
         .section {{
             background: white; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
