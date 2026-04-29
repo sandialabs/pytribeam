@@ -123,6 +123,20 @@ jobs:
             --github_server_url ${{ github.server_url }}
 
       - name: Assemble pages directory
+        # pages/
+        # ├── index.html                (Main Dashboard)
+        # └── dev/ (or main/)
+        #     ├── badges/
+        #     │   ├── lint.svg
+        #     │   └── coverage.svg
+        #     ├── reports/
+        #     │   ├── lint/
+        #     │   │   └── index.html    (Pylint Summary)
+        #     │   └── coverage/
+        #     │       ├── index.html    (Coverage Summary)
+        #     │       └── htmlcov/      (Detailed Pytest-cov HTML)
+        #     └── book/                 (User Manual - built separately)
+
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
