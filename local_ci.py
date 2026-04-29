@@ -49,6 +49,13 @@ def need(cmd: str) -> None:
         sys.exit(1)
 
 
+def available(cmd: str) -> bool:
+    if shutil.which(cmd) is None:
+        print(f"ERROR: Missing command: {cmd}", file=sys.stderr)
+        return False
+    return True
+
+
 def run_to_log(
     cmd: list[str],
     log_file: Path,
@@ -439,7 +446,7 @@ def run_pylint_and_badge() -> None:
 
 def main() -> int:
     for cmd in [
-        "mdbook",
+        # "mdbook",
         "pdoc",
         "interrogate",
         "anybadge",
@@ -455,8 +462,12 @@ def main() -> int:
 
     print("=== Local CI workflow (no git actions) ===")
 
-    build_userguide()
-    create_userguide_badge()
+    if available("mdbook"):
+        build_userguide()
+        create_userguide_badge()
+    else:
+        print("WARNING: mdbook was not found, the userguide will not be built")
+    
     build_api_docs()
     run_docstring_coverage()
     run_tests_and_store_coverage()
