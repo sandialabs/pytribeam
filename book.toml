@@ -4,7 +4,9 @@ language = "en"
 multilingual = false
 src = "docs/userguide/src"
 title = "pyTriBeam User Guide"
-logo = "src/logos/logo_color.png"
+
+[output.html]
+logo = "logos/logo_color.png"
 
 [build]
 build-dir = "docs/userguide/book"
