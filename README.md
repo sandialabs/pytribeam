@@ -2,7 +2,7 @@
 
 * main logo
 
-![main_logo](https://sandialabs.github.io/pytribeam/main/docs/userguide/book/logos/logo_color.png)
+![main_logo](docs/userguide/src/logos/logo_color.png)
 
 * user guide
 
