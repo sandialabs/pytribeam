@@ -80,7 +80,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                 </div>
 
                 <div class="space-y-4">
-                    <a href="main/book/jupyter/index.html"
+                    <a href="main/docs/userguide/book/index.html"
                        class="hover-card block p-5 bg-white rounded-xl shadow-sm border
                               border-slate-200 hover:border-blue-600 group">
                         <div class="flex justify-between items-start">
@@ -126,7 +126,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                 </div>
 
                 <div class="space-y-4">
-                    <a href="dev/book/jupyter/index.html"
+                    <a href="dev/docs/userguide/book/index.html"
                        class="hover-card block p-5 bg-white rounded-xl shadow-sm border
                               border-slate-200 hover:border-orange-500 group">
                         <div class="flex justify-between items-start">
