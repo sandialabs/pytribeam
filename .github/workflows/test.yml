@@ -103,6 +103,22 @@ jobs:
         with:
           name: report-coverage
 
+      - name: Setup mdBook
+        uses: peaceiris/actions-mdbook@v2
+        with:
+          mdbook-version: 'latest'
+
+      - name: Install mdBook Preprocessors
+        run: |
+          # Install preprocessors if they are available via cargo or other means
+          # For now, we try to install common ones or skip if they are not strictly needed for the build to succeed
+          # mdbook-katex and mdbook-cmdrun are mentioned in book.toml
+          cargo install mdbook-katex || echo "Failed to install mdbook-katex"
+          cargo install mdbook-cmdrun || echo "Failed to install mdbook-cmdrun"
+
+      - name: Build User Guide
+        run: mdbook build
+
       - name: Set Deploy Directory
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -135,12 +151,18 @@ jobs:
         #     │   └── coverage/
         #     │       ├── index.html    (Coverage Summary)
         #     │       └── htmlcov/      (Detailed Pytest-cov HTML)
-        #     └── book/                 (User Manual - built separately)
+        #     └── docs/
+        #         └── userguide/
+        #             └── book/         (User Manual)
 
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/badges
+          
+          # Copy User Manual
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
+          cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
           
           # Create badges (Must be done before dashboard or concurrently)
           uv run python src/pytribeam/cicd/report_badges.py \
