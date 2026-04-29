@@ -12,7 +12,9 @@
 
 * api guide
 
-[![api][api_badge]](https://sandialabs.github.io/pytribeam/docs/api/index.html)
+[Stable (main)](https://sandialabs.github.io/pytribeam/main/docs/api/index.html) | [Latest (dev)](https://sandialabs.github.io/pytribeam/dev/docs/api/index.html)
+
+[![api][api_badge]](https://sandialabs.github.io/pytribeam/main/docs/api/index.html)
 
 * coverage
 

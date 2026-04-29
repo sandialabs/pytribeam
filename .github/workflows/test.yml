@@ -112,6 +112,9 @@ jobs:
       - name: Build User Guide
         run: mdbook build
 
+      - name: Build API Documentation
+        run: uv run pdoc src/pytribeam -o docs/api
+
       - name: Set Deploy Directory
         run: |
           if [ "${{ github.ref }}" == "refs/heads/main" ]; then
@@ -145,8 +148,9 @@ jobs:
         #     │       ├── index.html    (Coverage Summary)
         #     │       └── htmlcov/      (Detailed Pytest-cov HTML)
         #     └── docs/
-        #         └── userguide/
-        #             └── book/         (User Manual)
+        #         ├── userguide/
+        #         │   └── book/         (User Manual)
+        #         └── api/              (API Reference)
 
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
@@ -156,6 +160,10 @@ jobs:
           # Copy User Manual
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
           cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
+
+          # Copy API Documentation
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          cp -r docs/api/* pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
           
           # Create badges (Must be done before dashboard or concurrently)
           uv run python src/pytribeam/cicd/report_badges.py \

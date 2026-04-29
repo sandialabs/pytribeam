@@ -96,6 +96,22 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                         </div>
                     </a>
 
+                    <a href="main/docs/api/index.html"
+                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                              border-slate-200 hover:border-blue-600 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-blue-600">
+                                    API Reference</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Technical API documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                Stable</span>
+                        </div>
+                    </a>
+
                     <div class="grid grid-cols-2 gap-4">
                         <a href="main/reports/lint/index.html"
                            class="hover-card p-4 bg-white rounded-xl shadow-sm border
@@ -135,6 +151,22 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                                     User's Manual</h3>
                                 <p class="text-sm text-slate-500 mt-1">
                                     Development documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                Latest</span>
+                        </div>
+                    </a>
+
+                    <a href="dev/docs/api/index.html"
+                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                              border-slate-200 hover:border-orange-500 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-orange-600">
+                                    API Reference</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Technical API documentation.</p>
                             </div>
                             <span class="text-xs font-bold uppercase tracking-wider
                                          bg-orange-100 text-orange-700 px-2 py-1 rounded">
