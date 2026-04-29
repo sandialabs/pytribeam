@@ -982,10 +982,12 @@ def get_test_description():
     """
     node = platform.uname().node.lower()
     offline_machine = any(
-            node in machine.lower() or machine.lower() in node for machine in Constants.offline_machines
+        node in machine.lower() or machine.lower() in node
+        for machine in Constants.offline_machines
     )
     hardware_machine = any(
-            node in machine.lower() or machine.lower() in node for machine in Constants.microscope_machines
+        node in machine.lower() or machine.lower() in node
+        for machine in Constants.microscope_machines
     )
 
     laser_machine = is_laser_available()

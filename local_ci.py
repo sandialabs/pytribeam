@@ -92,7 +92,9 @@ def run_to_log(
             )
     finally:
         if spinner:
-            status = "complete" if proc is not None and proc.returncode == 0 else "failed"
+            status = (
+                "complete" if proc is not None and proc.returncode == 0 else "failed"
+            )
             spinner.stop(status=status)
 
     if check and proc.returncode != 0:
@@ -101,7 +103,9 @@ def run_to_log(
     return proc
 
 
-def run_capture(cmd: list[str], *, check: bool = True) -> subprocess.CompletedProcess[str]:
+def run_capture(
+    cmd: list[str], *, check: bool = True
+) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         cmd,
         capture_output=True,
@@ -121,8 +125,13 @@ def badge_color(coverage: float) -> str:
 
 
 def require_repo_root() -> None:
-    if not ((REPO_ROOT / "pyproject.toml").exists() or (REPO_ROOT / "README.md").exists()):
-        print("ERROR: Run from repo root (expected pyproject.toml and/or README.md).", file=sys.stderr)
+    if not (
+        (REPO_ROOT / "pyproject.toml").exists() or (REPO_ROOT / "README.md").exists()
+    ):
+        print(
+            "ERROR: Run from repo root (expected pyproject.toml and/or README.md).",
+            file=sys.stderr,
+        )
         sys.exit(1)
 
 
@@ -190,7 +199,7 @@ def find_all_coverage_files() -> list[Path]:
 def create_userguide_badge() -> None:
     badge = anybadge.Badge(
         label="userguide",
-        value="\U0001F4DA",
+        value="\U0001f4da",
         default_color="blue",
         num_value_padding_chars=1,
     )
@@ -202,7 +211,9 @@ def create_userguide_badge() -> None:
 def build_userguide() -> None:
     print("\n[STEP] Userguide (mdbook)")
     try:
-        run_to_log(["mdbook", "build", "."], MDBOOK_LOG, spinner_message="Building userguide")
+        run_to_log(
+            ["mdbook", "build", "."], MDBOOK_LOG, spinner_message="Building userguide"
+        )
         print(f"userguide build completed successfully. See {MDBOOK_LOG}")
     except subprocess.CalledProcessError:
         print(f"userguide build failed. See {MDBOOK_LOG}")
@@ -238,7 +249,7 @@ def run_docstring_coverage() -> None:
         ["interrogate", "-v", "--fail-under", "0", "src"],
         DOCSTRING_LOG,
         check=False,
-        spinner_message="Calculating docstring coverage"
+        spinner_message="Calculating docstring coverage",
     )
 
     coverage_value = None
@@ -255,7 +266,9 @@ def run_docstring_coverage() -> None:
         return
 
     if coverage_value is None:
-        print(f"Docstring coverage completed, but coverage percentage could not be parsed. See {DOCSTRING_LOG}")
+        print(
+            f"Docstring coverage completed, but coverage percentage could not be parsed. See {DOCSTRING_LOG}"
+        )
         return
 
     coverage_str = f"{coverage_value:.1f}"
@@ -289,16 +302,20 @@ def run_tests_and_store_coverage() -> int:
     cmd = ["pytest"]
     if is_hardware_mode(test_description):
         cmd.append("-x")
-    cmd.extend([
-        "--cov=pytribeam",
-        "--cov-report=term-missing",
-    ])
+    cmd.extend(
+        [
+            "--cov=pytribeam",
+            "--cov-report=term-missing",
+        ]
+    )
 
     result = run_to_log(cmd, PYTEST_LOG, check=False, spinner_message="Running tests")
     pytest_rc = result.returncode
 
     if pytest_rc != 0:
-        print(f"WARNING: pytest failed (exit code {pytest_rc}). Continuing workflow... See {PYTEST_LOG}")
+        print(
+            f"WARNING: pytest failed (exit code {pytest_rc}). Continuing workflow... See {PYTEST_LOG}"
+        )
     else:
         print(f"Tests completed successfully. See {PYTEST_LOG}")
 
@@ -331,7 +348,7 @@ def build_combined_coverage() -> None:
         run_to_log(
             ["coverage", "combine", "--keep", *[str(p) for p in coverage_files]],
             COVERAGE_COMBINE_LOG,
-            spinner_message="Combining coverages"
+            spinner_message="Combining coverages",
         )
     else:
         print(f"Using single coverage file: {coverage_files[0]}")
@@ -341,8 +358,16 @@ def build_combined_coverage() -> None:
             encoding="utf-8",
         )
 
-    run_to_log(["coverage", "html", "-d", str(combined_dir / "htmlcov")], COVERAGE_HTML_LOG, spinner_message="Generating HTML coverage report")
-    run_to_log(["coverage", "xml", "-o", str(combined_dir / "coverage.xml")], COVERAGE_XML_LOG, spinner_message="Generating XML coverage report")
+    run_to_log(
+        ["coverage", "html", "-d", str(combined_dir / "htmlcov")],
+        COVERAGE_HTML_LOG,
+        spinner_message="Generating HTML coverage report",
+    )
+    run_to_log(
+        ["coverage", "xml", "-o", str(combined_dir / "coverage.xml")],
+        COVERAGE_XML_LOG,
+        spinner_message="Generating XML coverage report",
+    )
     print(f"Combined coverage report generated in {combined_dir}")
 
 
@@ -388,7 +413,12 @@ def make_test_coverage_badge() -> None:
 def run_pylint_and_badge() -> None:
     print("\n[STEP] Linting (pylint)")
 
-    pylint_proc = run_to_log(["pylint", "-v", SRC_DIR], PYLINT_LOG, check=False, spinner_message="Running pylint")
+    pylint_proc = run_to_log(
+        ["pylint", "-v", SRC_DIR],
+        PYLINT_LOG,
+        check=False,
+        spinner_message="Running pylint",
+    )
 
     if pylint_proc.returncode != 0:
         subprocess.run(["pylint-exit", str(pylint_proc.returncode)], check=False)
@@ -396,7 +426,11 @@ def run_pylint_and_badge() -> None:
     lint_output = PYLINT_LOG.read_text(encoding="utf-8")
     score = None
     try:
-        matches = re.findall(r"^Your code has been rated at ([\-0-9.]+)/", lint_output, flags=re.MULTILINE)
+        matches = re.findall(
+            r"^Your code has been rated at ([\-0-9.]+)/",
+            lint_output,
+            flags=re.MULTILINE,
+        )
         if matches:
             score = matches[-1]
     except Exception:
@@ -418,7 +452,9 @@ def run_pylint_and_badge() -> None:
         )
         print(f"pylint completed successfully: score {score}. See {PYLINT_LOG}")
     else:
-        print(f"WARNING: Could not parse pylint score; skipping lint badge. See {PYLINT_LOG}")
+        print(
+            f"WARNING: Could not parse pylint score; skipping lint badge. See {PYLINT_LOG}"
+        )
 
 
 def main() -> int:
