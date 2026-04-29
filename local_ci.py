@@ -13,6 +13,7 @@ import itertools
 import sys
 import threading
 import time
+import tomli
 
 
 class Spinner:
@@ -40,26 +41,6 @@ class Spinner:
         self._final_status = status
         self._stop_event.set()
         self._thread.join()
-
-
-REPO_ROOT = Path.cwd()
-SRC_DIR = "src/pytribeam"
-PACKAGE_NAME = "pytribeam"
-
-BADGES_DIR = REPO_ROOT / "badges"
-LOGS_DIR = REPO_ROOT / "logs"
-DOCS_DIR = REPO_ROOT / "docs"
-DOCS_API_DIR = DOCS_DIR / "api"
-COVERAGE_DIR = REPO_ROOT / "coverage_reports"
-
-MDBOOK_LOG = LOGS_DIR / "mdbook.log"
-PDOC_LOG = LOGS_DIR / "pdoc.log"
-DOCSTRING_LOG = LOGS_DIR / "docstring_coverage.log"
-PYTEST_LOG = LOGS_DIR / "pytest.log"
-PYLINT_LOG = LOGS_DIR / "lint.log"
-COVERAGE_COMBINE_LOG = LOGS_DIR / "coverage_combine.log"
-COVERAGE_HTML_LOG = LOGS_DIR / "coverage_html.log"
-COVERAGE_XML_LOG = LOGS_DIR / "coverage_xml.log"
 
 
 def need(cmd: str) -> None:
@@ -92,10 +73,7 @@ def run_to_log(
             )
     finally:
         if spinner:
-            status = (
-                "complete" if proc is not None and proc.returncode == 0 else "failed"
-            )
-            spinner.stop(status=status)
+            spinner.stop(status="done")
 
     if check and proc.returncode != 0:
         raise subprocess.CalledProcessError(proc.returncode, cmd)
@@ -138,7 +116,6 @@ def require_repo_root() -> None:
 def ensure_dirs() -> None:
     BADGES_DIR.mkdir(parents=True, exist_ok=True)
     LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    DOCS_DIR.mkdir(parents=True, exist_ok=True)
     DOCS_API_DIR.mkdir(parents=True, exist_ok=True)
     COVERAGE_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -197,12 +174,14 @@ def find_all_coverage_files() -> list[Path]:
 
 
 def create_userguide_badge() -> None:
+
     badge = anybadge.Badge(
-        label="userguide",
-        value="\U0001f4da",
+        label=USERGUIDE_BADGE_LABEL,
+        value=USERGUIDE_BADGE_VALUE,
         default_color="blue",
         num_value_padding_chars=1,
     )
+
     out_path = BADGES_DIR / "userguide.svg"
     out_path.write_text(badge.badge_svg_text, encoding="utf-8")
     print(f"Userguide badge updated: {BADGES_DIR / 'userguide.svg'}")
@@ -246,7 +225,7 @@ def run_docstring_coverage() -> None:
     print("\n[STEP] Docstring coverage (interrogate)")
 
     result = run_to_log(
-        ["interrogate", "-v", "--fail-under", "0", "src"],
+        ["interrogate", "src"],
         DOCSTRING_LOG,
         check=False,
         spinner_message="Calculating docstring coverage",
@@ -306,6 +285,7 @@ def run_tests_and_store_coverage() -> int:
         [
             "--cov=pytribeam",
             "--cov-report=term-missing",
+            "-rs",  # This prints out why tests were skipped
         ]
     )
 
@@ -485,6 +465,55 @@ def main() -> int:
     run_pylint_and_badge()
 
     print("\nDone. Artifacts updated in: badges/, logs/, docs/, coverage_reports/")
+
+
+# --------------------------------------
+
+
+def load_pyproject() -> dict:
+    pyproject_file = REPO_ROOT / "pyproject.toml"
+    with pyproject_file.open("rb") as f:
+        return tomli.load(f)
+
+
+def get_local_ci_config() -> dict:
+    data = load_pyproject()
+    return data.get("tool", {}).get("pytribeam", {}).get("local_ci", {})
+
+
+REPO_ROOT = Path.cwd()
+
+LOCAL_CI = get_local_ci_config()
+
+PACKAGE_NAME = LOCAL_CI.get("package_name", "pytribeam")
+SRC_DIR = LOCAL_CI.get("src_dir", "src/pytribeam")
+
+BADGES_DIR = REPO_ROOT / LOCAL_CI.get("badges_dir", "badges")
+LOGS_DIR = REPO_ROOT / LOCAL_CI.get("logs_dir", "logs")
+DOCS_API_DIR = REPO_ROOT / LOCAL_CI.get("docs_api_dir", "docs/api")
+COVERAGE_DIR = REPO_ROOT / LOCAL_CI.get("coverage_dir", "coverage_reports")
+
+USERGUIDE_BADGE_LABEL = LOCAL_CI.get("userguide_badge_label", "userguide")
+USERGUIDE_BADGE_VALUE = LOCAL_CI.get("userguide_badge_value", "📖")
+
+MDBOOK_LOG = LOGS_DIR / "mdbook.log"
+PDOC_LOG = LOGS_DIR / "pdoc.log"
+DOCSTRING_LOG = LOGS_DIR / "docstring_coverage.log"
+PYTEST_LOG = LOGS_DIR / "pytest.log"
+PYLINT_LOG = LOGS_DIR / "lint.log"
+COVERAGE_COMBINE_LOG = LOGS_DIR / "coverage_combine.log"
+COVERAGE_HTML_LOG = LOGS_DIR / "coverage_html.log"
+COVERAGE_XML_LOG = LOGS_DIR / "coverage_xml.log"
+
+
+package_name = "pytribeam"
+src_dir = "src/pytribeam"
+docs_api_dir = "docs/api"
+coverage_dir = "coverage_reports"
+badges_dir = "badges"
+logs_dir = "logs"
+userguide_badge_label = "userguide"
+userguide_badge_value = "📖"
 
 
 if __name__ == "__main__":

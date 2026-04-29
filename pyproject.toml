@@ -88,3 +88,41 @@ markers = [
     "hardware: test requires a physical hardware system",
     "laser_hardware: test requires a physical hardware system with laser support",
 ]
+
+[tool.coverage.run]  # Coverage is used for test coverage reports
+branch = true
+source = ["pytribeam"]
+omit = ["src/pytribeam/GUI/CustomTkinterWidgets/*", "src/pytribeam/GUI/runner_util/ui_components.py", "src/pytribeam/GUI/runner.py", "src/pytribeam/GUI/config_ui/App.py"]
+
+[tool.coverage.report]  # Coverage is used for test coverage reports
+show_missing = true  # Show which lines were not covered
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.interrogate]  # interrogate is used for docstring coverage
+fail-under = 0
+exclude = ["src/pytribeam/GUI"]
+ignore-init-method = true
+ignore-init-module = false
+ignore-magic = true
+ignore-nested-functions = true
+ignore-nested-classes = true
+ignore-private = false
+ignore-semiprivate = false
+ignore-module = false
+ignore-property-decorators = false
+quiet = false
+verbose = 2
+
+[tool.pytribeam.local_ci]  # Controls a few parameters used in the local CI workfow
+package_name = "pytribeam"
+src_dir = "src/pytribeam"
+docs_api_dir = "docs/api"
+coverage_dir = "coverage_reports"
+badges_dir = "badges"
+logs_dir = "logs"
+userguide_badge_label = "userguide"
+userguide_badge_value = "\U0001f4da"
