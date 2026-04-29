@@ -129,8 +129,9 @@ def get_report_html(
         }}
         .metadata {{
             color: #6a737d; font-size: 0.9em; margin-top: 10px;
+            line-height: 1.25;
         }}
-        .metadata div {{ margin-bottom: 4px; }}
+        .metadata div {{ margin-bottom: 0px; }}
         .section {{
             background: white; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
@@ -146,7 +147,6 @@ def get_report_html(
             <div class="metadata">
                 <div><strong>Lines Covered:</strong> {coverage_metric.lines_covered}</div>
                 <div><strong>Total Lines:</strong> {coverage_metric.lines_valid}</div>
-                <div>&nbsp;</div>
                 <div><strong>Generated:</strong> {timestamp_ext}</div>
                 <div><strong>Run ID:</strong>
                     <a href="{run_url}">{metadata.run_id}</a></div>
@@ -156,7 +156,6 @@ def get_report_html(
                     <a href="{commit_url}">{metadata.github_sha[:7]}</a></div>
                 <div><strong>Repository:</strong>
                     <a href="{github_url}">{metadata.github_repo}</a></div>
-                <div>&nbsp;</div>
                 <div><strong>Full report:</strong> <a href="{full_report_url}" style="color: #0366d6;">Detailed HTML Report</a></div>
             </div>
         </div>
