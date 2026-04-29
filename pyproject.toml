@@ -91,7 +91,12 @@ markers = [
 
 [tool.coverage.run]  # Coverage is used for test coverage reports
 branch = true
-source = ["pytribeam"]
+source = [
+    "src",
+    # "C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src",
+    # "C:/Users/User/Documents/pytribeam/src",
+    # "C:/Users/apolon/Codebases/pytribeam/src",
+]
 omit = ["src/pytribeam/GUI/CustomTkinterWidgets/*", "src/pytribeam/GUI/runner_util/ui_components.py", "src/pytribeam/GUI/runner.py", "src/pytribeam/GUI/config_ui/App.py"]
 
 [tool.coverage.report]  # Coverage is used for test coverage reports
