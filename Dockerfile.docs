@@ -1,5 +1,4 @@
 FROM ubuntu:22.04
-
 ARG DEBIAN_FRONTEND=noninteractive
 
 ARG RUST_TOOLCHAIN=1.84.0
@@ -9,20 +8,25 @@ ARG MDBOOK_KATEX_VERSION=0.9.4
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates curl git build-essential pkg-config libssl-dev \
-  python3 python3-pip python3-venv \
+  python3 python3-pip python3-venv xz-utils \
   && rm -rf /var/lib/apt/lists/*
 
-# Windows-style command shims used by cmdrun content
+# shims
 RUN printf '#!/bin/sh\ncommand -v -- "$@"\n' > /usr/local/bin/where \
  && chmod +x /usr/local/bin/where \
  && printf '#!/bin/sh\ncat -- "$@"\n' > /usr/local/bin/type \
  && chmod +x /usr/local/bin/type
 
+# Rust for preprocessors
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain ${RUST_TOOLCHAIN}
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-RUN cargo install mdbook --version ${MDBOOK_VERSION} \
- && cargo install mdbook-cmdrun --version ${MDBOOK_CMDRUN_VERSION} \
+# Install mdbook (binary release, avoids clap/cargo resolver issues)
+RUN curl -LsS https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz \
+  | tar -xz -C /usr/local/bin mdbook
+
+# Install preprocessors (from crates)
+RUN cargo install mdbook-cmdrun --version ${MDBOOK_CMDRUN_VERSION} \
  && cargo install mdbook-katex --version ${MDBOOK_KATEX_VERSION}
 
 WORKDIR /work
