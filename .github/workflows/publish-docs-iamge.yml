@@ -1,0 +1,26 @@
+name: publish-docs-image
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.docs
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+            ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}-${{ github.sha }}
