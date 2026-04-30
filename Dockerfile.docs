@@ -1,0 +1,28 @@
+FROM ubuntu:22.04
+
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG RUST_TOOLCHAIN=1.78.0
+ARG MDBOOK_VERSION=0.4.52
+ARG MDBOOK_CMDRUN_VERSION=0.7.3
+ARG MDBOOK_KATEX_VERSION=0.9.4
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates curl git build-essential pkg-config libssl-dev \
+  python3 python3-pip python3-venv \
+  && rm -rf /var/lib/apt/lists/*
+
+# Windows-style command shims used by cmdrun content
+RUN printf '#!/bin/sh\ncommand -v -- "$@"\n' > /usr/local/bin/where \
+ && chmod +x /usr/local/bin/where \
+ && printf '#!/bin/sh\ncat -- "$@"\n' > /usr/local/bin/type \
+ && chmod +x /usr/local/bin/type
+
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain ${RUST_TOOLCHAIN}
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+RUN cargo install mdbook --version ${MDBOOK_VERSION} \
+ && cargo install mdbook-cmdrun --version ${MDBOOK_CMDRUN_VERSION} \
+ && cargo install mdbook-katex --version ${MDBOOK_KATEX_VERSION}
+
+WORKDIR /work
