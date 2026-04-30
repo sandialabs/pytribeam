@@ -66,9 +66,12 @@ class MainApplication(tk.Tk):
 
         # Create variables
         self.config_path = None
-        self.stop_after_slice = tk.BooleanVar(False)
-        self.stop_after_step = tk.BooleanVar(False)
-        self.stop_now = tk.BooleanVar(False)
+        self.stop_after_slice = tk.BooleanVar()
+        self.stop_after_slice.set(False)
+        self.stop_after_step = tk.BooleanVar()
+        self.stop_after_step.set(False)
+        self.stop_now = tk.BooleanVar()
+        self.stop_now.set(False)
         self.yml_version = None
 
         # Set the theme
