@@ -28,6 +28,13 @@ jobs:
         uses: actions/checkout@v6
         with:
             fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
+            fetch-tags: true # Ensure tags are fetched for accurate versioning, required for hatch-vcs to determine version from tags
+
+      - name: Verify git metadata (needed for hatch-vcs/setuptools-scm)
+        run: |
+          test -d .git || (echo "ERROR: .git directory missing" && exit 1)
+          git describe --tags --always || true
+          git rev-parse HEAD 
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -35,13 +42,6 @@ jobs:
           python-version: '3.8.12'
           enable-cache: true
           #cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
-
-      - name: Debug git metadata
-        run: |
-            ls -la
-            test -d .git && echo ".git exists" || (echo "NO .git" && exit 1)
-            git describe --tags --always || true
-            git status || true
 
       - name: Install dependencies
         run: uv sync --all-extras --dev
