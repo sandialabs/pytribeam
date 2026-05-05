@@ -127,7 +127,6 @@ jobs:
 
       # mdbook + preprocessors are already in the container now
       - name: Build User Guide
-        working-directory: docs/userguide
         run: mdbook build
 
       # - name: Build API Documentation
