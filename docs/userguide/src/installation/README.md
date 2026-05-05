@@ -23,7 +23,7 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 The AutoScript installer installs the following modules (generated with `pip freeze`):
 
 ```sh
-<!-- cmdrun type initial_autoscript_python_modules.txt -->
+<!-- cmdrun type docs/userguide/src/installation/initial_autoscript_python_modules.txt -->
 ```
 
 Confirm the installation location of Autoscript's python environment, which should default to the following path: `C:/Program Files/Enthought/Python/envs/Autoscript/python.exe`. You can verify this by running the following in the Command Prompt (`cmd.exe`):
@@ -34,7 +34,7 @@ where python
 which should output something similar to the following:
 
 ```sh
-<!-- cmdrun echo C:\Program Files\Enthought\Python\envs\AutoScript\python.exe -->
+<!-- cmdrun echo 'C:\Program Files\Enthought\Python\envs\AutoScript\python.exe' -->
 ```
 
 <!-- ```sh
@@ -56,5 +56,6 @@ pytribeam
 which should generate the following output along with any relevant warning messages:
 
 ```plaintext
+pytribeam will not run from gitlab container. If empty below, this book was generated without autoscript installed:
 <!-- cmdrun pytribeam -->
 ```
