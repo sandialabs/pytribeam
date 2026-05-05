@@ -36,6 +36,13 @@ jobs:
           enable-cache: true
           #cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
+      - name: Debug git metadata
+        run: |
+            ls -la
+            test -d .git && echo ".git exists" || (echo "NO .git" && exit 1)
+            git describe --tags --always || true
+            git status || true
+
       - name: Install dependencies
         run: uv sync --all-extras --dev
 
