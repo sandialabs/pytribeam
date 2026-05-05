@@ -20,6 +20,9 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 - Follow the Laser Control installation instructions provided by Thermo Fisher Scientific
   - Install iFast and Python APIs
 
+Check current working directory:
+<!-- cmdrun pwd -->
+
 The AutoScript installer installs the following modules (generated with `pip freeze`):
 
 ```sh
