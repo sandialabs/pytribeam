@@ -1,5 +1,5 @@
 # This workflow will not run without Autoscript.
-name: Test
+name: Test-Docker
 
 on:
   push:
