@@ -1,19 +1,26 @@
-# ---------- build stage (compile plugins once) ----------
-FROM rustlang/rust:nightly AS build-plugins
+# ---------- build stage (Ubuntu 22.04 so glibc matches runtime) ----------
+FROM ubuntu:22.04 AS build-plugins
+ARG DEBIAN_FRONTEND=noninteractive
 
 ARG MDBOOK_CMDRUN_VERSION=0.7.3
 ARG MDBOOK_KATEX_VERSION=0.9.4
 
-# Helps some crates that link native libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  ca-certificates \
-  pkg-config libssl-dev \
-  build-essential cmake \
+  ca-certificates curl git \
+  build-essential pkg-config libssl-dev cmake \
   && rm -rf /var/lib/apt/lists/*
 
-# Compile and install plugin binaries into /usr/local/cargo/bin
-RUN cargo install mdbook-cmdrun --version ${MDBOOK_CMDRUN_VERSION}
-RUN cargo install mdbook-katex --version ${MDBOOK_KATEX_VERSION}
+# Nightly toolchain (needed because some deps use edition2024 features)
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install from git tags + locked to use Cargo.lock from the repo/tag
+RUN cargo install --git https://github.com/FauconFan/mdbook-cmdrun \
+  --tag v${MDBOOK_CMDRUN_VERSION} --locked
+
+RUN cargo install --git https://github.com/lzanini/mdbook-katex \
+  --tag v${MDBOOK_KATEX_VERSION} --locked
+
 
 # ---------- runtime stage ----------
 FROM ubuntu:22.04
@@ -37,11 +44,9 @@ RUN curl -LsS \
   "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
   | tar -xz -C /usr/local/bin mdbook
 
-# Copy compiled plugin binaries from build stage
-COPY --from=build-plugins /usr/local/cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
-COPY --from=build-plugins /usr/local/cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
+# Copy plugin binaries built against jammy glibc
+COPY --from=build-plugins /root/.cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
+COPY --from=build-plugins /root/.cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
 
-# Sanity check
 RUN mdbook --version && mdbook-cmdrun --version && mdbook-katex --version
-
 WORKDIR /work
