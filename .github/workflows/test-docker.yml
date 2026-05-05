@@ -75,7 +75,7 @@ jobs:
     # Run only on selected branches (and NOT on PRs)
     if: |
       github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docker')
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-cicd')
 
     permissions:
       contents: read
