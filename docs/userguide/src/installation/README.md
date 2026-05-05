@@ -26,9 +26,13 @@ The AutoScript installer installs the following modules (generated with `pip fre
 <!-- cmdrun type ./initial_autoscript_python_modules.txt -->
 ```
 
+```md
+<!-- cmdrun sh -lc "cat ./initial_autoscript_python_modules.txt" -->
+```
+
 <!-- cmdrun sh -lc "echo HELLO_FROM_CMDRUN; pwd" -->
 
-<!-- cmdrun sh -lc "printf '%s\n' '```text'; cat ./initial_autoscript_python_modules.txt; printf '%s\n' '```'" -->
+<!-- cmdrun sh -lc "ls -la; echo '---'; wc -l ./initial_autoscript_python_modules.txt; echo '---'; head -n 5 ./initial_autoscript_python_modules.txt" -->
 
 Confirm the installation location of Autoscript's python environment, which should default to the following path: `C:/Program Files/Enthought/Python/envs/Autoscript/python.exe`. You can verify this by running the following in the Command Prompt (`cmd.exe`):
 
