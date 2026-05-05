@@ -22,15 +22,13 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 
 Check cmdrun command:
 
-<!-- cmdrun sh -lc "file -b ./initial_autoscript_python_modules.txt" -->
-
 The AutoScript installer installs the following modules (generated with `pip freeze`):
 
 ```sh
 <!-- cmdrun type ./initial_autoscript_python_modules.txt -->
 ```
 
-<!-- cmdrun sh -lc "sed 's/\r$//' ./initial_autoscript_python_modules.txt" -->
+<!-- cmdrun sh -lc "printf '```text\n'; cat ./initial_autoscript_python_modules.txt; printf '```\n'" -->
 
 Confirm the installation location of Autoscript's python environment, which should default to the following path: `C:/Program Files/Enthought/Python/envs/Autoscript/python.exe`. You can verify this by running the following in the Command Prompt (`cmd.exe`):
 
