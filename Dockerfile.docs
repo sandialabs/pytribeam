@@ -1,5 +1,5 @@
 # ---------- build stage (compile plugins once) ----------
-FROM rust:nightly-bookworm AS build-plugins
+FROM rust:nightly AS build-plugins
 
 ARG MDBOOK_CMDRUN_VERSION=0.7.3
 ARG MDBOOK_KATEX_VERSION=0.9.4
