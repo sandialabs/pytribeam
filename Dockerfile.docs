@@ -1,0 +1,57 @@
+# ---------- build stage (Ubuntu 22.04 so glibc matches runtime) ----------
+FROM ubuntu:22.04 AS build-plugins
+ARG DEBIAN_FRONTEND=noninteractive
+
+# mdbook-cmdrun 0.7.3
+ARG MDBOOK_CMDRUN_REV=746f6f679b924d0e08afa868d090651e5048babe
+# mdbook-katex 0.9.3 (latest with binaries)
+ARG MDBOOK_KATEX_VERSION=0.9.3
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates curl git \
+  build-essential pkg-config libssl-dev cmake \
+  && rm -rf /var/lib/apt/lists/*
+
+# Nightly toolchain (avoids edition2024-related issues)
+RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# mdbook-cmdrun pinned to an exact commit (no tags/releases available)
+RUN cargo install --git https://github.com/FauconFan/mdbook-cmdrun \
+  --rev ${MDBOOK_CMDRUN_REV}
+
+# mdbook-katex from git tag (adjust tag format if needed)
+RUN cargo install --git https://github.com/lzanini/mdbook-katex \
+  --tag v${MDBOOK_KATEX_VERSION} --locked
+
+
+# ---------- runtime stage ----------
+FROM ubuntu:22.04
+ARG DEBIAN_FRONTEND=noninteractive
+
+ARG MDBOOK_VERSION=0.4.52
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  ca-certificates curl tar gzip xz-utils \
+  python3 python3-venv \
+  && rm -rf /var/lib/apt/lists/*
+
+# Windows-style shims used by cmdrun snippets
+RUN printf '#!/bin/sh\ncommand -v -- "$@"\n' > /usr/local/bin/where \
+ && chmod +x /usr/local/bin/where \
+ && printf '#!/bin/sh\ncat -- "$@"\n' > /usr/local/bin/type \
+ && chmod +x /usr/local/bin/type
+
+# mdBook prebuilt binary (pinned)
+RUN curl -LsS \
+  "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
+  | tar -xz -C /usr/local/bin mdbook
+
+COPY --from=build-plugins /root/.cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
+COPY --from=build-plugins /root/.cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
+
+RUN mdbook --version \
+ && mdbook-katex --version \
+ && mdbook-cmdrun --help > /dev/null
+ 
+WORKDIR /work
