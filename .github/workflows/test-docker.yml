@@ -72,10 +72,8 @@ jobs:
     runs-on: ubuntu-latest
 
 
-    # Run only on selected branches (and NOT on PRs)
-    if: |
-      github.event_name != 'pull_request' &&
-      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/dev-cicd')
+    # Run only on selected branches
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
 
     permissions:
       contents: read
