@@ -2,22 +2,24 @@
 FROM ubuntu:22.04 AS build-plugins
 ARG DEBIAN_FRONTEND=noninteractive
 
-ARG MDBOOK_CMDRUN_VERSION=0.7.3
-ARG MDBOOK_KATEX_VERSION=0.9.4
+# mdbok 0.7.3
+ARG MDBOOK_CMDRUN_REV=746f6f679b924d0e08afa868d090651e5048babe
+ARG MDBOOK_KATEX_VERSION=0.9.3
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates curl git \
   build-essential pkg-config libssl-dev cmake \
   && rm -rf /var/lib/apt/lists/*
 
-# Nightly toolchain (needed because some deps use edition2024 features)
+# Nightly toolchain (avoids edition2024-related issues)
 RUN curl -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal --default-toolchain nightly
 ENV PATH="/root/.cargo/bin:${PATH}"
 
-# Install from git tags + locked to use Cargo.lock from the repo/tag
+# mdbook-cmdrun pinned to an exact commit (no tags/releases available)
 RUN cargo install --git https://github.com/FauconFan/mdbook-cmdrun \
-  --tag v${MDBOOK_CMDRUN_VERSION} --locked
+  --rev ${MDBOOK_CMDRUN_REV}
 
+# mdbook-katex from git tag (adjust tag format if needed)
 RUN cargo install --git https://github.com/lzanini/mdbook-katex \
   --tag v${MDBOOK_KATEX_VERSION} --locked
 
@@ -44,7 +46,6 @@ RUN curl -LsS \
   "https://github.com/rust-lang/mdBook/releases/download/v${MDBOOK_VERSION}/mdbook-v${MDBOOK_VERSION}-x86_64-unknown-linux-gnu.tar.gz" \
   | tar -xz -C /usr/local/bin mdbook
 
-# Copy plugin binaries built against jammy glibc
 COPY --from=build-plugins /root/.cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
 COPY --from=build-plugins /root/.cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
 
