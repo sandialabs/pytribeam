@@ -1,0 +1,232 @@
+# This workflow will not run without Autoscript.
+name: Test
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+  workflow_call:
+
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Force all JavaScript actions to run on Node 24 (The 2026 Standard)
+  # After 02 June 2026, the following line can be removed since on that date,
+  # Node.js 24 will be the GitHub default.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # GitHub will swtich on 02 June 2026 to Node.js 24 as the default for JavaScript actions, but until then, this ensures all actions use Node.js 24 to avoid any issues with older versions. After 02 June 2026, this line can be safely removed.
+
+jobs:
+  test:
+    name: Test (ruff format, pylint, pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+            fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+          #cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Build Check
+        run: uv build
+
+      - name: Run Ruff Format Check
+        run: uv run ruff format --check
+
+      - name: Run Pylint and Create Pylint Report
+        run: |
+          uv run pylint src/pytribeam > report_lint.txt || true
+
+      - name: Upload Pylint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-lint
+          path: report_lint.txt
+
+      - name: Run Pytest
+        run: uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+
+      - name: Upload Coverage Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-coverage
+          path: |
+            report_coverage.xml
+            htmlcov/
+
+  github-pages:
+    name: Create Github Pages
+    needs: test
+    runs-on: ubuntu-latest
+
+
+    # Run only on selected branches (and NOT on PRs)
+    if: |
+      github.event_name != 'pull_request' &&
+      (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/docker')
+
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      packages: read
+
+    # APOLON not sure what this is for, leaving in for now, but may be able to remove after testing
+    #environment:
+    #  name: github-pages
+    #  url: ${{ steps.deployment.outputs.page_url }}
+
+    # Pull the prebuilt tools image tagged by branch name: dev/main/docker
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Download Pylint Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-lint
+
+      - name: Download Coverage Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-coverage
+
+      # mdbook + preprocessors are already in the container now
+      - name: Build User Guide
+        working-directory: docs/userguide
+        run: mdbook build
+
+      # - name: Build API Documentation
+      #   run: uv run pdoc src/pytribeam -o docs/api
+
+      - name: Set Deploy Directory
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "DEPLOY_SUBDIR=main" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_SUBDIR=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Create badges
+        run: |
+          # Lint badge (now using Python script)
+          uv run python src/pytribeam/cicd/badge_lint.py \
+            --input_file report_lint.txt \
+            --output_dir badges \
+            --github_repo ${{ github.repository }} \
+            --deploy_subdir ${{ env.DEPLOY_SUBDIR }} \
+            --run_id ${{ github.run_id }} \
+            --github_server_url ${{ github.server_url }}
+
+      - name: Assemble pages directory
+        # pages/
+        # ├── index.html                (Main Dashboard)
+        # └── dev/ (or main/)
+        #     ├── badges/
+        #     │   ├── lint.svg
+        #     │   └── coverage.svg
+        #     ├── reports/
+        #     │   ├── lint/
+        #     │   │   └── index.html    (Pylint Summary)
+        #     │   └── coverage/
+        #     │       ├── index.html    (Coverage Summary)
+        #     │       └── htmlcov/      (Detailed Pytest-cov HTML)
+        #     └── docs/
+        #         ├── userguide/
+        #         │   └── book/         (User Manual)
+        #         └── api/              (API Reference - skipped for now)
+
+        run: |
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/badges
+          
+          # Copy User Manual
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
+          cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
+
+          # # Copy API Documentation
+          # mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          # cp -r docs/api/* pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+          
+          # Create badges (Must be done before dashboard or concurrently)
+          uv run python src/pytribeam/cicd/report_badges.py \
+            --lint_file report_lint.txt \
+            --coverage_file report_coverage.xml \
+            --output_dir pages/${{ env.DEPLOY_SUBDIR }}/badges
+
+          # Create the HTML dashboard
+          uv run python src/pytribeam/cicd/report_dashboard.py \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/index.html
+
+          # Create the HTML lint report
+          uv run python src/pytribeam/cicd/report_lint.py \
+            --input_file report_lint.txt \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/lint/index.html
+
+          # Create the HTML coverage report
+          uv run python src/pytribeam/cicd/report_coverage.py \
+            --input_file report_coverage.xml \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/index.html
+            
+          # Copy the detailed HTML coverage report
+          cp -r htmlcov pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/
+          
+          # Validation check to ensure files exist
+          ls -R pages/
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/lint.svg || echo "Lint badge missing"
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/coverage.svg || echo "Coverage badge missing"
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: './pages'
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v5
+
