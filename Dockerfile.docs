@@ -2,8 +2,9 @@
 FROM ubuntu:22.04 AS build-plugins
 ARG DEBIAN_FRONTEND=noninteractive
 
-# mdbok 0.7.3
+# mdbook-cmdrun 0.7.3
 ARG MDBOOK_CMDRUN_REV=746f6f679b924d0e08afa868d090651e5048babe
+# mdbook-katex 0.9.3 (latest with binaries)
 ARG MDBOOK_KATEX_VERSION=0.9.3
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -49,5 +50,8 @@ RUN curl -LsS \
 COPY --from=build-plugins /root/.cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
 COPY --from=build-plugins /root/.cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
 
-RUN mdbook --version && mdbook-cmdrun --version && mdbook-katex --version
+RUN mdbook --version \
+ && mdbook-katex --version \
+ && mdbook-cmdrun --help > /dev/null
+ 
 WORKDIR /work
