@@ -20,13 +20,10 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 - Follow the Laser Control installation instructions provided by Thermo Fisher Scientific
   - Install iFast and Python APIs
 
-Check current working directory:
-<!-- cmdrun pwd -->
-
 The AutoScript installer installs the following modules (generated with `pip freeze`):
 
 ```sh
-<!-- cmdrun type docs/userguide/src/installation/initial_autoscript_python_modules.txt -->
+<!-- cmdrun type ./initial_autoscript_python_modules.txt -->
 ```
 
 Confirm the installation location of Autoscript's python environment, which should default to the following path: `C:/Program Files/Enthought/Python/envs/Autoscript/python.exe`. You can verify this by running the following in the Command Prompt (`cmd.exe`):
