@@ -6,7 +6,9 @@ ARG MDBOOK_KATEX_VERSION=0.9.4
 
 # Helps some crates that link native libs
 RUN apt-get update && apt-get install -y --no-install-recommends \
-  pkg-config libssl-dev ca-certificates \
+  ca-certificates \
+  pkg-config libssl-dev \
+  build-essential cmake \
   && rm -rf /var/lib/apt/lists/*
 
 # Compile and install plugin binaries into /usr/local/cargo/bin
