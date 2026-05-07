@@ -1,42 +1,33 @@
 # pyTriBeam
 
-* main logo
-
 ![main_logo](docs/userguide/src/logos/logo_color.png)
 
-* user guide
+Documentation and quality reports for pyTriBeam.
 
-[Stable (main)](https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html) | [Latest (dev)](https://sandialabs.github.io/pytribeam/dev/docs/userguide/book/index.html)
+| 🚀 Released (main) | 🛠️ Development (dev) |
+| :--- | :--- |
+| [**User's Manual**][manual_main]                              | [**User's Manual**][manual_dev] |
+| [**API Reference**][api_main]                                 | [**API Reference**][api_dev] |
+| [![Lint main][lint_badge_main]][lint_report_main]             | [![Lint dev][lint_badge_dev]][lint_report_dev] |
+| [![Coverage main][coverage_badge_main]][coverage_report_main] | [![Coverage dev][coverage_badge_dev]][coverage_report_dev] |
+| [![PyPI][pypi_badge]][pypi_link]                              | [![GitHub Pages][pages_badge]][pages_link] |
 
-[![userguide][userguide_badge]](https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html) 
-
-* api guide
-
-[Stable (main)](https://sandialabs.github.io/pytribeam/main/docs/api/index.html) | [Latest (dev)](https://sandialabs.github.io/pytribeam/dev/docs/api/index.html)
-
-[![api][api_badge]](https://sandialabs.github.io/pytribeam/main/docs/api/index.html)
-
-* coverage
-
-[![test-coverage][test-coverage_badge]](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html)
-
-* lint
-
-[![lint][lint_badge]](https://sandialabs.github.io/pytribeam/logs/lint.log)
-
-* pypi
-
-[![pypi][version_badge]](https://pypi.org/project/pytribeam)
-
-[userguide_badge]: https://sandialabs.github.io/pytribeam/badges/userguide.svg
-[api_badge]: https://sandialabs.github.io/pytribeam/badges/api.svg
-[test-coverage_badge]: https://sandialabs.github.io/pytribeam/badges/test-coverage.svg
-[lint_badge]: https://sandialabs.github.io/pytribeam/badges/lint.svg
-[version_badge]: https://img.shields.io/pypi/v/pytribeam?logo=pypi&logoColor=FBE072&label=PyPI&color=4B8BBE
-
-* GitHub pages
-
-[![GitHub Pages badge](https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github)](https://sandialabs.github.io/pytribeam/)
+[manual_main]: https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html
+[manual_dev]: https://sandialabs.github.io/pytribeam/dev/docs/userguide/book/index.html
+[api_main]: https://sandialabs.github.io/pytribeam/main/docs/api/index.html
+[api_dev]: https://sandialabs.github.io/pytribeam/dev/docs/api/index.html
+[lint_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/lint.svg
+[lint_report_main]: https://sandialabs.github.io/pytribeam/main/reports/lint/index.html
+[lint_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/lint.svg
+[lint_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/lint/index.html
+[coverage_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/coverage.svg
+[coverage_report_main]: https://sandialabs.github.io/pytribeam/main/reports/coverage/index.html
+[coverage_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/coverage.svg
+[coverage_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/coverage/index.html
+[pypi_badge]: https://img.shields.io/pypi/v/pytribeam?logo=pypi&logoColor=FBE072&label=PyPI&color=4B8BBE
+[pypi_link]: https://pypi.org/project/pytribeam
+[pages_badge]: https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github
+[pages_link]: https://sandialabs.github.io/pytribeam/
 
 ## Development work
 
@@ -44,7 +35,7 @@ See release target [here](https://github.com/sandialabs/pytribeam/blob/dev/docs/
 
 ## Getting Started
 
-Installation instructions and more can be found in the User Guide ([Stable/main](https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html) or [Latest/dev](https://sandialabs.github.io/pytribeam/dev/docs/userguide/book/index.html)).
+Installation instructions and more can be found in the User Guide ([Stable/main][manual_main] or [Latest/dev][manual_dev]).
 
 ## Citing ``pytribeam``
 
