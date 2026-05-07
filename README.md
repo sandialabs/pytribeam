@@ -12,23 +12,6 @@ Documentation and quality reports for pyTriBeam.
 | [![Coverage main][coverage_badge_main]][coverage_report_main] | [![Coverage dev][coverage_badge_dev]][coverage_report_dev] |
 | [![PyPI][pypi_badge]][pypi_link]                              | [![GitHub Pages][pages_badge]][pages_link] |
 
-[manual_main]: https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html
-[manual_dev]: https://sandialabs.github.io/pytribeam/dev/docs/userguide/book/index.html
-[api_main]: https://sandialabs.github.io/pytribeam/main/docs/api/index.html
-[api_dev]: https://sandialabs.github.io/pytribeam/dev/docs/api/index.html
-[lint_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/lint.svg
-[lint_report_main]: https://sandialabs.github.io/pytribeam/main/reports/lint/index.html
-[lint_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/lint.svg
-[lint_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/lint/index.html
-[coverage_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/coverage.svg
-[coverage_report_main]: https://sandialabs.github.io/pytribeam/main/reports/coverage/index.html
-[coverage_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/coverage.svg
-[coverage_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/coverage/index.html
-[pypi_badge]: https://img.shields.io/pypi/v/pytribeam?logo=pypi&logoColor=FBE072&label=PyPI&color=4B8BBE
-[pypi_link]: https://pypi.org/project/pytribeam
-[pages_badge]: https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github
-[pages_link]: https://sandialabs.github.io/pytribeam/
-
 ## Development work
 
 See release target [here](https://github.com/sandialabs/pytribeam/blob/dev/docs/developers/release_plan.md).
@@ -57,3 +40,27 @@ Or using BibTeX:
   month = feb 
 }
 ```
+
+[manual_main]: https://sandialabs.github.io/pytribeam/main/docs/userguide/book/index.html
+[manual_dev]: https://sandialabs.github.io/pytribeam/dev/docs/userguide/book/index.html
+
+[api_main]: https://sandialabs.github.io/pytribeam/main/docs/api/index.html
+[api_dev]: https://sandialabs.github.io/pytribeam/dev/docs/api/index.html
+
+[lint_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/lint.svg
+[lint_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/lint.svg
+
+[lint_report_main]: https://sandialabs.github.io/pytribeam/main/reports/lint/index.html
+[lint_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/lint/index.html
+
+[coverage_badge_main]: https://sandialabs.github.io/pytribeam/main/badges/coverage.svg
+[coverage_badge_dev]: https://sandialabs.github.io/pytribeam/dev/badges/coverage.svg
+
+[coverage_report_main]: https://sandialabs.github.io/pytribeam/main/reports/coverage/index.html
+[coverage_report_dev]: https://sandialabs.github.io/pytribeam/dev/reports/coverage/index.html
+
+[pypi_badge]: https://img.shields.io/pypi/v/pytribeam?logo=pypi&logoColor=FBE072&label=PyPI&color=4B8BBE
+[pypi_link]: https://pypi.org/project/pytribeam
+
+[pages_badge]: https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github
+[pages_link]: https://sandialabs.github.io/pytribeam/
