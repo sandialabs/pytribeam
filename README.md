@@ -66,6 +66,3 @@ Or using BibTeX:
   month = feb 
 }
 ```
-
-
-
