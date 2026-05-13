@@ -27,34 +27,6 @@ REM ============================================================
 goto :MAIN
 
 
-REM Call as:  call :RUN "Description" command args...
-:RUN
-setlocal EnableExtensions EnableDelayedExpansion
-set "DESC=%~1"
-echo.
-echo [INFO] !DESC!
-REM Build a command line from arg2..end (preserve quotes!)
-set "CMDLINE=%2"
-shift
-shift
-:RUN_MORE
-if "%~1"=="" goto RUN_EXEC
-set "CMDLINE=!CMDLINE! %1"
-shift
-goto RUN_MORE
-:RUN_EXEC
-REM echo [CMD ] !CMDLINE!
-REM Run the command in a child cmd, capture its exit code immediately
-cmd /v:on /c "!CMDLINE!"
-set "RC=!ERRORLEVEL!"
-REM echo [DEBUG] ExitCode = !RC!
-if not "!RC!"=="0" (
-  echo [ERROR] Failed: !DESC!
-  echo [ERROR] ExitCode: !RC!
-  endlocal & exit /b !RC!
-)
-endlocal & exit /b 0
-
 REM Function to verify all wheels are present
 :REQUIRE_FILE
 setlocal
@@ -128,24 +100,18 @@ call :REQUIRE_FILE "%WHEELHOUSE%\dill-0.4.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" || goto :FAIL
-REM call :REQUIRE_FILE "%WHEELHOUSE%\mypy_extensions-1.0.0-py3-none-any.whl" || goto :FAIL
 call :REQUIRE_FILE "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" || goto :FAIL
-REM call :REQUIRE_FILE "%WHEELHOUSE%\vcs_versioning-0.0.1-py3-none-any.whl" || goto :FAIL
-REM call :REQUIRE_FILE "%WHEELHOUSE%\black-24.2.0-cp38-cp38-win_amd64.whl" || goto :FAIL
 
 
-REM pip uninstall vcs_versioning, editables, packaging, colorama, click, contextlib2, schema, tomli, setuptools_scm, trove_classifiers, pluggy, pathspec, hatchling, hatch_vcs, iniconfig, exceptiongroup, pytest, coverage, pytest_cov, ruff, typing_extensions, mypy_extensions, platformdirs, black, pygments, markdown2, astunparse, pdoc, py, tabulate, interrogate, anybadge, astroid, isort, mccabe, tomlkit, dill, pylint, pylint_ext, pytribeam
 REM ============================================================
 REM Install
 REM ============================================================
-REM:MAIN
 
 echo.
 echo Cleaning environment...
-call :RUN "Upgrade/install pip wheel"        %PIP% install "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" --no-index || goto :FAIL
-call :RUN "Upgrade/install setuptools"         %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
-REM Do not uninstall colorama, packaging
-call :RUN "Uninstall packages" %PIP% uninstall -y platformdirs, typing_extensions, vcs_versioning, editables, click, contextlib2, schema, tomli, setuptools_scm, trove_classifiers, pluggy, pathspec, hatchling, hatch_vcs, iniconfig, exceptiongroup, pytest, coverage, pytest_cov, ruff, mypy_extensions, black, pygments, markdown2, astunparse, pdoc, py, tabulate, interrogate, anybadge, astroid, isort, mccabe, tomlkit, dill, pylint, pylint_exit, pytribeam || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" --no-index || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
+call %PIP% uninstall -y platformdirs, typing_extensions, vcs_versioning, editables, click, contextlib2, schema, tomli, setuptools_scm, trove_classifiers, pluggy, pathspec, hatchling, hatch_vcs, iniconfig, exceptiongroup, pytest, coverage, pytest_cov, ruff, mypy_extensions, black, pygments, markdown2, astunparse, pdoc, py, tabulate, interrogate, anybadge, astroid, isort, mccabe, tomlkit, dill, pylint, pylint_exit, pytribeam || goto :FAIL
 
 echo.
 echo Installing pyTriBeam...
@@ -193,8 +159,6 @@ call %PIP% install -e . --no-index --no-build-isolation --find-links "%WHEELHOUS
 REM ============================================================
 REM Verification / reporting
 REM ============================================================
-REM call :RUN "pip list" %PIP% list
-
 
 REM If the import name differs, change this accordingly (e.g., pyTriBeam -> pytribeam)
 call :RUN "Import test: pytribeam" "%PYTHON%" -c "import pytribeam; print('pytribeam import OK; version=', getattr(pytribeam,'__version__','(unknown)'))" || goto :FAIL
@@ -204,7 +168,6 @@ echo [INFO] Install completed successfully.
 
 echo.
 echo To see available commands, please run `pytribeam.exe` in your terminal.
-@REM goto :EOF
 exit /b 0
 
 :FAIL
