@@ -111,10 +111,10 @@ echo.
 echo Cleaning environment...
 call %PIP% install "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" --no-index || goto :FAIL
 call %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% uninstall -y platformdirs, typing_extensions, vcs_versioning, editables, click, contextlib2, schema, tomli, setuptools_scm, trove_classifiers, pluggy, pathspec, hatchling, hatch_vcs, iniconfig, exceptiongroup, pytest, coverage, pytest_cov, ruff, mypy_extensions, black, pygments, markdown2, astunparse, pdoc, py, tabulate, interrogate, anybadge, astroid, isort, mccabe, tomlkit, dill, pylint, pylint_exit, pytribeam || goto :FAIL
+call %PIP% uninstall -y platformdirs typing_extensions vcs_versioning editables click contextlib2 schema tomli setuptools_scm trove_classifiers pluggy pathspec hatchling hatch_vcs iniconfig exceptiongroup pytest coverage pytest_cov ruff mypy_extensions black pygments markdown2 astunparse pdoc py tabulate interrogate anybadge astroid isort mccabe tomlkit dill pylint pylint_exit pytribeam || goto :FAIL
 
 echo.
-echo Installing pyTriBeam...
+echo Installing pyTriBeam dependencies...
 call %PIP% install "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" --no-index || goto :FAIL
 call %PIP% install "%WHEELHOUSE%\packaging-26.0-py3-none-any.whl" --no-index || goto :FAIL
 call %PIP% install "%WHEELHOUSE%\tomli-2.0.1-py3-none-any.whl" --no-index || goto :FAIL
@@ -153,6 +153,7 @@ call %PIP% install "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" --no-index || go
 call %PIP% install "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" --no-index || goto :FAIL
 
 REM Install pyTriBeam from the current folder
+echo Installing pyTriBeam...
 call %PIP% install -e . --no-index --no-build-isolation --find-links "%WHEELHOUSE%" || goto :FAIL
 
 
@@ -161,7 +162,7 @@ REM Verification / reporting
 REM ============================================================
 
 REM If the import name differs, change this accordingly (e.g., pyTriBeam -> pytribeam)
-call :RUN "Import test: pytribeam" "%PYTHON%" -c "import pytribeam; print('pytribeam import OK; version=', getattr(pytribeam,'__version__','(unknown)'))" || goto :FAIL
+call "%PYTHON%" -c "import pytribeam; print('pytribeam import OK; version=', getattr(pytribeam,'__version__','(unknown)'))" || goto :FAIL
 
 echo.
 echo [INFO] Install completed successfully.
