@@ -2,11 +2,11 @@
 name: Test
 
 on:
-  push:
-    branches:
-      - '**'
+  # push:
+  #   branches:
+  #     - '**'
   workflow_dispatch:
-  workflow_call:
+  # workflow_call:
 
 # Concurrency ensures that if you push again while a build is already running, the old one is canceled.
 concurrency:
