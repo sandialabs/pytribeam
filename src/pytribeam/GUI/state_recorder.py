@@ -57,17 +57,27 @@ def _collect(
 
         if callable(attr):
             continue
-        elif isinstance(attr, str) or isinstance(attr, bool) or isinstance(attr, int) or isinstance(attr, float) or isinstance(attr, list) or isinstance(attr, tuple) or isinstance(attr, dict):
+        elif (
+            isinstance(attr, str)
+            or isinstance(attr, bool)
+            or isinstance(attr, int)
+            or isinstance(attr, float)
+            or isinstance(attr, list)
+            or isinstance(attr, tuple)
+            or isinstance(attr, dict)
+        ):
             results.append((full_path, attr))
         elif isinstance(attr, as_structs.StagePosition):
-            results.extend([
-                (full_path + ".coordinate_system", attr.coordinate_system),
-                (full_path + ".x", attr.x),
-                (full_path + ".y", attr.y),
-                (full_path + ".z", attr.z),
-                (full_path + ".t", attr.t),
-                (full_path + ".r", attr.r),
-            ])
+            results.extend(
+                [
+                    (full_path + ".coordinate_system", attr.coordinate_system),
+                    (full_path + ".x", attr.x),
+                    (full_path + ".y", attr.y),
+                    (full_path + ".z", attr.z),
+                    (full_path + ".t", attr.t),
+                    (full_path + ".r", attr.r),
+                ]
+            )
         else:
             results.extend(_collect(attr, full_path, visited))
 
@@ -113,13 +123,25 @@ def get_microscope_state(host: str, port: int) -> dict:
 
     state = {}
 
-    for s in ["beams", "detector", "gas", "patterning", "specimen", "state", "vacuum", "imaging"]:
-        state[s] = {k: i for (k, i) in collect_attribute_paths(getattr(microscope, s), "scope." + s)}
-    
+    for s in [
+        "beams",
+        "detector",
+        "gas",
+        "patterning",
+        "specimen",
+        "state",
+        "vacuum",
+        "imaging",
+    ]:
+        state[s] = {
+            k: i
+            for (k, i) in collect_attribute_paths(getattr(microscope, s), "scope." + s)
+        }
+
     for q in [1, 2, 3, 4]:
         microscope.imaging.set_active_view(q)
         device = str(tbt.Device(microscope.imaging.get_active_device()))
-        state["imaging"][f"scope.imaging.quad{q}.active_device"] =  device
+        state["imaging"][f"scope.imaging.quad{q}.active_device"] = device
 
     return state
 
@@ -152,12 +174,15 @@ def save_state():
         port = None
     else:
         port = int(port)
-    
+
     # Connect to the microscope and get the state
     try:
         microscope_state = get_microscope_state(host, port)
     except ConnectionError as e:
-        messagebox.showerror("Error connecting to microscope", "Please check the host and port entries and retry.")
+        messagebox.showerror(
+            "Error connecting to microscope",
+            "Please check the host and port entries and retry.",
+        )
         return
 
     # Get the description and store in the state
@@ -165,7 +190,9 @@ def save_state():
     microscope_state["description"] = text
 
     # Read the current yml
-    db = utilities.yml_to_dict(yml_path_file=path, version=0.0, required_keys=("config_file_version", "states"))
+    db = utilities.yml_to_dict(
+        yml_path_file=path, version=0.0, required_keys=("config_file_version", "states")
+    )
 
     # Use timestamp for key of current state in dictionary
     timestamp = datetime.datetime.now().strftime("%b %d, %Y %I:%M:%S %p")
@@ -178,10 +205,14 @@ def save_state():
 if __name__ == "__main__":
     # Prep
     theme = ctk.Theme("dark")
-    entry_kw = dict(bg=theme.colors["bg_off"], fg=theme.colors["terminal_fg"], font=("Segoe UI", 11))
+    entry_kw = dict(
+        bg=theme.colors["bg_off"], fg=theme.colors["terminal_fg"], font=("Segoe UI", 11)
+    )
     label_kw = dict(bg=theme.bg, fg=theme.fg, font=("Segoe UI", 11))
     header_kw = dict(bg=theme.bg, fg=theme.fg, font=("Segoe UI", 15))
-    button_kw = dict(bg=theme.colors["green"], fg=theme.colors["green_fg"], font=("Segoe UI", 15))
+    button_kw = dict(
+        bg=theme.colors["green"], fg=theme.colors["green_fg"], font=("Segoe UI", 15)
+    )
 
     # Build window
     master = tk.Tk()
@@ -196,14 +227,24 @@ if __name__ == "__main__":
     file_path.set(Path.home() / "pytribeam_state_record.yml")
 
     # Create widgets
-    l1 = tk.Label(root, text="Microscope connection details (likely do not need to change)", **header_kw)
+    l1 = tk.Label(
+        root,
+        text="Microscope connection details (likely do not need to change)",
+        **header_kw,
+    )
     l2 = tk.Label(root, text="Path to save the states to", **header_kw)
-    l3 = tk.Label(root, text="Description of state and/or how you moved from the previous state to this state", **header_kw)
+    l3 = tk.Label(
+        root,
+        text="Description of state and/or how you moved from the previous state to this state",
+        **header_kw,
+    )
     host_l = tk.Label(root, text="Host:", **label_kw)
     port_l = tk.Label(root, text="Port:", **label_kw)
     host_var = tk.Entry(root, **entry_kw)
     port_var = tk.Entry(root, **entry_kw)
-    pentry = ctk.PathEntry(root, var=file_path, directory=False, operation="save", **entry_kw)
+    pentry = ctk.PathEntry(
+        root, var=file_path, directory=False, operation="save", **entry_kw
+    )
     text_box = tk.Text(root, width=10, height=10, **entry_kw)
     f1 = tk.Frame(root, bg=theme.bg)
     f2 = tk.Frame(root, bg=theme.bg)

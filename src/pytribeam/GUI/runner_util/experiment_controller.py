@@ -546,5 +546,11 @@ class ExperimentController:
         scan = str(scan)
         position = str(position)
 
-        
-        return dict(beam=beam, detector=detector, image_settings=image_settings, image_device=image_device, scan=scan, position=position)
+        return dict(
+            beam=beam,
+            detector=detector,
+            image_settings=image_settings,
+            image_device=image_device,
+            scan=scan,
+            position=position,
+        )
