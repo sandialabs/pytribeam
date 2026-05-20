@@ -467,7 +467,7 @@ def main() -> int:
         create_userguide_badge()
     else:
         print("WARNING: mdbook was not found, the userguide will not be built")
-    
+
     build_api_docs()
     run_docstring_coverage()
     run_tests_and_store_coverage()
