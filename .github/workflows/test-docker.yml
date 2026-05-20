@@ -221,22 +221,25 @@ jobs:
         with:
           path: './pages/'
 
-      - name: See where I am
-        run: |
-          echo "=== Current Runner Directory ==="
-          pwd
-          ls -la
-          ls -la ../
-          ls -la ../../
-          echo "=== What is inside the pages folder? ==="
-          ls -la ./pages/${{ env.DEPLOY_SUBDIR }}/
-
       - name: Upload local CI artifacts
         uses: actions/upload-artifact@v4
         with:
           name: local_ci_badges
           path: |
             temp_badges/
+
+      - name: Download local CI artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: local_ci_badges      # Must exactly match the upload name
+          path: downloaded_badges/   # Where you want the files extracted to
+
+      - name: See where I am
+        run: |
+          echo "=== Current Runner Directory ==="
+          pwd
+          ls -la
+          ls -la downloaded_badges/
 
       - name: Deploy to GitHub Pages
         id: deployment
