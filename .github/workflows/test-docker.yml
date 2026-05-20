@@ -225,6 +225,9 @@ jobs:
         run: |
           echo "=== Current Runner Directory ==="
           pwd
+          ls -la
+          ls -la ../
+          ls -la ../../
           echo "=== What is inside the pages folder? ==="
           ls -la ./pages/${{ env.DEPLOY_SUBDIR }}/
 
