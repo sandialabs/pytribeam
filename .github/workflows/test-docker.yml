@@ -236,7 +236,7 @@ jobs:
         with:
           name: local_ci_badges
           path: |
-            './temp_badges/'
+            temp_badges/
 
       - name: Deploy to GitHub Pages
         id: deployment
