@@ -28,6 +28,7 @@ specimen_current(step_number: int, step_name: str, slice_number: int, log_filepa
 current_time() -> tbt.TimeStamp
     Get the current time as a timestamp.
 """
+
 # Default python modules
 # from functools import singledispatch
 import os
@@ -487,6 +488,7 @@ def ebsd_camera_saturation(
         # add one row to table
         dataset.resize(dataset.shape[0] + 1, axis=0)
         dataset[-1:] = cam_sat_data
+
 
 if __name__ == "__main__":
     pass

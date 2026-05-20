@@ -968,7 +968,7 @@ class Configurator:
         labels = ["0. general"]
         labels.extend(
             [
-                f"{i+1}. {s.name} ({s.step_type})"
+                f"{i + 1}. {s.name} ({s.step_type})"
                 for i, s in enumerate(self.controller.pipeline.steps)
             ]
         )
@@ -989,7 +989,7 @@ class Configurator:
         options = ["0. general"]
         options.extend(
             [
-                f"{i+1}. {s.name} ({s.step_type})"
+                f"{i + 1}. {s.name} ({s.step_type})"
                 for i, s in enumerate(self.controller.pipeline.steps)
             ]
         )

@@ -71,7 +71,9 @@ class ParameterTracker:
                     var.set(default)
 
         # Add trace to update controller when variable changes
-        trace_id = var.trace_add('write', lambda *args: self._on_variable_changed(param_path, var, dtype))
+        trace_id = var.trace_add(
+            "write", lambda *args: self._on_variable_changed(param_path, var, dtype)
+        )
 
         # Store variable and trace info
         self.variables[param_path] = var
@@ -245,7 +247,9 @@ class ParameterTracker:
         for param_path in list(self.trace_ids.keys()):
             if param_path in self.variables:
                 try:
-                    self.variables[param_path].trace_remove('write', self.trace_ids[param_path])
+                    self.variables[param_path].trace_remove(
+                        "write", self.trace_ids[param_path]
+                    )
                 except (KeyError, tk.TclError):
                     pass  # Already removed or invalid
 

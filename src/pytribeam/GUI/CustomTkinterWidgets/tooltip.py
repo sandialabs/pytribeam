@@ -10,7 +10,6 @@ from .utils import configure_widget
 
 
 class ToolTip:
-
     def __init__(self, widget, text, waittime=500, xoffset=10, yoffset=10, **kwargs):
         """
         tooltip class

@@ -207,7 +207,7 @@ def test_insert_retract_EBSD():
     )
 
     stage.home_stage(microscope=microscope, stage_tolerance=stage_tolerance)
-    
+
     prepare_stage_test_tilt(
         microscope=microscope,
         stage_tolerance=stage_tolerance,
@@ -280,7 +280,9 @@ def test_insert_detector():
             max=tilt_angle_deg + stage_tolerance.angular_deg,
         ),
         type=tbt.IntervalType.CLOSED,
-    ), f"Stage should be at tilt of {tilt_angle_deg} +/-{stage_tolerance.angular_deg} degrees but is at a tilt of {current_t_deg} degrees. Please ensure stage restrictions are turned off for CBS insert, otherwise microscope will automatically tilt down to 0.5 degrees."
+    ), (
+        f"Stage should be at tilt of {tilt_angle_deg} +/-{stage_tolerance.angular_deg} degrees but is at a tilt of {current_t_deg} degrees. Please ensure stage restrictions are turned off for CBS insert, otherwise microscope will automatically tilt down to 0.5 degrees."
+    )
 
     devices.retract_device(microscope=microscope, detector=tbt.DetectorType.CBS)
     assert microscope.detector.state == tbt.RetractableDeviceState.RETRACTED.value

@@ -951,7 +951,7 @@ def step_start_position(
         f"\t\t{'X [mm]' + space:<10}{'Y [mm]' + space:<10}{'Z [mm]' + space:<10}{'R [deg]' + space:<10}{'T [deg]' + space:<10}"
     )
     print(
-        f"\t\t{round(position.x_mm,4):<10}{round(position.y_mm,4):<10}{round(position.z_mm,4):<10}{round(position.r_deg,3):<10}{round(position.t_deg,3):<10}"
+        f"\t\t{round(position.x_mm, 4):<10}{round(position.y_mm, 4):<10}{round(position.z_mm, 4):<10}{round(position.r_deg, 3):<10}{round(position.t_deg, 3):<10}"
     )
     move_to_position(
         microscope=microscope,

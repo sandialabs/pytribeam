@@ -382,7 +382,7 @@ def beam_hfw(
         raise ValueError(
             f"""Could not correctly adjust horizontal field width,
             requested {hfw_mm} millimeters, current field with is
-            {selected_beam.horizontal_field_width.value*cs.Conversions.M_TO_MM} millimeters"""
+            {selected_beam.horizontal_field_width.value * cs.Conversions.M_TO_MM} millimeters"""
         )
 
     return True

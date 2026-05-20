@@ -402,9 +402,7 @@ class ExperimentController:
         self._notify("state_changed", self.state)
         if self._send_emails:
             end_of_slice = step_num == total_steps
-            update_frequency = (
-                self.experiment_settings.general_settings.email_update_settings.update_frequency
-            )
+            update_frequency = self.experiment_settings.general_settings.email_update_settings.update_frequency
             if end_of_slice and (slice_num % update_frequency == 0):
                 message = (
                     f"Experiment update:\n"
@@ -422,7 +420,11 @@ class ExperimentController:
         Could be changed to send an image from a user specified step.
         """
         directory = self.experiment_settings.general_settings.exp_dir
-        step = [step for step in self.experiment_settings.step_sequence if step.type == tbt.StepType.IMAGE or step.type == tbt.StepType.EBSD]
+        step = [
+            step
+            for step in self.experiment_settings.step_sequence
+            if step.type == tbt.StepType.IMAGE or step.type == tbt.StepType.EBSD
+        ]
         if len(step) == 0:
             return None
         step = step[0]
@@ -511,7 +513,9 @@ class ExperimentController:
             final_step_name = experiment_settings.step_sequence[final_step].name
             self._notify("experiment_stopped", final_slice, final_step_name)
 
-    def _send_email(self, message: str, attachments: List[Path] = None, error: bool = False):
+    def _send_email(
+        self, message: str, attachments: List[Path] = None, error: bool = False
+    ):
         """Send error or update email."""
         if not self._send_emails:
             return
@@ -529,24 +533,14 @@ class ExperimentController:
             ssh_user = (
                 self.experiment_settings.general_settings.email_update_settings.ssh_user
             )
-            ssh_key_path = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_key_path
-            )
+            ssh_key_path = self.experiment_settings.general_settings.email_update_settings.ssh_key_path
             sender_email = (
                 self.experiment_settings.general_settings.email_update_settings.sender
             )
-            sender_password = (
-                self.experiment_settings.general_settings.email_update_settings.sender_password
-            )
-            recipients = (
-                self.experiment_settings.general_settings.email_update_settings.recipients
-            )
-            smtp_server = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_server
-            )
-            smtp_port = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_port
-            )
+            sender_password = self.experiment_settings.general_settings.email_update_settings.sender_password
+            recipients = self.experiment_settings.general_settings.email_update_settings.recipients
+            smtp_server = self.experiment_settings.general_settings.email_update_settings.smtp_server
+            smtp_port = self.experiment_settings.general_settings.email_update_settings.smtp_port
 
             success, response = send_update_email(
                 ssh_host=ssh_host,

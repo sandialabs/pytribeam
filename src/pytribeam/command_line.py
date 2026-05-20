@@ -17,9 +17,7 @@ import pytribeam.constants as cs
 import pytribeam.GUI.runner as runner
 import pytribeam.workflow as workflow
 
-CLI_DOCS: Final[
-    str
-] = """
+CLI_DOCS: Final[str] = """
 --------
 pytribeam
 --------

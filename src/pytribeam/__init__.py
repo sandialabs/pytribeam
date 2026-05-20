@@ -1,6 +1,5 @@
-"""Automated tools for serial sectioning in the SEM.
+"""Automated tools for serial sectioning in the SEM."""
 
-"""
 try:
     from ._version import version
 except ImportError:
