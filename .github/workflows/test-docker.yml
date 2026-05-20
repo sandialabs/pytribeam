@@ -221,6 +221,13 @@ jobs:
         with:
           path: './pages/'
 
+      - name: See where I am
+        run: |
+          echo "=== Current Runner Directory ==="
+          pwd
+          echo "=== What is inside the pages folder? ==="
+          ls -la ./pages/${{ env.DEPLOY_SUBDIR }}/
+
       - name: Upload local CI artifacts
         uses: actions/upload-artifact@v4
         with:
