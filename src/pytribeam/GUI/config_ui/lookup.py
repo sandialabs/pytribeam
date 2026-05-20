@@ -24,7 +24,9 @@ fib_scan_dirs = [i.value for i in tbt.FIBPatternScanDirection]
 fib_scan_types = [i.value for i in tbt.FIBPatternScanType]
 bit_depths = [i.value for i in tbt.ColorDepth]
 rotation_sides = [i.value for i in tbt.RotationSide]
-ebsd_grid_types = [i.name for i in tbt.EBSDGridType]  # Use names for better readability, requires tbt.EBSDGridType[selection] instead of tbt.EBSDGridType(selection)
+ebsd_grid_types = [
+    i.name for i in tbt.EBSDGridType
+]  # Use names for better readability, requires tbt.EBSDGridType[selection] instead of tbt.EBSDGridType(selection)
 
 # Options need empty values
 beam_types.append("")

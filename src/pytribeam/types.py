@@ -2633,4 +2633,3 @@ class YMLFormatVersion(YMLFormat, Enum):
         #     "executable_path": Path,
         # }
     )
-
