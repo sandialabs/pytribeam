@@ -1,5 +1,5 @@
 # This workflow will not run without Autoscript.
-name: Test
+name: Test-Docker
 
 on:
   push:
@@ -28,6 +28,13 @@ jobs:
         uses: actions/checkout@v6
         with:
             fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
+            fetch-tags: true # Ensure tags are fetched for accurate versioning, required for hatch-vcs to determine version from tags
+
+      - name: Verify git metadata (needed for hatch-vcs/setuptools-scm)
+        run: |
+          test -d .git || (echo "ERROR: .git directory missing" && exit 1)
+          git describe --tags --always || true
+          git rev-parse HEAD 
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -70,14 +77,29 @@ jobs:
     name: Create Github Pages
     needs: test
     runs-on: ubuntu-latest
+
+
+    # Run only on selected branches
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+
     permissions:
       contents: read
       pages: write
       id-token: write
+      packages: read
+
+    # APOLON not sure what this is for, leaving in for now, but may be able to remove after testing
     #environment:
     #  name: github-pages
     #  url: ${{ steps.deployment.outputs.page_url }}
+
+    # Pull the prebuilt tools image tagged by branch name: dev/main/docker
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -103,12 +125,7 @@ jobs:
         with:
           name: report-coverage
 
-      - name: Install mdBook
-        run: cargo install mdbook --version 0.4.52
-
-      - name: Install mdBook Preprocessors
-        run: cargo install mdbook-cmdrun mdbook-katex
-
+      # mdbook + preprocessors are already in the container now
       - name: Build User Guide
         run: mdbook build
 
