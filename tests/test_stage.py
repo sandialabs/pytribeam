@@ -25,7 +25,7 @@ import pytribeam.utilities as ut
 def test_dir() -> str:
     """The relative path and file string locating the default yml test file."""
 
-    return Path(__file__).parent.joinpath("files")
+    return str(Path(__file__).parent.joinpath("files"))
 
 
 #### tests ####

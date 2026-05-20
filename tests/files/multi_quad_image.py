@@ -107,14 +107,11 @@ if __name__ == "__main__":
         beam = img_settings.beam
         img.set_view(microscope=microscope, quad=img_settings.beam.default_view)
         img.prepare_imaging(microscope=microscope, beam=beam, img_settings=img_settings)
-    
-    for i in range(len(multiple_img_settings)):
-        
-    frames = microscope.imaging.grab_multiple_frames(
-        tbt.GrabFrameSettings(bit_depth=img_settings.bit_depth, views=views)
-    )
-    
 
+    for i in range(len(multiple_img_settings)):
+        frames = microscope.imaging.grab_multiple_frames(
+            tbt.GrabFrameSettings(bit_depth=img_settings.bit_depth, views=views)
+        )
 
     # Export images
     # Create folder in same directory as experimental directory
@@ -122,7 +119,7 @@ if __name__ == "__main__":
     etd_image_directory = exp_dir.joinpath("ETD_image")
     cbs_image_directory.mkdir(parents=True, exist_ok=True)
     etd_image_directory.mkdir(parents=True, exist_ok=True)
-    
+
     cbs_save_path = cbs_image_directory.joinpath(f"{slice_number:04}.tif")
     imageio.imwrite(cbs_save_path, imgs[0])
     print(f"\tImage saved to {cbs_save_path}")
