@@ -1,0 +1,182 @@
+---
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 400
+  pre_tilt_deg: 36
+  sectioning_axis: Z
+  sectioning_direction: +
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost #string
+  connection_port: null #int
+  EBSD_OEM: Oxford #Oxford, EDAX, or null
+  EDS_OEM: Oxford
+  exp_dir: 'C:/Users/User/Desktop/exp_dir/'
+  h5_log_name: "log" #autofill to put in the exp_dir
+
+laser_test:
+  # step_general:
+  step_number         : 1
+  step_type           : laser
+  frequency	          : 1
+  rotation_side       : FSL_mill
+  start_x_pos_mm      : 1.0
+  start_y_pos_mm      : 2.0
+  start_z_pos_mm      : 5.0
+  start_t_pos_deg     : 0.0
+  start_r_pos_deg     : -50.0
+
+  # step_specific:
+  scan_size_x_um      : 1500
+  scan_size_y_um      : 50
+  # beam shifts apply on top of what is already in the Laser GUI, so typically "null"
+  beam_shift_x_um     : null
+  beam_shift_y_um     : null
+
+  #preset fills out everything below it
+  laser_preset        : 'C:/Users/User/Desktop/laser_app_files/Copper_Fine.json'
+  # need to check if most of these are int/float types
+  patterning_mode     : fine
+  pulse_energy_uj     : 16
+  pulse_divider       : 2
+  pulse_pitch_x_um    : 4
+  pulse_pitch_y_um    : 4
+  dwell_time_ms       : 1
+  passes              : 20
+  pulses_per_pixel    : 20
+  scan_rotation_deg   : 0
+  scan_type           : serpentine
+  coordinate_ref      : UpperCenter
+
+image_test:
+  # step_general:
+  step_number         : 2
+  step_type           : image
+  frequency	          : 1
+  rotation_side       : FSL_mill
+  start_x_pos_mm      : 1.0
+  start_y_pos_mm      : 2.0
+  start_z_pos_mm      : 5.0
+  start_t_pos_deg     : 0.0
+  start_r_pos_deg     : -50.0
+
+  # step_specific:
+  beam_type           : electron
+  detector_type       : ETD
+  detector_mode       : SecondaryElectrons
+  beam_voltage_kv     : 30.0
+  beam_voltage_kv_tol : 0.1
+  beam_current_na     : 51.0
+  beam_current_na_tol : 1.0
+  hfw_mm              : 0.8
+  working_dist_mm     : 3.9778
+  scan_rotation_deg   : 180.0
+  dwell_time_us       : 0.5
+  resolution          : 6144x4096
+  bit_depth           : 8
+  auto_cb             : True
+  auto_cb_left_frac   : 0.4
+  auto_cb_width_frac  : .2
+  auto_cb_top_frac    : .4
+  auto_cb_height_frac : .6
+  #settings to use if auto_cb is false
+  contrast_frac       : null
+  brightness_frac     : null
+
+  auto_focus          : True #overwrites wording_dist_mm
+  auto_focus_hfw_mm   : 0.01 
+  use_dynamic_focus   : False
+  use_tilt_correction : False
+
+pfib_test:
+  # step_general:
+  step_number         : 3
+  step_type           : pfib
+  frequency	          : 1
+  rotation_side       : FIB_mill
+  start_x_pos_mm      : 1.0
+  start_y_pos_mm      : 2.0
+  start_z_pos_mm      : 5.0
+  start_t_pos_deg     : 0.0
+  start_r_pos_deg     : -140.0
+
+  # step_specific, mill image:
+  #supported types are "box" and "selected_area"
+  mill_type           : box
+  save_image          : True #must be True if "selected_area" mill type
+  mill_pattern_preset : Si-ccs
+
+  # box mill settings
+  box_center_x             : 5.11
+  box_center_y             : 0.0
+  box_width_um             : 940.0
+  box_height_um            : 40.0
+  box_mill_depth_um        : 5.0
+
+  # selected area mill settings
+  stream_bit_depth         : 12
+  mill_dwell_us            : 1.0
+  pattern_repeats          : 500
+  image_proc_recipe        : 'C:/Users/User/Desktop/exp_dir/fib_masking.py'
+
+
+  beam_type           : ion
+  detector_type       : ETD
+  detector_mode       : SecondaryElectrons
+  beam_voltage_kv     : 30.0
+  beam_voltage_kv_tol : 1.0
+  beam_current_na     : 500.0
+  beam_current_na_tol : 10.0
+  hfw_mm              : 0.98
+  working_dist_mm     : 16.404
+  scan_rotation_deg   : 0.0
+  dwell_time_us       : 0.1
+  resolution          : 1536x1024
+  bit_depth           : 8
+  auto_cb             : False
+  auto_cb_left_frac   : null
+  auto_cb_width_frac  : null
+  auto_cb_top_frac    : null
+  auto_cb_height_frac : null
+  #settings to use if auto_cb is false
+  contrast_frac       : 0.55
+  brightness_frac     : 0.43
+  use_dynamic_focus   : False
+  use_tilt_correction : False
+
+ebsd_test:
+  # step_general:
+  step_number         : 4
+  step_type           : ebsd
+  frequency	          : 1
+  rotation_side       : FIB_mill
+  start_x_pos_mm      : 1.0
+  start_y_pos_mm      : 2.0
+  start_z_pos_mm      : 5.0
+  start_t_pos_deg     : 0.0
+  start_r_pos_deg     : -50.0
+
+  # step_specific, ebsd image:
+  beam_type           : electron
+  detector_type       : ETD
+  detector_mode       : SecondaryElectrons
+  beam_voltage_kv     : 30.0
+  beam_voltage_kv_tol : 1.0
+  beam_current_na     : 51.0
+  beam_current_na_tol : 5.0
+  hfw_mm              : 2.2
+  working_dist_mm     : 11.004
+  scan_rotation_deg   : 0.0
+  dwell_time_us       : 0.1
+  resolution          : 1536x1024
+  bit_depth           : 8
+  auto_cb             : True
+  auto_cb_left_frac   : 0.4
+  auto_cb_width_frac  : .2
+  auto_cb_top_frac    : .4
+  auto_cb_height_frac : .6
+  #settings to use if auto_cb is false
+  contrast_frac       : null
+  brightness_frac     : null
+  use_dynamic_focus   : True
+  use_tilt_correction : False

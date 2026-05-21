@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pytribeam"
-# version = "0.0.2"  # Deprecated static version, now determined by VCS
+# version = "0.0.2"
 dynamic = ["version"]  # Removed static version, now determined by VCS
 description = "automated data collection on TriBeam tools"
 requires-python = ">=3.8.12,<3.9"
@@ -18,25 +18,25 @@ authors = [
 ]
 
 dependencies = [
-  "pytz",
-  "schema",
+    "schema",
 ]
 
 [project.optional-dependencies]
 dev = [
+    # "black", # now handled by ruff
+    #"docstr-coverage",
+    #"docutils<0.18,>=0.14",
+    # "flake8",  # now handled by ruff
+    #"jinja2",
+    #"nbsphinx",
+    #"pdbp",
+    # "pycodestyle",  # now handled by ruff
     "h5py",
     "numpy",
-    "pyyaml",
-    "pillow",
     "pdoc",
     "pylint",
-    "pytest",
-    "pytest-cov",
-    "anybadge",
-    "pylint",
-    "pylint-exit",
-    "interrogate",
-    "requests",
+    "pytest==8.3.3",
+    "pytest-cov==5.0.0",
     "ruff",
 ]
 
@@ -84,52 +84,3 @@ python_files = ["test_*.py", "*_test.py"]
 testpaths = ["tests"]
 pythonpath = ["src"]
 addopts = "--cov=src/pytribeam --cov-report=xml --cov-report=html"
-markers = [
-    "detached: test is always runnable and does not require AutoScript or hardware",
-    "simulated: test requires a simulated/offline microscope system",
-    "hardware: test requires a physical hardware system",
-    "laser_hardware: test requires a physical hardware system with laser support",
-]
-
-[tool.coverage.run]  # Coverage is used for test coverage reports
-branch = true
-source = [
-    "src",
-    # "C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src",
-    # "C:/Users/User/Documents/pytribeam/src",
-    # "C:/Users/apolon/Codebases/pytribeam/src",
-]
-omit = ["src/pytribeam/GUI/CustomTkinterWidgets/*", "src/pytribeam/GUI/runner_util/ui_components.py", "src/pytribeam/GUI/runner.py", "src/pytribeam/GUI/config_ui/App.py"]
-
-[tool.coverage.report]  # Coverage is used for test coverage reports
-show_missing = true  # Show which lines were not covered
-exclude_lines = [
-    "pragma: no cover",
-    "if __name__ == .__main__.:",
-    "raise NotImplementedError",
-]
-
-[tool.interrogate]  # interrogate is used for docstring coverage
-fail-under = 0
-exclude = ["src/pytribeam/GUI"]
-ignore-init-method = true
-ignore-init-module = false
-ignore-magic = true
-ignore-nested-functions = true
-ignore-nested-classes = true
-ignore-private = false
-ignore-semiprivate = false
-ignore-module = false
-ignore-property-decorators = false
-quiet = false
-verbose = 2
-
-[tool.pytribeam.local_ci]  # Controls a few parameters used in the local CI workfow
-package_name = "pytribeam"
-src_dir = "src/pytribeam"
-docs_api_dir = "docs/api"
-coverage_dir = "coverage_reports"
-badges_dir = "badges"
-logs_dir = "logs"
-userguide_badge_label = "userguide"
-userguide_badge_value = "\U0001f4da"

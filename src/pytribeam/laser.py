@@ -75,7 +75,10 @@ map_eds() -> bool
 """
 
 # Default python modules
+import os
+from pathlib import Path
 import time
+import warnings
 import contextlib, io
 import math
 
@@ -88,9 +91,10 @@ except:
     print("\tLaser control, as well as EBSD and EDS control are unavailable.")
 
 # 3rd party .whl modules
+import h5py
 
 # Local scripts
-from pytribeam.constants import Constants
+from pytribeam.constants import Conversions, Constants
 import pytribeam.factory as factory
 import pytribeam.types as tbt
 import pytribeam.utilities as ut

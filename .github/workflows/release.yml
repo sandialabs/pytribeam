@@ -27,17 +27,16 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0 # Required for versioning tools to see tags
 
-      - name: Install uv
+      - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.8.12'
           enable-cache: true
-          # cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
+          cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
 
       - name: Build
         run: uv build
