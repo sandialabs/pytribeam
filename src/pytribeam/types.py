@@ -537,8 +537,6 @@ class DetectorMode(Enum):
     SEGMENT_B: str = as_enums.DetectorMode.SEGMENT_B
     TOPOGRAPHY: str = as_enums.DetectorMode.TOPOGRAPHY
     Z_CONTRAST: str = as_enums.DetectorMode.Z_CONTRAST
-    # Need to add "Default"
-    DEFAULT: str = "Default"
 
 
 class DetectorType(Enum):
@@ -1098,8 +1096,6 @@ class RetractableDeviceState(Enum):
     RETRACTED: str = as_enums.RetractableDeviceState.RETRACTED
     INDERTERMINATE: str = "Indeterminate"  # For Oxford EBSD and EDS detectors
     CONNECTED: str = "Connected"  # For laser status
-    # Need to add "Stationary"
-    STATIONARY: str = "Stationary"
 
 
 class DeviceStatus(NamedTuple):
@@ -2325,8 +2321,7 @@ class YMLFormatVersion(YMLFormat, Enum):
             "connection_host": str,
             "connection_port": int,
             "EBSD_OEM": ExternalDeviceOEM,
-            "EDS_OEM": ExternalDeviceOEM,
-            "exp_dir": Path,
+            "EDS_OEMexp_dir": Path,
             "h5_log_name": str,
             "step_count": int,
         },

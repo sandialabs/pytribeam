@@ -4,15 +4,12 @@ language = "en"
 multilingual = false
 src = "docs/userguide/src"
 title = "pyTriBeam User Guide"
-
-[output.html]
-logo = "logos/logo_color.png"
+logo = "src/logos/logo_color.png"
 
 [build]
 build-dir = "docs/userguide/book"
 
 [preprocessor.cmdrun]
-command = "mdbook-cmdrun"
 
 [preprocessor.katex]
 after = ["links"]

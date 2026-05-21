@@ -145,14 +145,18 @@ step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_se
 
 ## python standard libraries
 from pathlib import Path
-from typing import List, Union
+import platform
+import time
+from typing import NamedTuple, List, Union
 import warnings
 from functools import singledispatch
 import math
 
 
 # 3rd party libraries
-from schema import And, Or, Schema
+import pytest
+from schema import And, Or, Schema, SchemaError
+import jsonschema
 
 # Local
 import pytribeam.insertable_devices as devices
@@ -409,27 +413,24 @@ def active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePosit
     user_pos = stage.encoder_to_user_position(encoder_pos)
 
     # ensure r-axis is kept in axis limit
-    # ------------------------------------------------
-    # THIS IS NOT NEEDED, AUTOSCRIPT DOES THIS ALREADY
-    # ------------------------------------------------
-    # if not ut.in_interval(
-    #     val=user_pos.r_deg,
-    #     limit=Constants.rotation_axis_limit_deg,
-    #     type=tbt.IntervalType.RIGHT_OPEN,
-    # ):
-    #     # used as right-open internal: 180.0 is not valid and should be converted to -180.0
-    #     while user_pos.r_deg >= Constants.rotation_axis_limit_deg.max:
-    #         new_r_deg = user_pos.r_deg - 360.0
-    #     while user_pos.r_deg < Constants.rotation_axis_limit_deg.min:
-    #         new_r_deg = user_pos.r_deg + 360.0
-    #     new_r_deg = round(new_r_deg, 6)
-    #     user_pos = tbt.StagePositionUser(
-    #         x_mm=user_pos.x_mm,
-    #         y_mm=user_pos.y_mm,
-    #         z_mm=user_pos.z_mm,
-    #         r_deg=new_r_deg,
-    #         t_deg=user_pos.t_deg,
-    #     )
+    if not ut.in_interval(
+        val=user_pos.r_deg,
+        limit=Constants.rotation_axis_limit_deg,
+        type=tbt.IntervalType.RIGHT_OPEN,
+    ):
+        # used as right-open internal: 180.0 is not valid and should be converted to -180.0
+        while user_pos.r_deg >= Constants.rotation_axis_limit_deg.max:
+            new_r_deg = user_pos.r_deg - 360.0
+        while user_pos.r_deg < Constants.rotation_axis_limit_deg.min:
+            new_r_deg = user_pos.r_deg + 360.0
+        new_r_deg = round(new_r_deg, 6)
+        user_pos = tbt.StagePositionUser(
+            x_mm=user_pos.x_mm,
+            y_mm=user_pos.y_mm,
+            z_mm=user_pos.z_mm,
+            r_deg=new_r_deg,
+            t_deg=user_pos.t_deg,
+        )
 
     return user_pos
 
@@ -569,6 +570,7 @@ def available_detector_types(microscope: tbt.Microscope) -> List[str]:
         A list of available detector types.
     """
     detectors = microscope.detector.type.available_values
+    # available = [tbt.DetectorType(i) for i in detectors]
     return detectors
 
 
@@ -614,12 +616,11 @@ def beam_object_type(type: tbt.BeamType) -> tbt.Beam:
     NotImplementedError
         If the provided beam type is unsupported.
     """
-    if not isinstance(type, tbt.BeamType):
-        raise ValueError("Electron and Ion are the only allowed beam object types.")
     if type.value == "electron":
         return tbt.ElectronBeam
     if type.value == "ion":
         return tbt.IonBeam
+    raise NotImplementedError(f"Unsupported beam type {type.value}")
 
 
 def stage_limits(microscope: tbt.Microscope) -> tbt.StageLimits:

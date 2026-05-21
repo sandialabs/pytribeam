@@ -27,14 +27,13 @@ class ParameterTracker:
         validators: Dict mapping parameter paths to validation functions
     """
 
-    def __init__(self, controller: EditorController, master: Optional[tk.Misc] = None):
+    def __init__(self, controller: EditorController):
         """Initialize parameter tracker.
 
         Args:
             controller: EditorController instance to bind to
         """
         self.controller = controller
-        self.master = master
         self.variables: Dict[str, tk.Variable] = {}
         self.trace_ids: Dict[str, str] = {}
         self.validators: Dict[str, Callable] = {}
@@ -101,10 +100,10 @@ class ParameterTracker:
         # Note: We use StringVar for most types and do validation in callbacks
         # This allows better control over input validation and error handling
         if dtype == bool:
-            return tk.BooleanVar(master=self.master)
+            return tk.BooleanVar()
         else:
             # Use StringVar for int, float, str - gives us more control
-            return tk.StringVar(master=self.master)
+            return tk.StringVar()
 
     def _create_default_validator(self, dtype: type) -> Callable:
         """Create default validator function based on dtype.
