@@ -28,7 +28,109 @@ class Spinner:
         self.type_delay = 0.13
         self.backspace_delay = 0.04
         self.words = [
-            "whirring", "crunching", "chugging", "thinking", "brewing", "cooking", "humming", "buzzing", "spinning", "whizzing", "grinding", "chewing", "juggling", "tinkering", "stirring", "shuffling", "wrangling", "untangling", "forging", "hammering", "mixing", "mashing", "kneading", "baking", "simmering", "percolating", "marinating", "fermenting", "concocting", "scheming", "plotting", "conjuring", "wizarding", "sorcering", "enchanting", "summoning", "transmuting", "alchemizing", "magicking", "spellcasting", "herding", "corralling", "shepherding", "nudging", "nudging", "poking", "prodding", "tickling", "massaging", "coaxing", "wrestling", "taming", "herding", "hustling", "shoveling", "mining", "digging", "sifting", "rummaging", "fiddling", "twiddling", "wiggling", "wobbling", "bouncing", "hopping", "scurrying", "scooting", "zipping", "zooming", "sprinting", "trudging", "marching", "trawling", "sniffing", "peeking", "peering", "scanning", "squinting", "decoding", "untwisting", "unpacking", "stacking", "stitching", "patching", "gluing", "bolting", "welding", "sparking", "clanking", "clattering", "clattering", "beeping", "booping", "bonking", "bonking", "thunking", "blooping", "blinking", "twinkling", "chattering", "murmuring", "muttering", "finalizing",
+            "whirring",
+            "crunching",
+            "chugging",
+            "thinking",
+            "brewing",
+            "cooking",
+            "humming",
+            "buzzing",
+            "spinning",
+            "whizzing",
+            "grinding",
+            "chewing",
+            "juggling",
+            "tinkering",
+            "stirring",
+            "shuffling",
+            "wrangling",
+            "untangling",
+            "forging",
+            "hammering",
+            "mixing",
+            "mashing",
+            "kneading",
+            "baking",
+            "simmering",
+            "percolating",
+            "marinating",
+            "fermenting",
+            "concocting",
+            "scheming",
+            "plotting",
+            "conjuring",
+            "wizarding",
+            "sorcering",
+            "enchanting",
+            "summoning",
+            "transmuting",
+            "alchemizing",
+            "magicking",
+            "spellcasting",
+            "herding",
+            "corralling",
+            "shepherding",
+            "nudging",
+            "nudging",
+            "poking",
+            "prodding",
+            "tickling",
+            "massaging",
+            "coaxing",
+            "wrestling",
+            "taming",
+            "herding",
+            "hustling",
+            "shoveling",
+            "mining",
+            "digging",
+            "sifting",
+            "rummaging",
+            "fiddling",
+            "twiddling",
+            "wiggling",
+            "wobbling",
+            "bouncing",
+            "hopping",
+            "scurrying",
+            "scooting",
+            "zipping",
+            "zooming",
+            "sprinting",
+            "trudging",
+            "marching",
+            "trawling",
+            "sniffing",
+            "peeking",
+            "peering",
+            "scanning",
+            "squinting",
+            "decoding",
+            "untwisting",
+            "unpacking",
+            "stacking",
+            "stitching",
+            "patching",
+            "gluing",
+            "bolting",
+            "welding",
+            "sparking",
+            "clanking",
+            "clattering",
+            "clattering",
+            "beeping",
+            "booping",
+            "bonking",
+            "bonking",
+            "thunking",
+            "blooping",
+            "blinking",
+            "twinkling",
+            "chattering",
+            "murmuring",
+            "muttering",
+            "finalizing",
         ]
         self.characters = ".....:::!!?"
 
@@ -45,9 +147,9 @@ class Spinner:
 
     def _random_status(self) -> str:
         return (
-            ''.join(random.choices(self.characters, k=5))
+            "".join(random.choices(self.characters, k=5))
             + random.choice(self.words)
-            + ''.join(random.choices(self.characters, k=5))
+            + "".join(random.choices(self.characters, k=5))
         )
 
     def _type_text(self, text: str, delay: float = 0.03) -> None:
@@ -63,7 +165,7 @@ class Spinner:
         for _ in range(count):
             if self._stop_event.is_set():
                 return
-            sys.stdout.write('\b \b')
+            sys.stdout.write("\b \b")
             sys.stdout.flush()
             if self._stop_event.wait(delay):
                 return
@@ -84,7 +186,7 @@ class Spinner:
 
             self._backspace_text(len(status), delay=self.backspace_delay)
 
-        sys.stdout.write(f"\r{self.message}... {self._final_status}" + 20*" " + "\n")
+        sys.stdout.write(f"\r{self.message}... {self._final_status}" + 20 * " " + "\n")
         sys.stdout.flush()
 
     def start(self) -> None:
@@ -523,8 +625,8 @@ def main() -> int:
     print("=== Local CI workflow (no git actions) ===")
 
     # if available("mdbook"):
-        # build_userguide()
-        # create_userguide_badge()
+    # build_userguide()
+    # create_userguide_badge()
     # else:
     #     print("WARNING: mdbook was not found, the userguide will not be built")
 
@@ -535,7 +637,9 @@ def main() -> int:
     make_test_coverage_badge()
     run_pylint_and_badge()
 
-    print("\nDone. Artifacts updated in: badges/, logs/, docs/api/, docs/userguide/book/, coverage_reports/")
+    print(
+        "\nDone. Artifacts updated in: badges/, logs/, docs/api/, docs/userguide/book/, coverage_reports/"
+    )
 
 
 # --------------------------------------
