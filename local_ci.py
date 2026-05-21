@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import random
+import string
 import re
 import shutil
 import subprocess
@@ -22,8 +24,15 @@ class Spinner:
         self._stop_event = threading.Event()
         self._thread = threading.Thread(target=self._spin, daemon=True)
         self._final_status = "complete"
+        self.delay = 2.0
+        self.type_delay = 0.13
+        self.backspace_delay = 0.04
+        self.words = [
+            "whirring", "crunching", "chugging", "thinking", "brewing", "cooking", "humming", "buzzing", "spinning", "whizzing", "grinding", "chewing", "juggling", "tinkering", "stirring", "shuffling", "wrangling", "untangling", "forging", "hammering", "mixing", "mashing", "kneading", "baking", "simmering", "percolating", "marinating", "fermenting", "concocting", "scheming", "plotting", "conjuring", "wizarding", "sorcering", "enchanting", "summoning", "transmuting", "alchemizing", "magicking", "spellcasting", "herding", "corralling", "shepherding", "nudging", "nudging", "poking", "prodding", "tickling", "massaging", "coaxing", "wrestling", "taming", "herding", "hustling", "shoveling", "mining", "digging", "sifting", "rummaging", "fiddling", "twiddling", "wiggling", "wobbling", "bouncing", "hopping", "scurrying", "scooting", "zipping", "zooming", "sprinting", "trudging", "marching", "trawling", "sniffing", "peeking", "peering", "scanning", "squinting", "decoding", "untwisting", "unpacking", "stacking", "stitching", "patching", "gluing", "bolting", "welding", "sparking", "clanking", "clattering", "clattering", "beeping", "booping", "bonking", "bonking", "thunking", "blooping", "blinking", "twinkling", "chattering", "murmuring", "muttering", "finalizing",
+        ]
+        self.characters = ".....:::!!?"
 
-    def _spin(self) -> None:
+    def _spin_v1(self) -> None:
         for ch in itertools.cycle("|/-\\"):
             if self._stop_event.is_set():
                 break
@@ -34,26 +43,58 @@ class Spinner:
         sys.stdout.write(f"\r{self.message}... {self._final_status}      \n")
         sys.stdout.flush()
 
+    def _random_status(self) -> str:
+        return (
+            ''.join(random.choices(self.characters, k=5))
+            + random.choice(self.words)
+            + ''.join(random.choices(self.characters, k=5))
+        )
+
+    def _type_text(self, text: str, delay: float = 0.03) -> None:
+        for ch in text:
+            if self._stop_event.is_set():
+                return
+            sys.stdout.write(ch)
+            sys.stdout.flush()
+            if self._stop_event.wait(delay):
+                return
+
+    def _backspace_text(self, count: int, delay: float = 0.02) -> None:
+        for _ in range(count):
+            if self._stop_event.is_set():
+                return
+            sys.stdout.write('\b \b')
+            sys.stdout.flush()
+            if self._stop_event.wait(delay):
+                return
+
+    def _spin(self) -> None:
+        prefix = f"\r{self.message}... "
+        sys.stdout.write(prefix)
+        sys.stdout.flush()
+
+        while not self._stop_event.is_set():
+            status = self._random_status()
+            self._type_text(status, delay=self.type_delay)
+
+            if self._stop_event.is_set():
+                break
+            if self._stop_event.wait(self.delay):
+                break
+
+            self._backspace_text(len(status), delay=self.backspace_delay)
+
+        sys.stdout.write(f"\r{self.message}... {self._final_status}" + 20*" " + "\n")
+        sys.stdout.flush()
+
     def start(self) -> None:
         self._thread.start()
 
     def stop(self, status: str = "complete") -> None:
         self._final_status = status
         self._stop_event.set()
-        self._thread.join()
-
-
-def need(cmd: str) -> None:
-    if shutil.which(cmd) is None:
-        print(f"ERROR: Missing command: {cmd}", file=sys.stderr)
-        sys.exit(1)
-
-
-def available(cmd: str) -> bool:
-    if shutil.which(cmd) is None:
-        print(f"ERROR: Missing command: {cmd}", file=sys.stderr)
-        return False
-    return True
+        if self._thread.is_alive():
+            self._thread.join(timeout=1.5)
 
 
 def run_to_log(
@@ -78,6 +119,12 @@ def run_to_log(
                 text=True,
                 check=False,
             )
+    except KeyboardInterrupt:
+        if spinner:
+            spinner.stop(status="interrupted")
+    except Exception:
+        if spinner:
+            spinner.stop(status="failed")
     finally:
         if spinner:
             spinner.stop(status="done")
@@ -97,6 +144,19 @@ def run_capture(
         text=True,
         check=check,
     )
+
+
+def need(cmd: str) -> None:
+    if shutil.which(cmd) is None:
+        print(f"ERROR: Missing command: {cmd}", file=sys.stderr)
+        sys.exit(1)
+
+
+def available(cmd: str) -> bool:
+    if shutil.which(cmd) is None:
+        print(f"ERROR: Missing command: {cmd}", file=sys.stderr)
+        return False
+    return True
 
 
 def badge_color(coverage: float) -> str:
@@ -462,11 +522,11 @@ def main() -> int:
 
     print("=== Local CI workflow (no git actions) ===")
 
-    if available("mdbook"):
-        build_userguide()
-        create_userguide_badge()
-    else:
-        print("WARNING: mdbook was not found, the userguide will not be built")
+    # if available("mdbook"):
+        # build_userguide()
+        # create_userguide_badge()
+    # else:
+    #     print("WARNING: mdbook was not found, the userguide will not be built")
 
     build_api_docs()
     run_docstring_coverage()
@@ -475,7 +535,7 @@ def main() -> int:
     make_test_coverage_badge()
     run_pylint_and_badge()
 
-    print("\nDone. Artifacts updated in: badges/, logs/, docs/, coverage_reports/")
+    print("\nDone. Artifacts updated in: badges/, logs/, docs/api/, docs/userguide/book/, coverage_reports/")
 
 
 # --------------------------------------

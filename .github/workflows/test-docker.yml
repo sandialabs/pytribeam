@@ -219,27 +219,27 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v5
         with:
-          path: './pages/'
+          path: pages/
 
-      - name: Upload local CI artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: local_ci_badges
-          path: |
-            temp_badges/
+      # - name: Upload local CI artifacts
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: local_ci_badges
+      #     path: |
+      #       temp_badges/
 
-      - name: Download local CI artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: local_ci_badges      # Must exactly match the upload name
-          path: downloaded_badges/   # Where you want the files extracted to
+      # - name: Download local CI artifacts
+      #   uses: actions/download-artifact@v4
+      #   with:
+      #     name: local_ci_badges      # Must exactly match the upload name
+      #     path: downloaded_badges/   # Where you want the files extracted to
 
-      - name: See where I am
-        run: |
-          echo "=== Current Runner Directory ==="
-          pwd
-          ls -la
-          ls -la downloaded_badges/
+      # - name: See where I am
+      #   run: |
+      #     echo "=== Current Runner Directory ==="
+      #     pwd
+      #     ls -la
+      #     ls -la downloaded_badges/
 
       - name: Deploy to GitHub Pages
         id: deployment
