@@ -10,7 +10,7 @@
 [lint_badge]: https://sandialabs.github.io/pytribeam/badges/lint.svg
 [version_badge]: https://sandialabs.github.io/pytribeam/badges/version.svg
 
-## Getting Started
+## Getting Started 
 
 Installation instructions and more can be found in the [User Guide](https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html).
 
