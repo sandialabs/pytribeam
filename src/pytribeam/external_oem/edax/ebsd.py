@@ -71,7 +71,7 @@ def configure_scan(connection: socket.socket, settings: tbt.EBSDSettings) -> boo
     )
 
 
-def ebsd_preflight(
+def preflight(
     general_settings: tbt.GeneralSettings,
 ) -> bool:
     """EDAX only for now"""
@@ -142,7 +142,7 @@ def disconnect_EDAX(connection: socket.socket) -> bool:
     return True
 
 
-def edax_camera_saturation(
+def camera_saturation(
     microscope: tbt.Microscope,
     connection: socket.socket,
     hfw_mm=Constants.ebsd_camera_saturation_hfw_mm,
@@ -188,7 +188,7 @@ def edax_camera_saturation(
     return float(camera_saturation)
 
 
-def edax_average_ci(connection: socket.socket) -> float:
+def average_ci(connection: socket.socket) -> float:
     """Get the average confidence of the most recent scan."""
     command = "get_map_avg_ci"
     average_ci = socket_command(
@@ -201,7 +201,7 @@ def edax_average_ci(connection: socket.socket) -> float:
     return average_ci
 
 
-def edax_insert_camera(connection=socket.socket):
+def insert_camera(connection=socket.socket):
     camera_status = socket_command(
         connection=connection,
         command="get_camera_status",
@@ -235,7 +235,7 @@ def edax_insert_camera(connection=socket.socket):
     return True
 
 
-def edax_retract_camera(connection=socket.socket):
+def retract_camera(connection=socket.socket):
     camera_status = socket_command(
         connection=connection,
         command="get_camera_status",
@@ -286,144 +286,127 @@ def map_ebsd(
     slice_number: int,
     step: tbt.Step,
 ) -> bool:
-    ebsd_oem = general_settings.EBSD_OEM
-    yml_version = general_settings.yml_version
-    start_time = time.time()
 
-    if ebsd_oem == tbt.ExternalDeviceOEM.EDAX and yml_version >= 1.1:
-        # Make connection
-        connection = connect_EDAX(
-            general_settings.EDAX_settings.connection.host,
-            general_settings.EDAX_settings.connection.port,
-        )
+    # Make connection
+    connection = connect_EDAX(
+        general_settings.EDAX_settings.connection.host,
+        general_settings.EDAX_settings.connection.port,
+    )
 
-        # Set APEX variables properly
-        configure_scan(
-            connection=connection,
-            settings=step_settings,
-        )
-        # Grab the camera saturation and log it
-        cam_sat_p = edax_camera_saturation(
-            microscope=step_settings.image.microscope,
-            connection=connection,
-        )
-        log.ebsd_camera_saturation(
-            step_number=step.number,
-            step_name=step.name,
-            slice_number=slice_number,
-            log_filepath=general_settings.log_filepath,
-            dataset_name=Constants.ebsd_camera_saturation_dataset_name,
-            cam_sat_p=cam_sat_p,
-        )
+    # Set APEX variables properly
+    configure_scan(
+        connection=connection,
+        settings=step_settings,
+    )
+    # Grab the camera saturation and log it
+    cam_sat_p = camera_saturation(
+        microscope=step_settings.image.microscope,
+        connection=connection,
+    )
+    log.ebsd_camera_saturation(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=Constants.ebsd_camera_saturation_dataset_name,
+        cam_sat_p=cam_sat_p,
+    )
 
-        # Predict duration
-        n_ticks = socket_command(
+    # Predict duration
+    n_ticks = socket_command(
+        connection=connection,
+        command="get_map_duration_ebsd",
+        expected_response=None,
+    )
+    n_ticks = float(parse_socket_response(n_ticks, "get_map_duration_ebsd"))
+    expected_duration_s = n_ticks / 10000000 + Constants.edax_map_start_delay_s
+
+    # Start scan and wait for expected duration
+    socket_command(
+        connection=connection,
+        command=f'do_map_collection_start_ebsd "Slice_{slice_number:04}"',
+        expected_response='do_map_collection_start_ebsd response "execution successful"',
+    )
+    scan_start_time = time.time()
+    print(f"\tEBSD map started...")
+    time.sleep(Constants.edax_map_start_delay_s)
+
+    # Check map status every second to see when it finishes
+    timeout = expected_duration_s * Constants.edax_timeout_scalar
+    while True:
+        map_status = socket_command(
             connection=connection,
-            command="get_map_duration_ebsd",
+            command=f"get_map_status_ebsd",
             expected_response=None,
+            pause_s=1.0,
+            timeout_s=120.0,
         )
-        n_ticks = float(parse_socket_response(n_ticks, "get_map_duration_ebsd"))
-        expected_duration_s = n_ticks / 10000000 + Constants.edax_map_start_delay_s
-
-        # Start scan and wait for expected duration
-        socket_command(
-            connection=connection,
-            command=f'do_map_collection_start_ebsd "Slice_{slice_number:04}"',
-            expected_response='do_map_collection_start_ebsd response "execution successful"',
-        )
-        scan_start_time = time.time()
-        print(f"\tEBSD map started...")
-        time.sleep(Constants.edax_map_start_delay_s)
-
-        # Check map status every second to see when it finishes
-        timeout = expected_duration_s * Constants.edax_timeout_scalar
-        while True:
-            map_status = socket_command(
-                connection=connection,
-                command=f"get_map_status_ebsd",
-                expected_response=None,
-                pause_s=1.0,
-                timeout_s=120.0,
+        # map_status should return a string with "get_map_status_ebsd", the command that was originally sent
+        # however, it is possible for it to return "event_map_collection_complete_ebsd mapping complete" instead due to the scan finishing
+        # check to make sure it is one of those two
+        if "get_map_status_ebsd" in map_status:
+            map_status = parse_socket_response(map_status, "get_map_status_ebsd")
+        elif "event_map_collection_complete_ebsd" in map_status:
+            map_status = parse_socket_response(
+                map_status, "event_map_collection_complete_ebsd"
             )
-            # map_status should return a string with "get_map_status_ebsd", the command that was originally sent
-            # however, it is possible for it to return "event_map_collection_complete_ebsd mapping complete" instead due to the scan finishing
-            # check to make sure it is one of those two
-            if "get_map_status_ebsd" in map_status:
-                map_status = parse_socket_response(map_status, "get_map_status_ebsd")
-            elif "event_map_collection_complete_ebsd" in map_status:
-                map_status = parse_socket_response(
-                    map_status, "event_map_collection_complete_ebsd"
-                )
-            else:
-                raise RuntimeError(
-                    f"EDAX IPAPI returned an unexpected response. Please make sure the software is operating properly. Response: {map_status}"
-                )
-
-            # Check if the map status command is timed out (None) or if the map collection did not finish in time
-            if map_status is None:
-                # The IPAPI server did not respond in time. Try again.
-                pass
-            elif time.time() - scan_start_time > timeout:
-                disconnect_EDAX(connection=connection)
-                raise RuntimeError(
-                    f"EDAX EBSD Map did not complete within {timeout:.0f} seconds, aborting."
-                )
-
-            # We received a valid response, check the status
-            map_status = tbt.EdaxMappingStatus(map_status)
-            if map_status == tbt.EdaxMappingStatus.READY:
-                # The map finished successfully
-                print("\t\tMapping complete")
-                break
-            elif map_status == tbt.EdaxMappingStatus.MAPPING_COMPLETE:
-                # The map finished successfully, but there might be a second message of "ready" coming"
-                print("\t\tMapping complete")
-                socket_response(
-                    connection=connection,
-                    timeout_s=10.0,
-                )
-                break
-            time.sleep(Constants.edax_map_status_interval_s)
-
-        # Record end time
-        end_time = time.time()
-
-        # Grab the average CI value and put in log
-        avg_ci_p = edax_average_ci(connection=connection)
-        log.ebsd_average_ci(
-            step_number=step.number,
-            step_name=step.name,
-            slice_number=slice_number,
-            log_filepath=general_settings.log_filepath,
-            dataset_name=Constants.ebsd_average_ci_dataset_name,
-            avg_ci_p=avg_ci_p,
-        )
-        time.sleep(1.0)
-
-        # Retract the EBSD camera
-        edax_retract_camera(connection=connection)
-
-        # Disconnect socket to EDAX IPAPI
-        disconnect_EDAX(connection=connection)
-
-        # Check if the map was too quick
-        actual_duration_s = end_time - scan_start_time
-        if actual_duration_s < expected_duration_s:
+        else:
             raise RuntimeError(
-                f"EDAX EBSD map finished unexpectedly quickly. Expected duration was {expected_duration_s:.0f} seconds (actual duration was {actual_duration_s:.0f} seconds). Please check the EDAX software."
+                f"EDAX IPAPI returned an unexpected response. Please make sure the software is operating properly. Response: {map_status}"
             )
 
-    else:
-        # Run map through LaserControl API
-        tfs_laser.EBSD_StartMap()
-
-        # Check if the map was too quick
-        end_time = time.time()
-        map_time = end_time - start_time
-        if map_time < Constants.min_map_time_s:
-            raise ValueError(
-                f"Mapping did not take minimum expected time of {Constants.min_map_time_s} seconds, please reset EBSD mapping software"
+        # Check if the map status command is timed out (None) or if the map collection did not finish in time
+        if map_status is None:
+            # The IPAPI server did not respond in time. Try again.
+            pass
+        elif time.time() - scan_start_time > timeout:
+            disconnect_EDAX(connection=connection)
+            raise RuntimeError(
+                f"EDAX EBSD Map did not complete within {timeout:.0f} seconds, aborting."
             )
-        print(f"\t\tMapping Complete in {int(map_time)} seconds.")
+
+        # We received a valid response, check the status
+        map_status = tbt.EdaxMappingStatus(map_status)
+        if map_status == tbt.EdaxMappingStatus.READY:
+            # The map finished successfully
+            print("\t\tMapping complete")
+            break
+        elif map_status == tbt.EdaxMappingStatus.MAPPING_COMPLETE:
+            # The map finished successfully, but there might be a second message of "ready" coming"
+            print("\t\tMapping complete")
+            socket_response(
+                connection=connection,
+                timeout_s=10.0,
+            )
+            break
+        time.sleep(Constants.edax_map_status_interval_s)
+
+    # Record end time
+    end_time = time.time()
+
+    # Grab the average CI value and put in log
+    avg_ci_p = average_ci(connection=connection)
+    log.ebsd_average_ci(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=Constants.ebsd_average_ci_dataset_name,
+        avg_ci_p=avg_ci_p,
+    )
+    time.sleep(1.0)
+
+    # Retract the EBSD camera
+    retract_camera(connection=connection)
+
+    # Disconnect socket to EDAX IPAPI
+    disconnect_EDAX(connection=connection)
+
+    # Check if the map was too quick
+    actual_duration_s = end_time - scan_start_time
+    if actual_duration_s < expected_duration_s:
+        raise RuntimeError(
+            f"EDAX EBSD map finished unexpectedly quickly. Expected duration was {expected_duration_s:.0f} seconds (actual duration was {actual_duration_s:.0f} seconds). Please check the EDAX software."
+        )
 
     return True
