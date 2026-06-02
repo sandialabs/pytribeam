@@ -434,7 +434,8 @@ class Configurator:
 
     def _on_step_added(self, step):
         """Handle step addition."""
-        self._update_pipeline()
+        pass
+        # self._update_pipeline()
 
     def _on_step_removed(self, index):
         """Handle step removal."""
@@ -1007,10 +1008,8 @@ class Configurator:
                 kw = {
                     "font": ctk.FONT,
                     "relief": "raised",
-                    "bg": self.theme.bg,
-                    "fg": self.theme.fg,
-                    # "h_bg": self.theme.accent1,
-                    # "h_fg": self.theme.accent1_fg,
+                    "bg": self.theme.accent1,
+                    "fg": self.theme.accent1_fg,
                     "activebackground": self.theme.accent1,
                     "activeforeground": self.theme.accent1_fg,
                 }
@@ -1020,9 +1019,8 @@ class Configurator:
                     "relief": "groove",
                     "bg": self.theme.bg,
                     "fg": self.theme.fg,
-                    # "highlightcolor": self.theme.accent1,
-                    "activebackground": self.theme.bg,
-                    "activeforeground": self.theme.fg,
+                    "activebackground": self.theme.accent1,
+                    "activeforeground": self.theme.accent1_fg,
                 }
 
             # Create tooltip options and state
