@@ -40,10 +40,20 @@ class Button(tk.Button):
         self.bind("<Leave>", self.on_leave)
 
     def on_enter(self, e):
-        self.configure(bg=self.a_bg, fg=self.a_fg, activebackground=self.a_bg, activeforeground=self.a_fg)
+        self.configure(
+            bg=self.a_bg,
+            fg=self.a_fg,
+            activebackground=self.a_bg,
+            activeforeground=self.a_fg,
+        )
 
     def on_leave(self, e):
-        self.configure(bg=self.bg, fg=self.fg, activebackground=self.a_bg, activeforeground=self.a_fg)
+        self.configure(
+            bg=self.bg,
+            fg=self.fg,
+            activebackground=self.a_bg,
+            activeforeground=self.a_fg,
+        )
 
     def config(self, *args, **kwargs):
         if "bg" in kwargs:
@@ -55,6 +65,7 @@ class Button(tk.Button):
         if "activeforeground" in kwargs:
             self.a_fg = kwargs["activeforeground"]
         self.configure(*args, **kwargs)
+
 
 class Button3d(ttk.Button):
     """create a button with 3d background color and shadow"""

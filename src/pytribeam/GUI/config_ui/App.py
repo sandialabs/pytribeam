@@ -1002,7 +1002,7 @@ class Configurator:
             _, row = self.pipeline.grid_size()
         except tk.TclError:
             return
-        
+
         # Create kwargs
         kw_current = {
             "font": ctk.FONT,
