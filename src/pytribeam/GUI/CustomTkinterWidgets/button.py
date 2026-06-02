@@ -24,7 +24,6 @@ class Button(tk.Button):
         self.a_fg = h_fg or fg
         self.a_bg = h_bg or bg
         self.text = text
-        print(f"{self.text} creation", self.bg)
         kw.update(
             dict(
                 text=self.text,
@@ -41,14 +40,10 @@ class Button(tk.Button):
         self.bind("<Leave>", self.on_leave)
 
     def on_enter(self, e):
-        self.bg, self.a_bg = self.a_bg, self.bg
-        self.fg, self.a_fg = self.a_fg, self.fg
-        self.config(bg=self.bg, fg=self.fg, activebackground=self.a_bg, activeforeground=self.a_fg)
+        self.configure(bg=self.a_bg, fg=self.a_fg, activebackground=self.a_bg, activeforeground=self.a_fg)
 
     def on_leave(self, e):
-        self.bg, self.a_bg = self.a_bg, self.bg
-        self.fg, self.a_fg = self.a_fg, self.fg
-        self.config(bg=self.bg, fg=self.fg, activebackground=self.a_bg, activeforeground=self.a_fg)
+        self.configure(bg=self.bg, fg=self.fg, activebackground=self.a_bg, activeforeground=self.a_fg)
 
     def config(self, *args, **kwargs):
         if "bg" in kwargs:

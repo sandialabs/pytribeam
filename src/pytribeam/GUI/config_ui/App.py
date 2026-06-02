@@ -999,29 +999,28 @@ class Configurator:
             _, row = self.pipeline.grid_size()
         except tk.TclError:
             return
+        
+        # Create kwargs
+        kw_current = {
+            "font": ctk.FONT,
+            "relief": "raised",
+            "bg": self.theme.accent1,
+            "fg": self.theme.accent1_fg,
+            "activebackground": self.theme.accent1,
+            "activeforeground": self.theme.accent1_fg,
+        }
+        kw_other = {
+            "font": ctk.FONT,
+            "relief": "groove",
+            "bg": self.theme.bg,
+            "fg": self.theme.fg,
+            "activebackground": self.theme.accent1,
+            "activeforeground": self.theme.accent1_fg,
+        }
+
         # Loop over the options and update the pipeline
         for i, option in enumerate(options):
             row_i = i + 2
-
-            # Set the text to be displayed and the colors
-            if i == self.STEP_INDEX:
-                kw = {
-                    "font": ctk.FONT,
-                    "relief": "raised",
-                    "bg": self.theme.accent1,
-                    "fg": self.theme.accent1_fg,
-                    "activebackground": self.theme.accent1,
-                    "activeforeground": self.theme.accent1_fg,
-                }
-            else:
-                kw = {
-                    "font": ctk.FONT,
-                    "relief": "groove",
-                    "bg": self.theme.bg,
-                    "fg": self.theme.fg,
-                    "activebackground": self.theme.accent1,
-                    "activeforeground": self.theme.accent1_fg,
-                }
 
             # Create tooltip options and state
             right_click_map = {
@@ -1044,7 +1043,7 @@ class Configurator:
                     padx=5,
                     bd=3,
                     command=lambda a=option: self.select_pipeline_step(a),
-                    **kw,
+                    **kw_other,
                 )
                 button.grid(
                     row=row_i, column=0, columnspan=2, sticky="nsew", pady=1, padx=1
@@ -1066,7 +1065,7 @@ class Configurator:
                 button.config(
                     text=option,
                     command=lambda a=option: self.select_pipeline_step(a),
-                    **kw,
+                    **kw_other,
                 )
 
             # Change the state of the commands in the right click menu based on position
@@ -1085,10 +1084,14 @@ class Configurator:
             for i in range(len(options) + 2, row):
                 for widget in self.pipeline.grid_slaves(row=i):
                     widget.destroy()
+
         # Bind mouse scroll to the scrollable frame, but make sure the children also have the binding
         ctk.utils.scroll_with_mousewheel(
             self.pipeline, self.pipeline.canvas, apply_to_children=True
         )
+
+        # Highlight the current step
+        self.pipeline.grid_slaves(self.STEP_INDEX + 2)[0].config(**kw_current)
 
     # -------- Editor Operations -------- #
 
