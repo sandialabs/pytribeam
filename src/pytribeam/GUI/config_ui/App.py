@@ -439,10 +439,13 @@ class Configurator:
 
     def _on_step_removed(self, index):
         """Handle step removal."""
-        self._update_pipeline()
         # Select general or previous step
-        new_index = max(0, index - 1)
-        self.controller.select_step(new_index)
+        if index == self.STEP_INDEX:
+            self.controller.select_step(0)
+        elif index < self.STEP_INDEX:
+            self.controller.select_step(self.STEP_INDEX - 1)
+        else:
+            self.controller.select_step(self.STEP_INDEX)
 
     def _on_parameter_changed(self, path, value):
         """Handle parameter change from controller."""
@@ -1029,14 +1032,13 @@ class Configurator:
                 "Delete": lambda x=i: self.delete_pipeline_step(x),
                 "Duplicate": lambda x=i: self.duplicate_pipeline_step(x),
             }
-            right_click_states = ["normal", "normal", "normal", "normal"]
             if i == 1:
-                right_click_states[0] = "disabled"
-            if i == len(options) - 1:
-                right_click_states[1] = "disabled"
+                right_click_map.pop("Move up")
+            if i != 0 and i == len(options) - 1:
+                right_click_map.pop("Move down")
 
             # If the row is the end of the pipeline, create a new button
-            if row_i >= row or i == self.STEP_INDEX:
+            if row_i >= row:
                 button = ctk.Button(
                     self.pipeline,
                     text=option,
@@ -1048,16 +1050,6 @@ class Configurator:
                 button.grid(
                     row=row_i, column=0, columnspan=2, sticky="nsew", pady=1, padx=1
                 )
-                # Add the right click menu to the button
-                if i != 0:
-                    button.right_click_menu = ctk.RightClickMenu(
-                        button,
-                        right_click_map.keys(),
-                        bg=self.theme.bg,
-                        fg=self.theme.fg,
-                        abg=self.theme.accent1,
-                        afg=self.theme.fg,
-                    )
 
             # If the row is not the end of the pipeline, update the button with the new option (in case it has changed)
             else:
@@ -1070,13 +1062,22 @@ class Configurator:
 
             # Change the state of the commands in the right click menu based on position
             if i != 0:
-                for j, state in enumerate(right_click_states):
-                    key = list(right_click_map.keys())[j]
+                if hasattr(button, "right_click_menu"):
+                    button.right_click_menu.remove()
+                button.right_click_menu = ctk.RightClickMenu(
+                    button,
+                    right_click_map.keys(),
+                    bg=self.theme.bg,
+                    fg=self.theme.fg,
+                    abg=self.theme.accent1,
+                    afg=self.theme.fg,
+                )
+                for j, key in enumerate(right_click_map.keys()):
                     button.right_click_menu.entryconfig(
                         index=j,
                         label=f" {key}",
                         command=right_click_map[key],
-                        state=state,
+                        state="normal",
                     )
 
         # If the pipeline is longer than the options, delete the extra rows
