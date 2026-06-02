@@ -19,18 +19,19 @@ class Button(tk.Button):
 
         self.bg = bg or get_widget_attribute(parent, "background")
         self.fg = fg or calc_font_color(self.bg)
-        h_bg = h_bg or bg
-        h_fg = h_fg or fg
-        a_fg = h_fg or fg
-        a_bg = h_bg or bg
+        self.h_bg = h_bg or bg
+        self.h_fg = h_fg or fg
+        self.a_fg = h_fg or fg
+        self.a_bg = h_bg or bg
+        self.text = text
         kw.update(
             dict(
-                text=text,
+                text=self.text,
                 bg=self.bg,
                 fg=self.fg,
-                highlightcolor=h_bg,
-                activebackground=a_bg,
-                activeforeground=a_fg,
+                highlightcolor=self.h_bg,
+                activebackground=self.a_bg,
+                activeforeground=self.a_fg,
                 command=command,
             )
         )
@@ -39,10 +40,31 @@ class Button(tk.Button):
         self.bind("<Leave>", self.on_leave)
 
     def on_enter(self, e):
-        self.config(bg=self["activebackground"], fg=self["activeforeground"])
+        self.configure(
+            bg=self.a_bg,
+            fg=self.a_fg,
+            activebackground=self.a_bg,
+            activeforeground=self.a_fg,
+        )
 
     def on_leave(self, e):
-        self.config(bg=self.bg, fg=self.fg)
+        self.configure(
+            bg=self.bg,
+            fg=self.fg,
+            activebackground=self.a_bg,
+            activeforeground=self.a_fg,
+        )
+
+    def config(self, *args, **kwargs):
+        if "bg" in kwargs:
+            self.bg = kwargs["bg"]
+        if "fg" in kwargs:
+            self.fg = kwargs["fg"]
+        if "activebackground" in kwargs:
+            self.a_bg = kwargs["activebackground"]
+        if "activeforeground" in kwargs:
+            self.a_fg = kwargs["activeforeground"]
+        self.configure(*args, **kwargs)
 
 
 class Button3d(ttk.Button):
