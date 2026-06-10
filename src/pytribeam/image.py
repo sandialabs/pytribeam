@@ -181,7 +181,7 @@ def beam_angular_correction(
         time.sleep(delay_s)
         if angular_correction.tilt_correction.is_on:
             raise SystemError("Unable to turn tilt correction off.")
-    
+
     return True
 
 
