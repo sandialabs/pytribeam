@@ -50,12 +50,6 @@ class TestStoreLogData:
             row=0,
         )
 
-        import shutil
-
-        shutil.copy(h5_path, Path("//snl/home/tribeam-team/DaaS/Downloads/1.h5"))
-        shutil.copy(yml_path, Path("//snl/home/tribeam-team/DaaS/Downloads/1.yml"))
-        shutil.copy(yml_path_out, Path("//snl/home/tribeam-team/DaaS/Downloads/2.yml"))
-
         with open(yml_path, "r") as f:
             known = yaml.safe_load(f)
         with open(yml_path_out, "r") as f:
