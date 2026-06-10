@@ -39,7 +39,7 @@ class StoppableThread(threading.Thread):
             name: Optional thread name for debugging
         """
         self._user_target = target
-        self._result: Dict[str, Any] = {"value": None, "error": None}
+        self._result: Dict[str, Any] = {"value": None, "error": None, "stopped": False}
         self._thread_id: Optional[int] = None
 
         super().__init__(
@@ -57,9 +57,11 @@ class StoppableThread(threading.Thread):
             result = self._user_target(*args, **kwargs)
             self._result["value"] = result
             return result
-        except Exception as e:
+        except BaseException as e:
             self._result["error"] = e
-            raise
+            self._result["value"] = None
+            self._result["stopped"] = isinstance(e, (KeyboardInterrupt, SystemExit))
+            return None
 
     @property
     def result(self) -> Dict[str, Any]:
