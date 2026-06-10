@@ -230,6 +230,7 @@ def connect_microscope(
             microscope.connect(connection_host)
         else:
             microscope.connect()
+        return True
 
     if quiet_output:
         with nostdout():
