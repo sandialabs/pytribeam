@@ -227,6 +227,7 @@ def connect_microscope(
 
         else:
             microscope.connect()
+        return True
 
     if quiet_output:
         with nostdout():
