@@ -1,0 +1,339 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Laser Settings - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../../favicon.svg">
+        <link rel="shortcut icon" href="../../../favicon.png">
+        <link rel="stylesheet" href="../../../css/variables.css">
+        <link rel="stylesheet" href="../../../css/general.css">
+        <link rel="stylesheet" href="../../../css/chrome.css">
+        <link rel="stylesheet" href="../../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../../highlight.css">
+        <link rel="stylesheet" href="../../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="laser-step-settings"><a class="header" href="#laser-step-settings">Laser Step Settings</a></h1>
+<p>Specific settings for a laser type step, which provides options for setting many of the relevant patterning parameters for machining with the femtosecond laser beam.</p>
+<ul>
+<li><strong>objective_position_mm</strong> (<em>float</em>): Position of the objective in the laser injection port, in millimeters, a float. Used to control the position of the focal point of the laser beam. Good settings for this can be determined from calibrating the laser beam. Both the 1030 nm and 515 nm wavelength beams will tend to have slightly different optimal positions for milling. Various additional properties of the objective position are controlledin the <code>constants</code> module, including:
+<ul>
+<li>An absolute position tolerance of 0.005 millimeters is used to determine whether or not a requested objective position movement was sucessful.</li>
+<li>A safe <strong>retracted</strong> position is set to 2.5 millimeters.</li>
+<li>Objective positions limits are set to between 2.0 and 29.0 millimeters (inclusive).</li>
+</ul>
+</li>
+</ul>
+<h2 id="pulse"><a class="header" href="#pulse">pulse</a></h2>
+<p>Various settings to control the laser pulse used for patterning.</p>
+<ul>
+<li>
+<p><strong>wavelength_nm</strong> (<em>int</em>): The wavelength of laser light, must be one of the enumerated types specified in the <code>types</code> module, an integer. The two wavelengths are achieved with or without the use of second-harmonic generation (frequency doubling), which converts the native 1030 nm wavelength light to 515 nm.</p>
+<ul>
+<li><strong>515</strong>: 515 nm light achieved via second-harmonic generation. Generally better for finer polishing with the laser.</li>
+<li><strong>1030</strong>: 1030 nm native light from the fiber laser. Generally better for large scale removal of material and/or rough cutting.</li>
+</ul>
+</li>
+<li>
+<p><strong>divider</strong> (<em>int</em>): Ratio of generated pulses to deliver to the sample surface, an integer. A pulse divider of <strong>1</strong> will deliver all pulses to the sample surface, a divdier of <strong>2</strong> will deliver every <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8491em;"></span><span class="mord"><span class="mord">2</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8491em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">n</span><span class="mord mathnormal mtight">d</span></span></span></span></span></span></span></span></span></span></span></span> pulse, a divider of <strong>n</strong> will deliver every <span class="katex"><span class="katex-html" aria-hidden="true"><span class="base"><span class="strut" style="height:0.8491em;"></span><span class="mord"><span class="mord mathnormal">n</span><span class="msupsub"><span class="vlist-t"><span class="vlist-r"><span class="vlist" style="height:0.8491em;"><span style="top:-3.063em;margin-right:0.05em;"><span class="pstrut" style="height:2.7em;"></span><span class="sizing reset-size6 size3 mtight"><span class="mord mtight"><span class="mord mathnormal mtight">t</span><span class="mord mathnormal mtight">h</span></span></span></span></span></span></span></span></span></span></span></span> pulse to the surface. Higher pulse dividers can be useful for more beam sensitive materials.</p>
+</li>
+<li>
+<p><strong>energy_uj</strong> (<em>float</em>): The energy of an individual pulse, in microJoules, a float. To protect the various optics used to deliver the laser to the chamber, maximum pulse energy values may differ for changing values of <strong>pulse_divider</strong>.</p>
+</li>
+<li>
+<p><strong>polarization</strong> (<em>str</em>): The polarization of the laser light, as controlled by a flipper polarizer configuration. <strong>NOTE</strong> Polarization mode can be set, but currently there is no way to verify the current active polarization via the laser API. Must be an enumerated member of the <strong>LaserPolarziation</strong> class in the <code>types</code> module. Currently supported values include:</p>
+<ul>
+<li><strong>vertical</strong>: Vertically polarized light</li>
+<li><strong>horizontal</strong>: Horizontatlly polarized light.</li>
+</ul>
+</li>
+</ul>
+<h2 id="beam_shift"><a class="header" href="#beam_shift">beam_shift</a></h2>
+<p>The beam shift to apply to the laser beam <em>in addition</em> to what is already present in the manual shift in Thermo Fisher Scientific's Laser Control GUI. If you plan to switch laser wavelengths during an experiment and need to apply different beam shifts for each wavelength of light, be sure to set the beam shifts to 0.0 micron in Thermo Fisher Scientific's Laser Control GUI and instead input the determined shifts here for each laser step.</p>
+<ul>
+<li>
+<p><strong>x_um</strong> (<em>float</em>): The beam shift along the x-direction in microns, a float.</p>
+</li>
+<li>
+<p><strong>y_um</strong> (<em>float</em>): The beam shift along the y-direction in microns, a float.</p>
+</li>
+</ul>
+<h2 id="pattern"><a class="header" href="#pattern">pattern</a></h2>
+<p>Various settings to control the laser pattern used for machining.</p>
+<ul>
+<li>
+<p><strong>rotation_deg</strong> (<em>float</em>): The rotation of the entire pattern in degrees, a float.</p>
+</li>
+<li>
+<p><strong>mode</strong> (<em>str</em>):</p>
+<ul>
+<li><strong>fine</strong>: Fine patterning mode, generally better for polishing of surfaces. Requires a value for the <strong>pulses_per_pixel</strong> parameter.</li>
+<li><strong>coarse</strong>: Coarse patterning mode, generally better for rough cutting or removal of large amounts of material. Requires a value for the <strong>pixel_dwell</strong> parameter.</li>
+</ul>
+</li>
+<li>
+<p><strong>pulses_per_pixel</strong> (<em>int</em>): Number of pulses to put down at each pixel location in the pattern, a positive, non-zero integer. Locations are determined by the pattern size and pitch. Can only be used with <strong>fine</strong> patterning mode.</p>
+</li>
+<li>
+<p><strong>pixel_dwell_ms</strong> (<em>float</em>): Time to dwell at each pixel location in the pattern, a positive, non-zero float. Locations are determined by the pattern size and pitch. Can only be used with <strong>coarse</strong> patterning mode.</p>
+</li>
+</ul>
+<h3 id="type"><a class="header" href="#type">type</a></h3>
+<p>Various settings for the geometry and shape of the pattern. Must be a valid enumerated value in the <strong>LaserPatternType</strong> class defined in the <code>types</code> module. Currently supported pattern types include:
+- <strong>box</strong>
+- <strong>line</strong></p>
+<ul>
+<li>
+<p><strong>box</strong>:
+A box pattern type requiring the following parameters:</p>
+<ul>
+<li>
+<p><strong>passes</strong> (<em>int</em>): The number of times to repeat the entire pattern, a non-zero, positive integer.</p>
+</li>
+<li>
+<p><strong>size_x_um</strong> (<em>float</em>): The size of the pattern along the x-direction (width) in microns, a float.</p>
+</li>
+<li>
+<p><strong>size_y_um</strong> (<em>float</em>): The size of the pattern along the y-direction (height) in microns, a float.</p>
+</li>
+<li>
+<p><strong>pitch_x_um</strong> (<em>float</em>): The spacing of adjacent pixels along the x-direction in microns, a float. Controls the spacing of columns of points in the pattern.</p>
+</li>
+<li>
+<p><strong>pitch_y_um</strong> (<em>float</em>): The spacing of adjacent pixels along the y-direction in microns, a float. Controls the spacing of rows of points in the pattern.</p>
+</li>
+<li>
+<p><strong>scan_type</strong> (<em>str</em>):
+Controls the sequence of points scanned in combination with the <strong>coordinate_ref</strong> parameter. Must be a member of the <strong>LaserScanType</strong> enum class defined in the <code>types</code> module. Currently supported values for <strong>box</strong> patterns include:</p>
+<ul>
+<li><strong>serpentine</strong>: Pattern will be executed from left to right on the first and all other odd-numbered rows, and from right to left on the second and all other even-numbered rows, creating a serpentine, or snake scan pattern.</li>
+<li><strong>raster</strong>: Pattern will be executed from left to right on every row, mimicking how an electron beam image is typically captured.</li>
+</ul>
+</li>
+<li>
+<p><strong>coorindate_ref</strong> (<em>str</em>):
+Defines the origin of box for positioning the pattern relative to the applied beam shift.</p>
+<ul>
+<li><strong>center</strong>: box will be drawn around the currently applied beam shift position, centering it evenly in both x- and y-directions.</li>
+<li><strong>uppercenter</strong>: box will be drawn vertically down from the currently applied beam shift position, but centered along the x-direction. The typically preferred <strong>coordinate_ref</strong> value for most 3D datasets.</li>
+<li><strong>upperleft</strong>: box will be drawn using the currently applied beam shift position as the top left corner of the pattern.</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>line</strong>:
+A box pattern type requiring the following parameters:</p>
+<ul>
+<li>
+<p><strong>passes</strong> (<em>int</em>): The number of times to repeat the entire pattern, a non-zero, positive integer.</p>
+</li>
+<li>
+<p><strong>size_um</strong> (<em>float</em>): The size of the pattern in microns, a float.</p>
+</li>
+<li>
+<p><strong>pitch_um</strong> (<em>float</em>): The spacing of adjacent pixels in microns, a float.</p>
+</li>
+<li>
+<p><strong>scan_type</strong> (<em>str</em>):
+Controls the sequence of points scanned. Must be a member of the <strong>LaserScanType</strong> enum class defined in the <code>types</code> module. Currently supported values for <strong>line</strong> patterns include:</p>
+<ul>
+<li><strong>single</strong>: Every pass starts at the beginning of the pattern and ends at the end of the pattern, repeating the pattern in the same direction. The 1-D equivalent of the <strong>raster</strong> scan_type for <strong>box</strong> patterns.</li>
+<li><strong>lap</strong>: Every subsequent pass reverses the direction of the previous pass. The 1-D equivalent of the <strong>serpentine</strong> scan_type for <strong>box</strong> patterns.</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../../config_file/steps/image/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../../config_file/steps/fib/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../../config_file/steps/image/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../../config_file/steps/fib/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../../elasticlunr.min.js"></script>
+        <script src="../../../mark.min.js"></script>
+        <script src="../../../searcher.js"></script>
+
+        <script src="../../../clipboard.min.js"></script>
+        <script src="../../../highlight.js"></script>
+        <script src="../../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

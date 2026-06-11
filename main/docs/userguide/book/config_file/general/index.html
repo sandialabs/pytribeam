@@ -1,0 +1,267 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>General Experiment Settings - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="general-settings"><a class="header" href="#general-settings">General Settings</a></h1>
+<ul>
+<li>
+<p><strong>slice_thickness_um</strong> (<em>float</em>): The sectioning slice thickness in micron units, a float. This parameter controls stage movements, and should generally be larger than the observed stage repeatability. Limits are enforced from the <strong>slice_thickness_limit_um</strong> variable in the <code>constants</code> module, which defaults to an inclusive range of 0.0 to 30.0 microns. Slice thicknesses greater than or equal to 2.0 microns are recommended depending on stage precision and accuracy. Slice thicknesses larger than 30.0 microns are not recommended due to the laser spot size, but these can be achieved using multiple thinner laser milling operations in conjunction with the <strong>frequency</strong> parameter (see <strong><a href="../steps/general/index.html">General Step Settings</a></strong>) to intermittently perform any imaging or other data collection step.</p>
+</li>
+<li>
+<p><strong>max_slice_num</strong> (<em>int</em>): The number of slices to collect in the experiemnt, an integer. This parameter must be greater than 0.</p>
+</li>
+<li>
+<p><strong>pre_tilt_deg</strong> (<em>float</em>): The pre-tilt angle of the specimen in degree units, a float. This controls compound stage movements to ensure pre-tilted specimens move toward the respective beam (electron, ion, or laser) correctly. To correctly identify the <strong>pre_tilt_deg</strong> for your specimen, please consult <strong><a href="../../reference_frame/#pre-tilt-angles">Reference Frame Conventions</a></strong> for examples and a more detailed description of the conventions adopted in this tool. For a <strong>sectioning_axis</strong> of <strong>Z</strong>, limits are enforced by the <strong>pre_tilt_limit_deg_generic</strong> variable in the <code>constants</code> module, which defaults to an inclusive range of -60.0 to 60.0 degrees. For all other <strong>sectioning_axis</strong> values, <strong>pre_tilt_deg</strong> is enforced by the <strong>pre_tilt_limit_deg_non_Z_sectioning</strong> variable in the <code>constants</code> module, which defaults to a <strong>pre_tilt_deg</strong> of 0.0 degrees only.</p>
+</li>
+<li>
+<p><strong>sectioning_axis</strong> (<em>str</em>): The sectioning direction used to calculate stage movements, a string which must be a member of the <strong>SectioningAxis</strong> enum in the <code>types</code> module. Please consult <strong><a href="../../reference_frame/#stage-axes">Reference Frame Conventions</a></strong> for examples and a more detailed description of the conventions adopted in this tool to understand the signs of these directions. The available enumeration values are:</p>
+<ul>
+<li><strong>X+</strong>: sectioning along the positive x-axis</li>
+<li><strong>X-</strong>: sectioning along the negative x-axis</li>
+<li><strong>Y+</strong>: sectioning along the positive y-axis</li>
+<li><strong>Y-</strong>: sectioning along the negative y-axis</li>
+<li><strong>Z</strong>: sectioning along the positive z-axis</li>
+</ul>
+<p><strong>NOTE</strong>: Only a <strong>sectioning_axis</strong> of <strong>Z</strong> is currently supported. Future updates will target this additional functionality.</p>
+</li>
+<li>
+<p><strong>stage_translation_tol_um</strong> (<em>float</em>): The allowable tolerance for translation stages (X, Y, and Z axes), in micron units. During requested stage movements, requests to individual translation axes for movement will only be sent if the target position is further than this value from the current axis position. A default value of 0.5 micron is included in the <code>constants</code> module, but this default will be overwritten by the user-provided value in the configuration file. This value should be significantly smaller than the <strong>slice_thickness_um</strong> to minimize slice thickness variation throughout an experiment.</p>
+</li>
+<li>
+<p><strong>stage_angular_tol_deg</strong> (<em>float</em>): The allowable tolerance for angular stages (R and T axes), in degree units. During requested stage movements, requests to individual angular axes for movement will only be sent if the target position is further than this value from the current axis position. A default value of 0.02 degrees is included in the <code>constants</code> module, but this default will be overwritten by the user-provided value in the configuration file.</p>
+</li>
+<li>
+<p><strong>connection_host</strong> (<em>str</em>): The host server or IP address to connect to the microscope, a string. The value of this variable is system-dependent and is related to the setup configuration utilized while installing the <code>autoscript</code> software from Thermo Fisher Scientific. Examples include <code>localhost</code> and <code>196.168.0.1</code>. This connection, along with the provided <strong>connection_port</strong> will be tested during <code>.yml</code> validation.</p>
+</li>
+<li>
+<p><strong>connection_port</strong> (<em>int</em>): The port on the <strong>connection_host</strong> with which to initialize the microscope connection, an integer and optional parameter. If no <strong>connection_port</strong> is needed, leave this entry blank or enter the the <code>NoneType</code> keyword in the <code>.yml</code> (<code>null</code>).</p>
+</li>
+<li>
+<p><strong>EBSD_OEM</strong> (<em>str</em>): The original equipment manufacturer (OEM) of the EBSD detector used in the system, a string which must be a member of the <strong>ExternalDeviceOEM</strong> enum in the <code>types</code> module. If no OEM is provided, control over the EBSD detector will not be enabled during data collection. If EDS is also enabled in this experiment, the values must match, but EDS can be disabled by providing the <code>NoneType</code> keyword in the <code>.yml</code> (<code>null</code>). The available enumeration values are:</p>
+<ul>
+<li><strong>Oxford</strong>: Oxford Instruments detector</li>
+<li><strong>EDAX</strong>: EDAX detector</li>
+<li><code>None</code>: Enter the keyword <code>null</code> or leave the entry blank in the .yml file. This will disable EDS detector control for the experiment.</li>
+</ul>
+</li>
+<li>
+<p><strong>EDS_OEM</strong> (<em>str</em>): The original equipment manufacturer (OEM) of the EDS detector used in the system, a string which must be a member of the <strong>ExternalDeviceOEM</strong> enum in the <code>types</code> module. If no OEM is provided, control over the EDS detector will not be enabled during data collection. If EBSD is also enabled in this experiment, the values must match, but EBSD can be disabled by providing the <code>NoneType</code> keyword in the <code>.yml</code> (<code>null</code>). The available enumeration values are:</p>
+<ul>
+<li><strong>Oxford</strong>: Oxford Instruments detector</li>
+<li><strong>EDAX</strong>: EDAX detector</li>
+<li><code>None</code>: Enter the keyword <code>null</code> or leave the entry blank in the .yml file. This will disable EDS detector control for the experiment.</li>
+</ul>
+</li>
+<li>
+<p><strong>exp_dir</strong> (<em>str</em>): Experimental directory to store the log file and any images captured by the microscope, a string. The specific directory does not need to exist and will be automatically generated at the start of the experiment, but a valid creatable path must be provided (e.g. <code>exp_dir = "C:/path/to/experimental/directory"</code>). As EBSD and EDS data is generally collected on a separate machine and specific map settings must be preset by the user (see <strong><a href="../steps/ebsd_eds/index.html">EBSD and EDS Settings</a></strong> for details on external device integration), these data will not be automatically included in the experimental directory, are likely to not be stored on the same machine, and may have unqiue file naming conventions that do not correspond with those handled directly by the <code>pytribeam</code> package.</p>
+</li>
+<li>
+<p><strong>h5_log_name</strong> (<em>str</em>): Filename for the log file that automatically stores various state information during data collection, a string. Log files are saved in the <code>.h5</code> HDF (Hierarchical Data Format) extension. The suffix <code>.h5</code> is automatically added to the end of the user-provided value (if needed), so an entry of <code>h5_log_name</code> or <code>h5_log_name.h5</code> will result in the creation of the same log file (<code>h5_log_name.h5</code>) within the experimental directory.</p>
+</li>
+<li>
+<p><strong>step_count</strong> (<em>int</em>): The number of steps in the experiment, an integer. Used to validate the configuration file. Must be greater than zero and be equal to the number of steps contained in the <strong>steps</strong> section of the <code>.yml</code> settings as described in <strong><a href="../steps/index.html">Step Settings</a></strong>. This value should auto-update when using the <strong><a href="../../gui/index.html">GUI</a></strong>.</p>
+</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../config_file/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../../config_file/steps/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../config_file/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../../config_file/steps/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>

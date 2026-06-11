@@ -1,0 +1,277 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Configurator - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="../../highlight.css">
+        <link rel="stylesheet" href="../../tomorrow-night.css">
+        <link rel="stylesheet" href="../../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root to javascript -->
+        <script>
+            var path_to_root = "../../";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../../toc.js"></script>
+    </head>
+    <body>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            var sidebar = null;
+            var sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+            }
+            sidebar_toggle.checked = sidebar === 'visible';
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="configurator"><a class="header" href="#configurator">Configurator</a></h1>
+<p>The TriBeam Configurator is a built-in tool for the GUI to assist users with correctly creating experiment configuration files. Upon opening from the main GUI, the user should see the following:</p>
+<p><img src="configurator.png" alt="configurator_landing_page" /></p>
+<p>The configurator is principally concerned with creation, editing, saving and validation of <code>.yml</code> files that store experiment settings for an entire data acuqisition pipeline. The configurator is broken up into three main sections:</p>
+<ul>
+<li><a href="#menu-bar"><strong>Menu Bar</strong></a></li>
+<li><a href="#pipeline-editor"><strong>Pipeline Editor</strong></a></li>
+<li><a href="#step-editor"><strong>Step Editor</strong></a></li>
+</ul>
+<h2 id="menu-bar"><a class="header" href="#menu-bar">Menu Bar</a></h2>
+<p>The menu bar contains several buttons, namely:</p>
+<ul>
+<li>
+<p><strong>Menu</strong>: Options for creating new configuration files, loading or saving the current configuration. This contains multiple options:</p>
+<ul>
+<li><strong>New</strong>: Create a new configuration file.</li>
+<li><strong>Load</strong>: Load an existing configuration file.</li>
+<li><strong>Save</strong>: Save/overwrite the current configuration file. Will not attempt to validate the file</li>
+<li><strong>Save as</strong>: Save the current configuration file. Will not attempt to validate the file.</li>
+<li><strong>Save &amp; Exit</strong>: will attempt to validate the current configuration. If successful, will overwrite and close the configurator.</li>
+</ul>
+</li>
+<li>
+<p><strong>Validate</strong>: Options for validating all or part of the configuration file. The status of the current file (<em>VALID</em>, <em>INVALID</em>, or <em>UNVALIDATED</em>) appears on the right side of the pipeline editor. Validation will report the first error (if any are found) in each respective step. Options include, namely:</p>
+<ul>
+<li><strong>Full</strong>: Validate entire configuration file.</li>
+<li><strong>Step</strong>: Validate the currently selected step only.</li>
+<li><strong>General</strong>: Validate the general settings (considered to be Step 0, but not an operation) only.
+<strong>NOTE</strong> A general step must be validated before any individual steps can be validated.</li>
+</ul>
+</li>
+<li>
+<p><strong>Microscope</strong>: Contains various utilities for reading properties directly from the microscope. Users are encouraged to setup stage and imaging conditions manually in xTUI and then utilize these utilities to directly copy settings into the configuration file, which will account for the vast majority of settings. Current utilities include:</p>
+<ul>
+<li>
+<p><strong>Import stage positions...</strong>: Reads current microscope stage position (in RAW stage coordinates) and records these values in the currently selected step. Applies to all step types.</p>
+</li>
+<li>
+<p><strong>Import imaging conditions...</strong>: Reads current microscope imaging conditions (voltage, current, resolution, detector settings, etc.) for the active quadrant and records these values in the currently selected step. Applies to <strong>Image</strong>, <strong>FIB</strong> and <strong>EBSD_EDS</strong> step types.</p>
+</li>
+<li>
+<p><strong>Import laser settings...</strong>: Reads current laser settings and records these values (beam settings, patterning, etc.).</p>
+<ul>
+<li><strong>NOTE</strong>: There is currently no method to actively read the <strong>Polarization</strong> parameter from the laser directly, so this value will default to <em>vertical</em> polarization automatically. Please manually select <em>horizontal</em> polarization after importing laser settings if this configuration is desired. Applies to <strong>Laser</strong> step types.</li>
+</ul>
+<p><strong>NOTE</strong>: There is currently no method to actively read the <strong>Pattern</strong> settings in a <strong>FIB</strong> step type, these values must be manually input by the user.</p>
+</li>
+</ul>
+</li>
+<li>
+<p><strong>Version</strong>: Drop-down menu to select the version of configuration file to be completed by the configurator. Different versions of configuration files in future releases will have differing settings parameters to accommodate new features.</p>
+</li>
+</ul>
+<h2 id="pipeline-editor"><a class="header" href="#pipeline-editor">Pipeline Editor</a></h2>
+<p>The left side of the configurator shows the layout of the current pipeline. All experiments must start with a general settings step, which captures high-level information about the experiment. Steps can be added by clicking the <strong>Add Step</strong> button, which brings a dropdown menu for the various supported step types. See <a href="../../config_file/steps/index.html">here</a> for more information on various step types supported by <code>pytribeam</code>. Steps in the pipeline editor are denoted with their sequence, a user-editable step name, and the step type in parentheses.</p>
+<p>To adjust the order of operations, right-click on a step to bring up a new dropdown menu for the following:</p>
+<ul>
+<li><strong>Delete</strong>: Remove the step from the pipeline.</li>
+<li><strong>Move Up</strong>: Move the selected step one position up in the pipeline.</li>
+<li><strong>Move Down</strong>: Move the selected step one position down in the pipeline.</li>
+</ul>
+<h2 id="step-editor"><a class="header" href="#step-editor">Step Editor</a></h2>
+<p>The right-side of the configurator is used for filling out specific settings for a particular step. There are various sections with dropdown menus that can be expanded by clicking on the right-facing triangles on the left side of each section. These sections can similarly be collapsed by clicking the upside-down triangle as desired.</p>
+<p>A quick description of each variable can be seen by hovering over the variable name on the left side of the step editor section.</p>
+<p>The step editor contains several different types of inputs, including:</p>
+<ul>
+<li>
+<p><strong>open entry boxes</strong>: Receive string, integer, or floating point input, which generally have a wide open bar with left formatted text. Several of these will be grayed out for automatically recorded values (e.g. <strong>Step Number</strong> and <strong>Step Type</strong>, which are determined by the Pipeline Editor). A subset of these are for filepath locations, which additionally have a button with ellipses on it on the far right side that will open a file browser to select the correct path.</p>
+</li>
+<li>
+<p><strong>button selection</strong>: User may select from a list of specifically enumerated values. Examples include <strong>Beam Type</strong> or <strong>Detector Type</strong> for an imaging type step. Some of these may have no filled value, even after using the Microscope utilities described above, and require the user to select the value. For example, the <a href="../../reference_frame/#rotation-side"><strong>Rotation Side</strong></a> parameter under Stage settings must be selected by the user.</p>
+</li>
+<li>
+<p><strong>radio buttons</strong>: On/Off selection variables for boolean variables. Examples include <strong>Use Dynamic Focus</strong> and <strong>Use Tilt Correction</strong> in an imaging type step.</p>
+</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../../gui/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../../gui/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
+
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+    </div>
+    </body>
+</html>
