@@ -1,3 +1,7 @@
+#
+# DEPRECATED.  This workflow is now superseded by test-docker.yml.
+#
+
 # This workflow will not run without Autoscript.
 name: Test
 

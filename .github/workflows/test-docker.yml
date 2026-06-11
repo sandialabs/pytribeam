@@ -79,10 +79,16 @@ jobs:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/gui_tests'
     permissions:
-      contents: read
-      pages: write
-      id-token: write
-      packages: read
+      contents: write  # Required to push commits to the gh-pages branch
+      packages: read   # Required to pull the docs-builder container image
+
+    # Serialize all gh-pages deployments across branches into a single queue.
+    # cancel-in-progress: false ensures a queued deploy is never dropped — if
+    # main and dev push simultaneously, one waits rather than being cancelled,
+    # preventing a race condition that would corrupt the gh-pages branch.
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
 
     # Pull the prebuilt tools image tagged by branch name: dev/main/docker
     container:
@@ -216,31 +222,28 @@ jobs:
           cat pages/${{ env.DEPLOY_SUBDIR }}/badges/lint.svg || echo "Lint badge missing"
           cat pages/${{ env.DEPLOY_SUBDIR }}/badges/coverage.svg || echo "Coverage badge missing"
 
-      - name: Upload artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: pages/
-
-      # - name: Upload local CI artifacts
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: local_ci_badges
-      #     path: |
-      #       temp_badges/
-
-      # - name: Download local CI artifacts
-      #   uses: actions/download-artifact@v4
-      #   with:
-      #     name: local_ci_badges      # Must exactly match the upload name
-      #     path: downloaded_badges/   # Where you want the files extracted to
-
-      # - name: See where I am
-      #   run: |
-      #     echo "=== Current Runner Directory ==="
-      #     pwd
-      #     ls -la
-      #     ls -la downloaded_badges/
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      # Push built artifacts directly to the gh-pages branch rather than using
+      # actions/deploy-pages, which replaces the entire site on every run and
+      # cannot preserve subdirectories from other branches. This approach clones
+      # gh-pages, replaces only the current branch's subdirectory (main/ or dev/),
+      # and pushes back — so both subdirectories coexist on gh-pages at all times.
+      # The job-level concurrency group above ensures only one branch deploys at
+      # a time, preventing push conflicts.
+      - name: Deploy to gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone --branch gh-pages --depth 1 \
+            https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
+            gh-pages-deploy
+          rm -rf gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
+          mkdir -p gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
+          cp -r pages/${{ env.DEPLOY_SUBDIR }}/. gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/
+          cp pages/index.html gh-pages-deploy/index.html
+          cd gh-pages-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+          # Skip commit if nothing changed (e.g. re-run with no code changes)
+          git diff --staged --quiet || git commit -m "Deploy ${{ env.DEPLOY_SUBDIR }} docs from ${{ github.sha }}"
+          git push origin gh-pages
