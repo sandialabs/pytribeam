@@ -64,4 +64,3 @@ Or using BibTeX:
 
 [pages_badge]: https://img.shields.io/badge/GitHub%20Pages-blueviolet?logo=github
 [pages_link]: https://sandialabs.github.io/pytribeam/
-
