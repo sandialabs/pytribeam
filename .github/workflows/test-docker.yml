@@ -126,8 +126,8 @@ jobs:
       - name: Build User Guide
         run: mdbook build
 
-      # - name: Build API Documentation
-      #   run: uv run pdoc src/pytribeam -o docs/api
+      - name: Build API Documentation
+        run: uv run pdoc src/pytribeam -o docs/api
 
       - name: Set Deploy Directory
         run: |
@@ -149,9 +149,28 @@ jobs:
             --github_server_url ${{ github.server_url }}
 
       - name: Assemble pages directory
-        # pages/
-        # ├── index.html                (Main Dashboard)
-        # └── dev/ (or main/)
+        # Builds the pages/ staging directory, which is then committed to the
+        # gh-pages branch under the current branch's subdirectory (main/ or dev/).
+        # Both subdirectories coexist on gh-pages so Released and Development
+        # content are served side-by-side without overwriting each other.
+        #
+        # gh-pages branch layout (after deploy):
+        # ├── index.html                (Dashboard — regenerated each run)
+        # ├── main/                     (Released content, deployed from main)
+        # │   ├── badges/
+        # │   │   ├── lint.svg
+        # │   │   └── coverage.svg
+        # │   ├── reports/
+        # │   │   ├── lint/
+        # │   │   │   └── index.html    (Pylint Summary)
+        # │   │   └── coverage/
+        # │   │       ├── index.html    (Coverage Summary)
+        # │   │       └── htmlcov/      (Detailed Pytest-cov HTML)
+        # │   └── docs/
+        # │       ├── userguide/
+        # │       │   └── book/         (User Manual)
+        # │       └── api/              (API Reference)
+        # └── dev/                      (Development content, deployed from dev)
         #     ├── badges/
         #     │   ├── lint.svg
         #     │   └── coverage.svg
@@ -164,7 +183,7 @@ jobs:
         #     └── docs/
         #         ├── userguide/
         #         │   └── book/         (User Manual)
-        #         └── api/              (API Reference - skipped for now)
+        #         └── api/              (API Reference)
 
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
@@ -175,9 +194,9 @@ jobs:
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
           cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
 
-          # # Copy API Documentation
-          # mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
-          # cp -r docs/api/* pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+          # Copy API Documentation
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
           
           # Create badges (Must be done before dashboard or concurrently)
           uv run python src/pytribeam/cicd/report_badges.py \
