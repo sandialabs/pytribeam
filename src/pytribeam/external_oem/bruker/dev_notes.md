@@ -69,6 +69,11 @@ Working / demonstrated:
 - file exists and has nontrivial size
 - do **not** currently require immediate byte-read in integration tests
 
+#### detector position
+- only two modes: `park` and `acquire`. `acquire` encompasses all other positions, even if not fully inserted
+- for safety, need to verify in `park` mode at end/start of scan
+- need separate check for data quality by reading the `.bcf`/`.spx` data
+
 ### EBSD
 Current status:
 - EBSD exports are present in DLL

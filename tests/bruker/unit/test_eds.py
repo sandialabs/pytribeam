@@ -92,11 +92,11 @@ def test_acquire_map_success(monkeypatch):
     def get_image_side_effect(cid, fmt, image_channel, buf, size_ptr):
         payload = b"BMFAKEBMPDATA"
         size_ptr._obj.value = len(payload)
-        ct_buf = (
-            (type(buf)._type_ * len(payload)).from_address(buf.value)
-            if hasattr(buf, "value")
-            else None
-        )
+        # ct_buf = (
+        #     (type(buf)._type_ * len(payload)).from_address(buf.value)
+        #     if hasattr(buf, "value")
+        #     else None
+        # )
         return 0
 
     monkeypatch.setattr(
@@ -108,7 +108,7 @@ def test_acquire_map_success(monkeypatch):
 
     with tempfile.TemporaryDirectory() as tmpdir:
         bcf_path = str(Path(tmpdir) / "map.bcf")
-        bmp_path = str(Path(tmpdir) / "map.bmp")
+        # bmp_path = str(Path(tmpdir) / "map.bmp")
 
         settings = BrukerEDSMapSettings(
             name="test_map",

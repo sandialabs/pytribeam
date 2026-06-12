@@ -3,11 +3,6 @@ from pathlib import Path
 from datetime import datetime
 import traceback
 
-# Make local src/ available without requiring package installation
-REPO_ROOT = Path(__file__).resolve().parents[5]  # check the number
-SRC_ROOT = REPO_ROOT / "src"
-sys.path.insert(0, str(SRC_ROOT))
-
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.eds import BrukerEDSController
 from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
@@ -17,12 +12,17 @@ from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
 )
 
-OUT_DIR = Path(r"C:\Users\Public\BrukerSandbox")
+# Make local src/ available without requiring package installation
+REPO_ROOT = Path(__file__).resolve().parents[5]  # check the number
+SRC_ROOT = REPO_ROOT / "src"
+sys.path.insert(0, str(SRC_ROOT))
+
+OUT_DIR = Path(r"C:\Users\User\Documents\Polonsky\BrukerSandbox")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 STAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_PATH = OUT_DIR / f"eds_hardware_sandbox_{STAMP}.log"
-BCF_PATH = OUT_DIR / f"eds_map_{STAMP}.bcf"
+BCF_PATH = OUT_DIR / f"eds_map_{STAMP}.h5"  # bcf works
 BMP_PATH = OUT_DIR / f"eds_map_{STAMP}.bmp"
 
 

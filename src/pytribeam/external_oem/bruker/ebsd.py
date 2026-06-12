@@ -1,9 +1,7 @@
 import ctypes as ct
-import time
 from pathlib import Path
-from typing import NamedTuple, Optional
+from typing import NamedTuple
 
-from pytribeam.external_oem.core.errors import APICallError
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.ctypes_types import c_i32, c_dbl, c_bool
 
