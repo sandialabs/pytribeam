@@ -257,6 +257,16 @@ jobs:
           git clone --branch gh-pages --depth 1 \
             https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
             gh-pages-deploy
+
+          # Preserve manually-maintained content that CI cannot regenerate
+          # (e.g. API docs built offline with pdoc). Copy from the existing
+          # gh-pages subdir into the pages/ staging area before wiping, so
+          # the content survives the replace-and-push cycle.
+          if [ -d gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/docs/api ]; then
+            mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+            cp -r gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+          fi
+
           rm -rf gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
           mkdir -p gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
           cp -r pages/${{ env.DEPLOY_SUBDIR }}/. gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/
