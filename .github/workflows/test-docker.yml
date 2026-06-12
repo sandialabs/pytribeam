@@ -126,8 +126,10 @@ jobs:
       - name: Build User Guide
         run: mdbook build
 
-      - name: Build API Documentation
-        run: uv run pdoc src/pytribeam -o docs/api
+      # pdoc requires an offline-only Python module and cannot run in CI.
+      # API docs are generated manually and committed directly to gh-pages.
+      # - name: Build API Documentation
+      #   run: uv run pdoc src/pytribeam -o docs/api
 
       - name: Set Deploy Directory
         run: |
@@ -194,9 +196,9 @@ jobs:
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
           cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
 
-          # Copy API Documentation
-          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
-          cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+          # API docs are manually maintained on gh-pages (see pdoc note above).
+          # mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          # cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
           
           # Create badges (Must be done before dashboard or concurrently)
           uv run python src/pytribeam/cicd/report_badges.py \
