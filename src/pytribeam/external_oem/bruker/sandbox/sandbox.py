@@ -25,10 +25,10 @@ SPU = 1
 REALTIME_MS = 10_000
 
 # Our own output path (since SaveSpectrum is failing)
-OUT_SPX_PATH = r"C:\Users\apolon\Bruker\Test\python_created.spx"
+OUT_SPX_PATH = r"C:\Users\apolon\Bruker\Test\python_created3.spx"
 
 # Optional: after creating full spectrum blob, try corrected spectrum
-TRY_CORRECTED_FROM_FULL_BLOB = True
+TRY_CORRECTED_FROM_FULL_BLOB = False
 # -----------------------------------------
 
 

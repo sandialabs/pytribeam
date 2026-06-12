@@ -25,7 +25,7 @@ def configure_scan(connection: socket.socket, settings: tbt.EBSDSettings) -> boo
     # resolution
     socket_command(
         connection=connection,
-        command=f'set_ebsd_params_resolution "3"',
+        command='set_ebsd_params_resolution "3"',
         expected_response='set_ebsd_params_resolution response "execution successful"',
     )
     socket_command(
@@ -328,7 +328,7 @@ def map_ebsd(
         expected_response='do_map_collection_start_ebsd response "execution successful"',
     )
     scan_start_time = time.time()
-    print(f"\tEBSD map started...")
+    print("\tEBSD map started...")
     time.sleep(Constants.edax_map_start_delay_s)
 
     # Check map status every second to see when it finishes
@@ -336,7 +336,7 @@ def map_ebsd(
     while True:
         map_status = socket_command(
             connection=connection,
-            command=f"get_map_status_ebsd",
+            command="get_map_status_ebsd",
             expected_response=None,
             pause_s=1.0,
             timeout_s=120.0,
