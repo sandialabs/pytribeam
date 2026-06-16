@@ -169,7 +169,15 @@ echo [INFO] Install completed successfully.
 
 echo.
 echo To see available commands, please run `pytribeam.exe` in your terminal.
-exit /b 0
+if %errorlevel% equ 0(
+  goto :end_of_loop
+)
 
 :FAIL
 echo [ERROR] Install failed.
+if %errorlevel% equ 0(
+  goto :end_of_loop
+)
+
+:end_of_loop
+exit /b 0
