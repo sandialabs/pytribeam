@@ -56,9 +56,11 @@ class TestActiveSettings:
 
     @pytest.mark.hardware
     def test_active_imaging_device_invalid(self, microscope):
+        active_device = microscope.imaging.get_active_device()
         microscope.imaging.set_active_device(3)
         with pytest.raises(ValueError):
             factory.active_imaging_device(microscope=microscope)
+        microscope.imaging.set_active_device(active_device)
 
     @pytest.mark.simulated
     def test_active_image_settings(self, microscope):

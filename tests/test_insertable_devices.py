@@ -269,7 +269,7 @@ class TestDeviceMovement:
         )
 
 
-class TestCollisions:
+class TestPreventCollisions:
     @pytest.mark.hardware
     def test_detectors_will_collide(self, safe_microscope):
         # TODO enable no stage restrictions first

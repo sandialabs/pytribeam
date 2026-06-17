@@ -20,7 +20,6 @@ class TestStagePositionEncoding:
         aa = stage.coordinate_system(microscope=microscope)
         assert aa == True
 
-        # TODO CAPTURE WARNING
         mode = tbt.StageCoordinateSystem.SPECIMEN
         with pytest.warns(UserWarning) as warning:
             bb = stage.coordinate_system(

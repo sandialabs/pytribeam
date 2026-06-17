@@ -21,12 +21,6 @@ def verify_stdout(capsys):
     return _verify
 
 
-# https://stackoverflow.com/questions/16039463/how-to-access-the-py-test-capsys-from-inside-a-test
-# @pytest.fixture(autouse=True)
-# def capsys(capsys):
-#     capsys = capsys
-# @cs.run_on_standalone_machine
-# TODO get custom fixutre working with arg capsys, see above function
 @pytest.mark.simulated
 def test_microscope_connection(verify_stdout):
     microscope = tbt.Microscope()
