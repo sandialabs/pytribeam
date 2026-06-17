@@ -183,7 +183,8 @@ def validate_box_pattern(pattern: tbt.FIBBoxPattern, fib_settings: tbt.FIBSettin
 # Tests
 # -----
 
-#TODO should any of these be hardware?
+# TODO should any of these be hardware?
+
 
 @pytest.mark.simulated
 def test_shutter_mode(microscope):

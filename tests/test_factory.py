@@ -304,8 +304,8 @@ class TestStepFactory:
         )
 
         assert image_object.beam.type == tbt.BeamType.ELECTRON
-        assert image_object.beam.settings.current_na == pytest.approx(5.0)
-        assert image_object.beam.settings.current_tol_na == pytest.approx(0.5)
+        assert image_object.beam.settings.current_na == pytest.approx(6.4)
+        assert image_object.beam.settings.current_tol_na == pytest.approx(0.3)
         assert image_object.bit_depth == tbt.ColorDepth.BITS_8
         assert image_object.bit_depth == 8
         assert image_object.detector.auto_cb_settings.height == None
@@ -598,8 +598,8 @@ class TestStepFactory:
                     settings=tbt.BeamSettings(
                         voltage_kv=5.0,
                         voltage_tol_kv=0.5,
-                        current_na=5.0,
-                        current_tol_na=0.5,
+                        current_na=6.4,
+                        current_tol_na=0.3,
                         hfw_mm=0.75,
                         working_dist_mm=10.021,
                         dynamic_focus=False,
@@ -621,9 +621,9 @@ class TestStepFactory:
             ),
             mill_beam=tbt.IonBeam(
                 settings=tbt.BeamSettings(
-                    voltage_kv=30.0,
+                    voltage_kv=10.0,
                     voltage_tol_kv=1.0,
-                    current_na=12.0,
+                    current_na=0.03,
                     current_tol_na=1.0,
                     hfw_mm=0.75,
                     working_dist_mm=15.001,
@@ -638,7 +638,7 @@ class TestStepFactory:
                     center_um=tbt.Point(x=5.11, y=0.0),
                     width_um=500.0,
                     height_um=40.0,
-                    depth_um=5.0,
+                    depth_um=1.0,
                     scan_direction=tbt.FIBPatternScanDirection.BOTTOM_TO_TOP,
                     scan_type=tbt.FIBPatternScanType.SERPENTINE,
                 ),
