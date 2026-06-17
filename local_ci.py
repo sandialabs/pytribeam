@@ -72,11 +72,7 @@ class Spinner:
             "corralling",
             "shepherding",
             "nudging",
-            "nudging",
-            "poking",
             "prodding",
-            "tickling",
-            "massaging",
             "coaxing",
             "wrestling",
             "taming",
@@ -89,8 +85,6 @@ class Spinner:
             "rummaging",
             "fiddling",
             "twiddling",
-            "wiggling",
-            "wobbling",
             "bouncing",
             "hopping",
             "scurrying",
@@ -121,8 +115,6 @@ class Spinner:
             "clattering",
             "beeping",
             "booping",
-            "bonking",
-            "bonking",
             "thunking",
             "blooping",
             "blinking",
@@ -450,13 +442,6 @@ def run_tests_and_store_coverage() -> int:
     cmd = ["pytest"]
     if is_hardware_mode(test_description):
         cmd.append("-x")
-    cmd.extend(
-        [
-            "--cov=pytribeam",
-            "--cov-report=term-missing",
-            "-rs",  # This prints out why tests were skipped
-        ]
-    )
 
     result = run_to_log(cmd, PYTEST_LOG, check=False, spinner_message="Running tests")
     pytest_rc = result.returncode
