@@ -24,6 +24,9 @@ jobs:
     name: Test (ruff format, pylint, pytest)
     runs-on: ubuntu-latest
     steps:
+      - name: Announce workflow file
+        run: echo "Workflow file: $GITHUB_WORKFLOW_REF"
+
       - name: Checkout code
         uses: actions/checkout@v6
         with:
