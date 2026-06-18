@@ -48,7 +48,10 @@ jobs:
         run: uv build
 
       - name: Run Ruff Format Check
-        run: uv run ruff format --check
+        # _version.py is excluded because setuptools-scm regenerates it on every
+        # build in a format that ruff would rewrite, causing a spurious failure.
+        # The exclusion is also declared in pyproject.toml [tool.ruff.format].
+        run: uv run ruff format --check --exclude src/pytribeam/_version.py
 
       - name: Run Pylint and Create Pylint Report
         run: |
