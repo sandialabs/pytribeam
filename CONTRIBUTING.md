@@ -47,6 +47,10 @@ We separate the concerns of test, build, release, and publish throughout the `.g
 These YAML files cover:
 
 * Continuous Integration (CI)
+  * **Validate Tag**
+    * **Purpose:** To catch mistakes before anything is built or published. Only runs in `release.yml` on tag pushes.
+    * **What happens:** Three checks run in sequence: (1) the tag must be on `main` or `dev` (not a feature branch); (2) the tag must conform to PEP 440 (e.g., `v1.0.0`, `v1.0.0rc1`); (3) the tag must be strictly newer than all existing tags.
+    * **Key Outcome:** Safety. A mistyped version or a tag on the wrong branch is caught immediately, before any build artifacts are produced.
   * **Test (Verification)**
     * **Purpose:** To ensure that the code is functional and hasn't introduced regressions (broken existing features).
     * **What happens:** Automated tools like `pytest` run your unit and integration tests. It often includes "linting" (checking code style) and type-checking.
@@ -76,7 +80,7 @@ These YAML files cover:
 Implementation details:
 
 * The reuse of `test-docker.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
-* **Dependency Chain:** `build` waits for `test`; `update-version-file` and `github-release` both wait for `build` and run in parallel; `publish` waits for both `build` and `github-release`.
+* **Dependency Chain:** `test` waits for `validate_tag`; `build` waits for `test`; `update-version-file` and `github-release` both wait for `build` and run in parallel; `publish` waits for both `build` and `github-release`.
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
@@ -93,9 +97,11 @@ Steps:
 
 * In `release.yml`, the environment must be set to either `pypi` or `testpypi` depending on the version string.  Hence the logic in `release.yml`:
 
-```bash
-environment: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 'testpypi' || 'pypi' }} # If the tag contains 'rc' or 'dev', use the 'testpypi' environment, otherwise use 'pypi'
+```yaml
+environment: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 'testpypi' || 'pypi' }}
 ```
+
+Tags containing `rc` or `dev` (e.g., `v0.0.9rc1`, `v1.0.0.dev1`) route to TestPyPI. All other tags route to production PyPI. The `repository-url` in the publish step is set conditionally by the same logic.
 
 The GitHub repository itself must have both a `pypi` and a `testpypi` environment:
 
@@ -145,13 +151,23 @@ To create a prerelease on TestPyPI:
 
 * On any development, e.g., `dev-cicd-docs`, `git tag` and push, e.g.,
 
-# View existing tags, if any
+## Manual Release
+
+View existing tags, if any
+
+```sh
 git tag
+```
 
-# Create the new tag, e.g.,
+Create the new tag, e.g.,
+
+```sh
 git tag -a v1.0.0rc1 -m "Test of prerelease version 1.0.0, release candidate 1"
+```
 
-# On the main branch, push the tag to GitHub
+On the main branch, push the tag to GitHub
+
+```sh
 git push origin v1.0.0rc1
 ```
 
