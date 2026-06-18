@@ -137,7 +137,7 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
             border: 1px solid #e1e4e8; border-radius: 6px;
         }}
         th {{
-            text-align: left; padding: 12px; background: #f6f8fa;
+            text-align: left; padding: 12px; background: #E8E8E8;
             border-bottom: 1px solid #e1e4e8;
         }}
         td {{ padding: 12px; border-bottom: 1px solid #e1e4e8; font-size: 14px; }}
