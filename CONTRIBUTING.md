@@ -147,46 +147,74 @@ Version strings are generated automatically by `hatch-vcs` (which uses `setuptoo
 
 Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This version is written to `src/pytribeam/_version.py` at build time and committed back to the repo by `release.yml` on each tagged release, so that zip archive installs also report the correct version.
 
-To create a prerelease on TestPyPI:
-
-* On any development, e.g., `dev-cicd-docs`, `git tag` and push, e.g.,
-
 ## Manual Release
 
-View existing tags, if any
+### Publish to TestPyPI (pre-release on `dev`)
+
+Use this path to validate the full release pipeline — build, attestation, GitHub Release, and PyPI publish — without touching the production package index. Tags containing `rc` or `dev` are automatically routed to TestPyPI by `release.yml`.
 
 ```sh
-git tag
-```
-
-Create the new tag, e.g.,
-
-```sh
-git tag -a v1.0.0rc1 -m "Test of prerelease version 1.0.0, release candidate 1"
-```
-
-On the main branch, push the tag to GitHub
-
-```sh
-git push origin v1.0.0rc1
-```
-
-To create a release on PyPI:
-
-* Merge the `dev` branch into the `main` branch.
-* On the `main` branch, `git tag` and push to `main`, e.g., 
-
-```sh
-# Ensure you are on the main branch
-git checkout main
+# Ensure you are on the dev branch and up to date
+git checkout dev
 git pull
 
-# View existing tags, if any
+# View existing tags to choose the next version
 git tag
 
-# Create the new tag, e.g.,
+# Regenerate _version.py so the committed file matches the tag you are about to create.
+# This ensures zip archive installs report the correct version.
+uv build
+
+# Stage and commit _version.py if it changed
+git add src/pytribeam/_version.py
+git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
+
+# Create a release candidate tag (rc) — this routes to TestPyPI
+git tag -a v0.0.9rc1 -m "Release candidate 1 for version 0.0.9"
+
+# Push the tag to GitHub — this triggers release.yml
+git push origin v0.0.9rc1
+```
+
+After pushing, `release.yml` will:
+1. Validate the tag (branch, PEP 440, version ordering)
+2. Run the full test suite
+3. Build the wheel and sdist with SLSA attestation
+4. Create a GitHub Release marked as **pre-release**
+5. Publish to **TestPyPI** (because the tag contains `rc`)
+6. Commit the updated `_version.py` back to `dev`
+
+Verify the TestPyPI release at `https://test.pypi.org/project/pytribeam/` and test install with:
+
+```sh
+pip install --index-url https://test.pypi.org/simple/ pytribeam==0.0.9rc1
+```
+
+### Publish to PyPI (production release on `main`)
+
+Once the pre-release is validated, merge `dev` into `main` and tag a production release. Tags without `rc` or `dev` are routed to production PyPI.
+
+```sh
+# Merge dev into main
+git checkout main
+git merge dev
+git push origin main
+
+# View existing tags to confirm the next version
+git tag
+
+# Regenerate _version.py so the committed file matches the tag you are about to create
+uv build
+
+# Stage and commit _version.py if it changed
+git add src/pytribeam/_version.py
+git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
+
+# Create the production release tag — this routes to PyPI
 git tag -a v1.0.0 -m "Release version 1.0.0"
 
-# On the main branch, push the tag to GitHub
+# Push the tag to GitHub — this triggers release.yml
 git push origin v1.0.0
 ```
+
+After pushing, `release.yml` will run the same pipeline as above but create a **full release** on GitHub and publish to **production PyPI**.
