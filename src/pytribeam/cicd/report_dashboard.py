@@ -46,7 +46,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
         .hover-card:hover {{ transform: translateY(-2px); transition: all 0.2s ease; }}
     </style>
     </head>
-    <body class="bg-[#CECECE] text-slate-800 antialiased min-h-screen">
+    <body class="bg-[#D3D3D3] text-slate-800 antialiased min-h-screen">
 <nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <div class="flex items-center gap-2">
