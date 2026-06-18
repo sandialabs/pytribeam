@@ -111,7 +111,7 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0; padding: 20px; background: #BEBEBE; line-height: 1.6;
+            margin: 0; padding: 20px; background: #CECECE; line-height: 1.6;
         }}
         .container {{
             max-width: 1200px; margin: 0 auto;
