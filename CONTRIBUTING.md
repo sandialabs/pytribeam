@@ -86,16 +86,15 @@ Implementation details:
 
 ### Trusted Publishing
 
-In `release.yml` we have removed the manual `-p ${{ secrets.PYPI_TOKEN }}`.  The industry standard is now [**Trusted Publishing**](https://docs.pypi.org/trusted-publishers/) (also called OpenID Connect or OIDC).  You configure this in your PyPI project settings once, and GitHub Actions authenticates securely without you needing to store and rotate secrets.
+In `release.yml` we have removed the manual `-p ${{ secrets.PYPI_TOKEN }}`. The industry standard is now [**Trusted Publishing**](https://docs.pypi.org/trusted-publishers/) (also called OpenID Connect or OIDC). You configure this in your PyPI project settings once, and GitHub Actions authenticates securely without you needing to store and rotate secrets.
 
-> OpenID Connect (OIDC) provides a flexible, credential-free mechanism for delegating publishing authority for a PyPI package to a trusted third party service, like GitHub Actions.  PyPI users and projects can use trusted publishers to automate their release processes, without needing to use API tokens or passwords.
+> OpenID Connect (OIDC) provides a flexible, credential-free mechanism for delegating publishing authority for a PyPI package to a trusted third party service, like GitHub Actions. PyPI users and projects can use trusted publishers to automate their release processes, without needing to use API tokens or passwords.
 
-To configure Trusted Publishing, you tell PyPI, "Trust any code from this specific GitHub repository and workflow."  This removes the need to mange long-lived API tokens or passwords in your secrets.
+To configure Trusted Publishing, you tell PyPI, "Trust any code from this specific GitHub repository and workflow." This removes the need to manage long-lived API tokens or passwords in your secrets.
 
-Steps:
+**Step 1 — Set the environment in `release.yml`**
 
-
-* In `release.yml`, the environment must be set to either `pypi` or `testpypi` depending on the version string.  Hence the logic in `release.yml`:
+The environment must be set to either `pypi` or `testpypi` depending on the version string. Hence the logic in `release.yml`:
 
 ```yaml
 environment: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 'testpypi' || 'pypi' }}
@@ -103,9 +102,9 @@ environment: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 
 
 Tags containing `rc` or `dev` (e.g., `v0.0.9rc1`, `v1.0.0.dev1`) route to TestPyPI. All other tags route to production PyPI. The `repository-url` in the publish step is set conditionally by the same logic.
 
-The GitHub repository itself must have both a `pypi` and a `testpypi` environment:
+**Step 2 — Create the GitHub environments**
 
-On the GitHub repo:
+The GitHub repository itself must have both a `pypi` and a `testpypi` environment:
 
 * Click on the **Settings** tab (usually the last tab on the right in the top navigation bar).
 * On the left-hand sidebar, look for the **Environments** link (it's under the "Code and automation" section).
@@ -113,32 +112,58 @@ On the GitHub repo:
     * Click the **New environment** button.
     * Name the environment `pypi` (and then make a second item called `testpypi`) and click **Configure environment**.
   * If it does exist but is named differently, you can click on it to rename it or delete it and create a new one.
-* For a basic setup using Trusted Publishing, you don't actually need to add any secrets or configuration on this page. Just having the environment named testpypi exist is enough to link it to your workflow.
-* Optionally, we add the following protections:
-  * Under the **Deployment branches and tags**, under the **No Restriction** button, select **Selected branches and tags**.
-  * Click **Add deployment branch or tage rule**.
+* For a basic setup using Trusted Publishing, you don't actually need to add any secrets or configuration on this page. Just having the environment named `testpypi` exist is enough to link it to your workflow.
+* Optionally, add the following protections:
+  * Under **Deployment branches and tags**, under the **No Restriction** button, select **Selected branches and tags**.
+  * Click **Add deployment branch or tag rule**.
   * Select **Ref type: Tag**.
-  * Set the **Name Pattern:** to 'v*'.  This ensures that *only* version tags can ever use this environment, adding a layer of security.
+  * Set the **Name Pattern** to `v*`. This ensures that *only* version tags can ever use this environment, adding a layer of security.
 
-Finally, the PyPI (respectively, Test PyPI) site needs to be configured.
+**Step 3 — Configure the PyPI (or TestPyPI) publisher**
 
-* Log into your [PyPI](https://pypi.org) (or [Test PyPI](https://test.pypi.org)) account
-* Go your project's **Manage** page (or your accounts **Publishing** settings if you are setting it up for the first time.)
-* Look for the **Publishing** tab
-* Click **Add new publisher**
-* Select **GitHub** as the source
+* Log into your [PyPI](https://pypi.org) (or [Test PyPI](https://test.pypi.org)) account.
+* Go to your project's **Manage** page (or your account's **Publishing** settings if you are setting it up for the first time).
+* Look for the **Publishing** tab.
+* Click **Add new publisher**.
+* Select **GitHub** as the source.
 * Enter the following details:
-  * Owner: sandialabs
-  * Repository name: pytribeam
-  * Workflow name: `release.yml` (This must match your filename in your `.github/workflows/` directory))
-  * Environment name: You can leave this blank or name it `pypi` (if you use it in your YAML).  We used `pypi` for live publishing to the PyPI site, and `testpypi` for test publishing to the TestPyPI site.
-  * Click the **Add** button
+  * **Owner:** `sandialabs`
+  * **Repository name:** `pytribeam`
+  * **Workflow name:** `release.yml` (this must match the filename in your `.github/workflows/` directory)
+  * **Environment name:** `pypi` for live publishing to PyPI, or `testpypi` for test publishing to TestPyPI.
+* Click the **Add** button.
 
-We follow PEP 440 (the Python standard for versioning), which requires version strings to follow this specific structure:
+### Manual Approval Gate
 
-```bash
-bashN.N.N[{a|b|rc}N][.postN][.devN]
+By default, a tag push triggers the full release pipeline automatically — including the final publish to PyPI — with no human checkpoint. The manual approval gate pauses the `publish` job and requires a named reviewer to explicitly approve before the package is uploaded to PyPI.
+
+This is an industry-standard safeguard for production releases. It gives a release manager a final opportunity to confirm that the correct tag is being published, the changelog looks right, and no last-minute issues have been flagged.
+
+The approval gate applies only to the production `pypi` environment. The `testpypi` environment (used for pre-releases) does not require approval, since pre-releases are low-risk by design.
+
+No changes to `release.yml` are required. The `publish` job dynamically selects `environment: pypi` for stable releases or `environment: testpypi` for pre-releases — GitHub uses this environment name as the hook to enforce the approval rule.
+
+* Navigate to the repository on GitHub.
+* Click the **Settings** tab.
+* In the left sidebar under **Code and automation**, click **Environments**.
+* Click on the **pypi** environment.
+* Under **Deployment protection rules**, check the box next to **Required reviewers**.
+* In the text field that appears, type the GitHub username(s) or team name(s) who are authorized to approve a PyPI release. Add up to 6 reviewers.
+* Click **Save protection rules**.
+
+When a release tag is pushed, the pipeline will run `validate_tag`, `test`, `build`, and `github-release` automatically. The `publish` job will then pause with status **Waiting**. The designated reviewer(s) will receive a GitHub notification and must click **Review deployments → Approve and deploy** before the package is uploaded to PyPI.
+
+If no reviewer approves within 30 days, the deployment times out and must be re-triggered.
+
+## Tags and Semantic Versioning
+
+We follow [PEP 440](https://peps.python.org/pep-0440/) (the Python standard for versioning), which requires version strings to follow this specific structure:
+
 ```
+N.N.N[{a|b|rc}N][.postN][.devN]
+```
+
+The `validate_tag` job in `release.yml` enforces that a tag can be added only when the branch is `main` or `dev`, that the tag follows PEP 440, and that the version is strictly newer than all existing tags.
 
 Version strings are generated automatically by `hatch-vcs` (which uses `setuptools-scm` under the hood) via `git describe --tags`. For example, a version of `0.0.9.dev173` means:
 
@@ -147,11 +172,36 @@ Version strings are generated automatically by `hatch-vcs` (which uses `setuptoo
 
 Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This version is written to `src/pytribeam/_version.py` at build time and committed back to the repo by `release.yml` on each tagged release, so that zip archive installs also report the correct version.
 
+**Pre-release tags:**
+
+| Tag | Description |
+|---|---|
+| `v1.1.0a1` | The first alpha for version 1.1.0 |
+| `v1.1.0b2` | The second beta for version 1.1.0 |
+| `v1.1.0rc1` | The first release candidate for version 1.1.0 |
+
+A release candidate is made during the final testing stage before a full release.
+
+**Stable release tags** (e.g., starting from the `v1.0.0` release):
+
+| Tag | Description |
+|---|---|
+| `v1.0.1` | Patch release: backwards-compatible bug fixes |
+| `v1.1.0` | Minor release: new features that are backwards-compatible |
+| `v2.0.0` | Major release: significant changes or breaking API updates |
+
+**Development and post-release tags:**
+
+| Tag | Description |
+|---|---|
+| `v1.1.0.dev1` | A version currently under development |
+| `v1.0.0.post1` | Fixes a minor error in the release process (e.g., a documentation typo) without changing the code |
+
 ## Manual Release
 
-### Publish to TestPyPI (pre-release on `dev`)
+### Create a Pre-release (TestPyPI from `dev`)
 
-Use this path to validate the full release pipeline — build, attestation, GitHub Release, and PyPI publish — without touching the production package index. Tags containing `rc` or `dev` are automatically routed to TestPyPI by `release.yml`.
+Use this path to validate the full release pipeline — build, attestation, GitHub Release, and publish — without touching the production package index. Tags containing `rc` or `dev` are automatically routed to TestPyPI by `release.yml`.
 
 ```sh
 # Ensure you are on the dev branch and up to date
@@ -170,10 +220,10 @@ git add src/pytribeam/_version.py
 git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
 
 # Create a release candidate tag (rc) — this routes to TestPyPI
-git tag -a v0.0.9rc1 -m "Release candidate 1 for version 0.0.9"
+git tag -a v1.0.0rc1 -m "Release candidate 1 for version 1.0.0"
 
 # Push the tag to GitHub — this triggers release.yml
-git push origin v0.0.9rc1
+git push origin v1.0.0rc1
 ```
 
 After pushing, `release.yml` will:
@@ -187,10 +237,10 @@ After pushing, `release.yml` will:
 Verify the TestPyPI release at `https://test.pypi.org/project/pytribeam/` and test install with:
 
 ```sh
-pip install --index-url https://test.pypi.org/simple/ pytribeam==0.0.9rc1
+pip install --index-url https://test.pypi.org/simple/ pytribeam==1.0.0rc1
 ```
 
-### Publish to PyPI (production release on `main`)
+### Create a Release (PyPI from `main`)
 
 Once the pre-release is validated, merge `dev` into `main` and tag a production release. Tags without `rc` or `dev` are routed to production PyPI.
 
@@ -208,7 +258,7 @@ uv build
 
 # Stage and commit _version.py if it changed
 git add src/pytribeam/_version.py
-git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
+git diff --staged --quiet || git commit -m "chore: update _version.py for release"
 
 # Create the production release tag — this routes to PyPI
 git tag -a v1.0.0 -m "Release version 1.0.0"
@@ -217,4 +267,4 @@ git tag -a v1.0.0 -m "Release version 1.0.0"
 git push origin v1.0.0
 ```
 
-After pushing, `release.yml` will run the same pipeline as above but create a **full release** on GitHub and publish to **production PyPI**.
+After pushing, `release.yml` will run the same pipeline as above but create a **full release** on GitHub and publish to **production PyPI**. If the manual approval gate is configured on the `pypi` environment, the `publish` job will pause for reviewer sign-off before the package is uploaded.
