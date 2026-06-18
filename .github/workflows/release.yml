@@ -22,14 +22,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # Required to see all branches and tags for validation
+          fetch-depth: 0   # Required to see all commit history for tag validation
+          fetch-tags: true # Required to resolve the tag ref during branch check
 
       - name: Verify tag is on main or dev branch
         # Only tags reachable from main or dev are valid release points.
         # This prevents accidental releases from feature or hotfix branches.
+        # fetch-depth: 0 fetches all history but not all remote branch refs, so
+        # we explicitly fetch main and dev before running the reachability check.
         run: |
+          git fetch origin main dev
           TAG="${{ github.ref_name }}"
-          BRANCHES=$(git branch -r --contains "refs/tags/$TAG" | grep -E '^\s*origin/(main|dev)\s*$' || true)
+          BRANCHES=$(git branch -r --contains "refs/tags/$TAG" | grep -E 'origin/(main|dev)' || true)
           if [ -z "$BRANCHES" ]; then
             echo "ERROR: Tag '$TAG' must be created on the 'main' or 'dev' branch."
             echo "Tag is reachable from:"
