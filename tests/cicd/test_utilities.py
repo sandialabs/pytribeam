@@ -28,30 +28,35 @@ from pytribeam.cicd.utilities import (
 # region: Test get_score_color_lint
 
 
+@pytest.mark.detached
 def test_get_score_color_brightgreen():
     """Test that get_score_color returns 'brightgreen' for scores >= 8.0."""
     assert get_score_color_lint("8.5") == "brightgreen"
     assert get_score_color_lint("10") == "brightgreen"
 
 
+@pytest.mark.detached
 def test_get_score_color_yellow():
     """Test that get_score_color returns 'yellow' for scores >= 6.0 and < 8.0."""
     assert get_score_color_lint("7.9") == "yellow"
     assert get_score_color_lint("6.0") == "yellow"
 
 
+@pytest.mark.detached
 def test_get_score_color_orange():
     """Test that get_score_color returns 'orange' for scores >= 4.0 and < 6.0."""
     assert get_score_color_lint("5.9") == "orange"
     assert get_score_color_lint("4.0") == "orange"
 
 
+@pytest.mark.detached
 def test_get_score_color_red():
     """Test that get_score_color returns 'red' for scores < 4.0."""
     assert get_score_color_lint("3.9") == "red"
     assert get_score_color_lint("0") == "red"
 
 
+@pytest.mark.detached
 def test_get_score_color_invalid_input():
     """Test that get_score_color returns 'gray' for non-numeric input."""
     assert get_score_color_lint("abc") == "gray"
@@ -65,6 +70,7 @@ def test_get_score_color_invalid_input():
 # region: Test get_score_color_coverage
 
 
+@pytest.mark.detached
 def test_get_score_color_coverage():
     """Test all the colors for coverage."""
     assert get_score_color_coverage("90") == "brightgreen"
@@ -81,6 +87,7 @@ def test_get_score_color_coverage():
 # region: Test get_timestamp
 
 
+@pytest.mark.detached
 def test_get_timestamp_format():
     """Test that the get_timestamp function returns a string with the correct format."""
     timestamp_str: str = get_timestamp()
@@ -95,6 +102,7 @@ def test_get_timestamp_format():
     assert re.match(pattern, timestamp_str) is not None
 
 
+@pytest.mark.detached
 def test_get_timestamp_timezone_offsets():
     """Test that the timezone offsets in the timestamp are correct."""
     timestamp_str: str = get_timestamp()
@@ -135,6 +143,7 @@ def test_get_timestamp_timezone_offsets():
 # region: Test extend_timestamp
 
 
+@pytest.mark.detached
 def test_extend_timestamp():
     """
     Test that extend_timestamp correctly converts a short timestamp string
@@ -188,6 +197,7 @@ def test_extend_timestamp():
     assert (utc_dt - pst_dt).total_seconds() / 3600 in [7, 8]
 
 
+@pytest.mark.detached
 def test_extend_timestamp_invalid_format():
     """Test that extend_timestamp handles an invalid input format gracefully."""
     with pytest.raises(ValueError):
@@ -199,6 +209,7 @@ def test_extend_timestamp_invalid_format():
 # endregion
 
 
+@pytest.mark.detached
 def test_get_multiline_timestamp():
     """Test the multiline timestamp generation."""
     short_ts = "20240324_204412_UTC"
@@ -214,6 +225,7 @@ def test_get_multiline_timestamp():
     assert lines[4] == "2024-03-24 13:44:12 PST"
 
 
+@pytest.mark.detached
 def test_get_multiline_timestamp_rollover():
     """Test date rollover across timezones."""
     # 2:44 AM UTC on March 25 is 10:44 PM EST, 8:44 PM MST, and 7:44 PM PST on March 24
@@ -228,6 +240,7 @@ def test_get_multiline_timestamp_rollover():
     assert lines[4] == "2024-03-24 19:44:12 PST"
 
 
+@pytest.mark.detached
 def test_get_multiline_timestamp_invalid():
     """Test invalid format for multiline timestamp."""
     with pytest.raises(ValueError):

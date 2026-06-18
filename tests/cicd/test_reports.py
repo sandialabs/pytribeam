@@ -5,13 +5,14 @@ Tests for CI/CD report generation scripts.
 import argparse
 import xml.etree.ElementTree as ET
 
-from pytribeam.cicd.report_coverage import generate_report as generate_coverage_report
+import pytest
 
-# from pathlib import Path
+from pytribeam.cicd.report_coverage import generate_report as generate_coverage_report
 from pytribeam.cicd.report_lint import generate_report as generate_lint_report
 from pytribeam.cicd.utilities import ReportMetadata
 
 
+@pytest.mark.detached
 def test_generate_lint_report(tmp_path):
     """Test that report_lint generates expected HTML."""
     input_file = tmp_path / "lint.txt"
@@ -43,6 +44,7 @@ def test_generate_lint_report(tmp_path):
     assert "src/file.py" in html
 
 
+@pytest.mark.detached
 def test_generate_coverage_report(tmp_path):
     """Test that report_coverage generates expected HTML."""
     input_file = tmp_path / "coverage.xml"

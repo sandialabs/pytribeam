@@ -3,13 +3,17 @@ Tests for CI/CD badge generation script.
 """
 
 import xml.etree.ElementTree as ET
+
+import pytest
+
 from pytribeam.cicd.report_badges import (
-    get_pylint_score,
-    get_coverage_score,
     generate_badge_svg,
+    get_coverage_score,
+    get_pylint_score,
 )
 
 
+@pytest.mark.detached
 def test_get_pylint_score(tmp_path):
     """Test extracting score from pylint text."""
     lint_file = tmp_path / "report_pylint.txt"
@@ -17,6 +21,7 @@ def test_get_pylint_score(tmp_path):
     assert get_pylint_score(str(lint_file)) == "8.45"
 
 
+@pytest.mark.detached
 def test_get_coverage_score(tmp_path):
     """Test extracting score from coverage XML."""
     coverage_file = tmp_path / "report_coverage.xml"
@@ -28,6 +33,7 @@ def test_get_coverage_score(tmp_path):
     assert get_coverage_score(str(coverage_file)) == "75.0"
 
 
+@pytest.mark.detached
 def test_generate_badge_svg():
     """Test SVG content generation."""
     svg = generate_badge_svg("test-label", "test-value", "brightgreen")

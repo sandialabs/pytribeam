@@ -21,6 +21,7 @@ def mock_github_env_file(tmp_path):
         del os.environ["GITHUB_ENV"]
 
 
+@pytest.mark.detached
 def test_extract_score_valid(tmp_path):
     """Test extracting score from a valid lint output file."""
     lint_output = "Your code has been rated at 9.50/10"
@@ -29,6 +30,7 @@ def test_extract_score_valid(tmp_path):
     assert extract_score(str(file)) == 9.50
 
 
+@pytest.mark.detached
 def test_extract_score_invalid(tmp_path):
     """Test extracting score from a missing or malformed file."""
     file = tmp_path / "bad.txt"
@@ -36,6 +38,7 @@ def test_extract_score_invalid(tmp_path):
     assert extract_score(str(file)) == 0.0
 
 
+@pytest.mark.detached
 @patch("requests.get")
 def test_main_success(mock_get, tmp_path, mock_github_env_file):
     """Test main function for a successful lint badge generation."""
