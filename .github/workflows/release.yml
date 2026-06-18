@@ -145,7 +145,7 @@ jobs:
         # This allows users to cryptographically verify the integrity and origin
         # of the package — confirming it was built by this workflow and not
         # tampered with afterward.
-        uses: actions/attest-build-provenance@v1
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: 'dist/*'
 
@@ -231,7 +231,7 @@ jobs:
           path: dist/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true # Automatically generate release notes based on commits since the last release
