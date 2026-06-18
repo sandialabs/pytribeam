@@ -25,7 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Announce workflow file
-        run: echo "Workflow file: $GITHUB_WORKFLOW_REF"
+        run: |
+          echo "Workflow file: ${{ github.workflow_ref }}"
 
       - name: Checkout code
         uses: actions/checkout@v6
