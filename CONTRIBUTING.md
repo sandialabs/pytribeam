@@ -268,3 +268,9 @@ git push origin v1.0.0
 ```
 
 After pushing, `release.yml` will run the same pipeline as above but create a **full release** on GitHub and publish to **production PyPI**. If the manual approval gate is configured on the `pypi` environment, the `publish` job will pause for reviewer sign-off before the package is uploaded.
+
+Verify the PyPI release at `https://pypi.org/project/pytribeam/` and test install with:
+
+```sh
+pip install pytribeam==1.0.0
+```
