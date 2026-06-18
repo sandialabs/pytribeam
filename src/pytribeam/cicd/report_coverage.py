@@ -121,7 +121,7 @@ def get_report_html(
             max-width: 1200px; margin: 0 auto;
         }}
         .header {{
-            background: white; padding: 30px; border-radius: 8px;
+            background: #F5F5F5; padding: 30px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         .score {{
@@ -133,7 +133,7 @@ def get_report_html(
         }}
         .metadata div {{ margin-bottom: 0px; }}
         .section {{
-            background: white; padding: 20px; border-radius: 8px;
+            background: #F5F5F5; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         .footer {{ text-align: center; margin: 40px 0; color: #6a737d; font-size: 0.8em; }}

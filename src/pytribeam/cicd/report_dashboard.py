@@ -47,7 +47,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
     </style>
     </head>
     <body class="bg-[#DCDCDC] text-slate-800 antialiased min-h-screen">
-<nav class="bg-white border-b border-slate-200 sticky top-0 z-50">
+<nav class="bg-[#F5F5F5] border-b border-slate-200 sticky top-0 z-50">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
         <div class="flex items-center gap-2">
             <span class="text-xl font-bold tracking-tight text-blue-600">pyTriBeam</span>
@@ -81,7 +81,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
 
                 <div class="space-y-4">
                     <a href="main/docs/userguide/book/index.html"
-                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
                               border-slate-200 hover:border-blue-600 group">
                         <div class="flex justify-between items-start">
                             <div>
@@ -97,7 +97,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                     </a>
 
                     <a href="main/docs/api/index.html"
-                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
                               border-slate-200 hover:border-blue-600 group">
                         <div class="flex justify-between items-start">
                             <div>
@@ -114,14 +114,14 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
 
                     <div class="grid grid-cols-2 gap-4">
                         <a href="main/reports/lint/index.html"
-                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
                                   border-slate-200 hover:border-blue-600">
                             <span class="block text-xs font-bold text-slate-400
                                          uppercase mb-2">Code Quality</span>
                             <img src="main/badges/lint.svg" alt="Lint Score" class="h-5">
                         </a>
                         <a href="main/reports/coverage/index.html"
-                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
                                   border-slate-200 hover:border-blue-600">
                             <span class="block text-xs font-bold text-slate-400
                                          uppercase mb-2">Test Coverage</span>
@@ -143,7 +143,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
 
                 <div class="space-y-4">
                     <a href="dev/docs/userguide/book/index.html"
-                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
                               border-slate-200 hover:border-orange-500 group">
                         <div class="flex justify-between items-start">
                             <div>
@@ -159,7 +159,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
                     </a>
 
                     <a href="dev/docs/api/index.html"
-                       class="hover-card block p-5 bg-white rounded-xl shadow-sm border
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
                               border-slate-200 hover:border-orange-500 group">
                         <div class="flex justify-between items-start">
                             <div>
@@ -176,14 +176,14 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
 
                     <div class="grid grid-cols-2 gap-4">
                         <a href="dev/reports/lint/index.html"
-                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
                                   border-slate-200 hover:border-orange-500">
                             <span class="block text-xs font-bold text-slate-400
                                          uppercase mb-2">Code Quality</span>
                             <img src="dev/badges/lint.svg" alt="Lint Score" class="h-5">
                         </a>
                         <a href="dev/reports/coverage/index.html"
-                           class="hover-card p-4 bg-white rounded-xl shadow-sm border
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
                                   border-slate-200 hover:border-orange-500">
                             <span class="block text-xs font-bold text-slate-400
                                          uppercase mb-2">Test Coverage</span>
@@ -195,7 +195,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
 
         </div>
 
-        <section class="mt-16 bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+        <section class="mt-16 bg-[#F5F5F5] p-8 rounded-xl shadow-sm border border-slate-200">
             <h2 class="text-xl font-bold mb-4 border-b pb-2">Build Metadata</h2>
             <div class="flex flex-col gap-0 text-sm leading-tight text-slate-600">
                 <div>
@@ -221,7 +221,7 @@ def generate_dashboard_html(metadata: ReportMetadata) -> str:
         </section>
     </main>
 
-    <footer class="mt-20 py-10 border-t border-slate-200 bg-white">
+    <footer class="mt-20 py-10 border-t border-slate-200 bg-[#F5F5F5]">
         <div class="max-w-7xl mx-auto px-4 text-center">
             <p class="text-sm text-slate-400">
                 &copy; 2026 Sandia National Laboratories | Released under <a href="{github_url}/blob/main/LICENSE" class="text-blue-600 hover:underline">MIT License</a>

@@ -117,7 +117,7 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
             max-width: 1200px; margin: 0 auto;
         }}
         .header {{
-            background: white; padding: 30px; border-radius: 8px;
+            background: #F5F5F5; padding: 30px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         .score {{
@@ -129,11 +129,11 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
         }}
         .metadata div {{ margin-bottom: 0px; }}
         .section {{
-            background: white; padding: 20px; border-radius: 8px;
+            background: #F5F5F5; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         table {{
-            width: 100%; border-collapse: collapse; background: #fff;
+            width: 100%; border-collapse: collapse; background: #F5F5F5;
             border: 1px solid #e1e4e8; border-radius: 6px;
         }}
         th {{
