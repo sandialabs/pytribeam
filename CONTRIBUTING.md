@@ -40,8 +40,9 @@ uv pip install -e .[dev]
 
 We separate the concerns of test, build, release, and publish throughout the `.github/workflows/` files:
 
-* [`test.yml`](/.github/workflows/test.yml)
-* [`release.yml`](/.github/workflows/release.yml)
+* [`test-docker.yml`](/.github/workflows/test-docker.yml) — runs on every push to any branch
+* [`release.yml`](/.github/workflows/release.yml) — runs on version tag pushes (`v*`)
+* [`publish-docs-image.yml`](/.github/workflows/publish-docs-image.yml) — manually triggered to rebuild the docs builder Docker image
 
 These YAML files cover:
 
@@ -50,25 +51,33 @@ These YAML files cover:
     * **Purpose:** To ensure that the code is functional and hasn't introduced regressions (broken existing features).
     * **What happens:** Automated tools like `pytest` run your unit and integration tests. It often includes "linting" (checking code style) and type-checking.
     * **Key Outcome:** Confidence. If this stage fails, the process stops immediately, preventing broken code from ever reaching a user.
+  * **GitHub Pages (Documentation Deploy)**
+    * **Purpose:** To keep the published documentation in sync with the latest code on `dev` and `main`.
+    * **What happens:** After tests pass, `test-docker.yml` builds the user guide with `mdbook`, generates badges and HTML reports, and deploys them to the `gh-pages` branch under a `dev/` or `main/` subdirectory so both coexist.
+    * **Key Outcome:** Up-to-date documentation is always available for both the development and released versions of the project.
   * **Build (Packaging)**
     * **Purpose:** To transform your "human-readable" source code into "machine-installable" artifacts. This is the bridge between CI and CD. Once the code is verified (integrated), it can be packaged into a deployable format (Wheels/SDists).
     * **What happens:** Tools (like `python -m build`) bundle your code into standard formats, such as a Wheel (`.whl`) or a Source Distribution (`.tar.gz`).
-     * **Key Outcome:** Portability. You now have a single file (an "artifact") that contains everything needed to install your library on any compatible system.
+    * **Key Outcome:** Portability. You now have a single file (an "artifact") that contains everything needed to install your library on any compatible system.
+  * **Update Version File**
+    * **Purpose:** To ensure that users who download a zip archive (without git metadata) still get the correct version number when installing.
+    * **What happens:** After a successful build, `_version.py` is regenerated with the tagged version and committed back to the branch the tag was cut from (`main` or `dev`).
+    * **Key Outcome:** Zip installs report the correct version rather than failing or falling back to a placeholder.
   * **Release (Documentation & Tagging)**
-     * **Purpose:** To create an official "point-in-time" snapshot of the project for project management and users. It uses an immutable Git tag and GitHub Release page.
-     * **What happens:** A permanent Git tag (like v1.0.0) is assigned to a specific commit. A GitHub Release page is generated with a Changelog (i.e., What's New?) and the build artifacts are attached to it as "Release Assets."
+    * **Purpose:** To create an official "point-in-time" snapshot of the project for project management and users. It uses an immutable Git tag and GitHub Release page.
+    * **What happens:** A permanent Git tag (like v1.0.0) is assigned to a specific commit. A GitHub Release page is generated with a Changelog (i.e., What's New?) and the build artifacts are attached to it as "Release Assets."
     * **Key Outcome:** Traceability. It provides a clear history of the project's evolution and a stable place for users to download specific versions.
 * Continuous Delivery (CD)
   * **Publish (Distribution)**
-     * **Purpose:** To make the software easily available to the global ecosystem.
-     * **What happens:** The built artifacts are uploaded to a package registry, such as PyPI (the Python Package Index).
-     * **Key Outcome:** Accessibility. Once published, anyone in the world can install your software using a simple command like `pip install pytribeam`.
-  
+    * **Purpose:** To make the software easily available to the global ecosystem.
+    * **What happens:** The built artifacts are uploaded to a package registry, such as PyPI (the Python Package Index).
+    * **Key Outcome:** Accessibility. Once published, anyone in the world can install your software using a simple command like `pip install pytribeam`.
+
 Implementation details:
 
-* The reuse of `test.yml` via a `workflow_call` ensures that test logic is not duplicated.
-* **Dependency Chain:** `build` waits for `test`, and publish waits for both `build` and `github-release`.
-* **Artifact Integrity:** By building once and downing the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
+* The reuse of `test-docker.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
+* **Dependency Chain:** `build` waits for `test`; `update-version-file` and `github-release` both wait for `build` and run in parallel; `publish` waits for both `build` and `github-release`.
+* **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
 ### Trusted Publishing
@@ -124,6 +133,13 @@ We follow PEP 440 (the Python standard for versioning), which requires version s
 ```bash
 bashN.N.N[{a|b|rc}N][.postN][.devN]
 ```
+
+Version strings are generated automatically by `hatch-vcs` (which uses `setuptools-scm` under the hood) via `git describe --tags`. For example, a version of `0.0.9.dev173` means:
+
+* `0.0.9` — the most recent git tag
+* `dev173` — 173 commits have been made since that tag
+
+Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This version is written to `src/pytribeam/_version.py` at build time and committed back to the repo by `release.yml` on each tagged release, so that zip archive installs also report the correct version.
 
 To create a prerelease on TestPyPI:
 
