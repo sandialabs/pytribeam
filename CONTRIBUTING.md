@@ -61,7 +61,7 @@ These YAML files cover:
     * **Key Outcome:** Up-to-date documentation is always available for both the development and released versions of the project.
   * **Build (Packaging)**
     * **Purpose:** To transform your "human-readable" source code into "machine-installable" artifacts. This is the bridge between CI and CD. Once the code is verified (integrated), it can be packaged into a deployable format (Wheels/SDists).
-    * **What happens:** Tools (like `python -m build`) bundle your code into standard formats, such as a Wheel (`.whl`) or a Source Distribution (`.tar.gz`).
+    * **What happens:** Tools (like `uv build`) bundle your code into standard formats, such as a Wheel (`.whl`) or a Source Distribution (`.tar.gz`).
     * **Key Outcome:** Portability. You now have a single file (an "artifact") that contains everything needed to install your library on any compatible system.
   * **Update Version File**
     * **Purpose:** To ensure that users who download a zip archive (without git metadata) still get the correct version number when installing.
@@ -84,7 +84,7 @@ Implementation details:
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
-### Trusted Publishing
+## Trusted Publishing
 
 In `release.yml` we have removed the manual `-p ${{ secrets.PYPI_TOKEN }}`. The industry standard is now [**Trusted Publishing**](https://docs.pypi.org/trusted-publishers/) (also called OpenID Connect or OIDC). You configure this in your PyPI project settings once, and GitHub Actions authenticates securely without you needing to store and rotate secrets.
 
@@ -132,28 +132,6 @@ The GitHub repository itself must have both a `pypi` and a `testpypi` environmen
   * **Workflow name:** `release.yml` (this must match the filename in your `.github/workflows/` directory)
   * **Environment name:** `pypi` for live publishing to PyPI, or `testpypi` for test publishing to TestPyPI.
 * Click the **Add** button.
-
-### Manual Approval Gate
-
-By default, a tag push triggers the full release pipeline automatically — including the final publish to PyPI — with no human checkpoint. The manual approval gate pauses the `publish` job and requires a named reviewer to explicitly approve before the package is uploaded to PyPI.
-
-This is an industry-standard safeguard for production releases. It gives a release manager a final opportunity to confirm that the correct tag is being published, the changelog looks right, and no last-minute issues have been flagged.
-
-The approval gate applies only to the production `pypi` environment. The `testpypi` environment (used for pre-releases) does not require approval, since pre-releases are low-risk by design.
-
-No changes to `release.yml` are required. The `publish` job dynamically selects `environment: pypi` for stable releases or `environment: testpypi` for pre-releases — GitHub uses this environment name as the hook to enforce the approval rule.
-
-* Navigate to the repository on GitHub.
-* Click the **Settings** tab.
-* In the left sidebar under **Code and automation**, click **Environments**.
-* Click on the **pypi** environment.
-* Under **Deployment protection rules**, check the box next to **Required reviewers**.
-* In the text field that appears, type the GitHub username(s) or team name(s) who are authorized to approve a PyPI release. Add up to 6 reviewers.
-* Click **Save protection rules**.
-
-When a release tag is pushed, the pipeline will run `validate_tag`, `test`, `build`, and `github-release` automatically. The `publish` job will then pause with status **Waiting**. The designated reviewer(s) will receive a GitHub notification and must click **Review deployments → Approve and deploy** before the package is uploaded to PyPI.
-
-If no reviewer approves within 30 days, the deployment times out and must be re-triggered.
 
 ## Tags and Semantic Versioning
 
@@ -274,3 +252,27 @@ Verify the PyPI release at `https://pypi.org/project/pytribeam/` and test instal
 ```sh
 pip install pytribeam==1.0.0
 ```
+
+## Manual Approval Gate
+
+By default, a tag push triggers the full release pipeline automatically — including the final publish to PyPI — with no human checkpoint. The manual approval gate pauses the `publish` job and requires a named reviewer to explicitly approve before the package is uploaded to PyPI.
+
+This is an industry-standard safeguard for production releases. It gives a release manager a final opportunity to confirm that the correct tag is being published, the changelog looks right, and no last-minute issues have been flagged.
+
+The approval gate applies only to the production `pypi` environment. The `testpypi` environment (used for pre-releases) does not require approval, since pre-releases are low-risk by design.
+
+### Setup (GitHub Settings UI)
+
+No changes to `release.yml` are required. The `publish` job dynamically selects `environment: pypi` for stable releases or `environment: testpypi` for pre-releases — GitHub uses this environment name as the hook to enforce the approval rule.
+
+* Navigate to the repository on GitHub.
+* Click the **Settings** tab.
+* In the left sidebar under **Code and automation**, click **Environments**.
+* Click on the **pypi** environment.
+* Under **Deployment protection rules**, check the box next to **Required reviewers**.
+* In the text field that appears, type the GitHub username(s) or team name(s) who are authorized to approve a PyPI release. Add up to 6 reviewers.
+* Click **Save protection rules**.
+
+When a release tag is pushed, the pipeline will run `validate_tag`, `test`, `build`, and `github-release` automatically. The `publish` job will then pause with status **Waiting**. The designated reviewer(s) will receive a GitHub notification and must click **Review deployments → Approve and deploy** before the package is uploaded to PyPI.
+
+If no reviewer approves within 30 days, the deployment times out and must be re-triggered.
