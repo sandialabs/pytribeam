@@ -42,6 +42,12 @@ jobs:
           fi
           echo "OK: Tag '$TAG' is on:$BRANCHES"
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+
       - name: Verify tag conforms to PEP 440
         # PEP 440 defines the standard version scheme for Python packages.
         # Invalid version strings are rejected by PyPI and cause install failures.
