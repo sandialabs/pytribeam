@@ -111,3 +111,13 @@ class RightClickMenu(tk.Menu):
 
         if callable(self.callback):
             self.callback(option)
+
+    def remove(self):
+        for i in [1, 2, 3]:
+            if i == 1 and self.parent.winfo_class() == "Button":
+                self.parent["command"] = None
+                continue
+            self.parent.unbind(f"<Button-{i}>")
+            self.unbind(f"<{i}>")
+            self.unbind(f"<ButtonRelease-{i}>")
+        self.destroy()
