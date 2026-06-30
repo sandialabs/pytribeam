@@ -58,22 +58,12 @@ specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_h
 
 # Default python modules
 # from functools import singledispatch
-import os
-from pathlib import Path
 import time
 import warnings
-import math
-from typing import NamedTuple, List, Tuple
-from types import ModuleType
-
-# Autoscript included modules
-import numpy as np
-from matplotlib import pyplot as plt
 
 # 3rd party module
 
 # Local scripts
-import pytribeam.utilities as ut
 import pytribeam.constants as cs
 from pytribeam.constants import Constants
 import pytribeam.image as img
@@ -125,7 +115,9 @@ def detector_insertable(
 
     # check if it is insertable
     try:
-        microscope.detector.state
+        state = microscope.detector.state
+        if state == tbt.RetractableDeviceState.STATIONARY.value:
+            return False
         return True
     except Exception:
         return False
@@ -153,11 +145,15 @@ def detector_state(
         The state of the detector if it is insertable, None otherwise.
     """
     # check if the detector is being read by Autoscriptdevice_access(microscope)
+    # try:
+    #     return tbt.RetractableDeviceState(microscope.detector.state)
+    # except Exception:
+    #     return tbt.RetractableDeviceState.STATIONARY
     if not detector_insertable(
         microscope=microscope,
         detector=detector,
     ):
-        return None
+        return tbt.RetractableDeviceState.STATIONARY
     return tbt.RetractableDeviceState(microscope.detector.state)
 
 
@@ -457,7 +453,11 @@ def retract_all_devices(
             microscope=microscope,
             detector=detector,
         )
-        if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
+        if (
+            state is not tbt.RetractableDeviceState.STATIONARY
+            and state is not tbt.RetractableDeviceState.RETRACTED
+        ):
+            # if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
             retract_device(
                 microscope=microscope,
                 detector=detector,

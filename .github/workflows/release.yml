@@ -3,53 +3,223 @@ name: Release
 on:
   push:
     tags:
-      - 'v*' # Trigger only on version tags (e.g., v1.0.0)
-  workflow_dispatch:  # allows manual triggering of the workflow from the GitHub Actions tab
+      - 'v*'  # Trigger only on version tags (e.g., v1.0.0)
+  workflow_dispatch:  # Allows manual triggering from the GitHub Actions tab
 
-# Concurrency ensures that if you push again while a build is already running, the old one is canceled to save time.
+# Concurrency ensures that if you push again while a build is already running,
+# the old one is canceled to save time and resources.
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  # Force all JavaScript actions to run on Node 24 (The 2026 Standard)
-  # After 02 June 2026, the following line can be removed since on that date,
-  # Node.js 24 will be the GitHub default.
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true # GitHub will swtich on 02 June 2026 to Node.js 24 as the default for JavaScript actions, but until then, this ensures all actions use Node.js 24 to avoid any issues with older versions. After 02 June 2026, this line can be safely removed.
-
 jobs:
-  # 1. TEST JOB: Runs Pytest
-  test:
-    uses: ./.github/workflows/test.yml  # Reuse the test workflow defined in test.yml
-
-  # 2. BUILD: Only runs if 'test' passes
-  build:
-    needs: test
+  # 1. VALIDATE: Ensure the tag is on main or dev, conforms to PEP 440, and is
+  #    strictly newer than all existing tags. Prevents accidental releases from
+  #    feature branches and catches version string typos before anything is built.
+  validate_tag:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout code
+        uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # Required for versioning tools to see tags
+          fetch-depth: 0   # Required to see all commit history for tag validation
+          fetch-tags: true # Required to resolve the tag ref during branch check
 
-      - name: Set up uv
+      - name: Verify tag is on main or dev branch
+        # Only tags reachable from main or dev are valid release points.
+        # This prevents accidental releases from feature or hotfix branches.
+        # fetch-depth: 0 fetches all history but does not create remote tracking
+        # refs (origin/main, origin/dev). 'git fetch origin' (no branch names)
+        # fetches all remote refs and creates them, so 'git branch -r' can see them.
+        run: |
+          git fetch origin
+          TAG="${{ github.ref_name }}"
+          BRANCHES=$(git branch -r --contains "refs/tags/$TAG" | grep -E 'origin/(main|dev)' || true)
+          if [ -z "$BRANCHES" ]; then
+            echo "ERROR: Tag '$TAG' must be created on the 'main' or 'dev' branch."
+            echo "Tag is reachable from:"
+            git branch -r --contains "refs/tags/$TAG" || echo "  (no remote branches)"
+            exit 1
+          fi
+          echo "OK: Tag '$TAG' is on:$BRANCHES"
+
+      - name: Install uv
         uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.8.12'
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
+
+      - name: Verify tag conforms to PEP 440
+        # PEP 440 defines the standard version scheme for Python packages.
+        # Invalid version strings are rejected by PyPI and cause install failures.
+        # Valid examples: v1.0.0  v1.1.0a1  v1.1.0rc1  v1.0.0.post1  v1.1.0.dev1
+        # Uses uv to install 'packaging' on the fly — no separate install step needed.
+        run: |
+          uv run --with packaging python - <<'EOF'
+          import sys
+          from packaging.version import Version, InvalidVersion
+          tag = "${{ github.ref_name }}"
+          version_str = tag.lstrip("v")
+          try:
+              Version(version_str)
+              print(f"OK: '{tag}' is a valid PEP 440 version.")
+          except InvalidVersion:
+              print(f"ERROR: '{tag}' is not a valid PEP 440 version.")
+              print( "       Valid examples: v1.0.0  v1.1.0a1  v1.1.0rc1  v1.0.0.post1  v1.1.0.dev1")
+              sys.exit(1)
+          EOF
+
+      - name: Verify tag is newer than all existing tags
+        # Prevents accidentally releasing an older version over a newer one,
+        # which would confuse pip's dependency resolver and break downstream installs.
+        run: |
+          uv run --with packaging python - <<'EOF'
+          import sys
+          import subprocess
+          from packaging.version import Version, InvalidVersion
+          new_tag = "${{ github.ref_name }}"
+          new_version = Version(new_tag.lstrip("v"))
+
+          result = subprocess.run(
+              ["git", "tag"],
+              capture_output=True, text=True
+          )
+          existing_versions = []
+          for tag in result.stdout.strip().splitlines():
+              tag = tag.strip()
+              if tag == new_tag:
+                  continue  # exclude the tag being validated
+              try:
+                  existing_versions.append((Version(tag.lstrip("v")), tag))
+              except InvalidVersion:
+                  pass  # skip tags that don't conform to PEP 440
+
+          if not existing_versions:
+              print(f"OK: No existing tags to compare against. '{new_tag}' is the first release.")
+              sys.exit(0)
+
+          latest_version, latest_tag = max(existing_versions, key=lambda x: x[0])
+          if new_version <= latest_version:
+              print(f"ERROR: '{new_tag}' ({new_version}) is not newer than the existing tag '{latest_tag}' ({latest_version}).")
+              print(f"       The new tag must be strictly greater than {latest_version}.")
+              sys.exit(1)
+
+          print(f"OK: '{new_tag}' ({new_version}) is newer than the latest existing tag '{latest_tag}' ({latest_version}).")
+          EOF
+
+  # 2. TEST: Only runs if validation passes. Reuses test-docker.yml via workflow_call
+  #    to avoid duplicating test logic across workflows.
+  test:
+    needs: validate_tag
+    uses: ./.github/workflows/test-docker.yml  # Reuse the test workflow defined in test-docker.yml
+
+  # 3. BUILD: Only runs if 'test' passes. Produces the wheel and sdist artifacts
+  #    used by all downstream jobs (update-version-file, github-release, publish).
+  #    Also generates a SLSA provenance attestation for supply chain security.
+  build:
+    name: Build Distribution and Generate Attestation
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write    # Required for SLSA attestation signing
+      attestations: write  # Required for SLSA attestation generation
+      contents: read     # Required to read repository contents for versioning and building
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0   # Required for versioning tools to see all tags
+          fetch-tags: true # Required for hatch-vcs to resolve the clean tag version
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
 
       - name: Build
         run: uv build
 
+      - name: Generate artifact attestation
+        # Creates a SLSA provenance attestation for the build artifacts.
+        # This allows users to cryptographically verify the integrity and origin
+        # of the package — confirming it was built by this workflow and not
+        # tampered with afterward.
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: 'dist/*'
+
       - name: Upload build artifacts
+        # Artifacts are uploaded once here and downloaded by github-release and
+        # publish, ensuring the exact same files are used throughout the pipeline.
         uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
 
-  # 3. GITHUB RELEASE: Creates the release on GitHub and attaches the build files
+  # 4. UPDATE VERSION FILE: Commits the regenerated _version.py back to whichever
+  #    branch (main or dev) the tag was cut from, so that zip downloads of this tag
+  #    contain the correct version without requiring git metadata.
+  #    Runs in parallel with github-release after build succeeds.
+  update-version-file:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Determine target branch
+        # Detects whether the tag was cut from main or dev so _version.py is
+        # committed back to the correct branch.
+        id: target
+        run: |
+          BRANCH=$(git branch -r --contains HEAD | grep -E 'origin/(main|dev)' | head -1 | sed 's|.*origin/||' | tr -d ' ')
+          echo "branch=${BRANCH:-main}" >> $GITHUB_OUTPUT
+
+      - name: Checkout target branch
+        run: git checkout ${{ steps.target.outputs.branch }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Regenerate _version.py
+        run: uv build
+
+      - name: Patch _version.py header
+        run: |
+          # setuptools-scm regenerates _version.py with its default header on every
+          # build. Replace those lines with text that reflects our intent to track
+          # this file in version control.
+          sed -i 's|^# file generated by setuptools-scm$|# file generated by setuptools-scm, intentionally tracked in version control|' src/pytribeam/_version.py
+          sed -i "s|^# don't change, don't track in version control$|# do not edit manually — regenerated automatically by release.yml on each tagged release|" src/pytribeam/_version.py
+
+      - name: Commit _version.py to target branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add src/pytribeam/_version.py
+          git diff --staged --quiet || git commit -m "chore: update _version.py to ${{ github.ref_name }}"
+          git push origin ${{ steps.target.outputs.branch }}
+
+  # 5. GITHUB RELEASE: Creates the GitHub Release page and attaches build artifacts.
+  #    Runs in parallel with update-version-file after build succeeds.
+  #    Tags containing 'rc', 'dev', 'a', or 'b' are automatically marked as pre-releases.
   github-release:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/') # Only release on actual tags; guards against any future non-tag triggers
     runs-on: ubuntu-latest
     permissions:
       contents: write # Needed to create releases and upload assets
@@ -61,21 +231,27 @@ jobs:
           path: dist/
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/*
           generate_release_notes: true # Automatically generate release notes based on commits since the last release
           draft: false # Set to true if you want to create a draft release instead of publishing immediately
-          prerelease: false # Set to true if this is a pre-release (e.g., alpha, beta)
+          prerelease: ${{ contains(github.ref, 'rc') || contains(github.ref, 'dev') || contains(github.ref, 'a') || contains(github.ref, 'b') }} # Mark as pre-release if tag contains rc, dev, a, or b
 
-  # 4. PUBLISH: Only runs if 'build' passes
+  # 6. PUBLISH: Runs after both build and github-release succeed.
+  #    Routes pre-release tags (containing 'rc' or 'dev') to TestPyPI so they
+  #    can be validated without polluting the production package index.
+  #    Production tags go to PyPI.
+  #    Manual approval gate can be configured on the 'pypi' GitHub environment
+  #    (Settings → Environments → pypi → Required reviewers).
   publish:
-    needs: [build, github-release] # Ensure both build and GitHub release steps succeed before publishing
+    name: Publish to PyPI or TestPyPI
+    needs: [build, github-release] # Ensure both build and GitHub release succeed before publishing
     runs-on: ubuntu-latest
-    # Optional: Use environment protection rule for manual approval before publishing
-    environment: pypi
+    # Route to testpypi for pre-release tags (rc, dev); production PyPI otherwise.
+    environment: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 'testpypi' || 'pypi' }}
     permissions:
-      id-token: write # Needed for authentication with PyPI using GitHub Actions
+      id-token: write # Needed for Trusted Publishing (OIDC) authentication with PyPI
     steps:
       - name: Download build artifacts
         uses: actions/download-artifact@v7
@@ -83,5 +259,10 @@ jobs:
           name: dist
           path: dist/
 
-      - name: Publish to PyPI
+      - name: Trusted Publish to TestPyPI or PyPI
+        # Uses Trusted Publishing (OIDC) — no API token or password required.
+        # Pre-release tags (rc/dev) publish to TestPyPI; all others go to production PyPI.
+        # Production PyPI uses the default repository URL (empty string = default PyPI URL).
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: ${{ (contains(github.ref, 'rc') || contains(github.ref, 'dev')) && 'https://test.pypi.org/legacy/' || '' }}
