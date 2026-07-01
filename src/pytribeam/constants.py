@@ -156,8 +156,6 @@ class Constants(NamedTuple):
     pre_lasing_dataset_name = "Laser Power Before"
     post_lasing_dataset_name = "Laser Power After"
     specimen_current_dataset_name = "Specimen Current"
-    ebsd_camera_saturation_dataset_name = "Camera Saturation"
-    ebsd_average_ci_dataset_name = "Average CI"
     settings_dtype = np.dtype(
         [
             ("Slice", "<u4"),
@@ -191,22 +189,6 @@ class Constants(NamedTuple):
         [
             ("Slice", "<u4"),
             ("Current", "<f8"),
-            ("Timestamp", h5py.special_dtype(vlen=str)),
-            ("UNIX time", "<u8"),
-        ]
-    )
-    ebsd_camera_saturation_dtype = np.dtype(
-        [
-            ("Slice", "<u4"),
-            ("Saturation", "<f8"),
-            ("Timestamp", h5py.special_dtype(vlen=str)),
-            ("UNIX time", "<u8"),
-        ]
-    )
-    ebsd_average_ci_dtype = np.dtype(
-        [
-            ("Slice", "<u4"),
-            ("CI", "<f8"),
             ("Timestamp", h5py.special_dtype(vlen=str)),
             ("UNIX time", "<u8"),
         ]
@@ -282,13 +264,6 @@ class Constants(NamedTuple):
     min_map_time_s = 30
     specimen_current_hfw_mm = 1.0e-3
     specimen_current_delay_s = 2.0
-    ebsd_camera_saturation_hfw_mm = 1.0e-3
-    ebsd_camera_saturation_delay_s = 2.0
-    # If a scan is supposed to take 1 minute, throw an error if it hasn't finished in edax_timeout_scalar * 1 minute
-    edax_timeout_scalar = 3
-    edax_map_start_delay_s = 10.0
-    edax_map_status_interval_s = 10.0
-    EDAX_GUID = "7b093500-6e8e-4657-bf45-03bc05ce8a32"
 
     # Test suite constants
     test_hardware_movement = True
@@ -301,7 +276,6 @@ class Constants(NamedTuple):
         "daasplus2134w11",
     ]
     microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
-    microscope_with_edax_machines = ["HPN276-MPC"]
 
     # error message display constants
     default_column_count = 3  # for printing large lists of values
