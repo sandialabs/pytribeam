@@ -44,11 +44,11 @@ Thumbs.db
 # *.log
 
 # Test results
-# *.coverage
-# *.cover
-# nosetests.xml
-# coverage.xml
-# *.hypothesis/
+*.coverage
+*.cover
+nosetests.xml
+coverage.xml
+*.hypothesis/
 
 # Other files to ignore
 *.sqlite3
