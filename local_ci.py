@@ -492,6 +492,19 @@ def build_combined_coverage() -> None:
             encoding="utf-8",
         )
 
+    for coverage_file in coverage_files:
+        run_to_log(
+            ["coverage", "html", "-d", str(coverage_file.parent / "htmlcov"), "--data-file", str(coverage_file)],
+            COVERAGE_HTML_LOG,
+            spinner_message="Generating HTML coverage report",
+        )
+        run_to_log(
+            ["coverage", "xml", "-o", str(coverage_file.parent / "coverage.xml"), "--data-file", str(coverage_file)],
+            COVERAGE_XML_LOG,
+            spinner_message="Generating XML coverage report",
+        )
+
+
     run_to_log(
         ["coverage", "html", "-d", str(combined_dir / "htmlcov")],
         COVERAGE_HTML_LOG,
@@ -515,6 +528,8 @@ def make_test_coverage_badge() -> None:
         root = ET.parse(xml_path).getroot()
         lines_covered = int(root.attrib["lines-covered"])
         lines_valid = int(root.attrib["lines-valid"])
+        branches_covered = int(root.attrib["branches-covered"])
+        branches_valid = int(root.attrib["branches-valid"])
     except Exception:
         print(f"WARNING: Could not parse coverage totals from {xml_path}")
         return
@@ -523,7 +538,9 @@ def make_test_coverage_badge() -> None:
         print(f"WARNING: Could not parse coverage totals from {xml_path}")
         return
 
-    pct = (lines_covered / lines_valid) * 100.0
+    total_covered = lines_covered + branches_covered
+    total_valid = lines_valid + branches_valid
+    pct = (total_covered / total_valid) * 100.0
     pct_str = f"{pct:.1f}"
     color = badge_color(pct)
 
