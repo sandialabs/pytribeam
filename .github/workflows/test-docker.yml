@@ -72,7 +72,7 @@ jobs:
         run: |
           echo "Found a .coverage file"
           coverage html
-          coverage xml
+          coverage xml -o report_coverage.xml
 
       - name: If no .coverage exists
         if: ${{ hashFiles('.coverage') == '' }}
