@@ -71,8 +71,8 @@ jobs:
         if: ${{ hashFiles('.coverage') != '' }}
         run: |
           echo "Found a .coverage file"
-          coverage html
-          coverage xml -o report_coverage.xml
+          uv run coverage html
+          uv run coverage xml -o report_coverage.xml
 
       - name: If no .coverage exists
         if: ${{ hashFiles('.coverage') == '' }}
