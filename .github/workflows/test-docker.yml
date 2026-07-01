@@ -83,7 +83,7 @@ jobs:
       - name: Upload HTML Coverage Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: report_coverage
+          name: report-coverage
           path: |
             htmlcov/
             report_coverage.xml
