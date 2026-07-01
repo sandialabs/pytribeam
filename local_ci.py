@@ -494,16 +494,29 @@ def build_combined_coverage() -> None:
 
     for coverage_file in coverage_files:
         run_to_log(
-            ["coverage", "html", "-d", str(coverage_file.parent / "htmlcov"), "--data-file", str(coverage_file)],
+            [
+                "coverage",
+                "html",
+                "-d",
+                str(coverage_file.parent / "htmlcov"),
+                "--data-file",
+                str(coverage_file),
+            ],
             COVERAGE_HTML_LOG,
             spinner_message="Generating HTML coverage report",
         )
         run_to_log(
-            ["coverage", "xml", "-o", str(coverage_file.parent / "coverage.xml"), "--data-file", str(coverage_file)],
+            [
+                "coverage",
+                "xml",
+                "-o",
+                str(coverage_file.parent / "coverage.xml"),
+                "--data-file",
+                str(coverage_file),
+            ],
             COVERAGE_XML_LOG,
             spinner_message="Generating XML coverage report",
         )
-
 
     run_to_log(
         ["coverage", "html", "-d", str(combined_dir / "htmlcov")],
