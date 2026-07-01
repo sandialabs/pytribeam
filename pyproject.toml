@@ -38,6 +38,7 @@ dev = [
     "interrogate",
     "requests",
     "ruff",
+    "coverage==7.5.1",
 ]
 
 # pdoc configuration
