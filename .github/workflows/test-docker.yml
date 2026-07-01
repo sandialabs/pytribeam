@@ -63,16 +63,27 @@ jobs:
           name: report-lint
           path: report_lint.txt
 
-      - name: Run Pytest
-        run: uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+      # # runs pytest on detached only
+      # - name: Run Pytest
+      #   run: uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
 
-      - name: Upload Coverage Artifacts
+      - name: If .coverage exists
+        if: ${{ hashFiles('.coverage') != '' }}
+        run: |
+          echo "Found a .coverage file"
+          coverage html
+
+      - name: If no .coverage exists
+        if: ${{ hashFiles('.coverage') == '' }}
+        run: |
+          echo "Did not find a .coverage file"
+          uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=html:htmlcov
+
+      - name: Upload HTML Coverage Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: report-coverage
-          path: |
-            report_coverage.xml
-            htmlcov/
+          name: html-coverage-report
+          path: htmlcov/
 
   github-pages:
     name: Create Github Pages

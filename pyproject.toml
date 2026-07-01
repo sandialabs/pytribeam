@@ -119,9 +119,9 @@ branch = true
 relative_files = true
 source = [
     "src",
-    "C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src",
-    "C:/Users/User/Documents/pytribeam/src",
-    "C:/Users/apolon/Codebases/pytribeam/src",
+    # "C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src",
+    # "C:/Users/User/Documents/pytribeam/src",
+    # "C:/Users/apolon/Codebases/pytribeam/src",
 ]
 omit = [
     "src/pytribeam/GUI/CustomTkinterWidgets/*",
@@ -134,12 +134,12 @@ omit = [
 [tool.coverage.paths]
 pytribeam = [
     "src/pytribeam",
-    "*/pytribeam/src/pytribeam",
-    "*\\pytribeam\\src\\pytribeam",
-    "C:\\Users\\User\\Desktop\\Polonsky\\____SOFTWARE\\pytribeam-dev\\src\\pytribeam",
-    "C:\\Users\\User\\Documents\\pytribeam\\src\\pytribeam",
-    "C:\\Users\\apolon\\Codebases\\pytribeam\\src\\pytribeam",
-    "E:\\pytribeam\\src\\pytribeam",
+    # "*/pytribeam/src/pytribeam",
+    # "*\\pytribeam\\src\\pytribeam",
+    # "C:\\Users\\User\\Desktop\\Polonsky\\____SOFTWARE\\pytribeam-dev\\src\\pytribeam",
+    # "C:\\Users\\User\\Documents\\pytribeam\\src\\pytribeam",
+    # "C:\\Users\\apolon\\Codebases\\pytribeam\\src\\pytribeam",
+    # "E:\\pytribeam\\src\\pytribeam",
 ]
 
 [tool.coverage.report]  # Coverage is used for test coverage reports
