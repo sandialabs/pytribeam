@@ -43,7 +43,11 @@ class CoverageMetric:
         """
         return (
             # (self.lines_covered / self.lines_valid * 100)
-            ((self.lines_covered + self.branches_covered) / (self.lines_valid + self.branches_valid) * 100)
+            (
+                (self.lines_covered + self.branches_covered)
+                / (self.lines_valid + self.branches_valid)
+                * 100
+            )
             if self.lines_valid > 0
             else 0.0
         )
