@@ -4,7 +4,9 @@ name: Test-Docker
 on:
   push:
     branches:
-      - '**'
+      # - '**'
+      - dev
+      - main
   workflow_dispatch:
   workflow_call:
 
@@ -295,4 +297,14 @@ jobs:
           git add .
           # Skip commit if nothing changed (e.g. re-run with no code changes)
           git diff --staged --quiet || git commit -m "Deploy ${{ env.DEPLOY_SUBDIR }} docs from ${{ github.sha }}"
-          git push origin gh-pages
+          # Retry around git push to reduce intermittent queue/race/network issues
+          n=0
+          until [ "$n" -ge 3 ]
+          do
+            git push origin gh-pages && break
+            n=$((n+1))
+            echo "Push failed, retry $n/3 after rebase..."
+            git pull --rebase origin gh-pages || true
+            sleep $((5*n))
+          done
+          [ "$n" -lt 3 ] || (echo "Failed to push gh-pages after retries" && exit 1)
