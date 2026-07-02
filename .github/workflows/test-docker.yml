@@ -95,6 +95,8 @@ jobs:
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/gui_tests'
     permissions:
       contents: write  # Required to push commits to the gh-pages branch
+      pages: write     # Required for GitHub Pages deployment
+      id-token: write  # Required for OIDC-based Pages deployment
       packages: read   # Required to pull the docs-builder container image
 
     # Serialize all gh-pages deployments across branches into a single queue.
