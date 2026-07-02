@@ -33,6 +33,8 @@ class CoverageMetric:
 
     lines_valid: int = 0
     lines_covered: int = 0
+    branches_valid: int = 0
+    branches_covered: int = 0
 
     @property
     def coverage(self) -> float:
@@ -40,7 +42,8 @@ class CoverageMetric:
         Calculates the coverage percentage.
         """
         return (
-            (self.lines_covered / self.lines_valid * 100)
+            # (self.lines_covered / self.lines_valid * 100)
+            ((self.lines_covered + self.branches_covered) / (self.lines_valid + self.branches_valid) * 100)
             if self.lines_valid > 0
             else 0.0
         )
@@ -62,9 +65,13 @@ def get_coverage_metric(coverage_file: Path) -> CoverageMetric:
         root = tree.getroot()
         lines_valid = int(root.attrib["lines-valid"])
         lines_covered = int(root.attrib["lines-covered"])
+        branches_valid = int(root.attrib["branches-valid"])
+        branches_covered = int(root.attrib["branches-covered"])
         return CoverageMetric(
             lines_valid=lines_valid,
             lines_covered=lines_covered,
+            branches_valid=branches_valid,
+            branches_covered=branches_covered,
         )
     except (FileNotFoundError, ET.ParseError, KeyError, AttributeError) as e:
         print(f"Error processing coverage file: {e}")
@@ -147,6 +154,8 @@ def get_report_html(
             <div class="metadata">
                 <div><strong>Lines Covered:</strong> {coverage_metric.lines_covered}</div>
                 <div><strong>Total Lines:</strong> {coverage_metric.lines_valid}</div>
+                <div><strong>Branches Covered:</strong> {coverage_metric.branches_covered}</div>
+                <div><strong>Total Branches:</strong> {coverage_metric.branches_valid}</div>
                 <div><strong>Generated:</strong> {timestamp_ext}</div>
                 <div><strong>Run ID:</strong>
                     <a href="{run_url}">{metadata.run_id}</a></div>
