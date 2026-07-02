@@ -177,6 +177,60 @@ A release candidate is made during the final testing stage before a full release
 
 ## Manual Release
 
+### Understanding the Tag Validation Race Condition
+
+The `release.yml` workflow includes a `validate_tag` job that checks whether a tag is reachable from `origin/main` or `origin/dev`. This validation uses:
+
+```bash
+git branch -r --contains refs/tags/v1.0.0rc1
+```
+
+This command returns which remote branches contain the commit that the tag points to. The validation **fails** if the tag points to a commit that doesn't exist on the remote branch yet.
+
+**How the race condition occurs:**
+
+1. You create tag `v1.0.0rc1` locally on commit `abc123`
+2. You run `git push origin v1.0.0rc1` (pushes only the tag)
+3. Commit `abc123` has NOT been pushed to `origin/dev` yet
+4. GitHub receives the tag but when CI runs validation:
+   - It checks: "Is commit `abc123` on `origin/dev`?"
+   - Answer: No (the commit was never pushed to the branch)
+   - Result: Validation fails with "Tag must be created on 'main' or 'dev' branch"
+
+**Why it happens:**
+- Tags and commits are separate refs in git
+- Pushing a tag does NOT automatically push the commits it points to
+- If the branch tip hasn't been pushed, the commit behind the tag won't exist on the remote yet
+
+**Prevention:**
+Always push your branch commits FIRST, then push the tag. This ensures the commit exists on the remote before the tag references it.
+
+**Correct push order:**
+```bash
+git push origin dev        # Push the branch (includes all commits)
+git push origin v1.0.0rc1  # Push the tag (now it points to an existing remote commit)
+```
+
+**Incorrect push order (causes race condition):**
+```bash
+git push origin v1.0.0rc1  # Push tag first
+git push origin dev        # Push branch second (too late — CI already validated)
+```
+
+### Pre-flight Check
+
+Before creating any release, run the preflight script to verify your repository state:
+
+```sh
+python preflight.py --release
+```
+
+This will verify:
+- You are on the correct branch (`main` or `dev`)
+- All local commits are pushed to the remote
+- No unpushed changes remain
+- The repository is ready for tagging
+
 ### Create a Pre-release (TestPyPI from `dev`)
 
 Use this path to validate the full release pipeline — build, attestation, GitHub Release, and publish — without touching the production package index. Tags containing `rc` or `dev` are automatically routed to TestPyPI by `release.yml`.
@@ -197,10 +251,14 @@ uv build
 git add src/pytribeam/_version.py
 git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
 
+# Push branch commits to remote FIRST (prevents race condition)
+git push origin dev
+
 # Create a release candidate tag (rc) — this routes to TestPyPI
 git tag -a v1.0.0rc1 -m "Release candidate 1 for version 1.0.0"
 
 # Push the tag to GitHub — this triggers release.yml
+# The tag now points to a commit already on origin/dev, so CI validation will succeed
 git push origin v1.0.0rc1
 ```
 
@@ -222,26 +280,33 @@ pip install --index-url https://test.pypi.org/simple/ pytribeam==1.0.0rc1
 
 Once the pre-release is validated, merge `dev` into `main` and tag a production release. Tags without `rc` or `dev` are routed to production PyPI.
 
+**Pre-flight check:** Run `python preflight.py --release` before proceeding.
+
 ```sh
 # Merge dev into main
 git checkout main
+git pull origin main
 git merge dev
 git push origin main
 
 # View existing tags to confirm the next version
 git tag
 
-# Regenerate _version.py so the committed file matches the tag you are about to create
+# Regenerate _version.py so the committed file matches the tag
 uv build
 
 # Stage and commit _version.py if it changed
 git add src/pytribeam/_version.py
 git diff --staged --quiet || git commit -m "chore: update _version.py for release"
 
+# Push main branch to remote FIRST (prevents race condition)
+git push origin main
+
 # Create the production release tag — this routes to PyPI
 git tag -a v1.0.0 -m "Release version 1.0.0"
 
 # Push the tag to GitHub — this triggers release.yml
+# The tag now points to a commit already on origin/main, so CI validation will succeed
 git push origin v1.0.0
 ```
 
