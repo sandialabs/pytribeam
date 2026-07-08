@@ -107,11 +107,11 @@ jobs:
           print(f"OK: '{new_tag}' ({new_version}) is newer than the latest existing tag '{latest_tag}' ({latest_version}).")
           EOF
 
-  # 2. TEST: Only runs if validation passes. Reuses test-docker.yml via workflow_call
+  # 2. TEST: Only runs if validation passes. Reuses ci.yml via workflow_call
   #    to avoid duplicating test logic across workflows.
   test:
     needs: validate_tag
-    uses: ./.github/workflows/test-docker.yml  # Reuse the test workflow defined in test-docker.yml
+    uses: ./.github/workflows/ci.yml  # Reuse the test workflow defined in ci.yml
 
   # 3. BUILD: Only runs if 'test' passes. Produces the wheel and sdist artifacts
   #    used by all downstream jobs (update-version-file, github-release, publish).

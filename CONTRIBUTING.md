@@ -40,7 +40,7 @@ uv pip install -e .[dev]
 
 We separate the concerns of test, build, release, and publish throughout the `.github/workflows/` files:
 
-* [`test-docker.yml`](/.github/workflows/test-docker.yml) — runs on every push to any branch
+* [`ci.yml`](/.github/workflows/ci.yml) — runs on every push to any branch
 * [`release.yml`](/.github/workflows/release.yml) — runs on version tag pushes (`v*`)
 * [`publish-docs-image.yml`](/.github/workflows/publish-docs-image.yml) — manually triggered to rebuild the docs builder Docker image
 
@@ -57,7 +57,7 @@ These YAML files cover:
     * **Key Outcome:** Confidence. If this stage fails, the process stops immediately, preventing broken code from ever reaching a user.
   * **GitHub Pages (Documentation Deploy)**
     * **Purpose:** To keep the published documentation in sync with the latest code on `dev` and `main`.
-    * **What happens:** After tests pass, `test-docker.yml` builds the user guide with `mdbook`, generates badges and HTML reports, and deploys them to the `gh-pages` branch under a `dev/` or `main/` subdirectory so both coexist.
+    * **What happens:** After tests pass, `ci.yml` builds the user guide with `mdbook`, generates badges and HTML reports, and deploys them to the `gh-pages` branch under a `dev/` or `main/` subdirectory so both coexist.
     * **Key Outcome:** Up-to-date documentation is always available for both the development and released versions of the project.
   * **Build (Packaging)**
     * **Purpose:** To transform your "human-readable" source code into "machine-installable" artifacts. This is the bridge between CI and CD. Once the code is verified (integrated), it can be packaged into a deployable format (Wheels/SDists).
@@ -79,7 +79,7 @@ These YAML files cover:
 
 Implementation details:
 
-* The reuse of `test-docker.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
+* The reuse of `ci.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
 * **Dependency Chain:** `test` waits for `validate_tag`; `build` waits for `test`; `update-version-file` and `github-release` both wait for `build` and run in parallel; `publish` waits for both `build` and `github-release`.
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
