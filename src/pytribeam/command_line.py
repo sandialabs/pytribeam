@@ -134,7 +134,7 @@ def run_experiment():
 
 def work_in_progress():
     """
-    Prints the 'Work in Progress (WIP)' warning message.
+    Prints the 'Work in Progress (WIP)' warning message to the console.
 
     This function prints a warning message indicating that the function is a
     work in progress and has not yet been implemented.
