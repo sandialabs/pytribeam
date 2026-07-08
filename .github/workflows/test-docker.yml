@@ -99,16 +99,24 @@ jobs:
       contents: read
       packages: read
 
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_tag: autoscript_4.8.1-py3.8.12
+            wheelset: autoscript_4.8.1-py3.8.12
+
     container:
-      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:autoscript_4.8.1-py3.8.12
+      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
     env:
-      WHEELSET: autoscript_4.8.1-py3.8.12
+      WHEELSET: ${{ matrix.wheelset }}
       UV_SYSTEM_CERTS: "true"
       UV_LINK_MODE: copy
+      UV_PROJECT_ENVIRONMENT: /opt/venv
 
     steps:
       - name: Checkout code
@@ -117,43 +125,25 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify base environment
+      - name: Verify environment
         run: |
-          unset UV_NATIVE_TLS || true
           python --version
           uv --version
+          uv pip list
           ls -la /opt/vendor-wheels/${WHEELSET}
 
-      - name: Install project dependencies, vendor wheels, and pdoc runtime deps
+      - name: Install project into image venv
         run: |
-          unset UV_NATIVE_TLS || true
+          # /opt/venv already contains vendor wheels and pdoc deps.
+          # --inexact prevents uv from removing those extra installed packages.
+          uv sync --all-extras --dev --inexact --python /opt/venv/bin/python
 
-          # Force uv to use the Python version in the image.
-          uv sync --all-extras --dev --python /opt/venv/bin/python
-
-          # Install vendor wheels into the project .venv used by uv run.
-          uv pip install --python .venv/bin/python \
-            /opt/vendor-wheels/${WHEELSET}/*.whl
-
-          # Install pdoc-only runtime deps.
-          # Prefer a curated pdoc requirements file if present.
-          if [ -f /opt/vendor-wheels/${WHEELSET}/requirements-pdoc.txt ]; then
-            uv pip install --python .venv/bin/python \
-              -r /opt/vendor-wheels/${WHEELSET}/requirements-pdoc.txt
-          else
-            uv pip install --python .venv/bin/python \
-              "pandas==1.3.2" \
-              "opencv-python-headless==4.6.0.66"
-          fi
-
-          # Verify key imports.
           uv run python -c "import pandas; print('pandas import ok')"
-          uv run python -c "import cv2; print('cv2 import ok')"
           uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          uv run python -c "import pytribeam; print('pytribeam import ok')"
 
       - name: Build API Documentation
         run: |
-          unset UV_NATIVE_TLS || true
           rm -rf docs/api
           uv run pdoc src/pytribeam -o docs/api
 
@@ -162,7 +152,7 @@ jobs:
         with:
           name: docs-api
           path: docs/api
-
+          
   github-pages:
     name: Create Github Pages
     needs:
