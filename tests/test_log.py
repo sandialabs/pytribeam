@@ -55,20 +55,11 @@ def test_experiment_settings():
         yml_path=known_yml,
     )
 
-    found_yml = temp_dir.joinpath("test_settings.yml")
-    log.yml_from_log(
-        log_path_h5=temp_file,
-        output_path_yml=found_yml,
-        row=0,
-    )
-
-    with open(known_yml, "r") as f:
-        known = yaml.safe_load(f)
-    with open(found_yml, "r") as f:
-        found = yaml.safe_load(f)
-    assert known == found
-
-    ut.remove_directory(directory=temp_dir)
+        with open(yml_path, "r") as f:
+            known = yaml.safe_load(f)
+        with open(yml_path_out, "r") as f:
+            found = yaml.safe_load(f)
+        assert known == found
 
 
 def test_position():

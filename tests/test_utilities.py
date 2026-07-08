@@ -25,11 +25,8 @@ def test_dir() -> str:
     return str(Path(__file__).parent.joinpath("files"))
 
 
-#### tests ####
-
-
-@ut.hardware_movement
-def test_decorator_hardware_movement():
+@pytest.mark.simulated
+def test_microscope_connection(verify_stdout):
     microscope = tbt.Microscope()
     microscope.connect()
     devices.device_access(microscope=microscope)
@@ -303,12 +300,74 @@ def test_yaml_to_dict(test_dir):
         },
     }
 
-    found_db = ut.yml_to_dict(
-        yml_path_file=aa,
-        version=1.0,
-        required_keys=(
-            "general",
-            "config_file_version",
-        ),
-    )
-    assert known_db == found_db
+        assert known_db == found_db
+
+    @pytest.mark.simulated
+    def test_read_step_settings(self, config_factory):
+        test_file = config_factory("image_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+        step_name, step_settings = ut.step_settings(
+            exp_settings=db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+        assert step_name == "image_test"
+
+        known_step_settings = {
+            "step_general": {
+                "step_number": 1,
+                "step_type": "image",
+                "frequency": 1,
+                "stage": {
+                    "rotation_side": "fsl_mill",
+                    "initial_position": {
+                        "x_mm": 1.0,
+                        "y_mm": 2.0,
+                        "z_mm": 5.0,
+                        "t_deg": 0.0,
+                        "r_deg": -50.0,
+                    },
+                },
+            },
+            "beam": {
+                "type": "electron",
+                "voltage_kv": 5.0,
+                "voltage_tol_kv": 0.5,
+                "current_na": 6.4,
+                "current_tol_na": 0.3,
+                "hfw_mm": 0.9,
+                "working_dist_mm": 4.093,
+                "dynamic_focus": False,
+                "tilt_correction": False,
+            },
+            "detector": {
+                "type": "ETD",
+                "mode": "SecondaryElectrons",
+                "brightness": 0.2,
+                "contrast": 0.3,
+                "auto_cb": {
+                    "left": None,
+                    "top": None,
+                    "width": None,
+                    "height": None,
+                },
+            },
+            "scan": {
+                "rotation_deg": 180,
+                "dwell_time_us": 1.0,
+                "resolution": "768x512",
+            },
+            "bit_depth": 8,
+        }
+        assert step_settings == known_step_settings

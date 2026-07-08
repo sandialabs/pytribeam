@@ -103,13 +103,13 @@ def test_active_image_settings():
     )
     found_detector = factory.active_detector_settings(microscope=microscope)
 
-    assert found_detector.type == pytest.approx(known_detector.type)
-    assert found_detector.mode == pytest.approx(known_detector.mode)
-    assert found_detector.brightness == pytest.approx(known_detector.brightness)
-    assert found_detector.contrast == pytest.approx(known_detector.contrast)
-    assert found_detector.auto_cb_settings.left == pytest.approx(
-        known_detector.auto_cb_settings.left
-    )
+    @pytest.mark.hardware
+    def test_active_imaging_device_invalid(self, microscope):
+        active_device = microscope.imaging.get_active_device()
+        microscope.imaging.set_active_device(3)
+        with pytest.raises(ValueError):
+            factory.active_imaging_device(microscope=microscope)
+        microscope.imaging.set_active_device(active_device)
 
     # scanning
     microscope.beams.electron_beam.scanning.rotation.value = (
@@ -247,6 +247,20 @@ def test_image(test_dir):
             microscope=microscope,
             step_settings=new_db,
             yml_format=yml_format,
+        )
+
+        assert image_object.beam.type == tbt.BeamType.ELECTRON
+        assert image_object.beam.settings.current_na == pytest.approx(6.4)
+        assert image_object.beam.settings.current_tol_na == pytest.approx(0.3)
+        assert image_object.bit_depth == tbt.ColorDepth.BITS_8
+        assert image_object.bit_depth == 8
+        assert image_object.detector.auto_cb_settings.height == None
+        assert image_object.scan.resolution.value == "768x512"
+        assert image_object.scan.resolution == tbt.PresetResolution.PRESET_768X512
+
+        # Make sure the Step function matched the above object
+        step_image_object = factory.step(
+            microscope=microscope,
             step_name=image_step_name,
         )
     assert err.type == SchemaError
@@ -482,23 +496,267 @@ def test_fib(test_dir):
         microscope=microscope,
         image=tbt.ImageSettings(
             microscope=microscope,
-            beam=tbt.IonBeam(
+            step_settings=ebsd_step_settings,
+            step_name=ebsd_step_name,
+            yml_format=yml_format,
+        )
+
+        assert ebsd_object.image.beam.settings.tilt_correction == True
+
+        # Make sure the Step function matched the above object
+        step_ebsd_object = factory.step(
+            microscope=microscope,
+            step_name=ebsd_step_name,
+            step_settings=ebsd_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert ebsd_object == step_ebsd_object.operation_settings
+
+    @pytest.mark.simulated
+    def test_eds(self, config_factory, general_settings, microscope):
+        # read config
+        test_file = config_factory("eds_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+        # get image step settings
+        eds_step_name, eds_step_settings = ut.step_settings(
+            db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+
+        ## create image object
+        eds_object = factory.eds(
+            microscope=microscope,
+            step_settings=eds_step_settings,
+            step_name=eds_step_name,
+            yml_format=yml_format,
+        )
+
+        assert eds_object.enable_eds == True
+
+        # Make sure the Step function matched the above object
+        step_eds_object = factory.step(
+            microscope=microscope,
+            step_name=eds_step_name,
+            step_settings=eds_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert eds_object == step_eds_object.operation_settings
+
+    @pytest.mark.simulated
+    def test_laser(self, config_factory, general_settings, microscope):
+        # read config
+        test_file = config_factory("laser_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+        # get image step settings
+        laser_step_name, laser_step_settings = ut.step_settings(
+            db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+
+        ## create image object
+        found_laser = factory.laser(
+            microscope=microscope,
+            step_settings=laser_step_settings,
+            step_name=laser_step_name,
+            yml_format=yml_format,
+        )
+
+        known_laser = tbt.LaserSettings(
+            microscope=microscope,
+            pulse=tbt.LaserPulse(
+                wavelength_nm=tbt.LaserWavelength.NM_515,
+                divider=2,
+                energy_uj=5.0,
+                polarization=tbt.LaserPolarization.VERTICAL,
+            ),
+            objective_position_mm=2.5,
+            beam_shift_um=tbt.Point(
+                x=0.0,
+                y=0.0,
+            ),
+            pattern=tbt.LaserPattern(
+                mode=tbt.LaserPatternMode.FINE,
+                rotation_deg=0.0,
+                pulses_per_pixel=2,
+                geometry=tbt.LaserBoxPattern(
+                    passes=3,
+                    size_x_um=200.0,
+                    size_y_um=100.0,
+                    pitch_x_um=2.0,
+                    pitch_y_um=3.0,
+                    scan_type=tbt.LaserScanType.SERPENTINE,
+                    coordinate_ref=tbt.CoordinateReference.UPPER_CENTER,
+                ),
+            ),
+        )
+
+        # test pulse
+        assert found_laser.pulse.wavelength_nm == known_laser.pulse.wavelength_nm
+        assert found_laser.pulse.divider == known_laser.pulse.divider
+        assert found_laser.pulse.energy_uj == pytest.approx(known_laser.pulse.energy_uj)
+        assert found_laser.pulse.polarization == known_laser.pulse.polarization
+
+        # test optics
+        assert found_laser.objective_position_mm == pytest.approx(
+            known_laser.objective_position_mm
+        )
+        assert found_laser.beam_shift_um.x == pytest.approx(known_laser.beam_shift_um.x)
+        assert found_laser.beam_shift_um.y == pytest.approx(known_laser.beam_shift_um.y)
+
+        # test pattern
+        # general
+        assert found_laser.pattern.rotation_deg == pytest.approx(
+            known_laser.pattern.rotation_deg
+        )
+        assert found_laser.pattern.mode == known_laser.pattern.mode
+        assert found_laser.pattern.pulses_per_pixel == pytest.approx(
+            known_laser.pattern.pulses_per_pixel
+        )
+        assert found_laser.pattern.pixel_dwell_ms == pytest.approx(
+            known_laser.pattern.pixel_dwell_ms
+        )
+
+        # box
+        assert (
+            found_laser.pattern.geometry.passes == known_laser.pattern.geometry.passes
+        )
+        assert found_laser.pattern.geometry.size_x_um == pytest.approx(
+            known_laser.pattern.geometry.size_x_um
+        )
+        assert found_laser.pattern.geometry.size_y_um == pytest.approx(
+            known_laser.pattern.geometry.size_y_um
+        )
+        assert found_laser.pattern.geometry.pitch_x_um == pytest.approx(
+            known_laser.pattern.geometry.pitch_x_um
+        )
+        assert found_laser.pattern.geometry.pitch_y_um == pytest.approx(
+            known_laser.pattern.geometry.pitch_y_um
+        )
+        assert (
+            found_laser.pattern.geometry.scan_type
+            == known_laser.pattern.geometry.scan_type
+        )
+        assert (
+            found_laser.pattern.geometry.coordinate_ref
+            == known_laser.pattern.geometry.coordinate_ref
+        )
+
+        # Make sure the Step function matched the above object
+        step_laser_object = factory.step(
+            microscope=microscope,
+            step_name=laser_step_name,
+            step_settings=laser_step_settings,
+            general_settings=general_settings,
+            yml_format=yml_format,
+        )
+        assert found_laser == step_laser_object.operation_settings
+
+    @pytest.mark.simulated
+    def test_fib(self, config_factory, general_settings, microscope):
+        # read config
+        test_file = config_factory("fib_config.yml")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=(
+                "general",
+                "config_file_version",
+            ),
+        )
+        # get image step settings
+        fib_step_name, fib_step_settings = ut.step_settings(
+            db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+
+        ## create image object
+        found_fib = factory.fib(
+            microscope=microscope,
+            step_settings=fib_step_settings,
+            step_name=fib_step_name,
+            yml_format=yml_format,
+        )
+
+        known_fib = tbt.FIBSettings(
+            microscope=microscope,
+            image=tbt.ImageSettings(
+                microscope=microscope,
+                beam=tbt.IonBeam(
+                    settings=tbt.BeamSettings(
+                        voltage_kv=5.0,
+                        voltage_tol_kv=0.5,
+                        current_na=6.4,
+                        current_tol_na=0.3,
+                        hfw_mm=0.75,
+                        working_dist_mm=10.021,
+                        dynamic_focus=False,
+                        tilt_correction=False,
+                    ),
+                ),
+                detector=tbt.Detector(
+                    type=tbt.DetectorType.ETD,
+                    mode=tbt.DetectorMode.SECONDARY_ELECTRONS,
+                    brightness=0.2,
+                    contrast=0.3,
+                ),
+                scan=tbt.Scan(
+                    rotation_deg=0.0,
+                    dwell_time_us=1.0,
+                    resolution=tbt.PresetResolution.PRESET_768X512,
+                ),
+                bit_depth=tbt.ColorDepth.BITS_8,
+            ),
+            mill_beam=tbt.IonBeam(
                 settings=tbt.BeamSettings(
-                    voltage_kv=5.0,
-                    voltage_tol_kv=0.5,
-                    current_na=5.0,
-                    current_tol_na=0.5,
+                    voltage_kv=10.0,
+                    voltage_tol_kv=1.0,
+                    current_na=0.03,
+                    current_tol_na=1.0,
                     hfw_mm=0.75,
                     working_dist_mm=10.021,
                     dynamic_focus=False,
                     tilt_correction=False,
                 ),
             ),
-            detector=tbt.Detector(
-                type=tbt.DetectorType.ETD,
-                mode=tbt.DetectorMode.SECONDARY_ELECTRONS,
-                brightness=0.2,
-                contrast=0.3,
+            pattern=tbt.FIBPattern(
+                application="Al",
+                type=tbt.FIBPatternType.RECTANGLE,
+                geometry=tbt.FIBRectanglePattern(
+                    center_um=tbt.Point(x=5.11, y=0.0),
+                    width_um=500.0,
+                    height_um=40.0,
+                    depth_um=1.0,
+                    scan_direction=tbt.FIBPatternScanDirection.BOTTOM_TO_TOP,
+                    scan_type=tbt.FIBPatternScanType.SERPENTINE,
+                ),
             ),
             scan=tbt.Scan(
                 rotation_deg=0.0,

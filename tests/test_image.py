@@ -24,7 +24,17 @@ def test_dir() -> str:
     return str(Path(__file__).parent.joinpath("files"))
 
 
-#### tests ####
+        current_target_na = 15.0  # overwrite
+        microscope.beams.ion_beam.beam_current.value = 6.4 * Conversions.NA_TO_A
+        img.beam_current(
+            tbt.IonBeam(settings=settings),
+            microscope=microscope,
+            current_na=current_target_na,
+            current_tol_na=2.0,
+            delay_s=0,
+        )
+        ee = microscope.beams.ion_beam.beam_current.value
+        assert ee == current_target_na * Conversions.NA_TO_A
 
 
 @ut.run_on_standalone_machine

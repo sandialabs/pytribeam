@@ -381,10 +381,11 @@ def test_no_EDS_insert():
     microscope.disconnect()
 
 
-@ut.hardware_movement
-def test_retract_all_devices():
-    microscope = tbt.Microscope()
-    microscope.connect("localhost")
+class TestPreventCollisions:
+    @pytest.mark.hardware
+    def test_detectors_will_collide(self, safe_microscope):
+        # TODO enable no stage restrictions first
+        devices.device_access(microscope=safe_microscope)
 
     img.set_view(
         microscope=microscope,

@@ -25,7 +25,52 @@ import pytribeam.utilities as ut
 def test_dir() -> str:
     """The relative path and file string locating the default yml test file."""
 
-    return str(Path(__file__).parent.joinpath("files"))
+        mode = tbt.StageCoordinateSystem.SPECIMEN
+        with pytest.warns(UserWarning) as warning:
+            bb = stage.coordinate_system(
+                microscope=microscope,
+                mode=mode,
+            )
+        assert bb == True
+
+    @pytest.mark.simulated
+    def test_encoder_to_user_position(self, microscope):
+        """Tests conversion from microscope encoder position to user position"""
+        encoder_pos = tbt.StagePositionEncoder(
+            x=0.005,
+            y=0.002,
+            z=0.003,
+            r=np.pi / 2,
+            t=np.pi / 6,
+            coordinate_system=tbt.StageCoordinateSystem.RAW.value,
+        )
+
+        user_pos = stage.encoder_to_user_position(encoder_pos)
+        assert user_pos.x_mm == pytest.approx(encoder_pos.x * Conversions.M_TO_MM)
+        assert user_pos.y_mm == pytest.approx(encoder_pos.y * Conversions.M_TO_MM)
+        assert user_pos.z_mm == pytest.approx(encoder_pos.z * Conversions.M_TO_MM)
+        assert user_pos.r_deg == pytest.approx(encoder_pos.r * Conversions.RAD_TO_DEG)
+        assert user_pos.t_deg == pytest.approx(encoder_pos.t * Conversions.RAD_TO_DEG)
+
+    @pytest.mark.simulated
+    def test_user_to_encoder_position(self, microscope):
+        """Tests conversion from microscope encoder position to user position"""
+        user_pos = tbt.StagePositionUser(
+            x_mm=5.0,
+            y_mm=2.0,
+            z_mm=3.0,
+            r_deg=90.0,
+            t_deg=30.0,
+            coordinate_system=tbt.StageCoordinateSystem.RAW,
+        )
+
+        encoder_pos = stage.user_to_encoder_position(user_pos)
+
+        assert user_pos.x_mm == pytest.approx(encoder_pos.x * Conversions.M_TO_MM)
+        assert user_pos.y_mm == pytest.approx(encoder_pos.y * Conversions.M_TO_MM)
+        assert user_pos.z_mm == pytest.approx(encoder_pos.z * Conversions.M_TO_MM)
+        assert user_pos.r_deg == pytest.approx(encoder_pos.r * Conversions.RAD_TO_DEG)
+        assert user_pos.t_deg == pytest.approx(encoder_pos.t * Conversions.RAD_TO_DEG)
 
 
 #### tests ####

@@ -213,7 +213,23 @@ def test_create_rectangle_pattern():
     microscope = tbt.Microscope()
     microscope.connect("localhost")
 
-    # rectangle pattern
+# TODO should any of these be hardware?
+
+
+@pytest.mark.simulated
+def test_shutter_mode(microscope):
+    shutter = microscope.beams.electron_beam.protective_shutter
+    shutter.mode.value = tbt.ProtectiveShutterMode.OFF
+    status = shutter.mode.value
+    assert status == tbt.ProtectiveShutterMode.OFF == "Off"
+
+    fib.shutter_control(microscope=microscope)
+    new_status = shutter.mode.value
+    assert new_status == tbt.ProtectiveShutterMode.AUTOMATIC == "Automatic"
+
+
+@pytest.mark.simulated
+def test_prepare_milling(microscope):
     fib_settings = rectangle_pattern(microscope=microscope)
     fib.prepare_milling(
         microscope=microscope,
