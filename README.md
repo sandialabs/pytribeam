@@ -14,7 +14,7 @@ Documentation and quality reports for pyTriBeam.
 
 ## Development work
 
-See release target [here](https://github.com/sandialabs/pytribeam/blob/dev/docs/developers/release_plan.md).
+WIP
 
 ## Getting Started
 
