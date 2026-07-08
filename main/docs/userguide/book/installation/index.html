@@ -1,0 +1,424 @@
+<!DOCTYPE HTML>
+<html lang="en" class="light sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Installation - pyTriBeam User Guide</title>
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="../favicon.svg">
+        <link rel="shortcut icon" href="../favicon.png">
+        <link rel="stylesheet" href="../css/variables.css">
+        <link rel="stylesheet" href="../css/general.css">
+        <link rel="stylesheet" href="../css/chrome.css">
+        <link rel="stylesheet" href="../css/print.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../fonts/fonts.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "../";
+            const default_light_theme = "light";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "../searchindex.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="../toc.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+            </noscript>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="sidebar-toggle" class="icon-button" for="sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </label>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                        <button id="search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">pyTriBeam User Guide</h1>
+
+                    <div class="right-buttons">
+                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <i class="fa fa-spinner fa-spin"></i>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
+<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
+<p>This process uses <strong>AutoScript 4.8.1</strong> and <strong>TriBeam_API_Python 2_2.1</strong> provided by Thermo Fisher Scientific, which is a Windows-only configuration.</p>
+<h2 id="pre-installation"><a class="header" href="#pre-installation">Pre-installation</a></h2>
+<ul>
+<li>
+<p>Uninstall any prior installations of AutoScript</p>
+</li>
+<li>
+<p>Follow the Autoscript installation instructions provided by Thermo Fisher Scientific</p>
+</li>
+<li>
+<p>With <code>AutoScript_4.8.1.exe</code>, install <strong>Autoscript</strong> according to Thermo Fisher Scientific's instructions:</p>
+<ul>
+<li>Section 5 - Procedure, select the appropriate scripting configuration. This codebase has been tested in both "Local" and "Offline" Scripting Configurations.
+<ul>
+<li><em>Select Components</em> screen
+<ul>
+<li>AutoScript Client components
+<ul>
+<li>We recommend not installing the following: PyCharm Community IDE, .NET API, preferring to use VS Code as an IDE</li>
+</ul>
+</li>
+</ul>
+</li>
+</ul>
+</li>
+<li>Select the installer option to add Python to the system Path.</li>
+<li>Register to activate AutoScript license on this computer.</li>
+<li>Restart the computer.</li>
+</ul>
+</li>
+<li>
+<p>Follow the Laser Control installation instructions provided by Thermo Fisher Scientific</p>
+<ul>
+<li>Install iFast and Python APIs</li>
+</ul>
+</li>
+</ul>
+<p>The AutoScript installer installs the following modules (generated with <code>pip freeze</code>):</p>
+<pre><code class="language-md">��a p p d i r s = = 1 . 4 . 4  
+ a r g o n 2 - c f f i - b i n d i n g s = = 2 1 . 2 . 0  
+ a r g o n 2 _ c f f i = = 2 1 . 3 . 0  
+ a t t r s = = 2 1 . 2 . 0  
+ a u t o s c r i p t - c o r e   @   f i l e : / / / C : / P r o g r a m % 2 0 F i l e s / T h e r m o % 2 0 S c i e n t i f i c % 2 0 A u t o S c r i p t / P y t h o n P a c k a g e s / a u t o s c r i p t _ c o r e - 5 . 1 7 . 0 - p y 3 - n o n e - a n y . w h l  
+ a u t o s c r i p t - s d b - m i c r o s c o p e - c l i e n t   @   f i l e : / / / C : / P r o g r a m % 2 0 F i l e s / T h e r m o % 2 0 S c i e n t i f i c % 2 0 A u t o S c r i p t / P y t h o n P a c k a g e s / a u t o s c r i p t _ s d b _ m i c r o s c o p e _ c l i e n t - 4 . 8 . 1 - p y 3 - n o n e - a n y . w h l  
+ a u t o s c r i p t - s d b - m i c r o s c o p e - c l i e n t - t e s t s   @   f i l e : / / / C : / P r o g r a m % 2 0 F i l e s / T h e r m o % 2 0 S c i e n t i f i c % 2 0 A u t o S c r i p t / P y t h o n P a c k a g e s / a u t o s c r i p t _ s d b _ m i c r o s c o p e _ c l i e n t _ t e s t s - 4 . 8 . 1 - p y 3 - n o n e - a n y . w h l  
+ a u t o s c r i p t - t o o l k i t   @   f i l e : / / / C : / P r o g r a m % 2 0 F i l e s / T h e r m o % 2 0 S c i e n t i f i c % 2 0 A u t o S c r i p t / P y t h o n P a c k a g e s / a u t o s c r i p t _ t o o l k i t - 4 . 8 . 1 - p y 3 - n o n e - a n y . w h l  
+ b a c k c a l l = = 0 . 2 . 0  
+ b l e a c h = = 4 . 1 . 0  
+ b u i l d = = 0 . 7 . 0  
+ c e r e s _ s o l v e r = = 2 . 1 . 0  
+ c e r t i f i = = 2 0 2 1 . 5 . 3 0  
+ c f f i = = 1 . 1 4 . 6  
+ c h a r s e t - n o r m a l i z e r = = 2 . 0 . 3  
+ c o l o r a m a = = 0 . 4 . 6  
+ c o n f i g o b j = = 5 . 1 . 0 . d e v 0  
+ c y c l e r = = 0 . 1 1 . 0  
+ C y t h o n = = 0 . 2 9 . 3 3  
+ d e c o r a t o r = = 5 . 1 . 0  
+ d e f u s e d x m l = = 0 . 7 . 1  
+ d o c u t i l s = = 0 . 1 7 . 1  
+ e n t r y p o i n t s = = 0 . 4  
+ f o n t t o o l s = = 4 . 3 1 . 1  
+ h 5 p y = = 3 . 6 . 0  
+ i d n a = = 3 . 1  
+ i m a g e c o d e c s = = 2 0 2 2 . 2 . 2 2  
+ i m a g e i o = = 2 . 1 6 . 2  
+ i m p o r t l i b _ m e t a d a t a = = 4 . 1 1 . 4  
+ i n t e l _ f o r t r a n _ r t = = 2 0 2 2 . 0 . 3  
+ i n t e l _ o p e n m p = = 2 0 2 1 . 4 . 2 8  
+ i p y k e r n e l = = 5 . 5 . 6  
+ i p y t h o n = = 7 . 3 1 . 1  
+ i p y t h o n - g e n u t i l s = = 0 . 2 . 0  
+ j e d i = = 0 . 1 8 . 0  
+ J i n j a 2 = = 3 . 0 . 3  
+ j o b l i b = = 1 . 1 . 0  
+ j s o n s c h e m a = = 3 . 2 . 0  
+ j u p y t e r - c l i e n t = = 6 . 1 . 1 2  
+ j u p y t e r - c o r e = = 4 . 8 . 1  
+ j u p y t e r l a b - p y g m e n t s = = 0 . 1 . 2  
+ k i w i s o l v e r = = 1 . 4 . 0  
+ l i b a e c = = 1 . 0 . 6  
+ l i b b z 2 = = 1 . 0 . 8  
+ l i b f r e e t y p e = = 2 . 1 2 . 1  
+ l i b g f l a g s = = 2 . 2 . 2  
+ l i b g l o g = = 0 . 6 . 0  
+ l i b h a r f b u z z = = 3 . 2 . 0  
+ l i b h d f 5 = = 1 . 1 2 . 1  
+ l i b i c u = = 7 0 . 1  
+ l i b l c m s 2 = = 2 . 1 2  
+ l i b l z 4 = = 1 . 9 . 3  
+ l i b l z m a = = 5 . 2 . 5  
+ l i b o p e n j p e g = = 2 . 4 . 0 . p o s t 1  
+ l i b p n g = = 1 . 6 . 3 7  
+ l i b p r o t o b u f = = 3 . 1 3 . 0  
+ l i b q h u l l = = 8 . 0 . 2  
+ l i b s o d i u m = = 1 . 0 . 1 8  
+ l i b t i f f = = 4 . 3 . 0  
+ l i b t u r b o j p e g = = 2 . 1 . 2  
+ l i b y a m l = = 0 . 2 . 5  
+ l i b z = = 1 . 2 . 1 1  
+ l i b z m q = = 4 . 3 . 4  
+ l i b z s t d = = 1 . 5 . 0  
+ M a r k d o w n = = 3 . 3 . 7  
+ M a r k u p S a f e = = 2 . 1 . 1  
+ m a t p l o t l i b = = 3 . 5 . 1  
+ m a t p l o t l i b - i n l i n e = = 0 . 1 . 6  
+ m f c _ r u n t i m e = = 1 4  
+ m i s t u n e = = 0 . 8 . 4  
+ m k l = = 2 0 2 1 . 3 . 0  
+ m k l - s e r v i c e = = 2 . 4 . 0  
+ m s v c _ r u n t i m e = = 1 4  
+ n b c l i e n t = = 0 . 5 . 1 2  
+ n b c o n v e r t = = 6 . 4 . 2  
+ n b f o r m a t = = 5 . 2 . 0  
+ n e s t - a s y n c i o = = 1 . 5 . 4  
+ n e t w o r k x = = 2 . 7 . 1  
+ n o t e b o o k = = 6 . 4 . 8  
+ n u m e x p r = = 2 . 8 . 1  
+ n u m p y = = 1 . 2 1 . 2  
+ o p e n c v _ p y t h o n = = 4 . 6 . 0  
+ p a c k a g i n g = = 2 2 . 0  
+ p a n d a s = = 1 . 3 . 2  
+ p a n d o c f i l t e r s = = 1 . 5 . 0  
+ p a r s o = = 0 . 8 . 2  
+ p e p 5 1 7 = = 0 . 9 . 1  
+ p i c k l e s h a r e = = 0 . 7 . 5  
+ P i l l o w - S I M D = = 9 . 0 . 0 . p o s t 1  
+ p r o m e t h e u s - c l i e n t = = 0 . 1 3 . 1  
+ p r o m p t - t o o l k i t = = 3 . 0 . 2 4  
+ p s u t i l = = 5 . 8 . 0  
+ p y c p a r s e r = = 2 . 2 0  
+ P y g m e n t s = = 2 . 8 . 1  
+ p y p a r s i n g = = 2 . 4 . 7  
+ p y r s i s t e n t = = 0 . 1 5 . 3  
+ P y S i d e 6 = = 6 . 2 . 3  
+ p y t h o n - d a t e u t i l = = 2 . 8 . 2  
+ p y t z = = 2 0 2 2 . 6  
+ P y W a v e l e t s = = 1 . 3 . 0  
+ p y w i n 3 2 = = 3 0 1  
+ p y w i n p t y = = 2 . 0 . 4  
+ P y Y A M L = = 5 . 4 . 1  
+ p y z m q = = 2 2 . 3 . 0  
+ q t b a s e = = 6 . 2 . 3  
+ q t c o n s o l e = = 5 . 3 . 0  
+ q t d e c l a r a t i v e = = 6 . 2 . 3  
+ q t m u l t i m e d i a = = 6 . 2 . 3  
+ Q t P y = = 2 . 3 . 0  
+ q t s h a d e r t o o l s = = 6 . 2 . 3  
+ q t s v g = = 6 . 2 . 3  
+ q t t o o l s = = 6 . 2 . 3  
+ r e q u e s t s = = 2 . 2 6 . 0  
+ s c i k i t - i m a g e = = 0 . 1 9 . 2  
+ s c i k i t - l e a r n = = 1 . 0 . 2  
+ s c i p y = = 1 . 8 . 0  
+ S e n d 2 T r a s h = = 1 . 8 . 0  
+ s h i b o k e n 6 = = 6 . 2 . 3  
+ s i p = = 6 . 5 . 1  
+ s i x = = 1 . 1 6 . 0  
+ t e r m i n a d o = = 0 . 1 3 . 2  
+ t e s t p a t h = = 0 . 5 . 0  
+ t h e r m o s c i e n t i f i c - l o g g i n g   @   f i l e : / / / C : / P r o g r a m % 2 0 F i l e s / T h e r m o % 2 0 S c i e n t i f i c % 2 0 A u t o S c r i p t / P y t h o n P a c k a g e s / t h e r m o s c i e n t i f i c _ l o g g i n g - 5 . 1 7 . 0 - p y 3 - n o n e - a n y . w h l  
+ t h r e a d p o o l c t l = = 3 . 1 . 0  
+ t i f f f i l e = = 2 0 2 2 . 4 . 8  
+ t o m l = = 0 . 1 0 . 2  
+ t o m l i = = 2 . 0 . 1  
+ t o o l z = = 0 . 1 1 . 1  
+ t o r n a d o = = 6 . 1  
+ t r a i t l e t s = = 5 . 1 . 0  
+ u r l l i b 3 = = 1 . 2 6 . 3  
+ w c w i d t h = = 0 . 2 . 5  
+ w e b e n c o d i n g s = = 0 . 5 . 1  
+ z i p p = = 3 . 7 . 0  
+ 
+</code></pre>
+<pre><code></code></pre>
+<p>Confirm the installation location of Autoscript's python environment, which should default to the following path: <code>C:/Program Files/Enthought/Python/envs/Autoscript/python.exe</code>. You can verify this by running the following in the Command Prompt (<code>cmd.exe</code>):</p>
+<pre><code class="language-sh">where python
+</code></pre>
+<p>which should output something similar to the following:</p>
+<pre><code class="language-sh">C:\Program Files\Enthought\Pythonnvs\AutoScript\python.exe
+</code></pre>
+<!-- ```sh
+``` -->
+<h2 id="main-installation"><a class="header" href="#main-installation">Main Installation</a></h2>
+<p>Installation can be performed by running the provided batch file <a href="https://github.com/sandialabs/pytribeam/blob/main/install.bat">install.bat</a> from the local directory where you want to install the package. This can be accomplished simply by double clicking on the <code>install.bat</code> file from the Windows Explorer. Options are provided for both client and developer (editable) use. This will install the wheels of various open-source python packages included with the package that are provided here: <a href="https://github.com/sandialabs/pytribeam/tree/main/wheelhouse">wheels</a>. Wheels are provided in order to eliminate the need for internet connectivity on the microscope.</p>
+<p><strong>NOTE</strong>: Developer (editable) use provides the user with the ability to modify and expand the source code, such as adjusting default values in the <code>constants</code> module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the <code>constants</code> module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: <a href="https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html">test-coverage</a>.</p>
+<p>After running the <code>install.bat</code> script, confirm the package installation by opening a new terminal and run the following to list the available package commands:</p>
+<pre><code class="language-sh">pytribeam
+</code></pre>
+<p>which should generate the following output along with any relevant warning messages:</p>
+<pre><code class="language-plaintext">pytribeam will not run from gitlab container. If empty below, this book was generated without autoscript installed:
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                <i class="fa fa-angle-left"></i>
+                            </a>
+
+                            <a rel="next prefetch" href="../reference_frame/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                <i class="fa fa-angle-right"></i>
+                            </a>
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                        <i class="fa fa-angle-left"></i>
+                    </a>
+
+                    <a rel="next prefetch" href="../reference_frame/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                        <i class="fa fa-angle-right"></i>
+                    </a>
+            </nav>
+
+        </div>
+
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="../elasticlunr.min.js"></script>
+        <script src="../mark.min.js"></script>
+        <script src="../searcher.js"></script>
+
+        <script src="../clipboard.min.js"></script>
+        <script src="../highlight.js"></script>
+        <script src="../book.js"></script>
+
+        <!-- Custom JS scripts -->
+
+
+
+    </div>
+    </body>
+</html>
