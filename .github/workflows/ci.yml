@@ -218,11 +218,18 @@ jobs:
 
       - name: Set Deploy Directory
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "DEPLOY_SUBDIR=main" >> $GITHUB_ENV
-          else
-            echo "DEPLOY_SUBDIR=dev" >> $GITHUB_ENV
-          fi
+          case "${{ github.ref_name }}" in
+            main)
+              echo "DEPLOY_SUBDIR=main" >> "$GITHUB_ENV"
+              ;;
+            dev)
+              echo "DEPLOY_SUBDIR=dev" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported branch for deploy: ${{ github.ref_name }}"
+              exit 1
+              ;;
+          esac
 
       - name: Create badges
         run: |
