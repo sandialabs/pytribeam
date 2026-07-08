@@ -117,26 +117,36 @@ jobs:
           python --version
           uv --version
           ls -la /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
-          uv pip list || true
 
       - name: Install project dependencies and vendor wheels
         run: |
-          # Avoid uv warning about the image-level /opt/venv.
+          # The image defines /opt/venv, but uv creates/uses project .venv.
+          # Avoid confusion and force uv to use the image Python.
           unset VIRTUAL_ENV
+          unset UV_NATIVE_TLS
+          export UV_SYSTEM_CERTS=true
+          export UV_LINK_MODE=copy
 
-          # Create the project environment.
-          uv sync --all-extras --dev
+          # Use the Python version already installed in the image.
+          uv sync --all-extras --dev --python /opt/venv/bin/python
 
-          # Install vendor wheels into the project .venv, not /opt/venv.
+          # Install vendor wheels into the project .venv used by uv run.
           uv pip install --python .venv/bin/python \
             /opt/vendor-wheels/autoscript_4.8.1-py3.8.12/*.whl
 
-          # Verify imports pdoc needs.
+          # AutoScript client imports cv2; use headless OpenCV for CI.
+          uv pip install --python .venv/bin/python \
+            "opencv-python-headless==4.6.0.66"
+
+          # Verify critical imports.
+          uv run python -c "import cv2; print('cv2 import ok')"
           uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
           uv run python -c "import pytribeam; print('pytribeam import ok')"
 
       - name: Build API Documentation
         run: |
+          unset UV_NATIVE_TLS
+          export UV_SYSTEM_CERTS=true
           rm -rf docs/api
           uv run pdoc src/pytribeam -o docs/api
 
@@ -199,6 +209,12 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: report-coverage
+      
+      # - name: Download API Documentation
+      #   uses: actions/download-artifact@v7
+      #   with:
+      #     name: docs-api
+      #     path: docs/api
 
       # mdbook + preprocessors are already in the container now
       - name: Build User Guide
@@ -275,6 +291,8 @@ jobs:
           cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
 
           # API docs are manually maintained on gh-pages (see pdoc note above).
+
+          # Copy API Documentation
           # mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
           # cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
           
