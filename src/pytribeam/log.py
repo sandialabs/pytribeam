@@ -31,20 +31,12 @@ current_time() -> tbt.TimeStamp
 
 # Default python modules
 # from functools import singledispatch
-import os
 from pathlib import Path
-import warnings
-import math
-from typing import NamedTuple, List, Tuple
-from functools import singledispatch
-import time
 import datetime
 
 # Autoscript included modules
 import numpy as np
-from matplotlib import pyplot as plt
 import h5py
-import pandas as pd
 
 # 3rd party module
 
@@ -174,9 +166,7 @@ def experiment_settings(
     time = current_time()
 
     with open(yml_path, "r") as yml_file:
-        yml_lines = yml_file.readlines()
-
-    yml_data = " ".join([line for line in yml_lines])
+        yml_data = yml_file.read()
 
     if not log_filepath.exists():
         log_filepath.touch()

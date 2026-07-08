@@ -40,12 +40,9 @@ mill_operation(step: tbt.Step, fib_settings: tbt.FIBSettings, general_settings: 
 
 # Default python modules
 from functools import singledispatch
-import os
 from pathlib import Path
-import time
 import warnings
-import math
-from typing import NamedTuple, List, Tuple
+from typing import List
 from functools import singledispatch
 import subprocess
 
@@ -53,18 +50,13 @@ import subprocess
 from PIL import Image as pil_img
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-import h5py
 
 # 3rd party module
 
 # Local scripts
 import pytribeam.constants as cs
 from pytribeam.constants import Conversions
-import pytribeam.insertable_devices as devices
-import pytribeam.factory as factory
 import pytribeam.types as tbt
-import pytribeam.utilities as ut
 import pytribeam.image as img
 
 

@@ -100,6 +100,23 @@ class LUT:
     def remove_entry(self, name: str):
         return self._entries.pop(name)
 
+    def _prune_empty(self) -> bool:
+        """
+        Recursively remove empty nested LUTs.
+        Returns True if this node is empty after pruning.
+        """
+        to_delete = []
+
+        for name, entry in self._entries.items():
+            if isinstance(entry, LUT):
+                if entry._prune_empty():
+                    to_delete.append(name)
+
+        for name in to_delete:
+            del self._entries[name]
+
+        return len(self._entries) == 0
+
     def flatten(self, separator: str = "/") -> Dict[str, LUTField]:
         """Flatten the LUT into a dictionary of fields with paths as keys."""
         self._entries = self._flatten(separator=separator)
@@ -1298,6 +1315,7 @@ class VersionedLUT:
             if not ut.in_interval(version, entry.version, tbt.IntervalType.CLOSED):
                 lut.remove_entry(name)
         lut.unflatten()
+        lut._prune_empty()
         return lut
 
 

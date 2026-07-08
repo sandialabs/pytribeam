@@ -1,0 +1,377 @@
+# This workflow will not run without Autoscript.
+name: CI (Continuous Integration)
+
+on:
+  push:
+    branches:
+      # - '**'
+      - dev
+      - main
+  workflow_dispatch:
+  workflow_call:
+
+# Concurrency ensures that if you push again while a build is already running, the old one is canceled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (ruff format, pylint, pytest)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Announce workflow file
+        run: |
+          echo "Workflow file: ${{ github.workflow_ref }}"
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+            fetch-depth: 0 # Fetch all history for accurate linting and testing, required for hatch-vcs to determine version from tags
+            fetch-tags: true # Ensure tags are fetched for accurate versioning, required for hatch-vcs to determine version from tags
+
+      # - name: Verify git metadata (needed for hatch-vcs/setuptools-scm)
+      #   run: |
+      #     test -d .git || (echo "ERROR: .git directory missing" && exit 1)
+      #     git describe --tags --always || true
+      #     git rev-parse HEAD 
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+          #cache-dependency-glob: "pyproject.toml"  # Delete this line after 'uv lock' run locally is used to create a uv.lock file, then uv.lock, the default, will be used for caching dependencies
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Build Check
+        run: uv build
+
+      - name: Run Ruff Format Check
+        # _version.py is excluded because setuptools-scm regenerates it on every
+        # build in a format that ruff would rewrite, causing a spurious failure.
+        # The exclusion is also declared in pyproject.toml [tool.ruff.format].
+        run: uv run ruff format --check --exclude src/pytribeam/_version.py
+
+      - name: Run Pylint and Create Pylint Report
+        run: |
+          uv run pylint src/pytribeam > report_lint.txt || true
+
+      - name: Upload Pylint Report
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-lint
+          path: report_lint.txt
+
+      - name: If .coverage exists
+        if: ${{ hashFiles('.coverage') != '' }}
+        run: |
+          echo "Found a .coverage file"
+          uv run coverage html -d htmlcov
+          uv run coverage xml -o report_coverage.xml
+
+      - name: If no .coverage exists
+        if: ${{ hashFiles('.coverage') == '' }}
+        run: |
+          echo "Did not find a .coverage file"
+          uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+
+      - name: Upload HTML Coverage Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: report-coverage
+          path: |
+            htmlcov/
+            report_coverage.xml
+
+  api-docs:
+    name: Build API Documentation with pdoc
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_tag: autoscript_4.8.1-py3.8.12
+            wheelset: autoscript_4.8.1-py3.8.12
+
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    env:
+      WHEELSET: ${{ matrix.wheelset }}
+      UV_SYSTEM_CERTS: "true"
+      UV_LINK_MODE: copy
+      UV_PROJECT_ENVIRONMENT: /opt/venv
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify environment
+        run: |
+          python --version
+          uv --version
+          uv pip list
+          ls -la /opt/vendor-wheels/${WHEELSET}
+
+      - name: Install project into image venv
+        run: |
+          # /opt/venv already contains vendor wheels and pdoc deps.
+          # --inexact prevents uv from removing those extra installed packages.
+          uv sync --all-extras --dev --inexact --python /opt/venv/bin/python
+
+          uv run python -c "import pandas; print('pandas import ok')"
+          uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          uv run python -c "import pytribeam; print('pytribeam import ok')"
+
+      - name: Build API Documentation
+        run: |
+          rm -rf docs/api
+          uv run pdoc src/pytribeam -o docs/api
+
+      - name: Upload API Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-api
+          path: docs/api
+          
+  github-pages:
+    name: Create Github Pages
+    needs:
+      - test
+      - api-docs
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/gui_tests'
+    permissions:
+      contents: write  # Required to push commits to the gh-pages branch
+      pages: write     # Required for GitHub Pages deployment
+      id-token: write  # Required for OIDC-based Pages deployment
+      packages: read   # Required to pull the docs-builder container image
+
+    # Serialize all gh-pages deployments across branches into a single queue.
+    # cancel-in-progress: false ensures a queued deploy is never dropped — if
+    # main and dev push simultaneously, one waits rather than being cancelled,
+    # preventing a race condition that would corrupt the gh-pages branch.
+    concurrency:
+      group: gh-pages-deploy
+      cancel-in-progress: false
+
+    # Pull the prebuilt mdBook/tools image tagged by branch name: dev/main.
+    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, and support tools.
+    # API docs are generated separately by the api-docs job using the AutoScript
+    # Python CI image, then downloaded here as an artifact.
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.8.12'
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-extras --dev
+
+      - name: Download Pylint Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-lint
+
+      - name: Download Coverage Report
+        uses: actions/download-artifact@v7
+        with:
+          name: report-coverage
+
+      - name: Download API Documentation
+        uses: actions/download-artifact@v7
+        with:
+          name: docs-api
+          path: docs/api
+
+      # mdbook + preprocessors are already in the docs-builder container.
+      - name: Build User Guide
+        run: mdbook build
+
+      - name: Set Deploy Directory
+        run: |
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            echo "DEPLOY_SUBDIR=main" >> $GITHUB_ENV
+          else
+            echo "DEPLOY_SUBDIR=dev" >> $GITHUB_ENV
+          fi
+
+      - name: Create badges
+        run: |
+          # Lint badge
+          uv run python src/pytribeam/cicd/badge_lint.py \
+            --input_file report_lint.txt \
+            --output_dir badges \
+            --github_repo ${{ github.repository }} \
+            --deploy_subdir ${{ env.DEPLOY_SUBDIR }} \
+            --run_id ${{ github.run_id }} \
+            --github_server_url ${{ github.server_url }}
+
+      - name: Assemble pages directory
+        # Builds the pages/ staging directory, which is then committed to the
+        # gh-pages branch under the current branch's subdirectory (main/ or dev/).
+        # Both subdirectories coexist on gh-pages so Released and Development
+        # content are served side-by-side without overwriting each other.
+        #
+        # gh-pages branch layout (after deploy):
+        # ├── index.html                (Dashboard — regenerated each run)
+        # ├── main/                     (Released content, deployed from main)
+        # │   ├── badges/
+        # │   │   ├── lint.svg
+        # │   │   └── coverage.svg
+        # │   ├── reports/
+        # │   │   ├── lint/
+        # │   │   │   └── index.html    (Pylint Summary)
+        # │   │   └── coverage/
+        # │   │       ├── index.html    (Coverage Summary)
+        # │   │       └── htmlcov/      (Detailed Pytest-cov HTML)
+        # │   └── docs/
+        # │       ├── userguide/
+        # │       │   └── book/         (User Manual)
+        # │       └── api/              (API Reference generated by pdoc)
+        # └── dev/                      (Development content, deployed from dev)
+        #     ├── badges/
+        #     │   ├── lint.svg
+        #     │   └── coverage.svg
+        #     ├── reports/
+        #     │   ├── lint/
+        #     │   │   └── index.html    (Pylint Summary)
+        #     │   └── coverage/
+        #     │       ├── index.html    (Coverage Summary)
+        #     │       └── htmlcov/      (Detailed Pytest-cov HTML)
+        #     └── docs/
+        #         ├── userguide/
+        #         │   └── book/         (User Manual)
+        #         └── api/              (API Reference generated by pdoc)
+
+        run: |
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/badges
+
+          # Copy User Manual
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
+          cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
+
+          # Copy API Documentation generated by api-docs job
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+
+          # Create badges
+          uv run python src/pytribeam/cicd/report_badges.py \
+            --lint_file report_lint.txt \
+            --coverage_file report_coverage.xml \
+            --output_dir pages/${{ env.DEPLOY_SUBDIR }}/badges
+
+          # Create the HTML dashboard
+          uv run python src/pytribeam/cicd/report_dashboard.py \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/index.html
+
+          # Create the HTML lint report
+          uv run python src/pytribeam/cicd/report_lint.py \
+            --input_file report_lint.txt \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/lint/index.html
+
+          # Create the HTML coverage report
+          uv run python src/pytribeam/cicd/report_coverage.py \
+            --input_file report_coverage.xml \
+            --github_repo "${{ github.repository }}" \
+            --timestamp "$(date +"%Y%m%d_%H%M%S_%Z")" \
+            --run_id "${{ github.run_id }}" \
+            --ref_name "${{ github.ref_name }}" \
+            --github_sha "${{ github.sha }}" \
+            --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/index.html
+
+          # Copy the detailed HTML coverage report
+          cp -r htmlcov pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/
+
+          # Validation check to ensure files exist
+          ls -R pages/
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/lint.svg || echo "Lint badge missing"
+          cat pages/${{ env.DEPLOY_SUBDIR }}/badges/coverage.svg || echo "Coverage badge missing"
+
+          # Validation check to ensure API docs exist
+          test -d pages/${{ env.DEPLOY_SUBDIR }}/docs/api || (echo "API docs missing" && exit 1)
+          ls -la pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+
+      # Push built artifacts directly to the gh-pages branch rather than using
+      # actions/deploy-pages, which replaces the entire site on every run and
+      # cannot preserve subdirectories from other branches. This approach clones
+      # gh-pages, replaces only the current branch's subdirectory (main/ or dev/),
+      # and pushes back — so both subdirectories coexist on gh-pages at all times.
+      # The job-level concurrency group above ensures only one branch deploys at
+      # a time, preventing push conflicts.
+      - name: Deploy to gh-pages branch
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git clone --branch gh-pages --depth 1 \
+            https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
+            gh-pages-deploy
+
+          # API docs are now generated by CI in the api-docs job and copied into
+          # pages/${{ env.DEPLOY_SUBDIR }}/docs/api above. Do not preserve the
+          # old gh-pages copy here; doing so would overwrite newly generated API
+          # docs with stale manually-maintained content.
+
+          rm -rf gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
+          mkdir -p gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
+          cp -r pages/${{ env.DEPLOY_SUBDIR }}/. gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/
+          cp pages/index.html gh-pages-deploy/index.html
+          cd gh-pages-deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .
+
+          # Skip commit if nothing changed (e.g. re-run with no code changes)
+          git diff --staged --quiet || git commit -m "Deploy ${{ env.DEPLOY_SUBDIR }} docs from ${{ github.sha }}"
+
+          # Retry around git push to reduce intermittent queue/race/network issues
+          n=0
+          until [ "$n" -ge 3 ]
+          do
+            git push origin gh-pages && break
+            n=$((n+1))
+            echo "Push failed, retry $n/3 after rebase..."
+            git pull --rebase origin gh-pages || true
+            sleep $((5*n))
+          done
+          [ "$n" -lt 3 ] || (echo "Failed to push gh-pages after retries" && exit 1)
