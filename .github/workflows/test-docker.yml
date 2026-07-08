@@ -92,7 +92,6 @@ jobs:
 
   api-docs:
     name: Build API Documentation with pdoc
-    needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
 
@@ -113,17 +112,28 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify Python/vendor environment
+      - name: Verify base environment
         run: |
           python --version
           uv --version
-          uv pip list
           ls -la /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
+          uv pip list || true
 
-      - name: Install project dependencies
+      - name: Install project dependencies and vendor wheels
         run: |
-          uv sync --all-extras --dev --find-links /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
-          install-vendor-wheels
+          # Avoid uv warning about the image-level /opt/venv.
+          unset VIRTUAL_ENV
+
+          # Create the project environment.
+          uv sync --all-extras --dev
+
+          # Install vendor wheels into the project .venv, not /opt/venv.
+          uv pip install --python .venv/bin/python \
+            /opt/vendor-wheels/autoscript_4.8.1-py3.8.12/*.whl
+
+          # Verify imports pdoc needs.
+          uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          uv run python -c "import pytribeam; print('pytribeam import ok')"
 
       - name: Build API Documentation
         run: |
@@ -135,9 +145,6 @@ jobs:
         with:
           name: docs-api
           path: docs/api
-  
-
-
 
   github-pages:
     name: Create Github Pages
