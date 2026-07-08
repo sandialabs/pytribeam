@@ -182,8 +182,6 @@ def beam_angular_correction(
         if angular_correction.tilt_correction.is_on:
             raise SystemError("Unable to turn tilt correction off.")
 
-    return True
-
 
 def beam_current(
     beam: tbt.Beam,
@@ -1293,7 +1291,7 @@ def imaging_detector(img_settings: tbt.ImageSettings) -> bool:
         microscope=microscope,
         detector=detector,
     )
-    if detector_state is not None:
+    if detector_state is not tbt.RetractableDeviceState.STATIONARY:
         devices.insert_detector(
             microscope=microscope,
             detector=detector,
@@ -1443,7 +1441,6 @@ def set_view(
         True if the active view is set successfully, False otherwise.
     """
     microscope.imaging.set_active_view(quad.value)
-    return True
 
 
 def set_beam_device(
@@ -1478,7 +1475,7 @@ def set_beam_device(
     microscope.imaging.set_active_device(device)
     time.sleep(delay_s)
     curr_device = tbt.Device(microscope.imaging.get_active_device())
-    if curr_device != device:
+    if curr_device != device.value:
         raise ValueError(
             f"""Could not set active device,
             requested device {device.value} but current device is {curr_device}.
@@ -1582,10 +1579,14 @@ def collect_multiple_images(
             microscope=_set.microscope,
             detector=_set.detector,
         )
-        is not None
+        is not tbt.RetractableDeviceState.STATIONARY
         for _set in multiple_img_settings
     ]
-    if any(insertable_detector):
+    if sum(insertable_detector) > 1:
+        raise NotImplementedError(
+            "Collecting multiple images with more than one insertable detector is not supported."
+        )
+    elif sum(insertable_detector) == 1:
         start = multiple_img_settings[insertable_detector.index(True)]
         multiple_img_settings = [start] + multiple_img_settings
 
@@ -1600,9 +1601,10 @@ def collect_multiple_images(
             )
 
         microscope = img_settings.microscope
+        beam = img_settings.beam
         views.append(quad)
-        set_view(microscope=microscope, quad=tbt.ViewQuad(quad))
-        prepare_imaging(img_settings=img_settings)
+        set_view(microscope=microscope, quad=img_settings.beam.default_view)
+        prepare_imaging(microscope=microscope, beam=beam, img_settings=img_settings)
     frames = microscope.imaging.grab_multiple_frames(
         tbt.GrabFrameSettings(bit_depth=img_settings.bit_depth, views=views)
     )

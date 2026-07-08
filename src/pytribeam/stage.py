@@ -61,17 +61,12 @@ step_start_position(microscope: tbt.Microscope, slice_number: int, operation: tb
 
 # Default python modules
 # from functools import singledispatch
-import os
-from pathlib import Path
 import time
 import warnings
 import math
-from typing import NamedTuple, List, Tuple
-import sys
 
 # Autoscript included modules
 import numpy as np
-from matplotlib import pyplot as plt
 
 # 3rd party module
 
