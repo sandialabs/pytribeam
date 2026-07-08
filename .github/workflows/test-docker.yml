@@ -105,6 +105,11 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    env:
+      WHEELSET: autoscript_4.8.1-py3.8.12
+      UV_SYSTEM_CERTS: "true"
+      UV_LINK_MODE: copy
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -114,39 +119,41 @@ jobs:
 
       - name: Verify base environment
         run: |
+          unset UV_NATIVE_TLS || true
           python --version
           uv --version
-          ls -la /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
+          ls -la /opt/vendor-wheels/${WHEELSET}
 
-      - name: Install project dependencies and vendor wheels
+      - name: Install project dependencies, vendor wheels, and pdoc runtime deps
         run: |
-          # The image defines /opt/venv, but uv creates/uses project .venv.
-          # Avoid confusion and force uv to use the image Python.
-          unset VIRTUAL_ENV
-          unset UV_NATIVE_TLS
-          export UV_SYSTEM_CERTS=true
-          export UV_LINK_MODE=copy
+          unset UV_NATIVE_TLS || true
 
-          # Use the Python version already installed in the image.
+          # Force uv to use the Python version in the image.
           uv sync --all-extras --dev --python /opt/venv/bin/python
 
           # Install vendor wheels into the project .venv used by uv run.
           uv pip install --python .venv/bin/python \
-            /opt/vendor-wheels/autoscript_4.8.1-py3.8.12/*.whl
+            /opt/vendor-wheels/${WHEELSET}/*.whl
 
-          # AutoScript client imports cv2; use headless OpenCV for CI.
-          uv pip install --python .venv/bin/python \
-            "opencv-python-headless==4.6.0.66"
+          # Install pdoc-only runtime deps.
+          # Prefer a curated pdoc requirements file if present.
+          if [ -f /opt/vendor-wheels/${WHEELSET}/requirements-pdoc.txt ]; then
+            uv pip install --python .venv/bin/python \
+              -r /opt/vendor-wheels/${WHEELSET}/requirements-pdoc.txt
+          else
+            uv pip install --python .venv/bin/python \
+              "pandas==1.3.2" \
+              "opencv-python-headless==4.6.0.66"
+          fi
 
-          # Verify critical imports.
+          # Verify key imports.
+          uv run python -c "import pandas; print('pandas import ok')"
           uv run python -c "import cv2; print('cv2 import ok')"
           uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
-          uv run python -c "import pytribeam; print('pytribeam import ok')"
 
       - name: Build API Documentation
         run: |
-          unset UV_NATIVE_TLS
-          export UV_SYSTEM_CERTS=true
+          unset UV_NATIVE_TLS || true
           rm -rf docs/api
           uv run pdoc src/pytribeam -o docs/api
 
