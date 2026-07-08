@@ -1,1 +1,0 @@
-"""GUI submodule for PyTribeam."""
