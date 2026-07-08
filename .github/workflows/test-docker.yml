@@ -90,9 +90,60 @@ jobs:
             htmlcov/
             report_coverage.xml
 
+  api-docs:
+    name: Build API Documentation with pdoc
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: read
+
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:autoscript_4.8.1-py3.8.12
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify Python/vendor environment
+        run: |
+          python --version
+          uv --version
+          uv pip list
+          ls -la /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
+
+      - name: Install project dependencies
+        run: |
+          uv sync --all-extras --dev --find-links /opt/vendor-wheels/autoscript_4.8.1-py3.8.12
+          install-vendor-wheels
+
+      - name: Build API Documentation
+        run: |
+          rm -rf docs/api
+          uv run pdoc src/pytribeam -o docs/api
+
+      - name: Upload API Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-api
+          path: docs/api
+  
+
+
+
   github-pages:
     name: Create Github Pages
-    needs: test
+    needs: 
+      - test
+      # - api-docs
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/gui_tests'
     permissions:
