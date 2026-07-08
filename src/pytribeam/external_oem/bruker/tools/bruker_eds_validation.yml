@@ -1,0 +1,97 @@
+session:
+  dll_dir: "C:/Program Files/Bruker/Esprit API"
+  mode: local
+  server: "Lokaler Server"
+  user: "edx"
+  password: "edx"
+  host: null
+  port: null
+  close_on_exit: true
+  keep_connection_open: true
+
+output:
+  root_dir: "C:/Users/User/Documents/Polonsky/BrukerSandbox"
+  run_name: "eds_hardware_validation"
+
+detector:
+  detector_index: 1
+  verify_park_before: true
+  move_to_acquire_before: true
+  park_after: true
+  move_timeout_s: 60.0
+  poll_interval_s: 0.5
+
+map:
+  mode: profile   # "profile" or "simple"
+  name: "eds_profile_validation"
+  width_px: 1000 #1000
+  height_px: 666 #666
+  pixel_time_us: 256
+  real_time_s: 0       # used only for simple map path
+  spu_device: 1
+
+  save_bcf: true
+  save_image: true
+  image_format: "bmp"
+
+  profile:
+    enabled: true
+    elements:
+      - atomic_number: 14
+        symbol: "Si"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+        
+
+      - atomic_number: 8
+        symbol: "O"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+
+      - atomic_number: 13
+        symbol: "Al"
+        line: "K"
+        energy_keV: 0.0
+        width: 1.0
+      
+      - atomic_number: 31
+        symbol: "Ga"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+
+      - atomic_number: 22
+        symbol: "Ti"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+
+      - atomic_number: 50
+        symbol: "Sn"
+        line: "LA"
+        energy_keV: 0.0
+        width: 1.0
+      
+      - atomic_number: 46
+        symbol: "Pd"
+        line: "LA"
+        energy_keV: 0.0
+        width: 1.0
+      
+    image_filter: 0
+    map_filter: 0
+    map_filter_width: 3
+    color_mix_method: 0
+    brightness: 0.0
+    gamma: 1.0
+    color_saturation: 1.0
+    absolute_scaling: false
+    normalization: true
+    deconvolution: false
+
+readback:
+  save_element_npy: true
+  save_element_metadata_json: true
+  log_element_stats: true

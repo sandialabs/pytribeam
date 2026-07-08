@@ -1,15 +1,15 @@
 import sys
-from pathlib import Path
-from datetime import datetime
 import traceback
+from datetime import datetime
+from pathlib import Path
 
-from pytribeam.external_oem.bruker.session import BrukerSession
-from pytribeam.external_oem.bruker.eds import BrukerEDSController
 from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
+from pytribeam.external_oem.bruker.eds import BrukerEDSController
+from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import (
-    BrukerSessionSettings,
-    BrukerEDSMapSettings,
     BrukerDetectorMotionSettings,
+    BrukerEDSMapSettings,
+    BrukerSessionSettings,
 )
 
 # Make local src/ available without requiring package installation
@@ -22,7 +22,7 @@ OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 STAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_PATH = OUT_DIR / f"eds_hardware_sandbox_{STAMP}.log"
-BCF_PATH = OUT_DIR / f"eds_map_{STAMP}.h5"  # bcf works
+BCF_PATH = OUT_DIR / f"eds_map_{STAMP}.bcf"  # bcf works
 BMP_PATH = OUT_DIR / f"eds_map_{STAMP}.bmp"
 
 

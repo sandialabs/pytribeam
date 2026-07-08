@@ -1,7 +1,16 @@
-import os
 import ctypes as ct
+import os
 
-from .ctypes_types import c_u32, c_i32, c_u16, c_dbl, c_bool, TOpenClientOptions
+from .ctypes_types import (
+    TFeatureData,
+    TOpenClientOptions,
+    TRTHyMapProfileSettings,
+    c_bool,
+    c_dbl,
+    c_i32,
+    c_u16,
+    c_u32,
+)
 
 
 def load_esprit_dll(dll_dir: str):
@@ -97,3 +106,47 @@ def bind_eds(esprit):
 
     esprit.EDSGetDetectorPosition.argtypes = [c_u32, c_i32, ct.POINTER(c_i32)]
     esprit.EDSGetDetectorPosition.restype = c_i32
+
+    # HyMapCreateProfile(const TRTHyMapProfileSettings& MapSettings, char* Profile, int32_t& BufSize)
+    # C++ const-reference is passed as pointer at ABI level.
+    esprit.HyMapCreateProfile.argtypes = [
+        ct.POINTER(TRTHyMapProfileSettings),
+        ct.c_char_p,
+        ct.POINTER(c_i32),
+    ]
+    esprit.HyMapCreateProfile.restype = c_i32
+
+    # HyMapStartWithProfile(uint32 CID, int32 SPU, uint32 PixelTime, TFeatureData Region, char* Profile)
+    esprit.HyMapStartWithProfile.argtypes = [
+        c_u32,
+        c_i32,
+        c_u32,
+        TFeatureData,
+        ct.c_char_p,
+    ]
+    esprit.HyMapStartWithProfile.restype = c_i32
+
+    esprit.HyMapGetElementImage.argtypes = [
+        c_u32,
+        ct.c_char_p,
+        c_i32,
+        ct.c_void_p,
+        ct.POINTER(c_u32),
+    ]
+    esprit.HyMapGetElementImage.restype = c_i32
+
+    esprit.HyMapGetMixedMapImage.argtypes = [
+        c_u32,
+        ct.c_char_p,
+        ct.c_void_p,
+        ct.POINTER(c_u32),
+    ]
+    esprit.HyMapGetMixedMapImage.restype = c_i32
+
+    esprit.HyMapGetElementData.argtypes = [
+        c_u32,
+        c_i32,
+        ct.c_void_p,
+        ct.POINTER(c_u32),
+    ]
+    esprit.HyMapGetElementData.restype = c_i32

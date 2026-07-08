@@ -336,3 +336,59 @@ Default:
 4. remember `.bcf` immediate read is not a reliable test
 5. treat EBSD `-1` / `232` in simulator as context-not-ready, not immediate binding failure
 6. proceed with hardware smoke validation before expanding YAML/workflow work
+
+## Latest hardware/sandbox observations
+
+### EDS / EBSD map setup
+- The same image/area configuration approach used for EDS mapping appears usable for EBSD map setup as well.
+- Need to clean up current sandbox code and formalize map setup into reusable module methods.
+
+### Detector position
+- only two modes: `park` and `acquire`. `acquire` encompasses all other positions, even if not fully inserted
+- for safety, need to verify in `park` mode at end/start of scan
+- need separate check for data quality by reading the `.bcf`/`.spx` data
+
+### EBSD detector motion
+- Observed cases where `EBSDSetDetectorPosition(...)` hangs for a long time or throws an error when the detector gets close to the requested position but not exactly there.
+- Unclear whether backend expects exact positional convergence or whether Esprit has an internal tolerance not exposed through API.
+- Need to determine:
+  - acceptable motion tolerance
+  - whether there is a “ready” state separate from exact position
+  - recommended safe park/acquisition positions and speeds
+
+### Save/readback behavior
+- Native `.bcf` saving works with explicit output paths.
+- `.bcf` may remain locked by Esprit after save, so immediate direct file reads are not a reliable integration-test expectation.
+- `.spx` generation/parsing is more tractable because file is XML-based.
+- Need to decide long-term strategy for:
+  - native file archival (`.bcf`, `.spx`)
+  - API-based readback
+  - direct file parsing outside Esprit
+
+### Current practical safety rule
+- Treat detector position APIs as coarse safety checks.
+- Use `park` verification before/after scans where possible.
+- Do not assume `acquire` implies fully inserted / optimal geometry.
+- For acquisition quality, validate by inspecting resulting data rather than only motor state.
+
+### EDS profile/element maps
+- `HyMapCreateProfile` works from Python using `TRTHyMapProfileSettings`.
+- `HyMapStartWithProfile` works with a rectangular `TFeatureData` region.
+- Python-selected elements can be passed via `TRTElementRegion`.
+- Successful sandbox result on Esprit 2.3.1:
+  - profile XML generated
+  - profile-based map acquired
+  - `.bcf` saved
+  - `.bmp` exported
+- This confirms a path for user-configurable EDS element maps.
+
+### EDS element-map numeric readback
+- `HyMapGetElementData` returns numeric element-map planes.
+- Empirically, returned data are `uint16` rasters with shape `(height_px, width_px)`.
+- Byte count observed: `width * height * 2`.
+- Element indices are zero-based and correspond to the order of requested `settings.elements`.
+- For N requested elements, index N may return an all-zero plane; index N+1 returns wrong-parameter.
+- Production code should read only indices `0..N-1`.
+- Rendered BMP/color output is not authoritative for data interpretation.
+- `HyMapGetImage` appears to export grayscale image channel, not element data.
+- Use `HyMapGetElementData` for scientific numeric element maps.

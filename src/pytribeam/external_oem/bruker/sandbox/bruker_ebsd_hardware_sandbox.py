@@ -1,30 +1,57 @@
 import sys
-from pathlib import Path
-from datetime import datetime
 import traceback
-import time
-
-
-from pytribeam.external_oem.bruker.session import BrukerSession
-from pytribeam.external_oem.bruker.ebsd import BrukerEBSDController
-from pytribeam.external_oem.bruker.types import (
-    BrukerSessionSettings,
-    BrukerEDSMapSettings,
-)
+from datetime import datetime
+from pathlib import Path
 
 # Make local src/ available without requiring package installation
-REPO_ROOT = Path(__file__).resolve().parents[5]  # check the number
+REPO_ROOT = Path(__file__).resolve().parents[5]  # adjust if needed
 SRC_ROOT = REPO_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
-OUT_DIR = Path(r"C:\Users\User\Documents\Polonsky\BrukerSandbox")
+from pytribeam.external_oem.bruker.ebsd import BrukerEBSDController
+from pytribeam.external_oem.bruker.session import BrukerSession
+from pytribeam.external_oem.bruker.types import (
+    BrukerEBSDAcquisitionSettings,
+    BrukerEBSDDetectorMotionSettings,
+    BrukerEBSDScanAreaSettings,
+    BrukerSessionSettings,
+)
+
+HARDWARE_TEST = False
+
+OUT_DIR = Path(r"C:\Users\apolon\Documents\Polonsky\BrukerSandbox")
+if HARDWARE_TEST:
+    OUT_DIR = Path(r"C:\Users\User\Documents\Polonsky\BrukerSandbox")
+
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 STAMP = datetime.now().strftime("%Y%m%d_%H%M%S")
 LOG_PATH = OUT_DIR / f"ebsd_hardware_sandbox_{STAMP}.log"
 
-# txt looks unreadable, bcf made an output, trying h5 with and without patterns
-OUT_PATH_EBSD = OUT_DIR.joinpath(f"ebsd_data_{STAMP}.h5")
+EBSD_OUTPUT_PATH = OUT_DIR / f"ebsd_data_{STAMP}.bcf"
+
+# Hardware-specific values to refine
+EBSD_ACQUIRE_POSITION_MM = 0.0
+EBSD_SAFE_PARK_POSITION_MM = 0.0
+if HARDWARE_TEST:
+    EBSD_ACQUIRE_POSITION_MM = 10.0
+    EBSD_SAFE_PARK_POSITION_MM = 5.05
+EBSD_MOVE_SPEED_MM_PER_S = 2.0
+EBSD_POSITION_TOLERANCE_MM = 0.10
+EBSD_POSITION_TIMEOUT_S = 4.0
+if HARDWARE_TEST:
+    EBSD_POSITION_TIMEOUT_S = 90.0
+EBSD_POSITION_POLL_INTERVAL_S = 0.5
+EBSD_STABLE_POLLS = 2
+
+EBSD_PROFILE_NAME = "default"
+
+SCAN_WIDTH_PX = 50
+SCAN_HEIGHT_PX = 24
+SCAN_PIXEL_TIME_US = 512
+
+ACQ_POLL_INTERVAL_S = 2.0
+ACQ_TIMEOUT_S = 600.0
 
 
 def log(msg: str):
@@ -37,6 +64,7 @@ def log(msg: str):
 def main():
     log("=== Bruker EBSD hardware sandbox start ===")
     log(f"Log path: {LOG_PATH}")
+    log(f"EBSD output path: {EBSD_OUTPUT_PATH}")
 
     session_settings = BrukerSessionSettings(
         dll_dir=r"C:\Program Files\Bruker\Esprit API",
@@ -51,6 +79,7 @@ def main():
     )
 
     session = None
+    ebsd = None
 
     try:
         log("Creating BrukerSession")
@@ -71,38 +100,15 @@ def main():
 
         status = ebsd.export_status()
         log("EBSD export status:")
-        log(f"  has_get_profiles={status.has_get_profiles}")
-        log(f"  has_select_profile={status.has_select_profile}")
-        log(f"  has_start_acquisition={status.has_start_acquisition}")
-        log(f"  has_start_with_profile={status.has_start_with_profile}")
-        log(f"  has_stop_acquisition={status.has_stop_acquisition}")
-        log(f"  has_get_state={status.has_get_state}")
-        log(f"  has_save_to_file={status.has_save_to_file}")
-        log(f"  has_export_data={status.has_export_data}")
-        log(f"  has_get_detector_position={status.has_get_detector_position}")
-        log(f"  has_set_detector_position={status.has_set_detector_position}")
+        for field_name, value in zip(status._fields, status):
+            log(f"  {field_name}={value}")
 
         if status.has_get_detector_position:
             try:
                 pos_mm = ebsd.get_detector_position_mm()
-                log(f"EBSD detector position (mm): {pos_mm}")
+                log(f"Initial EBSD detector position (mm): {pos_mm}")
             except Exception as exc:
-                log(f"EBSD detector position query failed: {exc}")
-
-        if status.has_get_detector_position:
-            try:
-                new_pos_mm = 10.0
-                move_speed_mm_per_s = 2.0
-                log(f"EBSD detector requested position (mm): {new_pos_mm}")
-                ebsd.set_detector_position_mm(
-                    position_mm=new_pos_mm,
-                    speed_mm_per_s=move_speed_mm_per_s,
-                )
-                # get current pos after move
-                pos_mm = ebsd.get_detector_position_mm()
-                log(f"EBSD detector position (mm): {pos_mm}")
-            except Exception as exc:
-                log(f"EBSD detector position query failed: {exc}")
+                log(f"Initial EBSD detector position query failed: {exc}")
 
         if status.has_get_profiles:
             try:
@@ -113,99 +119,68 @@ def main():
             except Exception as exc:
                 log(f"EBSD profile query failed: {exc}")
 
-        # if status.has_get_state:
-        #     try:
-        #         state = ebsd.get_acquisition_state()
-        #         log(f"EBSD acquisition state: {state}")
-        #     except Exception as exc:
-        #         log(f"EBSD acquisition state query failed: {exc}")
-
-        if status.has_get_state:
-            # try small different area EBSD:
-
-            log("Preparing small EDS map acquisition")
-            map_settings = BrukerEDSMapSettings(
-                name="hardware_sandbox_map",
-                width_px=50,
-                height_px=24,
-                pixel_time_us=512,
-                real_time_s=0,
-                output_bcf_path=str(None),
-                output_image_path=str(None),
-                output_image_format="bmp",
-                spu_device=1,
+        if status.has_set_detector_position and status.has_get_detector_position:
+            log(
+                f"Moving EBSD detector to acquire-ish position: {EBSD_ACQUIRE_POSITION_MM} mm"
             )
-
-            rc = session.dll.ImageSetConfiguration(
-                session.cid,
-                int(map_settings.width_px),
-                int(map_settings.height_px),
-                int(map_settings.pixel_time_us),
-                True,
-                False,
+            acquire_motion = BrukerEBSDDetectorMotionSettings(
+                target_position_mm=EBSD_ACQUIRE_POSITION_MM,
+                speed_mm_per_s=EBSD_MOVE_SPEED_MM_PER_S,
+                tolerance_mm=EBSD_POSITION_TOLERANCE_MM,
+                timeout_s=EBSD_POSITION_TIMEOUT_S,
+                poll_interval_s=EBSD_POSITION_POLL_INTERVAL_S,
+                stable_polls=EBSD_STABLE_POLLS,
             )
-            session._check(rc, "ImageSetConfiguration")
+            result = ebsd.move_detector_position_tolerant(acquire_motion, log_fn=log)
+            log(f"EBSD detector acquire motion result: {result}")
 
-            try:
-                # # this works:
-                # ebsd.select_profile("default")
-                # ebsd.start_acquisition()
-
-                # # this won't work independently, you need to load a profile first
-                # ebsd.start_acquisition_with_profile("default")
-
-                # # THIS DOESN'T WORK, YOU NEED A PROFILE
-                # ebsd.start_acquisition()
-
-                # likely most robust method:
-                ebsd.select_profile("default")
-                ebsd.start_acquisition()
-
-                log("EBSD acquisition running")
-                state = ebsd.get_acquisition_state()
-                log(f"EBSD acquisition state: {state}")
-                # wait until scan is over
-                while int(ebsd.get_acquisition_state().acquisition_percent) < 100:
-                    time.sleep(2)  # check every 2 seconds
-                    state = ebsd.get_acquisition_state()
-                    log(f"EBSD acquisition state: {state}")
-                log("EBSD acquisition complete")
-                ebsd.stop_acquisition()
-            except Exception as exc:
-                log(f"EBSD acquisition start query failed: {exc}")
-
-        # TRY SAVING OUT FILE:
-        try:
-            outpath = ebsd.save_to_file(
-                output_path=OUT_PATH_EBSD,
+        if (
+            status.has_select_profile
+            and status.has_start_acquisition
+            and status.has_get_state
+        ):
+            acq_settings = BrukerEBSDAcquisitionSettings(
+                profile_name=EBSD_PROFILE_NAME,
+                scan_area=BrukerEBSDScanAreaSettings(
+                    width_px=SCAN_WIDTH_PX,
+                    height_px=SCAN_HEIGHT_PX,
+                    pixel_time_us=SCAN_PIXEL_TIME_US,
+                ),
+                output_path=str(EBSD_OUTPUT_PATH),
                 with_edx=False,
                 with_patterns=True,
+                poll_interval_s=ACQ_POLL_INTERVAL_S,
+                timeout_s=ACQ_TIMEOUT_S,
             )
-            log(f"EBSD data saved to {OUT_PATH_EBSD.suffix} at {outpath}")
-        except Exception as exc:
-            log(f"EBSD file saving to {OUT_PATH_EBSD.suffix} format failed: {exc}")
 
-        if status.has_get_detector_position:
             try:
-                # overwrite, functionalize this better:
-                new_pos_mm = 5.05  # NEED TO DEFINE HOME SAFE POSITION
-                move_speed_mm_per_s = 2.0  # NEED to come up with safe speeds
-                # fails a lot here, getting to 5.05 mm
-                log(f"EBSD detector requested position (mm): {new_pos_mm}")
-                ebsd.set_detector_position_mm(
-                    position_mm=new_pos_mm,
-                    speed_mm_per_s=move_speed_mm_per_s,
-                )
+                log(f"Running EBSD profile acquisition with settings: {acq_settings}")
+                saved_path = ebsd.run_profile_acquisition(acq_settings, log_fn=log)
+                log(f"EBSD acquisition saved_path={saved_path}")
             except Exception as exc:
-                log(f"EBSD detector position set failed: {exc}")
+                log(f"EBSD acquisition failed: {exc}")
+
+        if status.has_set_detector_position and status.has_get_detector_position:
+            log(
+                f"Moving EBSD detector to safe park position: {EBSD_SAFE_PARK_POSITION_MM} mm"
+            )
+            park_motion = BrukerEBSDDetectorMotionSettings(
+                target_position_mm=EBSD_SAFE_PARK_POSITION_MM,
+                speed_mm_per_s=EBSD_MOVE_SPEED_MM_PER_S,
+                tolerance_mm=EBSD_POSITION_TOLERANCE_MM,
+                timeout_s=EBSD_POSITION_TIMEOUT_S,
+                poll_interval_s=EBSD_POSITION_POLL_INTERVAL_S,
+                stable_polls=EBSD_STABLE_POLLS,
+            )
+            result = ebsd.move_detector_position_tolerant(park_motion, log_fn=log)
+            log(f"EBSD detector park motion result: {result}")
 
         if status.has_get_detector_position:
             try:
-                # get current pos after move
                 pos_mm = ebsd.get_detector_position_mm()
-                log(f"EBSD detector position (mm): {pos_mm}")
+                log(f"Final EBSD detector position (mm): {pos_mm}")
             except Exception as exc:
-                log(f"EBSD detector position query failed: {exc}")
+                log(f"Final EBSD detector position query failed: {exc}")
 
         log("EBSD sandbox complete")
 
@@ -216,6 +191,16 @@ def main():
             log(line)
 
     finally:
+        # Last-resort park attempt if something failed mid-run.
+        # Keep this conservative and logged.
+        if ebsd is not None:
+            try:
+                log("Final safety attempt: query EBSD detector position")
+                pos_mm = ebsd.get_detector_position_mm()
+                log(f"Safety final position query: {pos_mm}")
+            except Exception as exc:
+                log(f"Safety final position query failed: {exc}")
+
         if session is not None:
             log("Leaving Esprit connection open (close_on_exit=False)")
         log("=== Bruker EBSD hardware sandbox end ===")
