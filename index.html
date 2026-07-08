@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>pyTriBeam | Project Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap"
+          rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .hover-card:hover { transform: translateY(-2px); transition: all 0.2s ease; }
+    </style>
+    </head>
+    <body class="bg-[#DCDCDC] text-slate-800 antialiased min-h-screen">
+<nav class="bg-[#F5F5F5] border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-2">
+            <span class="text-xl font-bold tracking-tight text-blue-600">pyTriBeam</span>
+        </div>
+
+            <a href="https://github.com/sandialabs/pytribeam"
+               class="text-sm font-medium hover:text-blue-600 transition">GitHub Repository</a>
+        </div>
+    </nav>
+
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl font-extrabold tracking-tight text-slate-900 mb-4">
+                <b>Project Dashboard</b></h1>
+            <p class="text-lg text-slate-600 max-w-2xl mx-auto">
+                Documentation and quality reports for pyTriBeam.
+            </p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+
+            <section class="space-y-6">
+                <div class="flex items-center justify-between border-b-2 border-blue-200 pb-2">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        🚀 Released
+                    </h2>
+                    <a href="https://github.com/sandialabs/pytribeam/tree/main"
+                       class="text-xs font-semibold bg-blue-100 text-blue-700
+                              px-2 py-1 rounded hover:bg-slate-300">main branch</a>
+                </div>
+
+                <div class="space-y-4">
+                    <a href="main/docs/userguide/book/index.html"
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
+                              border-slate-200 hover:border-blue-600 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-blue-600">
+                                    User's Manual</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Stable documentation for end-users.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                Stable</span>
+                        </div>
+                    </a>
+
+                    <a href="main/docs/api/index.html"
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
+                              border-slate-200 hover:border-blue-600 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-blue-600">
+                                    API Reference</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Technical API documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-blue-100 text-blue-700 px-2 py-1 rounded">
+                                Stable</span>
+                        </div>
+                    </a>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <a href="main/reports/lint/index.html"
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-blue-600">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Code Quality</span>
+                            <img src="main/badges/lint.svg" alt="Lint Score" class="h-5">
+                        </a>
+                        <a href="main/reports/coverage/index.html"
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-blue-600">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Test Coverage</span>
+                            <img src="main/badges/coverage.svg" alt="Coverage" class="h-5">
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="space-y-6">
+                <div class="flex items-center justify-between border-b-2 border-orange-200 pb-2">
+                    <h2 class="text-2xl font-bold flex items-center gap-2">
+                        🛠️ Development
+                    </h2>
+                    <a href="https://github.com/sandialabs/pytribeam/tree/dev"
+                       class="text-xs font-semibold bg-orange-100 text-orange-700
+                              px-2 py-1 rounded hover:bg-orange-200">dev branch</a>
+                </div>
+
+                <div class="space-y-4">
+                    <a href="dev/docs/userguide/book/index.html"
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
+                              border-slate-200 hover:border-orange-500 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-orange-600">
+                                    User's Manual</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Development documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                Latest</span>
+                        </div>
+                    </a>
+
+                    <a href="dev/docs/api/index.html"
+                       class="hover-card block p-5 bg-[#F5F5F5] rounded-xl shadow-sm border
+                              border-slate-200 hover:border-orange-500 group">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="font-bold text-lg group-hover:text-orange-600">
+                                    API Reference</h3>
+                                <p class="text-sm text-slate-500 mt-1">
+                                    Technical API documentation.</p>
+                            </div>
+                            <span class="text-xs font-bold uppercase tracking-wider
+                                         bg-orange-100 text-orange-700 px-2 py-1 rounded">
+                                Latest</span>
+                        </div>
+                    </a>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <a href="dev/reports/lint/index.html"
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-orange-500">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Code Quality</span>
+                            <img src="dev/badges/lint.svg" alt="Lint Score" class="h-5">
+                        </a>
+                        <a href="dev/reports/coverage/index.html"
+                           class="hover-card p-4 bg-[#F5F5F5] rounded-xl shadow-sm border
+                                  border-slate-200 hover:border-orange-500">
+                            <span class="block text-xs font-bold text-slate-400
+                                         uppercase mb-2">Test Coverage</span>
+                            <img src="dev/badges/coverage.svg" alt="Coverage" class="h-5">
+                        </a>
+                    </div>
+                </div>
+            </section>
+
+        </div>
+
+        <section class="mt-16 bg-[#F5F5F5] p-8 rounded-xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">Build Metadata</h2>
+            <div class="flex flex-col gap-0 text-sm leading-tight text-slate-600">
+                <div>
+                    <span class="font-semibold">Generated:</span> 2026-07-08 19:39:29 UTC (2026-07-08 15:39:29 EST / 2026-07-08 13:39:29 MST / 2026-07-08 12:39:29 PST)
+                </div>
+                <div>
+                    <span class="font-semibold">Run ID:</span>
+                    <a href="https://github.com/sandialabs/pytribeam/actions/runs/28970449244" class="text-blue-600 hover:underline">28970449244</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Branch:</span>
+                    <a href="https://github.com/sandialabs/pytribeam/tree/dev" class="text-blue-600 hover:underline">dev</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Commit:</span>
+                    <a href="https://github.com/sandialabs/pytribeam/commit/54cc84f3bc8e94c5b31999042b3560e2983a40ca" class="text-blue-600 hover:underline">54cc84f</a>
+                </div>
+                <div>
+                    <span class="font-semibold">Repository:</span>
+                    <a href="https://github.com/sandialabs/pytribeam" class="text-blue-600 hover:underline">sandialabs/pytribeam</a>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="mt-20 py-10 border-t border-slate-200 bg-[#F5F5F5]">
+        <div class="max-w-7xl mx-auto px-4 text-center">
+            <p class="text-sm text-slate-400">
+                &copy; 2026 Sandia National Laboratories | Released under <a href="https://github.com/sandialabs/pytribeam/blob/main/LICENSE" class="text-blue-600 hover:underline">MIT License</a>
+            </p>
+        </div>
+    </footer>
+
+</body>
+</html>
