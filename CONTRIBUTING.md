@@ -63,10 +63,6 @@ These YAML files cover:
     * **Purpose:** To transform your "human-readable" source code into "machine-installable" artifacts. This is the bridge between CI and CD. Once the code is verified (integrated), it can be packaged into a deployable format (Wheels/SDists).
     * **What happens:** Tools (like `uv build`) bundle your code into standard formats, such as a Wheel (`.whl`) or a Source Distribution (`.tar.gz`).
     * **Key Outcome:** Portability. You now have a single file (an "artifact") that contains everything needed to install your library on any compatible system.
-  * **Update Version File**
-    * **Purpose:** To ensure that users who download a zip archive (without git metadata) still get the correct version number when installing.
-    * **What happens:** After a successful build, `_version.py` is regenerated with the tagged version and committed back to the branch the tag was cut from (`main` or `dev`).
-    * **Key Outcome:** Zip installs report the correct version rather than failing or falling back to a placeholder.
   * **Release (Documentation & Tagging)**
     * **Purpose:** To create an official "point-in-time" snapshot of the project for project management and users. It uses an immutable Git tag and GitHub Release page.
     * **What happens:** A permanent Git tag (like v1.0.0) is assigned to a specific commit. A GitHub Release page is generated with a Changelog (i.e., What's New?) and the build artifacts are attached to it as "Release Assets."
@@ -80,7 +76,8 @@ These YAML files cover:
 Implementation details:
 
 * The reuse of `ci.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
-* **Dependency Chain:** `test` waits for `validate_tag`; `build` waits for `test`; `update-version-file` and `github-release` both wait for `build` and run in parallel; `publish` waits for both `build` and `github-release`.
+* **Dependency Chain:** `test` waits for `validate_tag`; `build` waits for `test`; `github-release` waits for `build`; `publish` waits for both `build` and `github-release`.
+* **No commit-back of `_version.py`:** `hatch-vcs` stamps the exact version into the built wheel/sdist from the git tag, so published artifacts are always correct. The workflow does **not** regenerate and commit `_version.py` back to `main`/`dev` — doing so would create a commit *past* the tag (forcing every later build to report the next `.devN` version) and would fail against branch protection on `main`. Commit traceability is preserved by the tag itself (see [Tags and Semantic Versioning](#tags-and-semantic-versioning)).
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
@@ -148,7 +145,23 @@ Version strings are generated automatically by `hatch-vcs` (which uses `setuptoo
 * `0.0.9` — the most recent git tag
 * `dev173` — 173 commits have been made since that tag
 
-Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This version is written to `src/pytribeam/_version.py` at build time and committed back to the repo by `release.yml` on each tagged release, so that zip archive installs also report the correct version.
+Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This clean version is written to `src/pytribeam/_version.py` **at build time** and baked into the wheel and sdist, so everything published to PyPI/TestPyPI reports the correct version.
+
+**The tag is the permanent link between a version and a commit.** A git tag is an immutable pointer to exactly one commit, so the three are locked together one-to-one:
+
+```
+published version string   ⇄   tag name   ⇄   commit SHA (immutable)
+       "0.1.1"                   v0.1.1         3b3dd19...
+```
+
+Because every published artifact is built from a tag, the version string alone identifies the commit — no commit hash needs to be embedded in `_version.py`:
+
+```sh
+# "I installed 0.1.1 from PyPI — which commit is that?"
+git rev-list -n1 v0.1.1     # -> the exact commit SHA, every time
+```
+
+The GitHub Release page for each tag links the same commit directly, and `git describe --tags` gives developers the nearest tag, commits-since, and short hash for local (unpublished) builds. For this reason `release.yml` does **not** commit a regenerated `_version.py` back to `main`/`dev`: the tracked `src/pytribeam/_version.py` is only a static fallback for source-zip downloads, while the tag provides authoritative traceability.
 
 **Pre-release tags:**
 
@@ -243,15 +256,9 @@ git pull
 # View existing tags to choose the next version
 git tag
 
-# Regenerate _version.py so the committed file matches the tag you are about to create.
-# This ensures zip archive installs report the correct version.
-uv build
-
-# Stage and commit _version.py if it changed
-git add src/pytribeam/_version.py
-git diff --staged --quiet || git commit -m "chore: update _version.py pre-release"
-
-# Push branch commits to remote FIRST (prevents race condition)
+# Push any branch commits to remote FIRST (prevents the tag-validation race
+# condition described above). There is nothing to build or commit locally:
+# hatch-vcs generates _version.py with the correct version during the CI build.
 git push origin dev
 
 # Create a release candidate tag (rc) — this routes to TestPyPI
@@ -265,10 +272,9 @@ git push origin v1.0.0rc1
 After pushing, `release.yml` will:
 1. Validate the tag (branch, PEP 440, version ordering)
 2. Run the full test suite
-3. Build the wheel and sdist with SLSA attestation
+3. Build the wheel and sdist with SLSA attestation (version stamped from the tag)
 4. Create a GitHub Release marked as **pre-release**
 5. Publish to **TestPyPI** (because the tag contains `rc`)
-6. Commit the updated `_version.py` back to `dev`
 
 Verify the TestPyPI release at `https://test.pypi.org/project/pytribeam/` and test install with:
 
@@ -292,14 +298,8 @@ git push origin main
 # View existing tags to confirm the next version
 git tag
 
-# Regenerate _version.py so the committed file matches the tag
-uv build
-
-# Stage and commit _version.py if it changed
-git add src/pytribeam/_version.py
-git diff --staged --quiet || git commit -m "chore: update _version.py for release"
-
-# Push main branch to remote FIRST (prevents race condition)
+# Push main to remote FIRST (prevents the tag-validation race condition).
+# Nothing to build or commit locally — hatch-vcs stamps the version during CI.
 git push origin main
 
 # Create the production release tag — this routes to PyPI
@@ -341,3 +341,38 @@ No changes to `release.yml` are required. The `publish` job dynamically selects 
 When a release tag is pushed, the pipeline will run `validate_tag`, `test`, `build`, and `github-release` automatically. The `publish` job will then pause with status **Waiting**. The designated reviewer(s) will receive a GitHub notification and must click **Review deployments → Approve and deploy** before the package is uploaded to PyPI.
 
 If no reviewer approves within 30 days, the deployment times out and must be re-triggered.
+
+## Release procedure (quick reference)
+
+> Updated 7/9/26. The workflow no longer commits `_version.py` back to the branch,
+> so the branch-protection workaround previously needed for PyPI releases is gone.
+> Always push the branch **before** the tag (avoids the tag-validation race).
+
+### Release candidate to TestPyPI (from `dev`)
+- Ensure `dev` is up to date and pushed:
+```bash
+git checkout dev
+git pull
+git push origin dev
+```
+- Create and push the rc tag (routes to TestPyPI because it contains `rc`):
+```bash
+git tag -a v0.1.2rc1 -m "Release candidate 1 for version 0.1.2"
+git push origin v0.1.2rc1
+```
+  - This triggers `release.yml`: validate → test → build → GitHub pre-release → publish to TestPyPI.
+
+### Release to PyPI (from `main`)
+- Ensure `main` contains the validated release commit and is pushed:
+```bash
+git checkout main
+git pull origin main
+git merge dev          # if the release content comes from dev
+git push origin main
+```
+- Create and push the production tag (no `rc`/`dev` ⇒ routes to PyPI):
+```bash
+git tag -a v0.1.2 -m "Release version 0.1.2"
+git push origin v0.1.2
+```
+  - This triggers the same pipeline but publishes a full GitHub Release and uploads to production PyPI (pausing for the manual approval gate if one is configured on the `pypi` environment).

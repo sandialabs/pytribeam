@@ -1,6 +1,6 @@
 # pyTriBeam
 
-![main_logo](docs/userguide/src/logos/logo_color.png)
+![main_logo](https://raw.githubusercontent.com/sandialabs/pytribeam/main/docs/userguide/src/logos/logo_color.png)
 
 [![GitHub Pages][pages_badge]][pages_link] [![PyPI][pypi_badge]][pypi_link]   
 
