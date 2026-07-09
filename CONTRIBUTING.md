@@ -341,3 +341,33 @@ No changes to `release.yml` are required. The `publish` job dynamically selects 
 When a release tag is pushed, the pipeline will run `validate_tag`, `test`, `build`, and `github-release` automatically. The `publish` job will then pause with status **Waiting**. The designated reviewer(s) will receive a GitHub notification and must click **Review deployments → Approve and deploy** before the package is uploaded to PyPI.
 
 If no reviewer approves within 30 days, the deployment times out and must be re-triggered.
+
+## Release procedure (as of 7/8/26)
+
+### release candidate to testpypi
+- Ensure up to date with `dev` with a pull
+- create rc tag:
+```bash
+git tag -a v0.1.1rc1 -m "Release candidate 0.1.1"
+```
+- push the tag to dev
+```bash
+git push origin v0.1.1rc1
+```
+  - This should trigger `release.yml` and publish to testpypi
+
+### release to pypi
+This only worked by turning off branch protection rules, which had prevented update pushes to _version.py. Also updating to higher version than tag.
+
+- Ensure you are up to date with `main`, and `main` is ready for a release to pypi.
+
+- Create the production release tag — this routes to PyPI
+```bash
+git tag -a v1.0.0 -m "Release version 1.0.0"
+```
+
+- Push the tag to GitHub — this triggers release.yml
+The tag now points to a commit already on origin/main, so CI validation will succeed:
+```bash
+git push origin v1.0.0
+```
