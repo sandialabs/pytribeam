@@ -246,7 +246,7 @@ jobs:
           files: dist/*
           generate_release_notes: true # Automatically generate release notes based on commits since the last release
           draft: false # Set to true if you want to create a draft release instead of publishing immediately
-          prerelease: ${{ contains(github.ref, 'rc') || contains(github.ref, 'dev') || contains(github.ref, 'a') || contains(github.ref, 'b') }} # Mark as pre-release if tag contains rc, dev, a, or b
+          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'dev') || contains(github.ref_name, 'a') || contains(github.ref_name, 'b') }} # Mark as pre-release if tag contains rc, dev, a, or b
 
   # 6. PUBLISH: Runs after both build and github-release succeed.
   #    Routes pre-release tags (containing 'rc' or 'dev') to TestPyPI so they
