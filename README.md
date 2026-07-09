@@ -13,7 +13,6 @@ Documentation and quality reports for pyTriBeam.
 | [![Lint main][lint_badge_main]][lint_report_main]             | [![Lint dev][lint_badge_dev]][lint_report_dev] |
 | [![Coverage main][coverage_badge_main]][coverage_report_main] | [![Coverage dev][coverage_badge_dev]][coverage_report_dev] |
 
-
 ## Getting Started
 
 Installation instructions and more can be found in the User Guide ([Stable/main][manual_main] or [Latest/dev][manual_dev]).
