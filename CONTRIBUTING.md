@@ -284,29 +284,42 @@ pip install --index-url https://test.pypi.org/simple/ pytribeam==1.0.0rc1
 
 ### Create a Release (PyPI from `main`)
 
-Once the pre-release is validated, merge `dev` into `main` and tag a production release. Tags without `rc` or `dev` are routed to production PyPI.
+Once the pre-release is validated, get the release commit onto `main` and tag a production release. Tags without `rc` or `dev` are routed to production PyPI.
+
+> **`main` is a protected branch.** A direct `git push origin main` is rejected by GitHub
+> (`GH006: protected branch update failed — changes must be made through a pull request`).
+> The release content must reach `main` through a **pull request**. Tag pushes are *not*
+> blocked by branch protection, so pushing the release tag itself works directly once the
+> PR is merged. (Because `release.yml` no longer commits `_version.py` back, CI never needs
+> to push to `main` — so branch protection can stay on; the old "disable protection" hack is
+> no longer needed.)
 
 **Pre-flight check:** Run `python preflight.py --release` before proceeding.
 
+**Step 1 — Open and merge a PR from `dev` into `main`** (`dev` must already be pushed):
+
+* Web UI: <https://github.com/sandialabs/pytribeam/compare/main...dev> → **Create pull request**.
+* Merge with a **merge commit** (not *Squash*) so `dev` and `main` stay related for future releases.
+* A reviewer approval may be required by the branch protection rules.
+
+**Step 2 — Sync local `main` to the merged commit, then tag it:**
+
 ```sh
-# Merge dev into main
+git fetch origin
 git checkout main
-git pull origin main
-git merge dev
-git push origin main
+git reset --hard origin/main        # match the exact commit the PR produced
 
-# View existing tags to confirm the next version
-git tag
+# Confirm HEAD is the merge you expect and the release content is present
+git log -1 --oneline
 
-# Push main to remote FIRST (prevents the tag-validation race condition).
-# Nothing to build or commit locally — hatch-vcs stamps the version during CI.
-git push origin main
-
-# Create the production release tag — this routes to PyPI
+# Create the production release tag — this routes to PyPI (no rc/dev)
 git tag -a v1.0.0 -m "Release version 1.0.0"
 
-# Push the tag to GitHub — this triggers release.yml
-# The tag now points to a commit already on origin/main, so CI validation will succeed
+# IMPORTANT: verify the tag points at the merged commit BEFORE pushing.
+# (A tag accidentally created on an older commit will publish the wrong code.)
+git log -1 --oneline v1.0.0^{commit}   # must show the PR merge commit on main
+
+# Push the tag — allowed despite branch protection; this triggers release.yml
 git push origin v1.0.0
 ```
 
@@ -344,9 +357,12 @@ If no reviewer approves within 30 days, the deployment times out and must be re-
 
 ## Release procedure (quick reference)
 
-> Updated 7/9/26. The workflow no longer commits `_version.py` back to the branch,
-> so the branch-protection workaround previously needed for PyPI releases is gone.
-> Always push the branch **before** the tag (avoids the tag-validation race).
+> Updated 7/9/26. `release.yml` no longer commits `_version.py` back to the branch, so CI
+> never pushes to `main` and the old "disable branch protection" hack is gone. But **`main`
+> is still a protected branch for humans**: the release commit must reach `main` via a
+> **pull request**, not a direct push (`git push origin main` is rejected). Tag pushes are
+> not blocked. Always land the branch/PR **before** pushing the tag (avoids the
+> tag-validation race), and verify the tag points at the intended commit before pushing.
 
 ### Release candidate to TestPyPI (from `dev`)
 - Ensure `dev` is up to date and pushed:
@@ -363,16 +379,15 @@ git push origin v0.1.2rc1
   - This triggers `release.yml`: validate → test → build → GitHub pre-release → publish to TestPyPI.
 
 ### Release to PyPI (from `main`)
-- Ensure `main` contains the validated release commit and is pushed:
+- Open and merge a PR from `dev` into `main` — `main` is protected, so no direct push:
+  <https://github.com/sandialabs/pytribeam/compare/main...dev> (use a merge commit, not squash).
+- Sync local `main` to the merged commit, then tag it:
 ```bash
+git fetch origin
 git checkout main
-git pull origin main
-git merge dev          # if the release content comes from dev
-git push origin main
-```
-- Create and push the production tag (no `rc`/`dev` ⇒ routes to PyPI):
-```bash
+git reset --hard origin/main
 git tag -a v0.1.2 -m "Release version 0.1.2"
-git push origin v0.1.2
+git log -1 --oneline v0.1.2^{commit}   # verify it points at the PR merge commit BEFORE pushing
+git push origin v0.1.2                  # tag push is allowed despite branch protection
 ```
   - This triggers the same pipeline but publishes a full GitHub Release and uploads to production PyPI (pausing for the manual approval gate if one is configured on the `pypi` environment).
