@@ -98,7 +98,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Just pick one of the following AS versions at a time
+        # Just pick one of the below AS versions at a time
         # Full matrix test would require separate artifacts
         # This was deemed unnecessary for api docs
         include:
@@ -122,7 +122,6 @@ jobs:
       WHEELSET: ${{ matrix.wheelset }}
       UV_SYSTEM_CERTS: "true"
       UV_LINK_MODE: copy
-      UV_PROJECT_ENVIRONMENT: /opt/venv
 
     steps:
       - name: Checkout code
@@ -131,34 +130,50 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify environment
+      - name: Verify base image environment
         run: |
-          python --version
+          echo "Selected image tag: ${{ matrix.image_tag }}"
+          echo "Selected wheelset: ${WHEELSET}"
+          /opt/venv/bin/python --version
           uv --version
-          uv pip list
           ls -la /opt/vendor-wheels/${WHEELSET}
+          /opt/venv/bin/python -c "import pandas; print('base image pandas ok')"
 
-      - name: Install project into image venv
+      - name: Install project dependencies, vendor wheels, and pdoc deps
         run: |
-          # /opt/venv already contains vendor wheels and pdoc deps.
-          # --inexact prevents uv from removing those extra installed packages.
-          uv sync --all-extras --dev --inexact --python /opt/venv/bin/python
+          # Avoid uv using the image-level /opt/venv as the project environment.
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
 
-          uv run python -c "import pandas; print('pandas import ok')"
-          uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
-          uv run python -c "import pytribeam; print('pytribeam import ok')"
+          # Create project .venv using the Python version from the selected image.
+          uv sync --all-extras --dev --python /opt/venv/bin/python
+
+          # Install vendor wheels and requirements-pdoc.txt into project .venv.
+          install-pytribeam-ci-deps .venv/bin/python "${WHEELSET}"
+
+          # Verify the project .venv is using the expected Python and imports.
+          .venv/bin/python --version
+          .venv/bin/python -c "import pandas; print('project .venv pandas ok')"
+          .venv/bin/python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          .venv/bin/python -c "import pytribeam; print('pytribeam import ok')"
 
       - name: Build API Documentation
         run: |
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
+
           rm -rf docs/api
-          uv run pdoc src/pytribeam -o docs/api
+          .venv/bin/pdoc src/pytribeam -o docs/api
 
       - name: Upload API Documentation Artifact
         uses: actions/upload-artifact@v7
         with:
           name: docs-api
           path: docs/api
-          
+
+  
   github-pages:
     name: Create Github Pages
     needs:
