@@ -115,8 +115,10 @@ jobs:
           # - image_tag: autoscript_4.13.1-py3.11.14
           #   wheelset: autoscript_4.13.1-py3.11.14
 
+    # Pull the AutoScript Python CI image.
+    # This image contains /opt/venv, vendor wheels, uv, and install-pytribeam-ci-deps.
     container:
-      image: ghcr.io/${{ github.repository_owner }}/docs-builder:mdbook-0.4.52 #stable working docs-builder image with mdbook, mdbook-cmdrun, mdbook-katex, and support tools
+      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -160,6 +162,17 @@ jobs:
           .venv/bin/python -c "import pandas; print('project .venv pandas ok')"
           .venv/bin/python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
           .venv/bin/python -c "import pytribeam; print('pytribeam import ok')"
+
+      - name: Generate CLI Documentation
+        run: |
+          mkdir -p docs/generated/cli
+
+          .venv/bin/pytribeam > docs/generated/cli/pytribeam.txt
+          .venv/bin/pytribeam_info > docs/generated/cli/pytribeam-info.txt
+          .venv/bin/pytribeam_exp --help > docs/generated/cli/pytribeam-exp-help.txt
+
+          echo "Generated CLI docs:"
+          ls -la docs/generated/cli
 
       - name: Build API Documentation
         run: |
@@ -229,6 +242,11 @@ jobs:
           name: docs-api
           path: docs/api
 
+      - name: Upload CLI Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/generated/cli
   
   github-pages:
     name: Create Github Pages
@@ -251,12 +269,11 @@ jobs:
       group: gh-pages-deploy
       cancel-in-progress: false
 
-    # Pull the prebuilt mdBook/tools image tagged by branch name: dev/main.
-    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, and support tools.
-    # API docs are generated separately by the api-docs job using the AutoScript
-    # Python CI image, then downloaded here as an artifact.
+    # Pull the prebuilt mdBook/tools image.
+    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, mdbook-alerts,
+    # and support tools.
     container:
-      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:mdbook-0.4.52
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -292,6 +309,12 @@ jobs:
         with:
           name: docs-api
           path: docs/api
+
+      - name: Download CLI Documentation
+        uses: actions/download-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/userguide/src/generated/cli
 
       # mdbook + preprocessors are already in the docs-builder container.
       - name: Build User Guide

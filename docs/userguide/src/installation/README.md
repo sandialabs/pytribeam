@@ -20,11 +20,15 @@ This process uses **AutoScript 4.8.1** and **TriBeam_API_Python 2_2.1** provided
 - Follow the Laser Control installation instructions provided by Thermo Fisher Scientific
   - Install iFast and Python APIs
 
-The AutoScript installer installs the following modules (generated with `pip freeze`):
+The AutoScript installer installs several Python modules. Expand the section below to view the full `pip freeze` output.
+
+<details>
+<summary>Show full AutoScript Python module list</summary>
 
 ```text
 <!-- cmdrun sh -lc "cat ./initial_autoscript_python_modules.txt" -->
 ```
+</details>
 
 Confirm the installation location of Autoscript's python environment, which should default to the following path: `C:/Program Files/Enthought/Python/envs/Autoscript/python.exe`. You can verify this by running the following in the Command Prompt (`cmd.exe`):
 
@@ -49,10 +53,8 @@ Installation can be performed by running the provided batch file [install.bat](h
 
 This install script will uninstall any exisiting version of `pytribeam` before installing the current version. Wheels of various open-source dependencies with the package will be installed. Wheels are provided in order to eliminate the need for internet connectivity on the microscope, and a full list of the current provided wheels can be found here: [wheelhouse](https://github.com/sandialabs/pytribeam/tree/main/wheelhouse)
 
-> [!CAUTION]
-> render test
-
-**NOTE**: `pytribeam` currently defaults to insall in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the `constants` module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the `constants` module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: [test-coverage](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html).
+> [!NOTE]
+> `pytribeam` currently defaults to insall in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the `constants` module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the `constants` module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: [test-coverage](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html).
 
 After running the `install.bat` script, confirm the package installation by opening a new terminal and run the following to list the available package commands:
 
@@ -65,4 +67,19 @@ which should generate the following output along with any relevant warning messa
 ```plaintext
 pytribeam will not run from gitlab container. If empty below, this book was generated without autoscript installed:
 <!-- cmdrun pytribeam -->
+```
+
+pytribeam.txt:
+```text
+{{#include generated/cli/pytribeam.txt}}
+```
+
+pytribeam-info.txt:
+```text
+{{#include generated/cli/pytribeam-info.txt}}
+```
+
+pytribeam-exp-help.txt:
+```text
+{{#include generated/cli/pytribeam-exp-help.txt}}
 ```
