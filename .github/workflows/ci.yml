@@ -102,12 +102,12 @@ jobs:
         # Full matrix test would require separate artifacts
         # This was deemed unnecessary for api docs
         include:
-          # # AS 4.8
-          # - image_tag: autoscript_4.8.1-py3.8.12
-          #   wheelset: autoscript_4.8.1-py3.8.12
-          # AS 4.10
-          - image_tag: autoscript_4.10.0-py3.8.12
-            wheelset: autoscript_4.10.0-py3.8.12
+          # AS 4.8
+          - image_tag: autoscript_4.8.1-py3.8.12
+            wheelset: autoscript_4.8.1-py3.8.12
+          # # AS 4.10
+          # - image_tag: autoscript_4.10.0-py3.8.12
+          #   wheelset: autoscript_4.10.0-py3.8.12
           # # AS 4.11
           # - image_tag: autoscript_4.11.0-py3.8.18
           #   wheelset: autoscript_4.11.0-py3.8.18
