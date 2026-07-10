@@ -511,3 +511,278 @@ button {
 #pdoc-theme-toggle:hover {
   opacity: 1;
 }
+
+/* ------------------------------------------------------------------------- */
+/* pdoc 14 function/class headers and source blocks                          */
+/* ------------------------------------------------------------------------- */
+
+/*
+  pdoc function headers look like:
+
+    <div class="attr function">
+      <span class="def">def</span>
+      <span class="name">function_name</span>
+      <span class="signature pdoc-code multiline">...</span>
+    </div>
+
+  Source blocks look like:
+
+    <div class="pdoc-code codehilite"><pre>...</pre></div>
+
+  These rules specifically target those structures.
+*/
+
+/* ---------------- Function/class header containers ---------------- */
+
+html[data-theme="light"] .attr.function,
+html[data-theme="light"] .attr.class,
+html[data-theme="light"] .attr.variable,
+html[data-theme="light"] .attr.classattr {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+html[data-theme="dark"] .attr.function,
+html[data-theme="dark"] .attr.class,
+html[data-theme="dark"] .attr.variable,
+html[data-theme="dark"] .attr.classattr {
+  background: #252526 !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+/* The "def" / "class" keyword in function/class summaries */
+html[data-theme="light"] .attr.function > .def,
+html[data-theme="light"] .attr.class > .def,
+html[data-theme="dark"] .attr.function > .def,
+html[data-theme="dark"] .attr.class > .def {
+  color: var(--syntax-keyword) !important;
+  font-weight: 600 !important;
+}
+
+/* Function/class name in summaries */
+html[data-theme="light"] .attr.function > .name,
+html[data-theme="dark"] .attr.function > .name {
+  color: var(--syntax-function) !important;
+  font-weight: 600 !important;
+}
+
+html[data-theme="light"] .attr.class > .name,
+html[data-theme="dark"] .attr.class > .name {
+  color: var(--syntax-class) !important;
+  font-weight: 600 !important;
+}
+
+/* Signature block itself */
+html[data-theme="light"] .attr .signature.pdoc-code,
+html[data-theme="dark"] .attr .signature.pdoc-code {
+  background: transparent !important;
+  color: var(--pdoc-fg) !important;
+  border: none !important;
+}
+
+/* Parameter names in function signatures */
+html[data-theme="light"] .attr .signature.pdoc-code .n,
+html[data-theme="dark"] .attr .signature.pdoc-code .n {
+  color: var(--syntax-name) !important;
+}
+
+/* Builtins like bool, int, str */
+html[data-theme="light"] .attr .signature.pdoc-code .nb,
+html[data-theme="dark"] .attr .signature.pdoc-code .nb {
+  color: var(--syntax-builtin) !important;
+}
+
+/* Punctuation like :, (, ), commas */
+html[data-theme="light"] .attr .signature.pdoc-code .p,
+html[data-theme="dark"] .attr .signature.pdoc-code .p {
+  color: var(--syntax-punctuation) !important;
+}
+
+/* Return annotation */
+html[data-theme="light"] .attr .return-annotation,
+html[data-theme="dark"] .attr .return-annotation {
+  color: var(--syntax-type) !important;
+}
+
+/* Links inside type annotations */
+html[data-theme="light"] .attr .signature.pdoc-code a,
+html[data-theme="dark"] .attr .signature.pdoc-code a {
+  color: var(--pdoc-link) !important;
+  text-decoration-color: var(--pdoc-link) !important;
+}
+
+/* View Source button */
+html[data-theme="light"] .view-source-button,
+html[data-theme="dark"] .view-source-button {
+  background: var(--pdoc-bg-tertiary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+html[data-theme="light"] .view-source-button:hover,
+html[data-theme="dark"] .view-source-button:hover {
+  background: var(--pdoc-mark-bg) !important;
+  color: var(--pdoc-mark-fg) !important;
+}
+
+/* ---------------- Source code blocks ---------------- */
+
+html[data-theme="light"] .pdoc-code.codehilite,
+html[data-theme="light"] .pdoc-code.codehilite pre {
+  background: var(--pdoc-code-bg) !important;
+  color: var(--pdoc-code-fg) !important;
+  border-color: var(--pdoc-code-border) !important;
+}
+
+html[data-theme="dark"] .pdoc-code.codehilite,
+html[data-theme="dark"] .pdoc-code.codehilite pre {
+  background: #1e1e1e !important;
+  color: #d4d4d4 !important;
+  border-color: var(--pdoc-code-border) !important;
+}
+
+/* Line numbers */
+html[data-theme="light"] .pdoc-code.codehilite .linenos,
+html[data-theme="dark"] .pdoc-code.codehilite .linenos {
+  color: var(--pdoc-fg-muted) !important;
+  background: transparent !important;
+}
+
+/* Whitespace tokens */
+html[data-theme="light"] .pdoc-code.codehilite .w,
+html[data-theme="dark"] .pdoc-code.codehilite .w {
+  color: inherit !important;
+}
+
+/* Keywords in source: def, for, if, try, except, return, etc. */
+html[data-theme="light"] .pdoc-code.codehilite .k,
+html[data-theme="light"] .pdoc-code.codehilite .kc,
+html[data-theme="light"] .pdoc-code.codehilite .kd,
+html[data-theme="light"] .pdoc-code.codehilite .kn,
+html[data-theme="light"] .pdoc-code.codehilite .kp,
+html[data-theme="light"] .pdoc-code.codehilite .kr,
+html[data-theme="light"] .pdoc-code.codehilite .kt,
+html[data-theme="light"] .pdoc-code.codehilite .ow,
+html[data-theme="dark"] .pdoc-code.codehilite .k,
+html[data-theme="dark"] .pdoc-code.codehilite .kc,
+html[data-theme="dark"] .pdoc-code.codehilite .kd,
+html[data-theme="dark"] .pdoc-code.codehilite .kn,
+html[data-theme="dark"] .pdoc-code.codehilite .kp,
+html[data-theme="dark"] .pdoc-code.codehilite .kr,
+html[data-theme="dark"] .pdoc-code.codehilite .kt,
+html[data-theme="dark"] .pdoc-code.codehilite .ow {
+  color: var(--syntax-keyword) !important;
+}
+
+/* Function names in source */
+html[data-theme="light"] .pdoc-code.codehilite .nf,
+html[data-theme="dark"] .pdoc-code.codehilite .nf {
+  color: var(--syntax-function) !important;
+}
+
+/* Class names / exception names */
+html[data-theme="light"] .pdoc-code.codehilite .nc,
+html[data-theme="light"] .pdoc-code.codehilite .ne,
+html[data-theme="dark"] .pdoc-code.codehilite .nc,
+html[data-theme="dark"] .pdoc-code.codehilite .ne {
+  color: var(--syntax-class) !important;
+}
+
+/* Regular names */
+html[data-theme="light"] .pdoc-code.codehilite .n,
+html[data-theme="light"] .pdoc-code.codehilite .na,
+html[data-theme="dark"] .pdoc-code.codehilite .n,
+html[data-theme="dark"] .pdoc-code.codehilite .na {
+  color: var(--syntax-name) !important;
+}
+
+/* Builtins like print, bool, True, NameError */
+html[data-theme="light"] .pdoc-code.codehilite .nb,
+html[data-theme="light"] .pdoc-code.codehilite .bp,
+html[data-theme="dark"] .pdoc-code.codehilite .nb,
+html[data-theme="dark"] .pdoc-code.codehilite .bp {
+  color: var(--syntax-builtin) !important;
+}
+
+/* Strings and docstrings */
+html[data-theme="light"] .pdoc-code.codehilite .s,
+html[data-theme="light"] .pdoc-code.codehilite .s1,
+html[data-theme="light"] .pdoc-code.codehilite .s2,
+html[data-theme="light"] .pdoc-code.codehilite .sd,
+html[data-theme="light"] .pdoc-code.codehilite .se,
+html[data-theme="dark"] .pdoc-code.codehilite .s,
+html[data-theme="dark"] .pdoc-code.codehilite .s1,
+html[data-theme="dark"] .pdoc-code.codehilite .s2,
+html[data-theme="dark"] .pdoc-code.codehilite .sd,
+html[data-theme="dark"] .pdoc-code.codehilite .se {
+  color: var(--syntax-string) !important;
+}
+
+/* Numbers */
+html[data-theme="light"] .pdoc-code.codehilite .m,
+html[data-theme="light"] .pdoc-code.codehilite .mi,
+html[data-theme="light"] .pdoc-code.codehilite .mf,
+html[data-theme="dark"] .pdoc-code.codehilite .m,
+html[data-theme="dark"] .pdoc-code.codehilite .mi,
+html[data-theme="dark"] .pdoc-code.codehilite .mf {
+  color: var(--syntax-number) !important;
+}
+
+/* Comments */
+html[data-theme="light"] .pdoc-code.codehilite .c,
+html[data-theme="light"] .pdoc-code.codehilite .c1,
+html[data-theme="light"] .pdoc-code.codehilite .cm,
+html[data-theme="dark"] .pdoc-code.codehilite .c,
+html[data-theme="dark"] .pdoc-code.codehilite .c1,
+html[data-theme="dark"] .pdoc-code.codehilite .cm {
+  color: var(--syntax-comment) !important;
+  font-style: italic !important;
+}
+
+/* Operators and punctuation */
+html[data-theme="light"] .pdoc-code.codehilite .o,
+html[data-theme="light"] .pdoc-code.codehilite .p,
+html[data-theme="dark"] .pdoc-code.codehilite .o,
+html[data-theme="dark"] .pdoc-code.codehilite .p {
+  color: var(--syntax-operator) !important;
+}
+
+/* ---------------- Fix bright/yellow active line or hash-target highlights ---------------- */
+
+/*
+  When clicking source line anchors, pdoc/browser styles may highlight the target
+  line. Override that so it doesn't become bright yellow with unreadable text.
+*/
+
+html[data-theme="dark"] .pdoc-code.codehilite span:target,
+html[data-theme="dark"] .pdoc-code.codehilite span:target *,
+html[data-theme="dark"] .pdoc-code.codehilite .hll,
+html[data-theme="dark"] .pdoc-code.codehilite .hll *,
+html[data-theme="dark"] .pdoc-code.codehilite mark,
+html[data-theme="dark"] .pdoc-code.codehilite mark * {
+  background-color: #264f78 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .pdoc-code.codehilite span:target,
+html[data-theme="light"] .pdoc-code.codehilite span:target *,
+html[data-theme="light"] .pdoc-code.codehilite .hll,
+html[data-theme="light"] .pdoc-code.codehilite .hll *,
+html[data-theme="light"] .pdoc-code.codehilite mark,
+html[data-theme="light"] .pdoc-code.codehilite mark * {
+  background-color: #add6ff !important;
+  color: #1f1f1f !important;
+}
+
+/* General text selection inside source blocks */
+html[data-theme="dark"] .pdoc-code.codehilite ::selection {
+  background: #264f78 !important;
+  color: #ffffff !important;
+}
+
+html[data-theme="light"] .pdoc-code.codehilite ::selection {
+  background: #add6ff !important;
+  color: #1f1f1f !important;
+}
