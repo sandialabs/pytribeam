@@ -1,0 +1,9 @@
+usage: pytribeam_exp [-h] file_path
+
+Run a pytribeam experiment from a configuration .yml file.
+
+positional arguments:
+  file_path   Path to the experiment configuration .yml file.
+
+optional arguments:
+  -h, --help  show this help message and exit

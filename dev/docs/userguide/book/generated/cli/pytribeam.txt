@@ -1,0 +1,23 @@
+--------
+pytribeam
+--------
+
+pytribeam
+    Prints this command line documentation.
+
+pytribeam_info
+    Prints the module version, supported AutoScript and Laser API versions,
+    and detected installed environment.
+
+pytribeam_gui
+    Launches the GUI for creating configuration .yml files and controlling
+    experimental collection.
+
+pytribeam_exp <path_to_file>.yml
+    Runs the 3D data collection workflow based on an input .yml file.
+
+pytribeam_exp --help
+    Prints help for the experiment command.
+
+Example:
+    path/to/experiment/directory> pytribeam_exp path/to/config/file.yml
