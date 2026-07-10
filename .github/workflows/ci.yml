@@ -116,7 +116,7 @@ jobs:
           #   wheelset: autoscript_4.13.1-py3.11.14
 
     container:
-      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:mdbook-0.4.52 #stable working docs-builder image with mdbook, mdbook-cmdrun, mdbook-katex, and support tools
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
