@@ -1,0 +1,89 @@
+/* pytribeam pdoc custom theme with manual light/dark support */
+
+html[data-theme="light"] {
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+html[data-theme="light"] body {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] a {
+  color: #2563eb !important;
+}
+
+html[data-theme="light"] pre,
+html[data-theme="light"] code {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="dark"] body,
+html[data-theme="dark"] main,
+html[data-theme="dark"] article,
+html[data-theme="dark"] section,
+html[data-theme="dark"] nav,
+html[data-theme="dark"] aside,
+html[data-theme="dark"] header,
+html[data-theme="dark"] footer {
+  background: #0b1020 !important;
+  color: #e5e7eb !important;
+}
+
+html[data-theme="dark"] a {
+  color: #93c5fd !important;
+}
+
+html[data-theme="dark"] a:hover {
+  color: #bfdbfe !important;
+}
+
+html[data-theme="dark"] pre,
+html[data-theme="dark"] code {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+}
+
+html[data-theme="dark"] pre {
+  border: 1px solid #374151 !important;
+  border-radius: 6px !important;
+}
+
+html[data-theme="dark"] table,
+html[data-theme="dark"] th,
+html[data-theme="dark"] td {
+  border-color: #374151 !important;
+}
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] button {
+  background: #111827 !important;
+  color: #e5e7eb !important;
+  border-color: #374151 !important;
+}
+
+#pdoc-theme-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9999;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid #64748b;
+  background: #111827;
+  color: #e5e7eb;
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.9;
+}
+
+#pdoc-theme-toggle:hover {
+  opacity: 1;
+}

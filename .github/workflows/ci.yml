@@ -167,6 +167,59 @@ jobs:
           rm -rf docs/api
           .venv/bin/pdoc src/pytribeam -o docs/api
 
+      # This step must run AFTER pdoc generates docs/api and BEFORE upload-artifact.
+      # It copies custom CSS/JS into the generated API docs and injects <link>/<script>
+      # tags into every generated HTML file.
+      - name: Apply pdoc light/dark theme toggle
+        run: |
+          mkdir -p docs/api/assets
+          cp docs/pdoc-theme/pdoc-custom.css docs/api/assets/pdoc-custom.css
+          cp docs/pdoc-theme/pdoc-theme-toggle.js docs/api/assets/pdoc-theme-toggle.js
+
+          .venv/bin/python - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path("docs/api")
+          css = root / "assets" / "pdoc-custom.css"
+          js = root / "assets" / "pdoc-theme-toggle.js"
+
+          if not css.exists():
+              raise FileNotFoundError(css)
+
+          if not js.exists():
+              raise FileNotFoundError(js)
+
+          html_files = list(root.rglob("*.html"))
+          if not html_files:
+              raise RuntimeError("No HTML files found under docs/api")
+
+          for html in html_files:
+              rel_css = os.path.relpath(css, html.parent).replace(os.sep, "/")
+              rel_js = os.path.relpath(js, html.parent).replace(os.sep, "/")
+
+              css_tag = f'  <link rel="stylesheet" href="{rel_css}">\n'
+              js_tag = f'  <script src="{rel_js}"></script>\n'
+
+              text = html.read_text(encoding="utf-8")
+
+              if "pdoc-custom.css" not in text:
+                  if "</head>" not in text:
+                      raise RuntimeError(f"No </head> tag found in {html}")
+                  text = text.replace("</head>", f"{css_tag}</head>")
+
+              if "pdoc-theme-toggle.js" not in text:
+                  if "</body>" in text:
+                      text = text.replace("</body>", f"{js_tag}</body>")
+                  else:
+                      text += f"\n{js_tag}\n"
+
+              html.write_text(text, encoding="utf-8")
+
+          print(f"Applied pdoc theme toggle to {len(html_files)} HTML files.")
+          PY
+
+
       - name: Upload API Documentation Artifact
         uses: actions/upload-artifact@v7
         with:
