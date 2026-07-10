@@ -71,15 +71,15 @@ pytribeam will not run from gitlab container. If empty below, this book was gene
 
 pytribeam.txt:
 ```text
-{{#include generated/cli/pytribeam.txt}}
+{{#include ../generated/cli/pytribeam.txt}}
 ```
 
 pytribeam-info.txt:
 ```text
-{{#include generated/cli/pytribeam-info.txt}}
+{{#include ../generated/cli/pytribeam-info.txt}}
 ```
 
 pytribeam-exp-help.txt:
 ```text
-{{#include generated/cli/pytribeam-exp-help.txt}}
+{{#include ../generated/cli/pytribeam-exp-help.txt}}
 ```
