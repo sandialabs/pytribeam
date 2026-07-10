@@ -5,17 +5,16 @@ Command Line Entry Points Module
 This module provides command line entry points for various functions and utilities.
 It serves as the interface between the command line and the underlying functionality
 of the application.
+
+Important:
+    This module should remain lightweight at import time. Do not import AutoScript,
+    Laser API, pytribeam.constants, pytribeam.workflow, or GUI modules at the top
+    level. Import those only inside functions that actually need them.
 """
 
-from typing import Final
 import argparse
 from pathlib import Path
-
-# import pkg_resources  # part of setup tools
-from importlib.metadata import version
-import pytribeam.constants as cs
-import pytribeam.GUI.runner as runner
-import pytribeam.workflow as workflow
+from typing import Final
 
 CLI_DOCS: Final[str] = """
 --------
@@ -23,22 +22,24 @@ pytribeam
 --------
 
 pytribeam
-    (this command)
+    Prints this command line documentation.
 
 pytribeam_info
-    Prints the module version and ThermoFisher Scientific Autoscript and Laser
-    API version requirements.
+    Prints the module version, supported AutoScript and Laser API versions,
+    and detected installed environment.
 
 pytribeam_gui
-    Launches GUI for creating configuration .yml files and to control
+    Launches the GUI for creating configuration .yml files and controlling
     experimental collection.
 
 pytribeam_exp <path_to_file>.yml
-    Runs 3D data collection workflow based off of input .yml file.
+    Runs the 3D data collection workflow based on an input .yml file.
 
-    Example:
-        path/to/experiment/directory> pytribeam_exp path/to/config/file.yml
+pytribeam_exp --help
+    Prints help for the experiment command.
 
+Example:
+    path/to/experiment/directory> pytribeam_exp path/to/config/file.yml
 """
 
 
@@ -58,77 +59,133 @@ def pytribeam():
     -------
     None
     """
-    print(CLI_DOCS)
+    print(CLI_DOCS.strip())
 
 
 def module_info() -> None:
     """
-    Prints the module version and the yml_schema_version.
+    Prints lightweight package and environment information.
 
-    This function retrieves the version of the module and the YAML schema version
-    from the `Constants` class in the `cs` module (constants.py). It prints these
-    versions to the command window and returns the module version.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    None
+    This command is intended to verify installation and should not require a
+    microscope connection, AutoScript runtime initialization, Laser API runtime
+    initialization, or a license check.
     """
+    import pytribeam._package_metadata as pm
 
-    # ver = pkg_resources.require("recon3d")[0].version
-    module_name = cs.Constants().module_short_name
-    ver = version(module_name)
-    autoscript_version = cs.Constants().autoscript_version
-    laser_api_version = cs.Constants().laser_api_version
-    yml_schema_version = cs.Constants().yml_schema_version
-    print(f"{module_name} module version: v{ver}")
-    print(f"  Maximum supported .yml schema version: v{yml_schema_version}")
+    pytribeam_version = pm.get_pytribeam_version()
+    pytribeam_commit = pm.get_pytribeam_commit_id()
+    autoscript_version = pm.get_autoscript_version()
+    laser_version = pm.get_laser_api_version()
+
+    print(f"{pm.MODULE_SHORT_NAME} module version: v{pytribeam_version or 'unknown'}")
+
+    if pytribeam_commit:
+        print(f"  Git commit: {pytribeam_commit}")
+
+    print(f"  Maximum supported .yml schema version: v{pm.YML_SCHEMA_VERSION}")
+
     print(
-        f"  Maximum supported Thermo Fisher Autoscript version: v{autoscript_version}"
+        "  Supported Thermo Fisher AutoScript versions: "
+        + ", ".join(f"v{x}" for x in pm.SUPPORTED_AUTOSCRIPT_VERSIONS)
     )
-    print(f"  Maximum supported Laser API version: v{laser_api_version}")
-    return None
+
+    print(
+        "  Supported Laser API versions: "
+        + ", ".join(f"v{x}" for x in pm.SUPPORTED_LASER_API_VERSIONS)
+    )
+
+    print()
+    print("Installed environment:")
+
+    print("  AutoScript:")
+    print(
+        "    Distribution metadata: "
+        f"{'detected' if autoscript_version else 'not detected'}, "
+        f"version: {autoscript_version or 'not detected'}"
+    )
+    print(
+        "    Import package autoscript_sdb_microscope_client: "
+        f"{'available' if pm.autoscript_available() else 'not importable'}"
+    )
+
+    print()
+    print("  Laser API:")
+    print(
+        "    Distribution metadata: "
+        f"{'detected' if laser_version else 'not detected'}, "
+        f"version: {laser_version or 'not detected'}"
+    )
+    print(
+        "    Import package Laser: "
+        f"{'available' if pm.laser_api_available() else 'not importable'}"
+    )
+    print(
+        "    Import package Laser.PythonControl: "
+        f"{'available' if pm.laser_pythoncontrol_available() else 'not importable'}"
+    )
 
 
-def launch_gui():
-    # work_in_progress()
+def launch_gui() -> None:
+    """
+    Launches the pytribeam GUI.
+
+    GUI imports are intentionally delayed until this function is called.
+    """
+    import pytribeam.GUI.runner as runner
+
     app = runner.MainApplication()
     app.mainloop()
 
 
-def run_experiment():
-    """run experiment from command line"""
+def build_experiment_parser() -> argparse.ArgumentParser:
+    """
+    Builds the argument parser for the pytribeam_exp command.
+    """
+    parser = argparse.ArgumentParser(
+        description="Run a pytribeam experiment from a configuration .yml file."
+    )
 
-    def _positive_integer(prompt):
-        """Helper function to get valid integer input"""
+    parser.add_argument(
+        "file_path",
+        type=str,
+        help="Path to the experiment configuration .yml file.",
+    )
+
+    return parser
+
+
+def run_experiment() -> None:
+    """
+    Runs an experiment from the command line.
+
+    The workflow import is intentionally delayed until after argument parsing.
+    This allows `pytribeam_exp --help` to run without importing workflow,
+    AutoScript, or Laser runtime modules.
+    """
+
+    def _positive_integer(prompt: str) -> int:
+        """Helper function to get valid integer input."""
         while True:
             try:
-                # Ask for input
                 value = int(input(prompt))
                 if value > 0:
-                    return value  # Return the valid integer
+                    return value
                 print("Invalid input. Please enter an integer greater than 0.")
             except ValueError:
                 print("Invalid input. Please enter a valid integer.")
 
-    # Create the parser
-    parser = argparse.ArgumentParser(description="Process a file.")
-
-    # Add the file path argument
-    parser.add_argument("file_path", type=str, help="Path to the file to process")
-
-    # Parse the arguments
+    parser = build_experiment_parser()
     args = parser.parse_args()
 
     start_slice = _positive_integer("Starting slice: ")
     start_step = _positive_integer("Starting step: ")
 
-    # Call the main function with the provided file path
+    import pytribeam.workflow as workflow
+
     workflow.run_experiment_cli(
-        start_slice=start_slice, start_step=start_step, yml_path=Path(args.file_path)
+        start_slice=start_slice,
+        start_step=start_step,
+        yml_path=Path(args.file_path),
     )
 
 
