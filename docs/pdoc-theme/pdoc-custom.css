@@ -786,3 +786,95 @@ html[data-theme="light"] .pdoc-code.codehilite ::selection {
   background: #add6ff !important;
   color: #1f1f1f !important;
 }
+
+/* ------------------------------------------------------------------------- */
+/* Enhanced docstring formatting                                             */
+/* ------------------------------------------------------------------------- */
+
+/* Docstring section headings */
+html[data-theme="light"] .docstring h1,
+html[data-theme="light"] .docstring h2,
+html[data-theme="light"] .docstring h3,
+html[data-theme="dark"] .docstring h1,
+html[data-theme="dark"] .docstring h2,
+html[data-theme="dark"] .docstring h3 {
+  color: var(--syntax-class) !important;
+  border-bottom: 1px solid var(--pdoc-border) !important;
+  padding-bottom: 0.25rem !important;
+  margin-top: 1.5rem !important;
+}
+
+/* Docstring tables */
+.docstring table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0.75rem 0 1.25rem 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--pdoc-border) !important;
+  border-radius: 8px !important;
+}
+
+.docstring th {
+  background: var(--pdoc-bg-tertiary) !important;
+  color: var(--pdoc-fg) !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+  padding: 0.55rem 0.75rem !important;
+  border: 1px solid var(--pdoc-border) !important;
+}
+
+.docstring td {
+  padding: 0.55rem 0.75rem !important;
+  border: 1px solid var(--pdoc-border) !important;
+  vertical-align: top !important;
+}
+
+/* Alternate table row shading */
+html[data-theme="light"] .docstring tr:nth-child(even) td {
+  background: #f8fafc !important;
+}
+
+html[data-theme="dark"] .docstring tr:nth-child(even) td {
+  background: #252526 !important;
+}
+
+/* Inline code in docstrings */
+.docstring code {
+  background: var(--pdoc-bg-tertiary) !important;
+  border: 1px solid var(--pdoc-border) !important;
+  border-radius: 4px !important;
+  padding: 0.08rem 0.28rem !important;
+  font-weight: 500 !important;
+}
+
+/* First column: parameter / return names */
+.docstring table td:nth-child(1) code {
+  color: var(--syntax-name) !important;
+  font-weight: 700 !important;
+}
+
+/* Second column: types */
+.docstring table td:nth-child(2) code {
+  color: var(--syntax-type) !important;
+  font-weight: 600 !important;
+}
+
+/* Description text */
+.docstring table td:nth-child(3) {
+  color: var(--pdoc-fg) !important;
+}
+
+/* Strong text in descriptions */
+.docstring strong {
+  color: var(--syntax-function) !important;
+}
+
+/* Lists in docstrings */
+.docstring ul,
+.docstring ol {
+  padding-left: 1.4rem !important;
+}
+
+.docstring li {
+  margin: 0.25rem 0 !important;
+}
