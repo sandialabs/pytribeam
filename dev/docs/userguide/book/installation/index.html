@@ -446,13 +446,56 @@ zipp==3.7.0
 <pre><code class="language-plaintext">pytribeam will not run from gitlab container. If empty below, this book was generated without autoscript installed:
 </code></pre>
 <p>pytribeam.txt:</p>
-<pre><code class="language-text">{{#include generated/cli/pytribeam.txt}}
+<pre><code class="language-text">--------
+pytribeam
+--------
+
+pytribeam
+    Prints this command line documentation.
+
+pytribeam_info
+    Prints the module version, supported AutoScript and Laser API versions,
+    and detected installed environment.
+
+pytribeam_gui
+    Launches the GUI for creating configuration .yml files and controlling
+    experimental collection.
+
+pytribeam_exp &lt;path_to_file&gt;.yml
+    Runs the 3D data collection workflow based on an input .yml file.
+
+pytribeam_exp --help
+    Prints help for the experiment command.
+
+Example:
+    path/to/experiment/directory&gt; pytribeam_exp path/to/config/file.yml
 </code></pre>
 <p>pytribeam-info.txt:</p>
-<pre><code class="language-text">{{#include generated/cli/pytribeam-info.txt}}
+<pre><code class="language-text">pytribeam module version: v0.1.4.dev25
+  Maximum supported .yml schema version: v1.0
+  Supported Thermo Fisher AutoScript versions: v4.8.1, v4.10.0, v4.11.0
+  Supported Laser API versions: v2.2.1
+
+Installed environment:
+  AutoScript:
+    Distribution metadata: detected, version: 4.8.1
+    Import package autoscript_sdb_microscope_client: available
+
+  Laser API:
+    Distribution metadata: not detected, version: not detected
+    Import package Laser: not importable
+    Import package Laser.PythonControl: not importable
 </code></pre>
 <p>pytribeam-exp-help.txt:</p>
-<pre><code class="language-text">{{#include generated/cli/pytribeam-exp-help.txt}}
+<pre><code class="language-text">usage: pytribeam_exp [-h] file_path
+
+Run a pytribeam experiment from a configuration .yml file.
+
+positional arguments:
+  file_path   Path to the experiment configuration .yml file.
+
+optional arguments:
+  -h, --help  show this help message and exit
 </code></pre>
 
                     </main>
