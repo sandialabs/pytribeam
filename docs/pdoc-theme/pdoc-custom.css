@@ -1,73 +1,496 @@
-/* pytribeam pdoc custom theme with manual light/dark support */
+/* pytribeam pdoc custom theme with VS Code Light Modern / Dark Modern styling */
+
+/* ------------------------------------------------------------------------- */
+/* Theme variables                                                           */
+/* ------------------------------------------------------------------------- */
 
 html[data-theme="light"] {
   color-scheme: light;
+
+  --pdoc-bg: #ffffff;
+  --pdoc-bg-secondary: #f8f8f8;
+  --pdoc-bg-tertiary: #f3f3f3;
+  --pdoc-fg: #1f1f1f;
+  --pdoc-fg-muted: #5f6a7a;
+  --pdoc-border: #d4d4d4;
+  --pdoc-link: #0969da;
+  --pdoc-link-hover: #0550ae;
+
+  --pdoc-code-bg: #f6f8fa;
+  --pdoc-code-fg: #24292f;
+  --pdoc-code-border: #d0d7de;
+
+  --pdoc-selection-bg: #add6ff;
+  --pdoc-selection-fg: #1f1f1f;
+  --pdoc-mark-bg: #fff4ce;
+  --pdoc-mark-fg: #1f1f1f;
+
+  /* VS Code Light Modern-ish syntax */
+  --syntax-keyword: #0000ff;
+  --syntax-name: #795e26;
+  --syntax-function: #795e26;
+  --syntax-class: #267f99;
+  --syntax-string: #a31515;
+  --syntax-number: #098658;
+  --syntax-comment: #008000;
+  --syntax-operator: #000000;
+  --syntax-builtin: #267f99;
+  --syntax-decorator: #af00db;
+  --syntax-type: #267f99;
+  --syntax-punctuation: #000000;
 }
 
 html[data-theme="dark"] {
   color-scheme: dark;
+
+  /* VS Code Dark Modern-ish */
+  --pdoc-bg: #1e1e1e;
+  --pdoc-bg-secondary: #252526;
+  --pdoc-bg-tertiary: #2d2d30;
+  --pdoc-fg: #d4d4d4;
+  --pdoc-fg-muted: #9da5b4;
+  --pdoc-border: #3c3c3c;
+  --pdoc-link: #4fc1ff;
+  --pdoc-link-hover: #9cdcfe;
+
+  --pdoc-code-bg: #1e1e1e;
+  --pdoc-code-fg: #d4d4d4;
+  --pdoc-code-border: #3c3c3c;
+
+  /* Avoid bright yellow highlight with light text */
+  --pdoc-selection-bg: #264f78;
+  --pdoc-selection-fg: #ffffff;
+  --pdoc-mark-bg: #3a3d41;
+  --pdoc-mark-fg: #ffffff;
+
+  /* VS Code Dark Modern syntax */
+  --syntax-keyword: #569cd6;
+  --syntax-name: #9cdcfe;
+  --syntax-function: #dcdcaa;
+  --syntax-class: #4ec9b0;
+  --syntax-string: #ce9178;
+  --syntax-number: #b5cea8;
+  --syntax-comment: #6a9955;
+  --syntax-operator: #d4d4d4;
+  --syntax-builtin: #4ec9b0;
+  --syntax-decorator: #c586c0;
+  --syntax-type: #4ec9b0;
+  --syntax-punctuation: #d4d4d4;
 }
 
-html[data-theme="light"] body {
-  background: #f8fafc !important;
-  color: #0f172a !important;
+/* ------------------------------------------------------------------------- */
+/* Base layout                                                               */
+/* ------------------------------------------------------------------------- */
+
+html,
+body {
+  background: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
 }
 
-html[data-theme="light"] a {
-  color: #2563eb !important;
+body,
+main,
+article,
+section,
+nav,
+aside,
+header,
+footer {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
 }
 
-html[data-theme="light"] pre,
-html[data-theme="light"] code {
-  background: #f1f5f9 !important;
-  color: #0f172a !important;
+a {
+  color: var(--pdoc-link) !important;
 }
 
-html[data-theme="dark"] body,
-html[data-theme="dark"] main,
-html[data-theme="dark"] article,
-html[data-theme="dark"] section,
-html[data-theme="dark"] nav,
-html[data-theme="dark"] aside,
-html[data-theme="dark"] header,
-html[data-theme="dark"] footer {
-  background: #0b1020 !important;
-  color: #e5e7eb !important;
+a:hover {
+  color: var(--pdoc-link-hover) !important;
 }
 
-html[data-theme="dark"] a {
-  color: #93c5fd !important;
+/* pdoc navigation/sidebar/header-ish areas */
+nav,
+aside,
+header,
+.pdoc,
+.modulename,
+.toc,
+.sidebar {
+  background-color: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
 }
 
-html[data-theme="dark"] a:hover {
-  color: #bfdbfe !important;
+hr {
+  border-color: var(--pdoc-border) !important;
 }
 
-html[data-theme="dark"] pre,
-html[data-theme="dark"] code {
-  background: #111827 !important;
-  color: #e5e7eb !important;
+table,
+th,
+td {
+  border-color: var(--pdoc-border) !important;
 }
 
-html[data-theme="dark"] pre {
-  border: 1px solid #374151 !important;
-  border-radius: 6px !important;
+th {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
 }
 
-html[data-theme="dark"] table,
-html[data-theme="dark"] th,
-html[data-theme="dark"] td {
-  border-color: #374151 !important;
+blockquote {
+  border-left-color: var(--pdoc-border) !important;
+  color: var(--pdoc-fg-muted) !important;
 }
 
-html[data-theme="dark"] input,
-html[data-theme="dark"] select,
-html[data-theme="dark"] textarea,
-html[data-theme="dark"] button {
-  background: #111827 !important;
-  color: #e5e7eb !important;
-  border-color: #374151 !important;
+/* ------------------------------------------------------------------------- */
+/* Selection / search highlighting                                           */
+/* ------------------------------------------------------------------------- */
+
+::selection {
+  background: var(--pdoc-selection-bg) !important;
+  color: var(--pdoc-selection-fg) !important;
 }
+
+::-moz-selection {
+  background: var(--pdoc-selection-bg) !important;
+  color: var(--pdoc-selection-fg) !important;
+}
+
+mark,
+.highlight,
+mark *,
+.highlight * {
+  background: var(--pdoc-mark-bg) !important;
+  color: var(--pdoc-mark-fg) !important;
+}
+
+/* Browser find/search sometimes uses these in generated docs/themes */
+.search-highlight,
+.search-match,
+.selected,
+.active {
+  background-color: var(--pdoc-mark-bg) !important;
+  color: var(--pdoc-mark-fg) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Code blocks and inline code                                               */
+/* ------------------------------------------------------------------------- */
+
+pre,
+code,
+tt,
+kbd,
+samp {
+  background: var(--pdoc-code-bg) !important;
+  color: var(--pdoc-code-fg) !important;
+  border-color: var(--pdoc-code-border) !important;
+}
+
+pre {
+  border: 1px solid var(--pdoc-code-border) !important;
+  border-radius: 8px !important;
+  padding: 0.85rem 1rem !important;
+  overflow-x: auto !important;
+}
+
+code {
+  border-radius: 4px !important;
+}
+
+/* pdoc signatures */
+.signature,
+.function,
+.class,
+.variable,
+.classattr,
+.def,
+.source {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+.signature {
+  border-radius: 8px !important;
+}
+
+/* Make function/class definition names readable in dark mode */
+.name,
+.ident,
+.signature .name,
+.signature .ident,
+.function .name,
+.class .name,
+.def .name {
+  color: var(--syntax-function) !important;
+}
+
+/* Class/module names */
+.class .name,
+.module .name,
+.signature .class,
+.signature .module {
+  color: var(--syntax-class) !important;
+}
+
+/* Type annotations/default values */
+.annotation,
+.default_value,
+.signature .annotation,
+.signature .default_value {
+  color: var(--syntax-type) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Pygments token classes                                                    */
+/* ------------------------------------------------------------------------- */
+
+/*
+  pdoc/Markdown output may use Pygments-style classes. These selectors cover
+  common Python token classes:
+    k  = keyword
+    n  = name
+    nf = function name
+    nc = class name
+    s  = string
+    mi/mf = numbers
+    c  = comment
+*/
+
+.highlight,
+.codehilite {
+  background: var(--pdoc-code-bg) !important;
+  color: var(--pdoc-code-fg) !important;
+}
+
+/* Keywords: def, class, import, from, return, etc. */
+.highlight .k,
+.highlight .kc,
+.highlight .kd,
+.highlight .kn,
+.highlight .kp,
+.highlight .kr,
+.highlight .kt,
+.codehilite .k,
+.codehilite .kc,
+.codehilite .kd,
+.codehilite .kn,
+.codehilite .kp,
+.codehilite .kr,
+.codehilite .kt {
+  color: var(--syntax-keyword) !important;
+}
+
+/* Names */
+.highlight .n,
+.highlight .na,
+.highlight .nb,
+.highlight .bp,
+.highlight .vc,
+.highlight .vg,
+.highlight .vi,
+.codehilite .n,
+.codehilite .na,
+.codehilite .nb,
+.codehilite .bp,
+.codehilite .vc,
+.codehilite .vg,
+.codehilite .vi {
+  color: var(--syntax-name) !important;
+}
+
+/* Function names */
+.highlight .nf,
+.highlight .fm,
+.codehilite .nf,
+.codehilite .fm {
+  color: var(--syntax-function) !important;
+}
+
+/* Class names and exception names */
+.highlight .nc,
+.highlight .ne,
+.codehilite .nc,
+.codehilite .ne {
+  color: var(--syntax-class) !important;
+}
+
+/* Builtins */
+.highlight .nb,
+.highlight .bp,
+.codehilite .nb,
+.codehilite .bp {
+  color: var(--syntax-builtin) !important;
+}
+
+/* Decorators */
+.highlight .nd,
+.codehilite .nd {
+  color: var(--syntax-decorator) !important;
+}
+
+/* Strings */
+.highlight .s,
+.highlight .sa,
+.highlight .sb,
+.highlight .sc,
+.highlight .dl,
+.highlight .sd,
+.highlight .s2,
+.highlight .se,
+.highlight .sh,
+.highlight .si,
+.highlight .sx,
+.highlight .sr,
+.highlight .s1,
+.highlight .ss,
+.codehilite .s,
+.codehilite .sa,
+.codehilite .sb,
+.codehilite .sc,
+.codehilite .dl,
+.codehilite .sd,
+.codehilite .s2,
+.codehilite .se,
+.codehilite .sh,
+.codehilite .si,
+.codehilite .sx,
+.codehilite .sr,
+.codehilite .s1,
+.codehilite .ss {
+  color: var(--syntax-string) !important;
+}
+
+/* Numbers */
+.highlight .m,
+.highlight .mb,
+.highlight .mf,
+.highlight .mh,
+.highlight .mi,
+.highlight .mo,
+.highlight .il,
+.codehilite .m,
+.codehilite .mb,
+.codehilite .mf,
+.codehilite .mh,
+.codehilite .mi,
+.codehilite .mo,
+.codehilite .il {
+  color: var(--syntax-number) !important;
+}
+
+/* Comments */
+.highlight .c,
+.highlight .ch,
+.highlight .cm,
+.highlight .cpf,
+.highlight .c1,
+.highlight .cs,
+.codehilite .c,
+.codehilite .ch,
+.codehilite .cm,
+.codehilite .cpf,
+.codehilite .c1,
+.codehilite .cs {
+  color: var(--syntax-comment) !important;
+  font-style: italic !important;
+}
+
+/* Operators and punctuation */
+.highlight .o,
+.highlight .ow,
+.highlight .p,
+.codehilite .o,
+.codehilite .ow,
+.codehilite .p {
+  color: var(--syntax-operator) !important;
+}
+
+/* Errors */
+.highlight .err,
+.codehilite .err {
+  color: #f44747 !important;
+}
+
+/* Generic emphasis/strong/output */
+.highlight .ge,
+.codehilite .ge {
+  font-style: italic !important;
+}
+
+.highlight .gs,
+.codehilite .gs {
+  font-weight: bold !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* pdoc-specific details                                                     */
+/* ------------------------------------------------------------------------- */
+
+.docstring,
+.docstring *,
+.desc,
+.desc *,
+.inherited,
+.inherited *,
+.variable,
+.variable *,
+.function,
+.function *,
+.class,
+.class *,
+.module,
+.module * {
+  border-color: var(--pdoc-border) !important;
+}
+
+.docstring {
+  color: var(--pdoc-fg) !important;
+}
+
+/* Avoid pure white definitions on dark background */
+html[data-theme="dark"] .signature,
+html[data-theme="dark"] .signature *,
+html[data-theme="dark"] .def,
+html[data-theme="dark"] .def * {
+  color: var(--pdoc-fg) !important;
+}
+
+/* Then re-apply more specific syntax colors inside signatures */
+html[data-theme="dark"] .signature .name,
+html[data-theme="dark"] .signature .ident,
+html[data-theme="dark"] .signature .nf {
+  color: var(--syntax-function) !important;
+}
+
+html[data-theme="dark"] .signature .annotation,
+html[data-theme="dark"] .signature .default_value {
+  color: var(--syntax-type) !important;
+}
+
+html[data-theme="dark"] .signature .k,
+html[data-theme="dark"] .signature .keyword {
+  color: var(--syntax-keyword) !important;
+}
+
+html[data-theme="dark"] .signature .s,
+html[data-theme="dark"] .signature .string {
+  color: var(--syntax-string) !important;
+}
+
+/* Inputs/buttons */
+input,
+select,
+textarea,
+button {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Theme toggle button                                                       */
+/* ------------------------------------------------------------------------- */
 
 #pdoc-theme-toggle {
   position: fixed;
@@ -76,12 +499,13 @@ html[data-theme="dark"] button {
   z-index: 9999;
   padding: 0.45rem 0.75rem;
   border-radius: 999px;
-  border: 1px solid #64748b;
-  background: #111827;
-  color: #e5e7eb;
+  border: 1px solid var(--pdoc-border);
+  background: var(--pdoc-bg-secondary);
+  color: var(--pdoc-fg);
   cursor: pointer;
   font-size: 0.85rem;
-  opacity: 0.9;
+  opacity: 0.92;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 #pdoc-theme-toggle:hover {
