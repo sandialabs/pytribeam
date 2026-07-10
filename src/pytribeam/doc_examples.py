@@ -89,6 +89,7 @@ def example_docstring_list_style(
     mode = "overwrite" if overwrite else "preserve"
     return f"{mode}: {path}"
 
+
 def example_numpy_style_docstring(
     microscope_name: str,
     enable_ebsd: bool,
