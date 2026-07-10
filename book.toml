@@ -16,3 +16,5 @@ command = "mdbook-cmdrun"
 
 [preprocessor.katex]
 after = ["links"]
+
+[preprocessor.alerts]
