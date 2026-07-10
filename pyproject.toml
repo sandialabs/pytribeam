@@ -124,6 +124,7 @@ source = [
 omit = [
     "src/pytribeam/GUI/*",
     "src/pytribeam/_version.py",
+    "src/pytribeam/doc_examples.py",
 ]
 
 [tool.coverage.paths]
