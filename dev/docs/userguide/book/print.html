@@ -551,7 +551,7 @@ Example:
 <pre><code class="language-sh">pytribeam_info
 </code></pre>
 <p>This book was built in an environment with the following info:</p>
-<pre><code class="language-text">pytribeam module version: v0.1.4.dev28
+<pre><code class="language-text">pytribeam module version: v0.1.4.dev29
   Maximum supported .yml schema version: v1.0
   Supported Thermo Fisher AutoScript versions: v4.8.1, v4.10.0, v4.11.0
   Supported Laser API versions: v2.2.1
@@ -1749,8 +1749,7 @@ Controls the sequence of points scanned. Must be a member of the <strong>LaserSc
 <li><strong>application_file</strong> (<em>str</em>): The application file preset, a string. All pattern types require the use of a preset recipe that controls various low-level settings of patterning such as <em>overlap</em> of adjacent pixels, <em>dwell time</em>, <em>defocus</em>, and <em>blur</em>. Nearly all microscopes will come with a variety of default recipes, including <strong>Si</strong> and <strong>Al</strong>, but many users also develop and create their own recipes. Any custom application files created by the user should be saved in the same directory location as the default application files in order to be accessed by this tool.</li>
 </ul>
 <p>When using the <a href="config_file/steps/fib/../../../gui/README.html">GUI</a>, a dynamic list of the available application files for your particular system will automatically be generated. When not using the GUI, users can determine this list themselves by running the following <code>python</code> script:</p>
-<pre><code class="language-python">list_available_fib_applications.py: not found
-</code></pre>
+<pre><code class="language-python"></code></pre>
 <h4 id="type-1"><a class="header" href="#type-1">type</a></h4>
 <p>There are currently supported pattern types, which must be an enumerated member of the <em>FIBPatternType</em>* class in the <code>types</code> module. Currently supported pattern types include:</p>
 <ul>
@@ -2254,8 +2253,7 @@ raise ValueError(
 </style>
 <h1 id="example-configuration"><a class="header" href="#example-configuration">Example configuration</a></h1>
 <p>Below is an example valid two-step configuration <code>.yml</code> file containing two different imaging steps:</p>
-<pre><code class="language-yml">working_two_step.yml: not found
-</code></pre>
+<pre><code class="language-yml"></code></pre>
 <div style="break-before: page; page-break-before: always;"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.4/dist/katex.min.css">
 <style>
 .mdbook-alerts {

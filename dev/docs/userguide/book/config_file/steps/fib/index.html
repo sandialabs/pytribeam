@@ -259,8 +259,7 @@
 <li><strong>application_file</strong> (<em>str</em>): The application file preset, a string. All pattern types require the use of a preset recipe that controls various low-level settings of patterning such as <em>overlap</em> of adjacent pixels, <em>dwell time</em>, <em>defocus</em>, and <em>blur</em>. Nearly all microscopes will come with a variety of default recipes, including <strong>Si</strong> and <strong>Al</strong>, but many users also develop and create their own recipes. Any custom application files created by the user should be saved in the same directory location as the default application files in order to be accessed by this tool.</li>
 </ul>
 <p>When using the <a href="../../../gui/README.html">GUI</a>, a dynamic list of the available application files for your particular system will automatically be generated. When not using the GUI, users can determine this list themselves by running the following <code>python</code> script:</p>
-<pre><code class="language-python">list_available_fib_applications.py: not found
-</code></pre>
+<pre><code class="language-python"></code></pre>
 <h4 id="type"><a class="header" href="#type">type</a></h4>
 <p>There are currently supported pattern types, which must be an enumerated member of the <em>FIBPatternType</em>* class in the <code>types</code> module. Currently supported pattern types include:</p>
 <ul>
