@@ -75,7 +75,7 @@ which should generate the following output:
 > ```sh
 > pytribeam_info
 > ```
-> This book was built in an environment with the following info:
+> API docs were last built in an environment with the following info:
 > ```text
 > {{#include ../generated/cli/pytribeam-info.txt}}
 > ```
