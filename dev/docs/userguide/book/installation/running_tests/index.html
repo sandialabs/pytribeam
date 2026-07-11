@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Installation - pyTriBeam User Guide</title>
+        <title>Running Hardware Tests - pyTriBeam User Guide</title>
 
 
         <!-- Custom HTML head -->
@@ -12,34 +12,34 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="theme-color" content="#ffffff">
 
-        <link rel="icon" href="../favicon.svg">
-        <link rel="shortcut icon" href="../favicon.png">
-        <link rel="stylesheet" href="../css/variables.css">
-        <link rel="stylesheet" href="../css/general.css">
-        <link rel="stylesheet" href="../css/chrome.css">
-        <link rel="stylesheet" href="../css/print.css" media="print">
+        <link rel="icon" href="../../favicon.svg">
+        <link rel="shortcut icon" href="../../favicon.png">
+        <link rel="stylesheet" href="../../css/variables.css">
+        <link rel="stylesheet" href="../../css/general.css">
+        <link rel="stylesheet" href="../../css/chrome.css">
+        <link rel="stylesheet" href="../../css/print.css" media="print">
 
         <!-- Fonts -->
-        <link rel="stylesheet" href="../FontAwesome/css/font-awesome.css">
-        <link rel="stylesheet" href="../fonts/fonts.css">
+        <link rel="stylesheet" href="../../FontAwesome/css/font-awesome.css">
+        <link rel="stylesheet" href="../../fonts/fonts.css">
 
         <!-- Highlight.js Stylesheets -->
-        <link rel="stylesheet" id="highlight-css" href="../highlight.css">
-        <link rel="stylesheet" id="tomorrow-night-css" href="../tomorrow-night.css">
-        <link rel="stylesheet" id="ayu-highlight-css" href="../ayu-highlight.css">
+        <link rel="stylesheet" id="highlight-css" href="../../highlight.css">
+        <link rel="stylesheet" id="tomorrow-night-css" href="../../tomorrow-night.css">
+        <link rel="stylesheet" id="ayu-highlight-css" href="../../ayu-highlight.css">
 
         <!-- Custom theme stylesheets -->
 
 
         <!-- Provide site root and default themes to javascript -->
         <script>
-            const path_to_root = "../";
+            const path_to_root = "../../";
             const default_light_theme = "light";
             const default_dark_theme = "navy";
-            window.path_to_searchindex_js = "../searchindex.js";
+            window.path_to_searchindex_js = "../../searchindex.js";
         </script>
         <!-- Start loading toc.js asap -->
-        <script src="../toc.js"></script>
+        <script src="../../toc.js"></script>
     </head>
     <body>
     <div id="mdbook-help-container">
@@ -106,7 +106,7 @@
             <!-- populated by js -->
             <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
             <noscript>
-                <iframe class="sidebar-iframe-outer" src="../toc.html"></iframe>
+                <iframe class="sidebar-iframe-outer" src="../../toc.html"></iframe>
             </noscript>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle">
                 <div class="sidebar-resize-indicator"></div>
@@ -141,7 +141,7 @@
                     <h1 class="menu-title">pyTriBeam User Guide</h1>
 
                     <div class="right-buttons">
-                        <a href="../print.html" title="Print this book" aria-label="Print this book">
+                        <a href="../../print.html" title="Print this book" aria-label="Print this book">
                             <i id="print-button" class="fa fa-print"></i>
                         </a>
 
@@ -243,282 +243,88 @@
 }
 
 </style>
-<h1 id="installation"><a class="header" href="#installation">Installation</a></h1>
-<p>This process uses <strong>AutoScript 4.8.1</strong> and <strong>TriBeam_API_Python 2_2.1</strong> provided by Thermo Fisher Scientific, which is a Windows-only configuration.</p>
-<h2 id="pre-installation"><a class="header" href="#pre-installation">Pre-installation</a></h2>
+<h1 id="running-hardware-tests"><a class="header" href="#running-hardware-tests">Running Hardware Tests</a></h1>
+<p>Unit tests allow us to check for code coverage and ensure that functions in the source code are operating as expected. When running tests to determine code coverage, the test suite must be ran against a single snapshot of the source code, ideally from a single commit hash of the repo to github. Before running tests, ensure you have the correct version of the source code to be tested.</p>
+<p>As not all functionality can be replicated in a simulated microscope, there are multiple flavors of test functions that must be ran before new versions of the codebase can be formally released. These fall generally into the following categories:</p>
 <ul>
-<li>
-<p>Uninstall any prior installations of AutoScript</p>
-</li>
-<li>
-<p>Follow the Autoscript installation instructions provided by Thermo Fisher Scientific</p>
-</li>
-<li>
-<p>With <code>AutoScript_4.8.1.exe</code>, install <strong>AutoScript</strong> according to Thermo Fisher Scientific's instructions:</p>
-<ul>
-<li>Section 5 - Procedure, select the appropriate scripting configuration. This codebase has been tested in both "Local" and "Offline" Scripting Configurations.
-<ul>
-<li><em>Select Components</em> screen
-<ul>
-<li>AutoScript Client components
-<ul>
-<li>We recommend not installing the following: PyCharm Community IDE, .NET API, preferring to use VS Code as an IDE</li>
+<li><strong>Detached</strong>: tests that can run without autoscript installed.</li>
+<li><strong>Simulated</strong>: tests that can be run in a virtualized microscope requiring an <em>offline</em> autoscript license. Specific approved offline machine names are listed in the <code>offline_machines</code> attribute in the <code>Constants</code> module.</li>
+<li><strong>Hardware</strong>: tests that require a physical microscope. Specific approved microscope machine names are listed in the <code>microscope_machines</code> attribute in the <code>Constants</code> module.</li>
+<li><strong>Laser Hardware</strong>: tests that require a physical microscope with femtosecond laser module. Machine must be a member of the <code>microscope_machines</code> attribute in the <code>Constants</code> module and pass a laser hardware check to run these tests.</li>
 </ul>
-</li>
-</ul>
-</li>
-</ul>
-</li>
-<li>Select the installer option to add <code>python</code> to the system <code>PATH</code>.</li>
-<li>Register to activate the AutoScript license on this computer.</li>
-<li>Restart the computer.</li>
-</ul>
-</li>
-<li>
-<p>Follow the Laser Control installation instructions provided by Thermo Fisher Scientific</p>
-<ul>
-<li>Install iFast and Python APIs</li>
-</ul>
-</li>
-</ul>
-<p>The AutoScript installer installs several Python modules. Expand the section below to view the full <code>pip freeze</code> output.</p>
-<details>
-<summary>Show full AutoScript Python module list</summary>
-<pre><code class="language-text">﻿appdirs==1.4.4
-argon2-cffi-bindings==21.2.0
-argon2_cffi==21.3.0
-attrs==21.2.0
-autoscript-core @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_core-5.17.0-py3-none-any.whl
-autoscript-sdb-microscope-client @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_sdb_microscope_client-4.8.1-py3-none-any.whl
-autoscript-sdb-microscope-client-tests @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_sdb_microscope_client_tests-4.8.1-py3-none-any.whl
-autoscript-toolkit @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/autoscript_toolkit-4.8.1-py3-none-any.whl
-backcall==0.2.0
-bleach==4.1.0
-build==0.7.0
-ceres_solver==2.1.0
-certifi==2021.5.30
-cffi==1.14.6
-charset-normalizer==2.0.3
-colorama==0.4.6
-configobj==5.1.0.dev0
-cycler==0.11.0
-Cython==0.29.33
-decorator==5.1.0
-defusedxml==0.7.1
-docutils==0.17.1
-entrypoints==0.4
-fonttools==4.31.1
-h5py==3.6.0
-idna==3.1
-imagecodecs==2022.2.22
-imageio==2.16.2
-importlib_metadata==4.11.4
-intel_fortran_rt==2022.0.3
-intel_openmp==2021.4.28
-ipykernel==5.5.6
-ipython==7.31.1
-ipython-genutils==0.2.0
-jedi==0.18.0
-Jinja2==3.0.3
-joblib==1.1.0
-jsonschema==3.2.0
-jupyter-client==6.1.12
-jupyter-core==4.8.1
-jupyterlab-pygments==0.1.2
-kiwisolver==1.4.0
-libaec==1.0.6
-libbz2==1.0.8
-libfreetype==2.12.1
-libgflags==2.2.2
-libglog==0.6.0
-libharfbuzz==3.2.0
-libhdf5==1.12.1
-libicu==70.1
-liblcms2==2.12
-liblz4==1.9.3
-liblzma==5.2.5
-libopenjpeg==2.4.0.post1
-libpng==1.6.37
-libprotobuf==3.13.0
-libqhull==8.0.2
-libsodium==1.0.18
-libtiff==4.3.0
-libturbojpeg==2.1.2
-libyaml==0.2.5
-libz==1.2.11
-libzmq==4.3.4
-libzstd==1.5.0
-Markdown==3.3.7
-MarkupSafe==2.1.1
-matplotlib==3.5.1
-matplotlib-inline==0.1.6
-mfc_runtime==14
-mistune==0.8.4
-mkl==2021.3.0
-mkl-service==2.4.0
-msvc_runtime==14
-nbclient==0.5.12
-nbconvert==6.4.2
-nbformat==5.2.0
-nest-asyncio==1.5.4
-networkx==2.7.1
-notebook==6.4.8
-numexpr==2.8.1
-numpy==1.21.2
-opencv_python==4.6.0
-packaging==22.0
-pandas==1.3.2
-pandocfilters==1.5.0
-parso==0.8.2
-pep517==0.9.1
-pickleshare==0.7.5
-Pillow-SIMD==9.0.0.post1
-prometheus-client==0.13.1
-prompt-toolkit==3.0.24
-psutil==5.8.0
-pycparser==2.20
-Pygments==2.8.1
-pyparsing==2.4.7
-pyrsistent==0.15.3
-PySide6==6.2.3
-python-dateutil==2.8.2
-pytz==2022.6
-PyWavelets==1.3.0
-pywin32==301
-pywinpty==2.0.4
-PyYAML==5.4.1
-pyzmq==22.3.0
-qtbase==6.2.3
-qtconsole==5.3.0
-qtdeclarative==6.2.3
-qtmultimedia==6.2.3
-QtPy==2.3.0
-qtshadertools==6.2.3
-qtsvg==6.2.3
-qttools==6.2.3
-requests==2.26.0
-scikit-image==0.19.2
-scikit-learn==1.0.2
-scipy==1.8.0
-Send2Trash==1.8.0
-shiboken6==6.2.3
-sip==6.5.1
-six==1.16.0
-terminado==0.13.2
-testpath==0.5.0
-thermoscientific-logging @ file:///C:/Program%20Files/Thermo%20Scientific%20AutoScript/PythonPackages/thermoscientific_logging-5.17.0-py3-none-any.whl
-threadpoolctl==3.1.0
-tifffile==2022.4.8
-toml==0.10.2
-tomli==2.0.1
-toolz==0.11.1
-tornado==6.1
-traitlets==5.1.0
-urllib3==1.26.3
-wcwidth==0.2.5
-webencodings==0.5.1
-zipp==3.7.0
-</code></pre>
-</details>
-<p>Confirm the installation location of Autoscript's python environment, which should default to the following path: <code>C:/Program Files/Enthought/Python/envs/Autoscript/python.exe</code>. You can verify this by running the following in the Command Prompt (<code>cmd.exe</code>):</p>
-<pre><code class="language-sh">where python
-</code></pre>
-<p>which should output something similar to the following:</p>
-<pre><code class="language-bat">C:\Program Files\Enthought\Python\envs\AutoScript\python.exe
-</code></pre>
-<h2 id="main-installation"><a class="header" href="#main-installation">Main Installation</a></h2>
-<p>The user should first download the source code from the <code>github</code> repository. For offline machines, you can create a <code>ZIP</code> archive of the desired branch and transfer it to the destination machine. Otherwise, standard <code>git clone</code> commands can be utilized. For normal client use, it is recommended to use the latest version of the <code>main</code> branch.</p>
-<p>Installation can be performed by running the provided batch file <a href="https://github.com/sandialabs/pytribeam/blob/main/pytribeam_install.bat">pytribeam_install.bat</a> from the local directory where you want to install the package. This can be accomplished by either simply by double clicking on the <code>pytribeam_install.bat</code> file from the Windows Explorer, or navigating to the source <code>pytribeam</code> directory and running from either <code>PowerShell</code> or <code>Command Prompt</code>:</p>
-<pre><code class="language-bat">./pytribeam_install.bat
-</code></pre>
-<p>This install script will uninstall any exisiting version of <code>pytribeam</code> before installing the current version. Wheels of various open-source dependencies with the package will be installed. Wheels are provided in order to eliminate the need for internet connectivity on the microscope, and a full list of the current provided wheels can be found here: <a href="https://github.com/sandialabs/pytribeam/tree/main/wheelhouse">wheelhouse</a></p>
 <div class="mdbook-alerts mdbook-alerts-note">
 <p class="mdbook-alerts-title">
   <span class="mdbook-alerts-icon"></span>
   note
 </p>
-<p><code>pytribeam</code> currently defaults to insall in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the <code>constants</code> module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the <code>constants</code> module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: <a href="https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html">test-coverage</a>.</p>
+<p>To have your specific machine added to the approved lists for running test suites, a source code modification of the <code>Constants</code> module will be required. This can be done locally after normal installation of <code>pytribeam</code>. Please contact the developer team for more information if you would like your machine name to be included in future releases.</p>
 </div>
-<h2 id="verification"><a class="header" href="#verification">Verification</a></h2>
-<p>After running the <code>install.bat</code> script, confirm the package installation by opening a new terminal and run the following to list the available package commands:</p>
-<pre><code class="language-sh">pytribeam
-</code></pre>
-<p>which should generate the following output:</p>
-<p>pytribeam.txt:</p>
-<pre><code class="language-text">--------
-pytribeam
---------
-
-pytribeam
-    Prints this command line documentation.
-
-pytribeam_info
-    Prints the module version, supported AutoScript and Laser API versions,
-    and detected installed environment.
-
-pytribeam_gui
-    Launches the GUI for creating configuration .yml files and controlling
-    experimental collection.
-
-pytribeam_exp &lt;path_to_file&gt;.yml
-    Runs the 3D data collection workflow based on an input .yml file.
-
-pytribeam_exp --help
-    Prints help for the experiment command.
-
-Example:
-    path/to/experiment/directory&gt; pytribeam_exp path/to/config/file.yml
-</code></pre>
-<div class="mdbook-alerts mdbook-alerts-tip">
+<h1 id="how-to-run-test-suite-on-a-physical-microscope"><a class="header" href="#how-to-run-test-suite-on-a-physical-microscope">How to run test suite on a physical microscope</a></h1>
+<div class="mdbook-alerts mdbook-alerts-caution">
 <p class="mdbook-alerts-title">
   <span class="mdbook-alerts-icon"></span>
-  tip
+  caution
 </p>
-<p>You can also find out what version of <code>pytribeam</code> is installed, as well as currently supported version of AutoScript and Laser APIs by running the following from a terminal:</p>
-<pre><code class="language-sh">pytribeam_info
-</code></pre>
-<p>This book was built in an environment with the following info:</p>
-<pre><code class="language-text">pytribeam module version: v0.1.4.dev26
-  Maximum supported .yml schema version: v1.0
-  Supported Thermo Fisher AutoScript versions: v4.8.1, v4.10.0, v4.11.0
-  Supported Laser API versions: v2.2.1
-
-Installed environment:
-  AutoScript:
-    Distribution metadata: detected, version: 4.8.1
-    Import package autoscript_sdb_microscope_client: available
-
-  Laser API:
-    Distribution metadata: not detected, version: not detected
-    Import package Laser: not importable
-    Import package Laser.PythonControl: not importable
-</code></pre>
+<p><strong>DO NOT run hardware tests if you are unfamiliar with the process. Contact the development team for more information before proceeding</strong></p>
 </div>
-<h2 id="test-validation"><a class="header" href="#test-validation">Test Validation</a></h2>
-<p>If you are interested in running the test suite on your hardware, see additional instructions here: <a href="./running_tests/index.html">Running Tests</a>.</p>
-<!-- 
-pytribeam-exp-help.txt:
-```text
-usage: pytribeam_exp [-h] file_path
-
-Run a pytribeam experiment from a configuration .yml file.
-
-positional arguments:
-  file_path   Path to the experiment configuration .yml file.
-
-optional arguments:
-  -h, --help  show this help message and exit
-``` -->
+<p>Hardware tests inlcude movement of the stage as well as insertion of various detectors. As such, the microscope must first be prepared in order to safely run all tests.</p>
+<h2 id="prepare-the-microscope-for-hardware-tests"><a class="header" href="#prepare-the-microscope-for-hardware-tests">Prepare the microscope for hardware tests</a></h2>
+<div class="mdbook-alerts mdbook-alerts-important">
+<p class="mdbook-alerts-title">
+  <span class="mdbook-alerts-icon"></span>
+  important
+</p>
+<p>Before readying the microscope, ensure you have installed the current version of the software you would like to test. Installation instructions can be found <a href="../index.html">here</a>.</p>
+</div>
+<p>To ready the microscope for the test suite, do the following:</p>
+<ul>
+<li>Remove any sample and sample holder from the chamber</li>
+<li>Pump the chamber down to normal operating pressures to enable the electron beam and ion beam to operate</li>
+<li>Disable CBS stage restrictions (available on non-Windows 7 machines)
+<ul>
+<li>check the "No stage tilt restrictions" box</li>
+</ul>
+</li>
+<li>Turn on electron beam, unblank the beam, set working distance to 15 mm, and link Z (need not be in focus)</li>
+<li>Retract all insertable devices (EBSD/EDS detectors, CBS/ABS detectors, etc.)</li>
+</ul>
+<h3 id="additional-preparations-for-laser-systems"><a class="header" href="#additional-preparations-for-laser-systems">Additional preparations for laser systems:</a></h3>
+<p>Laser systems require several more steps to run the more comprehensive test suite:</p>
+<ul>
+<li>Open the laser GUI app from ThermoFisher and disable the laser interlock (turn the key on the laser so the laser can fire). The laser will fire briefly during tests but will not be focused into the chamber. Keep the laser app open to enable API commands</li>
+<li>Unlock the objective in the laser app and make sure you can read a physical position
+<ul>
+<li>The laser injection port (LIP) may need to be homed for this, which will require a chamber vent</li>
+</ul>
+</li>
+<li>Start the laser (ensure it is not in "Standby" mode)</li>
+<li>Zero-out "Beam Centering" and "Beam Shift"</li>
+<li>In XTUI, ensure the spin mill sample holder is selected</li>
+<li>Open EBSD/EDS software
+<ul>
+<li>Oxford systems only: enable proximity sensor and override alerts</li>
+</ul>
+</li>
+<li>Optional verification steps:
+<ul>
+<li>Open <code>pytribeam</code> GUI and run "test connections" to ensure no "Error" states</li>
+</ul>
+</li>
+</ul>
+<h2 id="execute-the-test-suite"><a class="header" href="#execute-the-test-suite">Execute the test suite</a></h2>
+<p>From the pytribeam repo directory (folder containing folders like <code>src</code>, <code>docs</code>, and <code>tests</code>) you should see a file entitled <code>local_ci.py</code>, with the most recently released version found <a href="https://github.com/sandialabs/pytribeam/blob/main/local_ci.py">here</a>.</p>
+<p>Run the <code>local_ci.py</code> file from a terminal window, ideally in an application like VSCode. This will generate the directories <code>logs</code>, <code>badges</code>, and <code>coverage_reports</code>.</p>
+<p>To update coverage reports for future releases, please share the <code>logs</code> and <code>coverage_reports</code> directories generated by running <code>local_ci.py</code> with the development team.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                            <a rel="prev" href="../index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                            <a rel="prev" href="../../installation/index.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
 
-                            <a rel="next prefetch" href="../installation/running_tests/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                            <a rel="next prefetch" href="../../reference_frame/index.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
 
@@ -528,11 +334,11 @@ optional arguments:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                    <a rel="prev" href="../index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                    <a rel="prev" href="../../installation/index.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
 
-                    <a rel="next prefetch" href="../installation/running_tests/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                    <a rel="next prefetch" href="../../reference_frame/index.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
             </nav>
@@ -547,13 +353,13 @@ optional arguments:
         </script>
 
 
-        <script src="../elasticlunr.min.js"></script>
-        <script src="../mark.min.js"></script>
-        <script src="../searcher.js"></script>
+        <script src="../../elasticlunr.min.js"></script>
+        <script src="../../mark.min.js"></script>
+        <script src="../../searcher.js"></script>
 
-        <script src="../clipboard.min.js"></script>
-        <script src="../highlight.js"></script>
-        <script src="../book.js"></script>
+        <script src="../../clipboard.min.js"></script>
+        <script src="../../highlight.js"></script>
+        <script src="../../book.js"></script>
 
         <!-- Custom JS scripts -->
 
