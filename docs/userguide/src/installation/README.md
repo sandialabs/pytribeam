@@ -66,7 +66,6 @@ pytribeam
 
 which should generate the following output:
 
-pytribeam.txt:
 ```text
 {{#include ../generated/cli/pytribeam.txt}}
 ```
