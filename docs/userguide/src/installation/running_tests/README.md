@@ -1,4 +1,4 @@
-# Running tests
+# Running Hardware Tests
 
 Unit tests allow us to check for code coverage and ensure that functions in the source code are operating as expected. When running tests to determine code coverage, the test suite must be ran against a single snapshot of the source code, ideally from a single commit hash of the repo to github. Before running tests, ensure you have the correct version of the source code to be tested.
 
@@ -9,20 +9,20 @@ As not all functionality can be replicated in a simulated microscope, there are 
 - **Hardware**: tests that require a physical microscope. Specific approved microscope machine names are listed in the `microscope_machines` attribute in the `Constants` module.
 - **Laser Hardware**: tests that require a physical microscope with femtosecond laser module. Machine must be a member of the `microscope_machines` attribute in the `Constants` module and pass a laser hardware check to run these tests.
 
-> [!NOTE!]
+> [!NOTE]
 > To have your specific machine added to the approved lists for running test suites, a source code modification of the `Constants` module will be required. This can be done locally after normal installation of `pytribeam`. Please contact the developer team for more information if you would like your machine name to be included in future releases.
 
 # How to run test suite on a physical microscope
 
 > [!CAUTION]
-> **DO NOT run hardware tests if you are unfamiliar with the process.**
+> **DO NOT run hardware tests if you are unfamiliar with the process. Contact the development team for more information before proceeding**
 
 Hardware tests inlcude movement of the stage as well as insertion of various detectors. As such, the microscope must first be prepared in order to safely run all tests.
 
 ## Prepare the microscope for hardware tests
 
 > [!IMPORTANT]
-> Before readying the microscope, ensure you have installed the current version of the software you would like to test. Installation instructions can be found in the latest release User Guide [here](https://sandialabs.github.io/pytribeam/main/docs/userguide/book/installation/index.html).
+> Before readying the microscope, ensure you have installed the current version of the software you would like to test. Installation instructions can be found [here](../index.html).
 
 To ready the microscope for the test suite, do the following:
 
@@ -48,9 +48,9 @@ Laser systems require several more steps to run the more comprehensive test suit
 - Optional verification steps:
     - Open `pytribeam` GUI and run "test connections" to ensure no "Error" states
 
-## Running tests 
+## Execute the test suite 
 
-From the pytribeam repo directory (folder containing folders like `src`, `docs`, and `tests`) you should see a file entitled `local_ci.py`.
+From the pytribeam repo directory (folder containing folders like `src`, `docs`, and `tests`) you should see a file entitled `local_ci.py`, with the most recently released version found [here](https://github.com/sandialabs/pytribeam/blob/main/local_ci.py).
 
 Run the `local_ci.py` file from a terminal window, ideally in an application like VSCode. This will generate the directories `logs`, `badges`, and `coverage_reports`.
 

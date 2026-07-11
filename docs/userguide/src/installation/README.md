@@ -45,10 +45,10 @@ C:\Program Files\Enthought\Python\envs\AutoScript\python.exe
 
 The user should first download the source code from the `github` repository. For offline machines, you can create a `ZIP` archive of the desired branch and transfer it to the destination machine. Otherwise, standard `git clone` commands can be utilized. For normal client use, it is recommended to use the latest version of the `main` branch.
 
-Installation can be performed by running the provided batch file [install.bat](https://github.com/sandialabs/pytribeam/blob/main/install.bat) from the local directory where you want to install the package. This can be accomplished by either simply by double clicking on the `install.bat` file from the Windows Explorer, or navigating to the source `pytribeam` directory and running from either `PowerShell` or `Command Prompt`:
+Installation can be performed by running the provided batch file [pytribeam_install.bat](https://github.com/sandialabs/pytribeam/blob/main/pytribeam_install.bat) from the local directory where you want to install the package. This can be accomplished by either simply by double clicking on the `pytribeam_install.bat` file from the Windows Explorer, or navigating to the source `pytribeam` directory and running from either `PowerShell` or `Command Prompt`:
 
 ```bat
-./install.bat
+./pytribeam_install.bat
 ```
 
 This install script will uninstall any exisiting version of `pytribeam` before installing the current version. Wheels of various open-source dependencies with the package will be installed. Wheels are provided in order to eliminate the need for internet connectivity on the microscope, and a full list of the current provided wheels can be found here: [wheelhouse](https://github.com/sandialabs/pytribeam/tree/main/wheelhouse)
@@ -56,30 +56,37 @@ This install script will uninstall any exisiting version of `pytribeam` before i
 > [!NOTE]
 > `pytribeam` currently defaults to insall in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the `constants` module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the `constants` module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: [test-coverage](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html).
 
+## Verification
+
 After running the `install.bat` script, confirm the package installation by opening a new terminal and run the following to list the available package commands:
 
 ```sh
 pytribeam
 ```
 
-which should generate the following output along with any relevant warning messages:
-
-```plaintext
-pytribeam will not run from gitlab container. If empty below, this book was generated without autoscript installed:
-<!-- cmdrun pytribeam -->
-```
+which should generate the following output:
 
 pytribeam.txt:
 ```text
 {{#include ../generated/cli/pytribeam.txt}}
 ```
 
-pytribeam-info.txt:
-```text
-{{#include ../generated/cli/pytribeam-info.txt}}
-```
+> [!TIP]
+> You can also find out what version of `pytribeam` is installed, as well as currently supported version of AutoScript and Laser APIs by running the following from a terminal:
+> ```sh
+> pytribeam_info
+> ```
+> This book was built in an environment with the following info:
+> ```text
+> {{#include ../generated/cli/pytribeam-info.txt}}
+> ```
 
+## Test Validation
+
+If you are interested in running the test suite on your hardware, see additional instructions here: [Running Tests](./running_tests/index.html).
+
+<!-- 
 pytribeam-exp-help.txt:
 ```text
 {{#include ../generated/cli/pytribeam-exp-help.txt}}
-```
+``` -->
