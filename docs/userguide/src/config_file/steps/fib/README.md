@@ -26,7 +26,7 @@ Patterning settings for the ion beam contain various nested mappings depending o
 
 When using the [GUI](../../../gui/README.md), a dynamic list of the available application files for your particular system will automatically be generated. When not using the GUI, users can determine this list themselves by running the following ``python`` script:
 ```python
-<!-- cmdrun type list_available_fib_applications.py -->
+<!-- cmdrun sh -lc "./list_available_fib_applications.py" -->
 ```
 
 #### type
