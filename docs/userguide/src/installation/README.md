@@ -54,7 +54,7 @@ Installation can be performed by running the provided batch file [pytribeam_inst
 This install script will uninstall any exisiting version of `pytribeam` before installing the current version. Wheels of various open-source dependencies with the package will be installed. Wheels are provided in order to eliminate the need for internet connectivity on the microscope, and a full list of the current provided wheels can be found here: [wheelhouse](https://github.com/sandialabs/pytribeam/tree/main/wheelhouse)
 
 > [!NOTE]
-> `pytribeam` currently defaults to insall in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the `constants` module, which would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the `constants` module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: [test-coverage](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html).
+> `pytribeam` currently defaults to install in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the `constants` module. Such editing would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the `constants` module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: [test-coverage](https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html).
 
 ## Verification
 
@@ -82,7 +82,7 @@ which should generate the following output:
 
 ## Test Validation
 
-If you are interested in running the test suite on your hardware, see additional instructions here: [Running Tests](./running_tests/index.html).
+If you are interested in running the test suite on your hardware, see additional instructions here: [Running Tests](./running_tests/README.md).
 
 <!-- 
 pytribeam-exp-help.txt:
