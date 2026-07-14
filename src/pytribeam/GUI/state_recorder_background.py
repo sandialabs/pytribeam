@@ -279,7 +279,9 @@ def record_state_once_threaded() -> bool:
         path = Path(file_path.get())
         host = host_var.get().strip()
         port = parse_port()
-        description = text_box.get("1.0", "end-1c")
+
+        # Capture a one-shot note, then clear the note box.
+        description = get_one_shot_note_and_clear()
 
     except Exception as e:
         messagebox.showerror("Error preparing microscope state recording", str(e))
@@ -335,6 +337,56 @@ def check_recording_result_queue():
 
     # Keep polling for future worker results.
     root.after(100, check_recording_result_queue)
+
+
+NOTE_PLACEHOLDER = "Optional note for the next saved state..."
+
+
+def show_note_placeholder():
+    """Show ghost text in the note box if it is empty."""
+    global note_placeholder_active
+
+    current_text = text_box.get("1.0", "end-1c")
+
+    if current_text.strip() == "":
+        note_placeholder_active = True
+        text_box.config(fg=theme.colors.get("gray", "#888888"))
+        text_box.delete("1.0", tk.END)
+        text_box.insert("1.0", NOTE_PLACEHOLDER)
+
+
+def hide_note_placeholder(event=None):
+    """Remove ghost text when the user enters the note box."""
+    global note_placeholder_active
+
+    if note_placeholder_active:
+        text_box.delete("1.0", tk.END)
+        text_box.config(fg=theme.colors["terminal_fg"])
+        note_placeholder_active = False
+
+
+def restore_note_placeholder_if_empty(event=None):
+    """Restore ghost text if the user leaves the note box empty."""
+    show_note_placeholder()
+
+
+def get_one_shot_note_and_clear() -> str:
+    """Capture the current user note and clear it so it is only used once.
+
+    Placeholder text is ignored and is not saved.
+    """
+    global note_placeholder_active
+
+    if note_placeholder_active:
+        return ""
+
+    note = text_box.get("1.0", "end-1c").strip()
+
+    text_box.delete("1.0", tk.END)
+    note_placeholder_active = False
+    show_note_placeholder()
+
+    return note
 
 
 def save_state():
@@ -479,6 +531,8 @@ if __name__ == "__main__":
     save_in_progress = False
     result_queue = queue.Queue()
 
+    note_placeholder_active = False
+
     # -------------------------------------------------------------------------
     # Build window
     # -------------------------------------------------------------------------
@@ -550,8 +604,8 @@ if __name__ == "__main__":
     l3 = tk.Label(
         root,
         text=(
-            "Description of state and/or how you moved from the previous state "
-            "to this state"
+            "Optional one-shot note for the next saved state. "
+            "This note is cleared after the next manual or automatic save starts."
         ),
         **header_kw,
     )
@@ -562,6 +616,8 @@ if __name__ == "__main__":
         height=10,
         **entry_kw,
     )
+    text_box.bind("<FocusIn>", hide_note_placeholder)
+    text_box.bind("<FocusOut>", restore_note_placeholder_if_empty)
 
     f1 = tk.Frame(root, bg=theme.bg)
     f2 = tk.Frame(root, bg=theme.bg)
@@ -664,7 +720,8 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     host_var.insert(tk.END, "localhost")
     port_var.insert(tk.END, "None")
-    text_box.insert(1.0, "Insert description...")
+    # text_box.insert(1.0, "Insert description...")
+    show_note_placeholder()  # replace the above line with this to show placeholder text
 
     # -------------------------------------------------------------------------
     # Start polling the background-thread result queue
