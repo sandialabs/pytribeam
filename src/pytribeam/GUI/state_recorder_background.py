@@ -280,8 +280,9 @@ def record_state_once_threaded() -> bool:
         host = host_var.get().strip()
         port = parse_port()
 
-        # Capture a one-shot note, then clear the note box.
-        description = get_one_shot_note_and_clear()
+        # Consume only a previously queued note.
+        # Do not touch the draft note box here, because the user may be typing.
+        description = pop_pending_note()
 
     except Exception as e:
         messagebox.showerror("Error preparing microscope state recording", str(e))
@@ -308,6 +309,7 @@ def check_recording_result_queue():
     widgets, variables, and messageboxes.
     """
     global save_in_progress
+    global final_save_after_current
 
     try:
         while True:
@@ -318,6 +320,11 @@ def check_recording_result_queue():
             if result["success"]:
                 timestamp = result["timestamp"]
                 set_status(f"Last saved: {timestamp}")
+
+                if final_save_after_current:
+                    final_save_after_current = False
+                    set_status("Saving final state with queued note...")
+                    record_state_once_threaded()
 
             else:
                 error = result["error"]
@@ -370,23 +377,96 @@ def restore_note_placeholder_if_empty(event=None):
     show_note_placeholder()
 
 
-def get_one_shot_note_and_clear() -> str:
-    """Capture the current user note and clear it so it is only used once.
+def clear_note_placeholder_for_typing(event=None):
+    """Clear ghost text when the user starts typing.
 
-    Placeholder text is ignored and is not saved.
+    This handles the case where an automatic save restores the placeholder
+    while the note box already has keyboard focus.
     """
     global note_placeholder_active
 
     if note_placeholder_active:
-        return ""
+        text_box.delete("1.0", tk.END)
+        text_box.config(fg=theme.colors["terminal_fg"])
+        note_placeholder_active = False
+
+
+def queue_note_for_next_save():
+    """Queue the current draft note for the next saved state."""
+    queue_current_draft_note(silent=False)
+
+
+def pop_pending_note() -> str:
+    """Return and clear the queued note.
+
+    This intentionally does not touch the draft text box.
+    """
+    global pending_note
+
+    note = pending_note
+    pending_note = ""
+
+    update_queue_note_button()
+
+    return note
+
+
+def queue_current_draft_note(silent: bool = False) -> bool:
+    """Move current draft text into the pending-note slot.
+
+    Returns True if a note was queued, False otherwise.
+    """
+    global pending_note
+    global note_placeholder_active
+
+    if note_placeholder_active:
+        if not silent:
+            set_status("No draft note to queue.")
+        return False
 
     note = text_box.get("1.0", "end-1c").strip()
 
-    text_box.delete("1.0", tk.END)
-    note_placeholder_active = False
-    show_note_placeholder()
+    if not note:
+        if not silent:
+            set_status("No draft note to queue.")
+        return False
 
-    return note
+    if pending_note:
+        pending_note = pending_note + "\n\n" + note
+    else:
+        pending_note = note
+
+    text_box.delete("1.0", tk.END)
+    text_box.config(fg=theme.colors["terminal_fg"])
+    note_placeholder_active = False
+
+    if text_box.focus_get() != text_box:
+        show_note_placeholder()
+
+    update_queue_note_button()
+
+    if not silent:
+        set_status("Note queued for next saved state.")
+
+    return True
+
+
+def update_queue_note_button():
+    """Update the queue-note button text/color based on pending-note state."""
+    try:
+        if pending_note:
+            queue_note_button.config(
+                text="Queued notes pending — add another",
+                **note_button_pending_kw,
+            )
+        else:
+            queue_note_button.config(
+                text="Queue note for next saved state",
+                **note_button_kw,
+            )
+    except NameError:
+        # Button/style variables may not exist yet during startup.
+        pass
 
 
 def save_state():
@@ -448,10 +528,21 @@ def start_recording():
     schedule_next_recording()
 
 
-def stop_recording():
-    """Stop periodic recording."""
+def stop_recording(save_final: bool = False, queue_draft: bool = False):
+    """Stop periodic recording.
+
+    If queue_draft is True, any current draft text is queued first.
+
+    If save_final is True and no save is currently in progress, record one
+    final microscope state after cancelling future automatic polls.
+
+    If a save is already in progress and a note was queued by this stop action,
+    request one final save after the current save finishes so the queued note
+    is captured.
+    """
     global recording
     global recording_after_id
+    global final_save_after_current
 
     recording = False
 
@@ -463,13 +554,38 @@ def stop_recording():
 
         recording_after_id = None
 
+    note_queued_by_stop = False
+
+    if queue_draft:
+        note_queued_by_stop = queue_current_draft_note(silent=True)
+
     start_button.config(state=tk.NORMAL)
     stop_button.config(state=tk.DISABLED)
 
     if save_in_progress:
-        set_status("Recording stopped. Current in-progress save will finish.")
+        if save_final and pending_note:
+            final_save_after_current = True
+            set_status(
+                "Recording stopped. Current save will finish, then final state "
+                "will be saved with queued note."
+            )
+        elif save_final:
+            set_status(
+                "Recording stopped. Current in-progress save will serve as final state."
+            )
+        else:
+            set_status("Recording stopped. Current in-progress save will finish.")
+
     else:
-        set_status("Recording stopped.")
+        if save_final:
+            if note_queued_by_stop:
+                set_status("Recording stopped. Saving final state with note...")
+            else:
+                set_status("Recording stopped. Saving final state...")
+
+            record_state_once_threaded()
+        else:
+            set_status("Recording stopped.")
 
 
 def on_close():
@@ -516,6 +632,21 @@ if __name__ == "__main__":
         fg=theme.colors["green_fg"],
         font=("Segoe UI", 15),
     )
+    note_button_kw = dict(
+        bg="#6f8f72",  # muted gray-green
+        fg=theme.colors["green_fg"],
+        activebackground="#8daa8f",
+        activeforeground=theme.colors["green_fg"],
+        font=("Segoe UI", 15),
+    )
+
+    note_button_pending_kw = dict(
+        bg="#9fbc9f",  # lighter gray-green when a note is pending
+        fg=theme.colors["green_fg"],
+        activebackground="#b3cdb3",
+        activeforeground=theme.colors["green_fg"],
+        font=("Segoe UI", 15),
+    )
 
     stop_button_kw = dict(
         bg=theme.colors["red"] if "red" in theme.colors else theme.colors["bg_off"],
@@ -532,6 +663,8 @@ if __name__ == "__main__":
     result_queue = queue.Queue()
 
     note_placeholder_active = False
+    pending_note = ""
+    final_save_after_current = False
 
     # -------------------------------------------------------------------------
     # Build window
@@ -604,8 +737,8 @@ if __name__ == "__main__":
     l3 = tk.Label(
         root,
         text=(
-            "Optional one-shot note for the next saved state. "
-            "This note is cleared after the next manual or automatic save starts."
+            "Draft note. Click 'Queue note for next saved state' when ready. "
+            "Queued notes are attached to the next manual or automatic save."
         ),
         **header_kw,
     )
@@ -618,6 +751,14 @@ if __name__ == "__main__":
     )
     text_box.bind("<FocusIn>", hide_note_placeholder)
     text_box.bind("<FocusOut>", restore_note_placeholder_if_empty)
+    text_box.bind("<KeyPress>", clear_note_placeholder_for_typing)
+
+    queue_note_button = tk.Button(
+        root,
+        text="Queue note for next saved state",
+        command=queue_note_for_next_save,
+        **note_button_kw,
+    )
 
     f1 = tk.Frame(root, bg=theme.bg)
     f2 = tk.Frame(root, bg=theme.bg)
@@ -640,7 +781,7 @@ if __name__ == "__main__":
     stop_button = tk.Button(
         root,
         text="Stop recording state",
-        command=stop_recording,
+        command=lambda: stop_recording(save_final=True, queue_draft=True),
         state=tk.DISABLED,
         **stop_button_kw,
     )
@@ -679,7 +820,7 @@ if __name__ == "__main__":
     l3.grid(row=10, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
     text_box.grid(row=11, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
 
-    save_once_button.grid(
+    queue_note_button.grid(
         row=12,
         column=0,
         columnspan=2,
@@ -688,7 +829,7 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    start_button.grid(
+    save_once_button.grid(
         row=13,
         column=0,
         columnspan=2,
@@ -697,7 +838,7 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    stop_button.grid(
+    start_button.grid(
         row=14,
         column=0,
         columnspan=2,
@@ -706,7 +847,7 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    status_label.grid(
+    stop_button.grid(
         row=15,
         column=0,
         columnspan=2,
@@ -715,6 +856,14 @@ if __name__ == "__main__":
         pady=5,
     )
 
+    status_label.grid(
+        row=16,
+        column=0,
+        columnspan=2,
+        sticky="nsew",
+        padx=6,
+        pady=5,
+    )
     # -------------------------------------------------------------------------
     # Default values
     # -------------------------------------------------------------------------
@@ -722,6 +871,7 @@ if __name__ == "__main__":
     port_var.insert(tk.END, "None")
     # text_box.insert(1.0, "Insert description...")
     show_note_placeholder()  # replace the above line with this to show placeholder text
+    update_queue_note_button()
 
     # -------------------------------------------------------------------------
     # Start polling the background-thread result queue
