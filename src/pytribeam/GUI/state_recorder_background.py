@@ -114,7 +114,11 @@ def collect_attribute_paths(obj: Any, name: str = None) -> List[Tuple[str, Any]]
 
 
 def get_microscope_state(host: str, port: Optional[int]) -> dict:
-    """Connect to the microscope and collect its current state."""
+    """Connect to the microscope and collect its current state.
+
+    The active imaging view/quad is restored after checking each quad so the
+    operator is returned to the view they were using before the state read.
+    """
     microscope = tbt.Microscope()
 
     utilities.connect_microscope(
@@ -126,25 +130,44 @@ def get_microscope_state(host: str, port: Optional[int]) -> dict:
 
     state = {}
 
-    for s in [
-        "beams",
-        "detector",
-        "gas",
-        "patterning",
-        "specimen",
-        "state",
-        "vacuum",
-        "imaging",
-    ]:
-        state[s] = {
-            k: i
-            for (k, i) in collect_attribute_paths(getattr(microscope, s), "scope." + s)
-        }
+    # remember the operator's currenyt active view so we can restore it later.
+    original_active_view = None
+    try:
+        original_active_view = microscope.imaging.get_active_view()
+    except Exception:
+        # if unavailable or fails, continue recorindg state
+        # active view will not be restored
+        original_active_view = None
+    try:
+        for s in [
+            "beams",
+            "detector",
+            "gas",
+            "patterning",
+            "specimen",
+            "state",
+            "vacuum",
+            "imaging",
+        ]:
+            state[s] = {
+                k: i
+                for (k, i) in collect_attribute_paths(
+                    getattr(microscope, s), "scope." + s
+                )
+            }
 
-    for q in [1, 2, 3, 4]:
-        microscope.imaging.set_active_view(q)
-        device = str(tbt.Device(microscope.imaging.get_active_device()))
-        state["imaging"][f"scope.imaging.quad{q}.active_device"] = device
+        for q in [1, 2, 3, 4]:
+            microscope.imaging.set_active_view(q)
+            device = str(tbt.Device(microscope.imaging.get_active_device()))
+            state["imaging"][f"scope.imaging.quad{q}.active_device"] = device
+
+    finally:
+        # restore user's original active view, even if something above fails.
+        if original_active_view is not None:
+            try:
+                microscope.imaging.set_active_view(original_active_view)
+            except Exception:
+                pass
 
     return state
 
@@ -291,6 +314,7 @@ def record_state_once_threaded() -> bool:
 
     save_in_progress = True
     set_status("Recording microscope state...")
+    show_recording_indicator()
 
     worker = threading.Thread(
         target=record_state_worker,
@@ -316,6 +340,7 @@ def check_recording_result_queue():
             result = result_queue.get_nowait()
 
             save_in_progress = False
+            hide_recording_indicator()
 
             if result["success"]:
                 timestamp = result["timestamp"]
@@ -469,8 +494,92 @@ def update_queue_note_button():
         pass
 
 
+def show_recording_indicator():
+    """Show a small non-modal indicator while state recording is active."""
+    global recording_indicator_window
+
+    try:
+        if not show_recording_indicator_var.get():
+            return
+
+        if (
+            recording_indicator_window is not None
+            and recording_indicator_window.winfo_exists()
+        ):
+            return
+
+        recording_indicator_window = tk.Toplevel(master)
+        recording_indicator_window.title("Recording state")
+        recording_indicator_window.transient(master)
+        recording_indicator_window.resizable(False, False)
+
+        try:
+            recording_indicator_window.attributes("-topmost", True)
+        except tk.TclError:
+            pass
+
+        label = tk.Label(
+            recording_indicator_window,
+            text="Recording microscope state...",
+            padx=20,
+            pady=12,
+            bg=theme.bg,
+            fg=theme.fg,
+            font=("Segoe UI", 12),
+        )
+        label.pack(fill="both", expand=True)
+
+        # Put it near the main window.
+        master.update_idletasks()
+        x = master.winfo_rootx() + 40
+        y = master.winfo_rooty() + 40
+        recording_indicator_window.geometry(f"+{x}+{y}")
+
+        # Closing the popup hides it for the current recording only.
+        recording_indicator_window.protocol(
+            "WM_DELETE_WINDOW",
+            hide_recording_indicator,
+        )
+
+    except NameError:
+        pass
+
+
+def hide_recording_indicator():
+    """Hide the recording indicator popup."""
+    global recording_indicator_window
+
+    try:
+        if (
+            recording_indicator_window is not None
+            and recording_indicator_window.winfo_exists()
+        ):
+            recording_indicator_window.destroy()
+    except tk.TclError:
+        pass
+
+    recording_indicator_window = None
+
+
+def on_show_recording_indicator_changed():
+    """Handle toggling the recording-indicator checkbox."""
+    try:
+        if show_recording_indicator_var.get() and save_in_progress:
+            show_recording_indicator()
+        else:
+            hide_recording_indicator()
+    except NameError:
+        pass
+
+
 def save_state():
-    """Manual one-shot save."""
+    """Manual one-shot save.
+
+    If the draft note box contains text, queue it first so it is attached to
+    this manual save. This mirrors the stop button behavior, but only for a
+    single save.
+    """
+    queue_current_draft_note(silent=True)
     record_state_once_threaded()
 
 
@@ -520,6 +629,9 @@ def start_recording():
     recording = True
     start_button.config(state=tk.DISABLED)
     stop_button.config(state=tk.NORMAL)
+
+    # if the user types a draft note before starting, attach it to the first save.
+    queue_current_draft_note(silent=True)
 
     set_status("Recording started.")
 
@@ -666,6 +778,8 @@ if __name__ == "__main__":
     pending_note = ""
     final_save_after_current = False
 
+    recording_indicator_window = None
+
     # -------------------------------------------------------------------------
     # Build window
     # -------------------------------------------------------------------------
@@ -690,6 +804,9 @@ if __name__ == "__main__":
 
     status_var = tk.StringVar()
     status_var.set("Idle.")
+
+    show_recording_indicator_var = tk.BooleanVar()
+    show_recording_indicator_var.set(False)
 
     # -------------------------------------------------------------------------
     # Create widgets
@@ -718,6 +835,18 @@ if __name__ == "__main__":
         root,
         textvariable=interval_var,
         **entry_kw,
+    )
+
+    operator_note_label = tk.Label(
+        root,
+        text=(
+            "Operator note: State recording may briefly interact with the microscope UI. "
+            "Open drop-down menus may close during a recording. "
+            "The active view is restored afterward."
+        ),
+        wraplength=600,
+        justify="left",
+        **label_kw,
     )
 
     l2 = tk.Label(
@@ -786,6 +915,19 @@ if __name__ == "__main__":
         **stop_button_kw,
     )
 
+    show_indicator_checkbox = tk.Checkbutton(
+        root,
+        text="Show recording indicator popup",
+        variable=show_recording_indicator_var,
+        command=on_show_recording_indicator_changed,
+        bg=theme.bg,
+        fg=theme.fg,
+        activebackground=theme.bg,
+        activeforeground=theme.fg,
+        selectcolor=theme.colors["bg_off"],
+        font=("Segoe UI", 11),
+    )
+
     status_label = tk.Label(
         root,
         textvariable=status_var,
@@ -810,26 +952,26 @@ if __name__ == "__main__":
     interval_l.grid(row=5, column=0, sticky="nse", padx=6, pady=3)
     interval_entry.grid(row=5, column=1, sticky="nsw", padx=6, pady=3)
 
-    f2.grid(row=6, column=0, columnspan=2, sticky="nsew", pady=20)
-
-    l2.grid(row=7, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
-    pentry.grid(row=8, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
-
-    f3.grid(row=9, column=0, columnspan=2, sticky="nsew", pady=20)
-
-    l3.grid(row=10, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
-    text_box.grid(row=11, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
-
-    queue_note_button.grid(
-        row=12,
+    operator_note_label.grid(
+        row=6,
         column=0,
         columnspan=2,
-        sticky="nsew",
+        sticky="w",
         padx=6,
-        pady=5,
+        pady=3,
     )
 
-    save_once_button.grid(
+    f2.grid(row=7, column=0, columnspan=2, sticky="nsew", pady=20)
+
+    l2.grid(row=8, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
+    pentry.grid(row=9, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
+
+    f3.grid(row=10, column=0, columnspan=2, sticky="nsew", pady=20)
+
+    l3.grid(row=11, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
+    text_box.grid(row=12, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
+
+    queue_note_button.grid(
         row=13,
         column=0,
         columnspan=2,
@@ -838,7 +980,7 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    start_button.grid(
+    save_once_button.grid(
         row=14,
         column=0,
         columnspan=2,
@@ -847,7 +989,7 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    stop_button.grid(
+    start_button.grid(
         row=15,
         column=0,
         columnspan=2,
@@ -856,8 +998,26 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    status_label.grid(
+    stop_button.grid(
         row=16,
+        column=0,
+        columnspan=2,
+        sticky="nsew",
+        padx=6,
+        pady=5,
+    )
+
+    show_indicator_checkbox.grid(
+        row=17,
+        column=0,
+        columnspan=2,
+        sticky="w",
+        padx=6,
+        pady=5,
+    )
+
+    status_label.grid(
+        row=18,
         column=0,
         columnspan=2,
         sticky="nsew",
