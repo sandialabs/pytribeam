@@ -276,6 +276,13 @@ This runs `ruff format --check src/` and the full `pytest tests/` suite against 
 current checkout, exiting non-zero if either fails. It does **not** check your branch,
 whether commits are pushed, or `_version.py` — those are handled by the steps below.
 
+If the AutoScript SDK isn't installed (true for most local dev environments — it's only
+present inside the AutoScript CI container, see `api-docs` above), `preflight.py`
+dynamically and automatically skips any test modules that transitively need
+`autoscript_sdb_microscope_client`, or the pandas/scikit-image versions AutoScript's
+vendor wheels provide, instead of crashing the run. It prints exactly which modules were
+skipped and why.
+
 ### Release candidate to TestPyPI (from `dev`)
 
 1. **Bump `_version.py` for the rc** (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy) above) and merge the PR it opens into `dev`:
