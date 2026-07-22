@@ -263,11 +263,8 @@ request**, never a direct push. Tag pushes are *not* blocked by branch protectio
 pushing the release tag itself works directly once the PR is merged.
 
 > [!IMPORTANT]
-> **Always push branch commits before pushing the tag.** `validate_tag` checks whether
-> the tag's commit already exists on `origin/main`/`origin/dev`
-> (`git branch -r --contains refs/tags/<tag>`). Push the tag first and that commit isn't
-> on the remote yet, so validation fails with "Tag must be created on 'main' or 'dev'
-> branch" — even though the branch and tag agree locally.
+> Always push the branch before pushing the tag, never the other way around.
+> Follow the exact step order given in each recipe below.
 
 **Before either recipe below**, run the preflight script:
 
@@ -278,6 +275,13 @@ python preflight.py --all-tests
 This runs `ruff format --check src/` and the full `pytest tests/` suite against your
 current checkout, exiting non-zero if either fails. It does **not** check your branch,
 whether commits are pushed, or `_version.py` — those are handled by the steps below.
+
+If the AutoScript SDK isn't installed (true for most local dev environments — it's only
+present inside the AutoScript CI container, see `api-docs` above), `preflight.py`
+dynamically and automatically skips any test modules that transitively need
+`autoscript_sdb_microscope_client`, or the pandas/scikit-image versions AutoScript's
+vendor wheels provide, instead of crashing the run. It prints exactly which modules were
+skipped and why.
 
 ### Release candidate to TestPyPI (from `dev`)
 
