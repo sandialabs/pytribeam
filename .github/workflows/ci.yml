@@ -4,9 +4,7 @@ name: CI (Continuous Integration)
 on:
   push:
     branches:
-      # - '**'
-      - dev
-      - main
+      - '**'
   workflow_dispatch:
   workflow_call:
 
@@ -98,10 +96,25 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Just pick one of the below AS versions at a time
+        # Full matrix test would require separate artifacts
+        # This was deemed unnecessary for api docs
         include:
+          # AS 4.8
           - image_tag: autoscript_4.8.1-py3.8.12
             wheelset: autoscript_4.8.1-py3.8.12
+          # # AS 4.10
+          # - image_tag: autoscript_4.10.0-py3.8.12
+          #   wheelset: autoscript_4.10.0-py3.8.12
+          # # AS 4.11
+          # - image_tag: autoscript_4.11.0-py3.8.18
+          #   wheelset: autoscript_4.11.0-py3.8.18
+          # # AS 4.13
+          # - image_tag: autoscript_4.13.1-py3.11.14
+          #   wheelset: autoscript_4.13.1-py3.11.14
 
+    # Pull the AutoScript Python CI image.
+    # This image contains /opt/venv, vendor wheels, uv, and install-pytribeam-ci-deps.
     container:
       image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
       credentials:
@@ -112,7 +125,6 @@ jobs:
       WHEELSET: ${{ matrix.wheelset }}
       UV_SYSTEM_CERTS: "true"
       UV_LINK_MODE: copy
-      UV_PROJECT_ENVIRONMENT: /opt/venv
 
     steps:
       - name: Checkout code
@@ -121,34 +133,119 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
 
-      - name: Verify environment
+      - name: Verify base image environment
         run: |
-          python --version
+          echo "Selected image tag: ${{ matrix.image_tag }}"
+          echo "Selected wheelset: ${WHEELSET}"
+          /opt/venv/bin/python --version
           uv --version
-          uv pip list
           ls -la /opt/vendor-wheels/${WHEELSET}
+          /opt/venv/bin/python -c "import pandas; print('base image pandas ok')"
 
-      - name: Install project into image venv
+      - name: Install project dependencies, vendor wheels, and pdoc deps
         run: |
-          # /opt/venv already contains vendor wheels and pdoc deps.
-          # --inexact prevents uv from removing those extra installed packages.
-          uv sync --all-extras --dev --inexact --python /opt/venv/bin/python
+          # Avoid uv using the image-level /opt/venv as the project environment.
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
 
-          uv run python -c "import pandas; print('pandas import ok')"
-          uv run python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
-          uv run python -c "import pytribeam; print('pytribeam import ok')"
+          # Create project .venv using the Python version from the selected image.
+          uv sync --all-extras --dev --python /opt/venv/bin/python
+
+          # Install vendor wheels and requirements-pdoc.txt into project .venv.
+          install-pytribeam-ci-deps .venv/bin/python "${WHEELSET}"
+
+          # Verify the project .venv is using the expected Python and imports.
+          .venv/bin/python --version
+          .venv/bin/python -c "import pandas; print('project .venv pandas ok')"
+          .venv/bin/python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          .venv/bin/python -c "import pytribeam; print('pytribeam import ok')"
+
+      - name: Generate CLI Documentation
+        run: |
+          mkdir -p docs/generated/cli
+
+          .venv/bin/pytribeam > docs/generated/cli/pytribeam.txt
+          .venv/bin/pytribeam_info > docs/generated/cli/pytribeam-info.txt
+          .venv/bin/pytribeam_exp --help > docs/generated/cli/pytribeam-exp-help.txt
+
+          echo "Generated CLI docs:"
+          ls -la docs/generated/cli
 
       - name: Build API Documentation
         run: |
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
+
           rm -rf docs/api
-          uv run pdoc src/pytribeam -o docs/api
+          .venv/bin/pdoc src/pytribeam -o docs/api
+
+      # This step must run AFTER pdoc generates docs/api and BEFORE upload-artifact.
+      # It copies custom CSS/JS into the generated API docs and injects <link>/<script>
+      # tags into every generated HTML file.
+      - name: Apply pdoc light/dark theme toggle
+        run: |
+          mkdir -p docs/api/assets
+          cp docs/pdoc-theme/pdoc-custom.css docs/api/assets/pdoc-custom.css
+          cp docs/pdoc-theme/pdoc-theme-toggle.js docs/api/assets/pdoc-theme-toggle.js
+
+          .venv/bin/python - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path("docs/api")
+          css = root / "assets" / "pdoc-custom.css"
+          js = root / "assets" / "pdoc-theme-toggle.js"
+
+          if not css.exists():
+              raise FileNotFoundError(css)
+
+          if not js.exists():
+              raise FileNotFoundError(js)
+
+          html_files = list(root.rglob("*.html"))
+          if not html_files:
+              raise RuntimeError("No HTML files found under docs/api")
+
+          for html in html_files:
+              rel_css = os.path.relpath(css, html.parent).replace(os.sep, "/")
+              rel_js = os.path.relpath(js, html.parent).replace(os.sep, "/")
+
+              css_tag = f'  <link rel="stylesheet" href="{rel_css}">\n'
+              js_tag = f'  <script src="{rel_js}"></script>\n'
+
+              text = html.read_text(encoding="utf-8")
+
+              if "pdoc-custom.css" not in text:
+                  if "</head>" not in text:
+                      raise RuntimeError(f"No </head> tag found in {html}")
+                  text = text.replace("</head>", f"{css_tag}</head>")
+
+              if "pdoc-theme-toggle.js" not in text:
+                  if "</body>" in text:
+                      text = text.replace("</body>", f"{js_tag}</body>")
+                  else:
+                      text += f"\n{js_tag}\n"
+
+              html.write_text(text, encoding="utf-8")
+
+          print(f"Applied pdoc theme toggle to {len(html_files)} HTML files.")
+          PY
+
 
       - name: Upload API Documentation Artifact
         uses: actions/upload-artifact@v7
         with:
           name: docs-api
           path: docs/api
-          
+
+      - name: Upload CLI Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/generated/cli
+  
   github-pages:
     name: Create Github Pages
     needs:
@@ -170,12 +267,11 @@ jobs:
       group: gh-pages-deploy
       cancel-in-progress: false
 
-    # Pull the prebuilt mdBook/tools image tagged by branch name: dev/main.
-    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, and support tools.
-    # API docs are generated separately by the api-docs job using the AutoScript
-    # Python CI image, then downloaded here as an artifact.
+    # Pull the prebuilt mdBook/tools image.
+    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, mdbook-alerts,
+    # and support tools.
     container:
-      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:mdbook-0.4.52
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -211,6 +307,12 @@ jobs:
         with:
           name: docs-api
           path: docs/api
+
+      - name: Download CLI Documentation
+        uses: actions/download-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/userguide/src/generated/cli
 
       # mdbook + preprocessors are already in the docs-builder container.
       - name: Build User Guide

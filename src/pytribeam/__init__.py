@@ -20,4 +20,5 @@ __all__ = [
     "factory",
     "log",
     "workflow",
+    "doc_examples",
 ]

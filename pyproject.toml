@@ -9,7 +9,7 @@ name = "pytribeam"
 # version = "0.0.2"  # Deprecated static version, now determined by VCS
 dynamic = ["version"]  # Removed static version, now determined by VCS
 description = "automated data collection on TriBeam tools"
-requires-python = ">=3.8.12,<3.9"
+requires-python = ">=3.8.12, <=3.11.14"
 readme = "README.md"
 authors = [
   { name="Andrew Polonsky", email="apolon@sandia.gov" },
@@ -124,6 +124,7 @@ source = [
 omit = [
     "src/pytribeam/GUI/*",
     "src/pytribeam/_version.py",
+    "src/pytribeam/doc_examples.py",
 ]
 
 [tool.coverage.paths]

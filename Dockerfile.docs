@@ -6,6 +6,8 @@ ARG DEBIAN_FRONTEND=noninteractive
 ARG MDBOOK_CMDRUN_REV=746f6f679b924d0e08afa868d090651e5048babe
 # mdbook-katex 0.9.3 (latest with binaries)
 ARG MDBOOK_KATEX_VERSION=0.9.3
+# mdbook-alerts
+ARG MDBOOK_ALERTS_VERSION=0.7.0
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
   ca-certificates curl git \
@@ -24,6 +26,8 @@ RUN cargo install --git https://github.com/FauconFan/mdbook-cmdrun \
 RUN cargo install --git https://github.com/lzanini/mdbook-katex \
   --tag v${MDBOOK_KATEX_VERSION} --locked
 
+# mdbook-alerts for GitHub-style alert blocks
+RUN cargo install mdbook-alerts --version ${MDBOOK_ALERTS_VERSION} --locked
 
 # ---------- runtime stage ----------
 FROM ubuntu:22.04
@@ -50,9 +54,11 @@ RUN curl -LsS \
 
 COPY --from=build-plugins /root/.cargo/bin/mdbook-cmdrun /usr/local/bin/mdbook-cmdrun
 COPY --from=build-plugins /root/.cargo/bin/mdbook-katex  /usr/local/bin/mdbook-katex
+COPY --from=build-plugins /root/.cargo/bin/mdbook-alerts /usr/local/bin/mdbook-alerts
 
 RUN mdbook --version \
  && mdbook-katex --version \
- && mdbook-cmdrun --help > /dev/null
+ && mdbook-cmdrun --help > /dev/null \
+ && mdbook-alerts --version
  
 WORKDIR /work
