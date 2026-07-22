@@ -42,6 +42,7 @@ We separate the concerns of test, build, release, and publish throughout the `.g
 
 * [`ci.yml`](/.github/workflows/ci.yml) — runs on every push to any branch
 * [`release.yml`](/.github/workflows/release.yml) — runs on version tag pushes (`v*`)
+* [`prepare-release.yml`](/.github/workflows/prepare-release.yml) — manually triggered (`workflow_dispatch`) before tagging, to bump the tracked `src/pytribeam/_version.py` and open a PR (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy) below)
 * [`publish-docs-image.yml`](/.github/workflows/publish-docs-image.yml) — manually triggered to rebuild the docs builder Docker image
 
 These YAML files cover:
@@ -77,7 +78,7 @@ Implementation details:
 
 * The reuse of `ci.yml` via a `workflow_call` in `release.yml` ensures that test logic is not duplicated.
 * **Dependency Chain:** `test` waits for `validate_tag`; `build` waits for `test`; `github-release` waits for `build`; `publish` waits for both `build` and `github-release`.
-* **No commit-back of `_version.py`:** `hatch-vcs` stamps the exact version into the built wheel/sdist from the git tag, so published artifacts are always correct. The workflow does **not** regenerate and commit `_version.py` back to `main`/`dev` — doing so would create a commit *past* the tag (forcing every later build to report the next `.devN` version) and would fail against branch protection on `main`. Commit traceability is preserved by the tag itself (see [Tags and Semantic Versioning](#tags-and-semantic-versioning)).
+* **No commit-back of `_version.py`:** `hatch-vcs` stamps the exact version into the built wheel/sdist from the git tag, so published artifacts are always correct. `release.yml` does **not** regenerate and commit `_version.py` back to `main`/`dev` after tagging — doing so would create a commit *past* the tag (forcing every later build to report the next `.devN` version) and would fail against branch protection on `main`. Commit traceability is preserved by the tag itself (see [Tags and Semantic Versioning](#tags-and-semantic-versioning)). The tracked `_version.py` is a separate, static fallback for installs without git metadata (zip downloads, offline installs) — it must be bumped **before** tagging via `prepare-release.yml`, not after (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)); `validate_tag` refuses any tag where it's out of sync.
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
@@ -145,7 +146,9 @@ Version strings are generated automatically by `hatch-vcs` (which uses `setuptoo
 * `0.0.9` — the most recent git tag
 * `dev173` — 173 commits have been made since that tag
 
-Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. This clean version is written to `src/pytribeam/_version.py` **at build time** and baked into the wheel and sdist, so everything published to PyPI/TestPyPI reports the correct version.
+Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. `hatch-vcs` computes this clean version **at build time** (in CI, from the tag) and bakes it directly into the wheel and sdist, so everything published to PyPI/TestPyPI reports the correct version — this always works and needs no manual step.
+
+The *tracked* `src/pytribeam/_version.py` file in the repo is a different thing: a static, checked-in copy that `hatch-vcs` falls back to reading when it *can't* compute a version from git (a zip download or offline install with no `.git` directory present). Nothing regenerates this tracked copy automatically — it must be bumped manually before tagging (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)), or it drifts out of sync with the tag, as happened with `v0.1.3`.
 
 **The tag is the permanent link between a version and a commit.** A git tag is an immutable pointer to exactly one commit, so the three are locked together one-to-one:
 
@@ -161,7 +164,7 @@ Because every published artifact is built from a tag, the version string alone i
 git rev-list -n1 v0.1.1     # -> the exact commit SHA, every time
 ```
 
-The GitHub Release page for each tag links the same commit directly, and `git describe --tags` gives developers the nearest tag, commits-since, and short hash for local (unpublished) builds. For this reason `release.yml` does **not** commit a regenerated `_version.py` back to `main`/`dev`: the tracked `src/pytribeam/_version.py` is only a static fallback for source-zip downloads, while the tag provides authoritative traceability.
+The GitHub Release page for each tag links the same commit directly, and `git describe --tags` gives developers the nearest tag, commits-since, and short hash for local (unpublished) builds. For this reason `release.yml` does **not** commit a regenerated `_version.py` back to `main`/`dev`: the tracked `src/pytribeam/_version.py` is only a static fallback for source-zip downloads, while the tag provides authoritative traceability. Since nothing regenerates it automatically, it's bumped manually before each tag — see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy).
 
 **Pre-release tags:**
 
@@ -230,26 +233,58 @@ git push origin v1.0.0rc1  # Push tag first
 git push origin dev        # Push branch second (too late — CI already validated)
 ```
 
-### Pre-flight Check
+### Bump `src/pytribeam/_version.py`
 
-Before creating any release, run the preflight script to verify your repository state:
+Before tagging, bring `src/pytribeam/_version.py` up to date with the version you're
+about to release. This file is a static fallback used only when git metadata isn't
+available (zip downloads, offline installs via `pytribeam_install.bat`) — `hatch-vcs`
+reads it back in that case instead of computing a version from git. `release.yml`
+never writes this file (see the note in its `github-release` job), so it goes stale
+unless bumped ahead of time.
+
+Run the `Prepare Release` workflow (`.github/workflows/prepare-release.yml`) with the
+target version:
 
 ```sh
-python preflight.py --release
+gh workflow run prepare-release.yml -f version=1.0.0 -f branch=dev
 ```
 
-This will verify:
-- You are on the correct branch (`main` or `dev`)
-- All local commits are pushed to the remote
-- No unpushed changes remain
-- The repository is ready for tagging
+This opens a PR bumping `src/pytribeam/_version.py`. Review and merge it (normal PR
+flow — works fine against protected `main` too, since it's a human-reviewed merge, not
+a workflow push). `release.yml`'s `validate_tag` job will refuse the tag if this file
+doesn't match, so don't skip this step.
+
+### Pre-flight Check
+
+Before creating any release, run the preflight script to check the environment/lint/test state:
+
+```sh
+python preflight.py --all-tests
+```
+
+This runs the full lint check (`ruff format --check src/`) and the full test suite
+(`pytest tests/`) against your current checkout — it exits non-zero if either fails.
+It does **not** check which branch you're on, whether commits are pushed, or verify
+`src/pytribeam/_version.py` — those are separate, manual steps covered below (branch/push
+state in [Understanding the Tag Validation Race Condition](#understanding-the-tag-validation-race-condition)
+above; `_version.py` in `prepare-release.yml`, step 1 below).
 
 ### Create a Pre-release (TestPyPI from `dev`)
 
 Use this path to validate the full release pipeline — build, attestation, GitHub Release, and publish — without touching the production package index. Tags containing `rc` or `dev` are automatically routed to TestPyPI by `release.yml`.
 
+**Step 1 — Bump `src/pytribeam/_version.py` for the rc version** (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy) above for why this is needed):
+
 ```sh
-# Ensure you are on the dev branch and up to date
+gh workflow run prepare-release.yml -f version=1.0.0rc1 -f branch=dev
+```
+
+Review and merge the PR it opens into `dev`.
+
+**Step 2 — Tag the merged commit:**
+
+```sh
+# Ensure you are on the dev branch and up to date (includes the merged bump PR)
 git checkout dev
 git pull
 
@@ -257,8 +292,7 @@ git pull
 git tag
 
 # Push any branch commits to remote FIRST (prevents the tag-validation race
-# condition described above). There is nothing to build or commit locally:
-# hatch-vcs generates _version.py with the correct version during the CI build.
+# condition described above).
 git push origin dev
 
 # Create a release candidate tag (rc) — this routes to TestPyPI
@@ -270,7 +304,7 @@ git push origin v1.0.0rc1
 ```
 
 After pushing, `release.yml` will:
-1. Validate the tag (branch, PEP 440, version ordering)
+1. Validate the tag (branch, PEP 440, version ordering, and that `_version.py` matches the tag)
 2. Run the full test suite
 3. Build the wheel and sdist with SLSA attestation (version stamped from the tag)
 4. Create a GitHub Release marked as **pre-release**
@@ -294,15 +328,32 @@ Once the pre-release is validated, get the release commit onto `main` and tag a 
 > to push to `main` — so branch protection can stay on; the old "disable protection" hack is
 > no longer needed.)
 
-**Pre-flight check:** Run `python preflight.py --release` before proceeding.
+**Pre-flight check:** Run `python preflight.py --all-tests` before proceeding.
 
-**Step 1 — Open and merge a PR from `dev` into `main`** (`dev` must already be pushed):
+**Step 1 — Bump `src/pytribeam/_version.py` for the final version, if it differs from the rc:**
+
+If the final version string differs from the rc you validated (e.g. `v1.0.0rc1` →
+`v1.0.0`), re-run `prepare-release.yml` for the final version and merge that PR into
+`dev` *before* opening the `dev` → `main` PR below, so `_version.py` matches `v1.0.0`
+and not the rc:
+
+```sh
+gh workflow run prepare-release.yml -f version=1.0.0 -f branch=dev
+```
+
+If the final version is identical to the already-validated rc (uncommon — usually the
+rc itself has a `rc1`/`rc2`/etc. suffix that the final tag drops), the file merged
+during the rc step is already stale relative to the final tag, so this step is not
+actually optional in practice: run it whenever the tag string is changing, which is
+effectively every time.
+
+**Step 2 — Open and merge a PR from `dev` into `main`** (`dev` must already be pushed):
 
 * Web UI: <https://github.com/sandialabs/pytribeam/compare/main...dev> → **Create pull request**.
 * Merge with a **merge commit** (not *Squash*) so `dev` and `main` stay related for future releases.
 * A reviewer approval may be required by the branch protection rules.
 
-**Step 2 — Sync local `main` to the merged commit, then tag it:**
+**Step 3 — Sync local `main` to the merged commit, then tag it:**
 
 ```sh
 git fetch origin
@@ -357,15 +408,21 @@ If no reviewer approves within 30 days, the deployment times out and must be re-
 
 ## Release procedure (quick reference)
 
-> Updated 7/9/26. `release.yml` no longer commits `_version.py` back to the branch, so CI
+> Updated 7/13/26. `release.yml` no longer commits `_version.py` back to the branch, so CI
 > never pushes to `main` and the old "disable branch protection" hack is gone. But **`main`
 > is still a protected branch for humans**: the release commit must reach `main` via a
 > **pull request**, not a direct push (`git push origin main` is rejected). Tag pushes are
 > not blocked. Always land the branch/PR **before** pushing the tag (avoids the
 > tag-validation race), and verify the tag points at the intended commit before pushing.
+> `validate_tag` also now refuses any tag whose `src/pytribeam/_version.py` doesn't match —
+> run `prepare-release.yml` and merge its PR first, every time (see below).
 
 ### Release candidate to TestPyPI (from `dev`)
-- Ensure `dev` is up to date and pushed:
+- Bump `_version.py` for the rc and merge the PR it opens into `dev`:
+```bash
+gh workflow run prepare-release.yml -f version=0.1.2rc1 -f branch=dev
+```
+- Ensure `dev` is up to date and pushed (includes the merged bump PR):
 ```bash
 git checkout dev
 git pull
@@ -376,9 +433,14 @@ git push origin dev
 git tag -a v0.1.2rc1 -m "Release candidate 1 for version 0.1.2"
 git push origin v0.1.2rc1
 ```
-  - This triggers `release.yml`: validate → test → build → GitHub pre-release → publish to TestPyPI.
+  - This triggers `release.yml`: validate (incl. `_version.py` matches the tag) → test → build → GitHub pre-release → publish to TestPyPI.
 
 ### Release to PyPI (from `main`)
+- Bump `_version.py` for the final version and merge the PR it opens into `dev`
+  (the final tag string almost always differs from the rc, e.g. `0.1.2rc1` → `0.1.2`):
+```bash
+gh workflow run prepare-release.yml -f version=0.1.2 -f branch=dev
+```
 - Open and merge a PR from `dev` into `main` — `main` is protected, so no direct push:
   <https://github.com/sandialabs/pytribeam/compare/main...dev> (use a merge commit, not squash).
 - Sync local `main` to the merged commit, then tag it:

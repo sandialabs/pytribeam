@@ -22,4 +22,4 @@ __version__ = version = '0.1.2.dev0'
 __version_tuple__ = version_tuple = (0, 1, 2, 'dev0')
 
 __commit_id__ = commit_id = None
-__git_commit__ = "3b3dd19"
+# exact commit: see the git tag matching this version (git rev-list -n1 vX.Y.Z)

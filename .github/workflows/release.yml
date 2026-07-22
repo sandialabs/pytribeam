@@ -107,6 +107,41 @@ jobs:
           print(f"OK: '{new_tag}' ({new_version}) is newer than the latest existing tag '{latest_tag}' ({latest_version}).")
           EOF
 
+      - name: Verify src/pytribeam/_version.py matches the tag
+        # src/pytribeam/_version.py is a static fallback that hatch-vcs falls back to
+        # reading when it can't compute a version from git (zip downloads, offline
+        # installs — see prepare-release.yml). release.yml never writes this file, so
+        # it must already match the tag being released, via a prepare-release.yml PR
+        # merged beforehand. Catches "tagged before the bump PR merged" before it ships
+        # a wheel with the right version alongside a zip download with a stale one.
+        run: |
+          uv run --with packaging python - <<'EOF'
+          import re
+          import sys
+          from packaging.version import Version
+
+          tag = "${{ github.ref_name }}"
+          expected = str(Version(tag.lstrip("v")))
+
+          with open("src/pytribeam/_version.py") as f:
+              content = f.read()
+
+          match = re.search(r"^__version__ = version = ['\"]([^'\"]+)['\"]", content, re.MULTILINE)
+          if not match:
+              sys.exit("ERROR: could not find __version__ in src/pytribeam/_version.py")
+
+          actual = str(Version(match.group(1)))
+          if actual != expected:
+              sys.exit(
+                  f"ERROR: src/pytribeam/_version.py has version '{actual}' but tag '{tag}' "
+                  f"resolves to '{expected}'.\n"
+                  f"       Run prepare-release.yml for {expected}, merge the PR it opens, "
+                  f"then re-tag the merged commit."
+              )
+
+          print(f"OK: src/pytribeam/_version.py ('{actual}') matches tag '{tag}'.")
+          EOF
+
   # 2. TEST: Only runs if validation passes. Reuses ci.yml via workflow_call
   #    to avoid duplicating test logic across workflows.
   test:
@@ -175,6 +210,12 @@ jobs:
   #    by the immutable git tag itself: an installed version like 0.1.2 maps to
   #    tag v0.1.2 maps to one commit (`git rev-list -n1 v0.1.2`), and the GitHub
   #    Release page links that commit directly.
+  #
+  #    src/pytribeam/_version.py IS still tracked in git, as a static fallback for
+  #    zip downloads / offline installs that lack git metadata (hatch-vcs reads it
+  #    back when it can't compute a version from git). It must be brought up to
+  #    date *before* tagging — via prepare-release.yml, which opens a PR — not
+  #    after. validate_tag (above) refuses the tag if it's out of sync.
   github-release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/') # Only release on actual tags; guards against any future non-tag triggers
