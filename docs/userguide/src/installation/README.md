@@ -82,7 +82,7 @@ which should generate the following output:
 
 ## Test Validation
 
-If you are interested in running the test suite on your hardware, see additional instructions here: [Running Tests](./running_tests/index.html).
+If you are interested in running the test suite on your hardware, see additional instructions here: [Running Tests](./running_tests.md).
 
 <!-- 
 pytribeam-exp-help.txt:

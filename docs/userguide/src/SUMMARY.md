@@ -5,7 +5,7 @@
 # User Guide
 
 - [Installation](installation/README.md)
-    - [Running Hardware Tests](installation/running_tests/README.md)
+    - [Running Hardware Tests](installation/running_tests.md)
 - [Reference Frame Conventions](reference_frame/README.md)
 - [Configuration File (.yml)](config_file/README.md)
     - [General Experiment Settings](config_file/general/README.md)
