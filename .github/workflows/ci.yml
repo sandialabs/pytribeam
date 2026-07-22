@@ -4,9 +4,7 @@ name: CI (Continuous Integration)
 on:
   push:
     branches:
-      # - '**'
-      - dev
-      - main
+      - '**'
   workflow_dispatch:
   workflow_call:
 
