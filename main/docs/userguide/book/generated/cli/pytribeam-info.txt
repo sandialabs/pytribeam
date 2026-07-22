@@ -1,0 +1,14 @@
+pytribeam module version: v0.1.4.dev45
+  Maximum supported .yml schema version: v1.0
+  Supported Thermo Fisher AutoScript versions: v4.8.1, v4.10.0, v4.11.0
+  Supported Laser API versions: v2.2.1
+
+Installed environment:
+  AutoScript:
+    Distribution metadata: detected, version: 4.8.1
+    Import package autoscript_sdb_microscope_client: available
+
+  Laser API:
+    Distribution metadata: not detected, version: not detected
+    Import package Laser: not importable
+    Import package Laser.PythonControl: not importable
