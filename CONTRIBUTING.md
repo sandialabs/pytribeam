@@ -8,7 +8,7 @@ git clone git@github.com:sandialabs/pytribeam.git
 
 ## Virtual Environment
 
-From within the `pytribeam` directory, create a virtual environment.  A virtual environment is a self-contained directory that contains a specific Python installation, along with additional packages. It allows users to create isolated environments for different projects. This ensures that dependencies and libraries do not interfere with each other.
+From the `pytribeam` directory, create a virtual environment.  A virtual environment is a self-contained directory that contains a specific Python installation, along with additional packages. It allows users to create isolated environments for different projects. This ensures that dependencies and libraries do not interfere with each other.
 
 Create a virtual environment with either `pip` or `uv`.  `pip` is already included with Python.  `uv` must be [installed](https://docs.astral.sh/uv/getting-started/installation/).  `uv` is 10 to 100 times faster than `pip`.
 
@@ -307,7 +307,7 @@ skipped and why.
    ```sh
    pip install --index-url https://test.pypi.org/simple/ pytribeam==0.1.2rc1
    ```
-   at `https://test.pypi.org/project/pytribeam/`.
+   at [`https://test.pypi.org/project/pytribeam/`](https://test.pypi.org/project/pytribeam/).
 
 ### Release to PyPI (from `main`)
 
@@ -337,4 +337,4 @@ This can follow a validated rc, or be run directly for a release with no pre-rel
    ```sh
    pip install pytribeam==0.1.2
    ```
-   at `https://pypi.org/project/pytribeam/`.
+   at [`https://pypi.org/project/pytribeam/`](https://pypi.org/project/pytribeam/).
