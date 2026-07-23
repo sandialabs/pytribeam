@@ -283,11 +283,20 @@ dynamically and automatically skips any test modules that transitively need
 vendor wheels provide, instead of crashing the run. It prints exactly which modules were
 skipped and why.
 
+**Check the existing tags** to work out the next version, before either recipe below:
+
+```sh
+git tag --sort=-creatordate | head -5
+```
+
+The recipes below use `x.y.z` as a placeholder for that next version in the sequence
+(e.g., `x.y.zrcN` for release candidate `N`, `x.y.z` for the final release).
+
 ### Release candidate to TestPyPI (from `dev`)
 
 1. **Bump `_version.py` for the rc** (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy) above) and merge the PR it opens into `dev`:
    ```bash
-   gh workflow run prepare-release.yml -f version=0.1.2rc1 -f branch=dev
+   gh workflow run prepare-release.yml -f version=x.y.zrcN -f branch=dev
    ```
 2. **Ensure `dev` is up to date and pushed** (includes the merged bump PR):
    ```bash
@@ -297,15 +306,15 @@ skipped and why.
    ```
 3. **Tag and push** (routes to TestPyPI because the tag contains `rc`):
    ```bash
-   git tag -a v0.1.2rc1 -m "Release candidate 1 for version 0.1.2"
-   git push origin v0.1.2rc1
+   git tag -a vx.y.zrcN -m "Release candidate N for version x.y.z"
+   git push origin vx.y.zrcN
    ```
    This triggers `release.yml`: validate (branch, PEP 440, tag ordering, `_version.py`
    match) → test → build with SLSA attestation → GitHub pre-release → publish to
    TestPyPI.
 4. **Verify:**
    ```sh
-   pip install --index-url https://test.pypi.org/simple/ pytribeam==0.1.2rc1
+   pip install --index-url https://test.pypi.org/simple/ pytribeam==x.y.zrcN
    ```
    at `https://test.pypi.org/project/pytribeam/`.
 
@@ -314,10 +323,10 @@ skipped and why.
 This can follow a validated rc, or be run directly for a release with no pre-release step:
 
 1. **Bump `_version.py` for the final version** and merge the PR it opens into `dev`
-   (the final tag string almost always differs from the rc, e.g. `0.1.2rc1` → `0.1.2`,
+   (the final tag string almost always differs from the rc, e.g. `x.y.zrcN` → `x.y.z`,
    so this step is effectively never optional):
    ```bash
-   gh workflow run prepare-release.yml -f version=0.1.2 -f branch=dev
+   gh workflow run prepare-release.yml -f version=x.y.z -f branch=dev
    ```
 2. **Open and merge a PR from `dev` into `main`** — `main` is protected, so no direct
    push: <https://github.com/sandialabs/pytribeam/compare/main...dev>. Use a **merge
@@ -327,14 +336,14 @@ This can follow a validated rc, or be run directly for a release with no pre-rel
    git fetch origin
    git checkout main
    git reset --hard origin/main
-   git tag -a v0.1.2 -m "Release version 0.1.2"
-   git log -1 --oneline v0.1.2^{commit}   # verify it points at the PR merge commit BEFORE pushing
-   git push origin v0.1.2                  # tag push is allowed despite branch protection
+   git tag -a vx.y.z -m "Release version x.y.z"
+   git log -1 --oneline vx.y.z^{commit}   # verify it points at the PR merge commit BEFORE pushing
+   git push origin vx.y.z                  # tag push is allowed despite branch protection
    ```
 4. **Verify:** this triggers the same pipeline but publishes a full GitHub Release and
    uploads to production PyPI (pausing for the manual approval gate if one is configured
    on the `pypi` environment — see [Manual Approval Gate](#manual-approval-gate) above).
    ```sh
-   pip install pytribeam==0.1.2
+   pip install pytribeam==x.y.z
    ```
    at `https://pypi.org/project/pytribeam/`.

@@ -45,7 +45,7 @@ jobs:
 
       - name: Validate version is PEP 440
         run: |
-          uv run --with packaging python - <<'EOF'
+          uv run --no-project --with packaging python - <<'EOF'
           from packaging.version import Version, InvalidVersion
           version = "${{ inputs.version }}"
           try:
@@ -63,7 +63,7 @@ jobs:
         # its own hash ahead of time, and the git tag is already the authoritative
         # commit pointer (git rev-list -n1 vX.Y.Z).
         run: |
-          uv run --with packaging python - <<'EOF'
+          uv run --no-project --with packaging python - <<'EOF'
           from packaging.version import Version
 
           version_str = "${{ inputs.version }}"
