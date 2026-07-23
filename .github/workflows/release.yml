@@ -55,7 +55,7 @@ jobs:
         # Valid examples: v1.0.0  v1.1.0a1  v1.1.0rc1  v1.0.0.post1  v1.1.0.dev1
         # Uses uv to install 'packaging' on the fly — no separate install step needed.
         run: |
-          uv run --with packaging python - <<'EOF'
+          uv run --no-project --with packaging python - <<'EOF'
           import sys
           from packaging.version import Version, InvalidVersion
           tag = "${{ github.ref_name }}"
@@ -73,7 +73,7 @@ jobs:
         # Prevents accidentally releasing an older version over a newer one,
         # which would confuse pip's dependency resolver and break downstream installs.
         run: |
-          uv run --with packaging python - <<'EOF'
+          uv run --no-project --with packaging python - <<'EOF'
           import sys
           import subprocess
           from packaging.version import Version, InvalidVersion
@@ -114,8 +114,12 @@ jobs:
         # it must already match the tag being released, via a prepare-release.yml PR
         # merged beforehand. Catches "tagged before the bump PR merged" before it ships
         # a wheel with the right version alongside a zip download with a stale one.
+        # --no-project is required: without it, `uv run` builds pytribeam itself as
+        # part of preparing the run environment, which fires hatch-vcs's build hook
+        # and overwrites _version.py with a freshly computed git-derived version
+        # BEFORE this script reads it — silently defeating the very check below.
         run: |
-          uv run --with packaging python - <<'EOF'
+          uv run --no-project --with packaging python - <<'EOF'
           import re
           import sys
           from packaging.version import Version
