@@ -55,3 +55,6 @@ Thumbs.db
 
 # Test dir
 tests/test_dir/*
+
+# misc
+body.json
