@@ -1,4 +1,4 @@
-from typing import Literal, NamedTuple, Optional, Tuple
+from typing import Literal, NamedTuple, Optional, Tuple, Union
 
 BrukerConnectionMode = Literal["local", "tcp"]
 BrukerEDSDetectorPositionName = Literal["park", "acquire"]
@@ -16,6 +16,18 @@ class BrukerSessionSettings(NamedTuple):
     keep_connection_open: bool
 
 
+class BrukerRectROI(NamedTuple):
+    """Rectangular region of interest in pixel coordinates.
+
+    Origin (0, 0) is the top-left corner of the full scan area.
+    """
+
+    x_start_px: int
+    y_start_px: int
+    width_px: int
+    height_px: int
+
+
 class BrukerEDSMapSettings(NamedTuple):
     name: str
     width_px: int
@@ -26,6 +38,7 @@ class BrukerEDSMapSettings(NamedTuple):
     output_image_path: Optional[str]
     output_image_format: Optional[str]
     spu_device: int
+    roi: Optional[BrukerRectROI] = None
 
 
 class BrukerEDSElementMapSetting(NamedTuple):
@@ -61,6 +74,7 @@ class BrukerEDSProfileMapSettings(NamedTuple):
     absolute_scaling: bool
     normalization: bool
     deconvolution: bool
+    roi: Optional[BrukerRectROI] = None
 
 
 class BrukerEDSElementMapData(NamedTuple):
@@ -100,6 +114,149 @@ class BrukerDetectorPositionState(NamedTuple):
 class BrukerConnectionInfo(NamedTuple):
     cid: int
     query_info: str
+
+
+# ---------------------------------------------------------------------------
+# EDS readback result types
+# ---------------------------------------------------------------------------
+
+
+class BrukerElementReadbackResult(NamedTuple):
+    """Result of reading back one element plane from a HyperMap.
+
+    If readback succeeded, ``error`` is None and data fields are populated.
+    If readback failed, ``error`` contains the error description and data
+    fields may be None.
+    """
+
+    element_index: int
+    atomic_number: int
+    line: str
+    path: Optional[str] = None
+    shape: Optional[Tuple[int, int]] = None
+    dtype: Optional[str] = None
+    min_val: Optional[int] = None
+    max_val: Optional[int] = None
+    sum_val: Optional[int] = None
+    nonzero: Optional[int] = None
+    error: Optional[str] = None
+
+
+# ---------------------------------------------------------------------------
+# Image configuration readback types
+# ---------------------------------------------------------------------------
+
+
+class BrukerImageConfiguration(NamedTuple):
+    """Image device configuration as read back from Esprit."""
+
+    width_px: int
+    height_px: int
+    average: int
+    ch1: bool
+    ch2: bool
+
+
+class BrukerFieldWidth(NamedTuple):
+    """Scan field width from SEM magnification settings."""
+
+    field_width_um: float
+
+
+# ---------------------------------------------------------------------------
+# Spectrometer status types
+# ---------------------------------------------------------------------------
+
+
+class BrukerSpectrometerDetectorStatus(NamedTuple):
+    """Status of a single EDS detector on the spectrometer.
+
+    Attributes
+    ----------
+    status : int
+        -1 = not present, 0 = present but inactive, 1 = active.
+    count_rate_cps : int
+        Current input count rate in counts per second.
+    temperature_c : int
+        Current detector temperature in degrees Celsius.
+    cooling_mode : int
+        0 = off, 1 = on, 2 = max, 3 = heating, 4 = unknown.
+    """
+
+    version: int
+    status: int
+    count_rate_cps: int
+    temperature_c: int
+    cooling_mode: int
+
+
+class BrukerSpectrometerStatus(NamedTuple):
+    """Full spectrometer status including up to 4 detectors."""
+
+    version: int
+    detector_statuses: Tuple[BrukerSpectrometerDetectorStatus, ...]
+    status: int
+    ready: bool
+
+
+class BrukerDetectorRanges(NamedTuple):
+    """Spectrometer detector range information."""
+
+    max_energy: Tuple[int, ...]
+    pulse_throughput: Tuple[int, ...]
+    energy_index_count: int
+    pulse_index_count: int
+
+
+# ---------------------------------------------------------------------------
+# Workflow settings and result types
+# ---------------------------------------------------------------------------
+
+
+class BrukerEDSOutputSettings(NamedTuple):
+    """Output configuration for a Bruker EDS workflow run."""
+
+    output_dir: str
+    run_name: str
+    save_bcf: bool = True
+    save_image: bool = True
+    image_format: str = "bmp"
+
+
+class BrukerEDSReadbackSettings(NamedTuple):
+    """Readback configuration for a Bruker EDS workflow run."""
+
+    enabled: bool = True
+    dtype: str = "uint16"
+    save_element_npy: bool = True
+    save_element_images: bool = False
+    log_element_stats: bool = True
+
+
+class BrukerEDSWorkflowSettings(NamedTuple):
+    """Complete settings for a Bruker EDS mapping workflow."""
+
+    session: BrukerSessionSettings
+    detector: BrukerDetectorMotionSettings
+    map: Union["BrukerEDSMapSettings", "BrukerEDSProfileMapSettings"]
+    output: BrukerEDSOutputSettings
+    readback: BrukerEDSReadbackSettings
+
+
+class BrukerEDSWorkflowResult(NamedTuple):
+    """Result of a Bruker EDS mapping workflow run."""
+
+    success: bool
+    bcf_path: Optional[str] = None
+    image_path: Optional[str] = None
+    element_readback_results: Optional[Tuple[BrukerElementReadbackResult, ...]] = None
+    errors: Tuple[str, ...] = ()
+    elapsed_s: float = 0.0
+
+
+# ---------------------------------------------------------------------------
+# EBSD types
+# ---------------------------------------------------------------------------
 
 
 class BrukerEBSDDetectorMotionSettings(NamedTuple):
