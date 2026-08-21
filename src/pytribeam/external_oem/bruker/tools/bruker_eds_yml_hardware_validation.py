@@ -1,10 +1,10 @@
 import argparse
 import json
+import sys
 import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-import sys
 
 import yaml
 
@@ -12,6 +12,9 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[5]
 SRC_ROOT = REPO_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
+from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
+from pytribeam.external_oem.bruker.eds import BrukerEDSController
+from pytribeam.external_oem.bruker.readback import BrukerEDSReadbackController
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
@@ -20,8 +23,6 @@ from pytribeam.external_oem.bruker.types import (
     BrukerEDSProfileMapSettings,
     BrukerSessionSettings,
 )
-from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
-from pytribeam.external_oem.bruker.eds import BrukerEDSController
 
 
 def _now_stamp() -> str:
@@ -183,29 +184,6 @@ def parse_profile_map_settings(
     )
 
 
-def summarize_element_arrays(settings, arrays) -> list:
-    summary = []
-
-    for idx, (element, arr) in enumerate(zip(settings.elements, arrays)):
-        summary.append(
-            {
-                "element_index": idx,
-                "atomic_number": int(element.atomic_number),
-                "line": element.line,
-                "energy_keV": float(element.energy_keV),
-                "width": float(element.width),
-                "shape": list(arr.shape),
-                "dtype": str(arr.dtype),
-                "min": int(arr.min()),
-                "max": int(arr.max()),
-                "sum": int(arr.sum()),
-                "nonzero": int((arr != 0).sum()),
-            }
-        )
-
-    return summary
-
-
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("config", help="Path to Bruker EDS validation YAML file")
@@ -316,32 +294,39 @@ def main():
                 log("Saving numeric element maps as .npy")
                 paths["readback_dir"].mkdir(parents=True, exist_ok=True)
 
-                npy_paths = eds.save_profile_element_maps_npy(
+                readback = BrukerEDSReadbackController(session)
+                readback_results = readback.save_element_maps_npy(
                     settings=map_settings,
                     output_dir=str(paths["readback_dir"]),
                     prefix=map_settings.name,
                     dtype="uint16",
+                    strict=False,
+                    log_fn=log,
                 )
 
-                for p in npy_paths:
-                    log(f"Saved .npy: {p}")
-
-                arrays = eds.read_profile_element_maps(map_settings, dtype="uint16")
-                element_summary = summarize_element_arrays(map_settings, arrays)
-                summary["element_maps"] = element_summary
+                summary["element_maps"] = [r._asdict() for r in readback_results]
 
                 if bool(readback_cfg.get("log_element_stats", True)):
-                    for item in element_summary:
-                        log(
-                            "Element stats: "
-                            f"index={item['element_index']}, "
-                            f"Z={item['atomic_number']}, "
-                            f"line={item['line']}, "
-                            f"shape={item['shape']}, "
-                            f"dtype={item['dtype']}, "
-                            f"min={item['min']}, max={item['max']}, "
-                            f"sum={item['sum']}, nonzero={item['nonzero']}"
-                        )
+                    for r in readback_results:
+                        if r.error is None:
+                            log(
+                                "Element stats: "
+                                f"index={r.element_index}, "
+                                f"Z={r.atomic_number}, "
+                                f"line={r.line}, "
+                                f"shape={r.shape}, "
+                                f"dtype={r.dtype}, "
+                                f"min={r.min_val}, max={r.max_val}, "
+                                f"sum={r.sum_val}, nonzero={r.nonzero}"
+                            )
+                        else:
+                            log(
+                                f"Element FAILED: "
+                                f"index={r.element_index}, "
+                                f"Z={r.atomic_number}, "
+                                f"line={r.line}, "
+                                f"error={r.error}"
+                            )
 
         elif map_mode == "simple":
             map_settings = parse_simple_map_settings(

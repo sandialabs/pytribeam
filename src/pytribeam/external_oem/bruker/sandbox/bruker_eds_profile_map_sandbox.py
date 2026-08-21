@@ -9,6 +9,7 @@ SRC_ROOT = REPO_ROOT / "src"
 sys.path.insert(0, str(SRC_ROOT))
 
 from pytribeam.external_oem.bruker.eds import BrukerEDSController
+from pytribeam.external_oem.bruker.readback import BrukerEDSReadbackController
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import (
     BrukerEDSElementMapSetting,
@@ -157,9 +158,10 @@ def main():
             log(f"Mixed map image export failed: {exc}")
 
         log("Exporting raw element data byte lengths for diagnostics")
+        readback = BrukerEDSReadbackController(session)
         for idx in range(0, len(settings.elements) + 2):
             try:
-                data = eds.get_element_data_bytes(element_index=idx)
+                data = readback.get_element_data_bytes(element_index=idx)
                 log(
                     f"Element data index {idx}: byte length={len(data)} first16={data[:16]!r}"
                 )
@@ -181,7 +183,7 @@ def main():
         log("Exporting parsed numeric element arrays for diagnostics")
         for idx in range(0, len(settings.elements) + 2):
             try:
-                arr = eds.get_element_data_array(
+                arr = readback.get_element_data_array(
                     element_index=idx,
                     width_px=settings.width_px,
                     height_px=settings.height_px,
@@ -198,14 +200,18 @@ def main():
 
         log("Saving numeric EDS element maps as .npy")
         try:
-            npy_paths = eds.save_profile_element_maps_npy(
+            readback_results = readback.save_element_maps_npy(
                 settings=settings,
                 output_dir=str(OUT_DIR),
                 prefix=f"eds_profile_map_{STAMP}",
                 dtype="uint16",
+                log_fn=log,
             )
-            for path in npy_paths:
-                log(f"Saved element map .npy: {path}")
+            for r in readback_results:
+                if r.error is None:
+                    log(f"Saved element map .npy: {r.path}")
+                else:
+                    log(f"Element {r.element_index} failed: {r.error}")
         except Exception as exc:
             log(f"Saving element map .npy files failed: {exc}")
 
