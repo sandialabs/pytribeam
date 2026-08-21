@@ -122,6 +122,7 @@ def main():
             settings=settings,
             poll_interval_s=0.5,
             max_wait_s=600.0,
+            log_fn=print,
         )
         log(f"Profile map outputs: {outputs}")
 

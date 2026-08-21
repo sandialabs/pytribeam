@@ -150,3 +150,22 @@ def bind_eds(esprit):
         ct.POINTER(c_u32),
     ]
     esprit.HyMapGetElementData.restype = c_i32
+
+
+def bind_image_config(esprit):
+    """Bind image configuration query functions."""
+
+    # ImageGetConfiguration(CID, &Width, &Height, &Average, &Ch1, &Ch2)
+    esprit.ImageGetConfiguration.argtypes = [
+        c_u32,
+        ct.POINTER(c_u32),
+        ct.POINTER(c_u32),
+        ct.POINTER(c_u32),
+        ct.POINTER(c_bool),
+        ct.POINTER(c_bool),
+    ]
+    esprit.ImageGetConfiguration.restype = c_i32
+
+    # ImageGetFieldWidth(CID, &FieldWidth)
+    esprit.ImageGetFieldWidth.argtypes = [c_u32, ct.POINTER(c_dbl)]
+    esprit.ImageGetFieldWidth.restype = c_i32

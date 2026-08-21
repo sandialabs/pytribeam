@@ -1,7 +1,7 @@
 import ctypes as ct
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 from pytribeam.external_oem.bruker.bindings import bind_eds
 from pytribeam.external_oem.bruker.ctypes_types import (
@@ -164,11 +164,23 @@ class BrukerEDSController:
         settings: BrukerEDSProfileMapSettings,
         poll_interval_s: float = 0.5,
         max_wait_s: float = 600.0,
+        log_fn: Optional[Callable[[str], None]] = None,
     ) -> BrukerMapOutputs:
         """
         Acquire an EDS map using a generated Bruker HyperMap profile.
 
         This is the path for Python-selected EDS map elements.
+
+        Parameters
+        ----------
+        settings : BrukerEDSProfileMapSettings
+            Map acquisition settings.
+        poll_interval_s : float
+            Seconds between progress polls.
+        max_wait_s : float
+            Maximum time to wait before raising TimeoutError.
+        log_fn : callable, optional
+            Logging callback. Called with progress messages during acquisition.
 
         Note
         ----
@@ -210,16 +222,43 @@ class BrukerEDSController:
         # Keep references alive until after start call.
         _ = segments_keepalive, profile_buf
 
+        if log_fn:
+            log_fn(
+                f"Profile map acquisition started: "
+                f"{settings.width_px}x{settings.height_px}, "
+                f"pixel_time={settings.pixel_time_us} us, "
+                f"{len(settings.elements)} elements"
+            )
+
         t0 = time.time()
         while True:
             progress = self.get_map_progress()
             if not progress.running:
                 break
+            elapsed = time.time() - t0
+            if log_fn:
+                eta_s = None
+                if progress.percent_complete > 0:
+                    eta_s = (
+                        elapsed
+                        / progress.percent_complete
+                        * (100.0 - progress.percent_complete)
+                    )
+                eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
+                log_fn(
+                    f"Map progress: {progress.percent_complete:.1f}%, "
+                    f"line={progress.current_line}, "
+                    f"elapsed={elapsed:.1f}s{eta_str}"
+                )
 
-            if (time.time() - t0) > max_wait_s:
+            if elapsed > max_wait_s:
                 raise TimeoutError(f"Profile map acquisition exceeded {max_wait_s} s")
 
             time.sleep(poll_interval_s)
+
+        elapsed_total = time.time() - t0
+        if log_fn:
+            log_fn(f"Profile map acquisition complete: elapsed={elapsed_total:.1f}s")
 
         rc = self._session.dll.HyMapStop(self._session.cid, False)
         self._session._check(rc, "HyMapStop")
@@ -265,6 +304,7 @@ class BrukerEDSController:
         settings: BrukerEDSMapSettings,
         poll_interval_s: float = 0.5,
         max_wait_s: float = 600.0,
+        log_fn: Optional[Callable[[str], None]] = None,
     ) -> BrukerMapOutputs:
         rc = self._session.dll.ImageSetConfiguration(
             self._session.cid,
@@ -284,16 +324,43 @@ class BrukerEDSController:
         )
         self._session._check(rc, "HyMapStart")
 
+        if log_fn:
+            log_fn(
+                f"Simple map acquisition started: "
+                f"{settings.width_px}x{settings.height_px}, "
+                f"pixel_time={settings.pixel_time_us} us, "
+                f"real_time={settings.real_time_s} s"
+            )
+
         t0 = time.time()
         while True:
             progress = self.get_map_progress()
             if not progress.running:
                 break
+            elapsed = time.time() - t0
+            if log_fn:
+                eta_s = None
+                if progress.percent_complete > 0:
+                    eta_s = (
+                        elapsed
+                        / progress.percent_complete
+                        * (100.0 - progress.percent_complete)
+                    )
+                eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
+                log_fn(
+                    f"Map progress: {progress.percent_complete:.1f}%, "
+                    f"line={progress.current_line}, "
+                    f"elapsed={elapsed:.1f}s{eta_str}"
+                )
 
-            if (time.time() - t0) > max_wait_s:
+            if elapsed > max_wait_s:
                 raise TimeoutError(f"Map acquisition exceeded {max_wait_s} s")
 
             time.sleep(poll_interval_s)
+
+        elapsed_total = time.time() - t0
+        if log_fn:
+            log_fn(f"Simple map acquisition complete: elapsed={elapsed_total:.1f}s")
 
         rc = self._session.dll.HyMapStop(self._session.cid, False)
         self._session._check(rc, "HyMapStop")
