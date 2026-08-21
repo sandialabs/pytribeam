@@ -59,6 +59,7 @@ class TestStoppableThread:
         t.join()
 
         assert isinstance(t.result["error"], RuntimeError)
+        assert t.result["value"] is None
 
     def test_get_thread_id_inactive(self, short_task):
         t = StoppableThread(target=short_task, args=(1, 1))
@@ -113,6 +114,7 @@ class TestThreadManager:
         assert tm.is_running("sleep") is True
         t.raise_exception(SystemExit)
         t.join()
+        assert isinstance(t.result["error"], SystemExit)
 
     def test_wait_for_thread(self, short_task):
         tm = ThreadManager()

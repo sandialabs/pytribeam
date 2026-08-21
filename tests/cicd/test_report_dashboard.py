@@ -4,11 +4,13 @@ Unit tests for report_dashboard.py — CI/CD Dashboard Generator.
 
 import types
 
-# import pytest  # unused import
+import pytest
+
 from pytribeam.cicd.report_dashboard import generate_dashboard_html, main
 from pytribeam.cicd.utilities import ReportMetadata
 
 
+@pytest.mark.detached
 def test_generate_dashboard_html():
     """Test that generate_dashboard_html returns expected content."""
     metadata = ReportMetadata(
@@ -29,6 +31,7 @@ def test_generate_dashboard_html():
     assert "2026-04-24" in html
 
 
+@pytest.mark.detached
 def test_main_success(tmp_path, monkeypatch, capsys):
     """Test the main function for a successful run."""
     output_file = tmp_path / "index.html"

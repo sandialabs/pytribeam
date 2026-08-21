@@ -111,13 +111,13 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
     <style>
         body {{
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            margin: 0; padding: 20px; background: #f6f8fa; line-height: 1.6;
+            margin: 0; padding: 20px; background: #DCDCDC; line-height: 1.6;
         }}
         .container {{
             max-width: 1200px; margin: 0 auto;
         }}
         .header {{
-            background: white; padding: 30px; border-radius: 8px;
+            background: #F5F5F5; padding: 30px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         .score {{
@@ -129,15 +129,15 @@ def get_html_header(score: str, metadata: ReportMetadata) -> str:
         }}
         .metadata div {{ margin-bottom: 0px; }}
         .section {{
-            background: white; padding: 20px; border-radius: 8px;
+            background: #F5F5F5; padding: 20px; border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.1); margin-bottom: 20px;
         }}
         table {{
-            width: 100%; border-collapse: collapse; background: #fff;
+            width: 100%; border-collapse: collapse; background: #F5F5F5;
             border: 1px solid #e1e4e8; border-radius: 6px;
         }}
         th {{
-            text-align: left; padding: 12px; background: #f6f8fa;
+            text-align: left; padding: 12px; background: #E8E8E8;
             border-bottom: 1px solid #e1e4e8;
         }}
         td {{ padding: 12px; border-bottom: 1px solid #e1e4e8; font-size: 14px; }}
