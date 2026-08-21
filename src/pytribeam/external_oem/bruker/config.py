@@ -124,6 +124,8 @@ def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
         {
             "root_dir": And(str, len),
             SchemaOptional("run_name"): str,
+            SchemaOptional("slice_number"): Or(int, None),
+            SchemaOptional("repeat_index"): Or(int, None),
             SchemaOptional("save_bcf"): bool,
             SchemaOptional("save_image"): bool,
             SchemaOptional("image_format"): str,
@@ -134,7 +136,9 @@ def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
     # Validate map section
     map_schema = Schema(
         {
-            SchemaOptional("mode"): And(str, lambda s: s.lower() in ("profile", "simple")),
+            SchemaOptional("mode"): And(
+                str, lambda s: s.lower() in ("profile", "simple")
+            ),
             SchemaOptional("name"): str,
             "width_px": And(int, lambda x: x > 0),
             "height_px": And(int, lambda x: x > 0),
@@ -245,14 +249,19 @@ def parse_detector_motion_settings(cfg: Dict[str, Any]) -> BrukerDetectorMotionS
         poll_interval_s=float(d.get("poll_interval_s", 0.5)),
     )
 
+    """Parse output settings from config dictionary.
 
-def parse_output_settings(cfg: Dict[str, Any]) -> BrukerEDSOutputSettings:
-    """Parse output settings from config dictionary."""
+    The slice_number and repeat_index fields are typically set by the
+    higher-level workflow dispatch (not from YAML directly), but are
+    supported in YAML for standalone testing.
+    """
     o = cfg["output"]
 
     return BrukerEDSOutputSettings(
         output_dir=str(o["root_dir"]),
         run_name=str(o.get("run_name", "bruker_eds")),
+        slice_number=o.get("slice_number", None),
+        repeat_index=o.get("repeat_index", None),
         save_bcf=bool(cfg["map"].get("save_bcf", True)),
         save_image=bool(cfg["map"].get("save_image", True)),
         image_format=str(cfg["map"].get("image_format", "bmp")),

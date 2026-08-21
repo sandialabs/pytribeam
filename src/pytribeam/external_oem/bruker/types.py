@@ -207,17 +207,43 @@ class BrukerDetectorRanges(NamedTuple):
     energy_index_count: int
     pulse_index_count: int
 
+    # ---------------------------------------------------------------------------
+    # Workflow settings and result types
+    # ---------------------------------------------------------------------------
 
-# ---------------------------------------------------------------------------
-# Workflow settings and result types
-# ---------------------------------------------------------------------------
+    """Output configuration for a Bruker EDS workflow run.
 
+    The output directory name is constructed as:
+        {run_name}_Slice_{slice_number:04d}[_{repeat_index}]_{timestamp}
 
-class BrukerEDSOutputSettings(NamedTuple):
-    """Output configuration for a Bruker EDS workflow run."""
+    For standalone (non-slice) workflows, omit slice_number and the
+    directory name becomes:
+        {run_name}_{timestamp}
+
+    Parameters
+    ----------
+    output_dir : str
+        Root directory for all workflow output (on the ESPRIT machine).
+    run_name : str
+        Base name for the run directory and output files.
+    slice_number : int, optional
+        Slice number for 3D serial-sectioning workflows. If None, the
+        directory name uses only run_name + timestamp.
+    repeat_index : int, optional
+        Repeat counter for re-acquisitions of the same slice. 0 means
+        first attempt (not appended to name). 1+ are appended as suffix.
+    save_bcf : bool
+        Whether to save the .bcf HyperMap file.
+    save_image : bool
+        Whether to save a map overview image.
+    image_format : str
+        Image format for overview image ("bmp", "png", "tif").
+    """
 
     output_dir: str
     run_name: str
+    slice_number: Optional[int] = None
+    repeat_index: Optional[int] = None
     save_bcf: bool = True
     save_image: bool = True
     image_format: str = "bmp"

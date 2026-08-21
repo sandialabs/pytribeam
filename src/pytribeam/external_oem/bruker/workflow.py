@@ -18,46 +18,8 @@ Orchestrates a complete Bruker EDS mapping workflow:
 
 import json
 import time
-from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional
-
-from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
-from pytribeam.external_oem.bruker.eds import BrukerEDSController
-from pytribeam.external_oem.bruker.image_config import BrukerImageConfigController
-from pytribeam.external_oem.bruker.readback import BrukerEDSReadbackController
-from pytribeam.external_oem.bruker.session import BrukerSession
-from pytribeam.external_oem.bruker.spectrometer import BrukerSpectrometerController
-from pytribeam.external_oem.bruker.types import (
-    BrukerDetectorMotionSettings,
-    BrukerEDSMapSettings,
-    BrukerEDSOutputSettings,
-    BrukerEDSProfileMapSettings,
-    BrukerEDSReadbackSettings,
-    BrukerEDSWorkflowResult,
-    BrukerEDSWorkflowSettings,
-    BrukerSessionSettings,
-)
-
-
-def _now_stamp() -> str:
-    return datetime.now().strftime("%Y%m%d_%H%M%S")
-
-
-def _make_run_paths(output: BrukerEDSOutputSettings, stamp: str) -> dict:
-    """Create the run directory structure and return path dictionary."""
-    run_dir = Path(output.output_dir) / f"{output.run_name}_{stamp}"
-    run_dir.mkdir(parents=True, exist_ok=True)
-
-    return {
-        "run_dir": run_dir,
-        "bcf_path": run_dir / f"{output.run_name}_{stamp}.bcf",
-        "bmp_path": run_dir / f"{output.run_name}_{stamp}.bmp",
-        "log_path": run_dir / f"{output.run_name}_{stamp}.log",
-        "config_copy_path": run_dir / f"{output.run_name}_{stamp}_config.yml",
-        "readback_dir": run_dir / "readback",
-        "summary_json_path": run_dir / f"{output.run_name}_{stamp}_summary.json",
-    }
 
 
 def run_bruker_eds_workflow(
@@ -86,8 +48,9 @@ def run_bruker_eds_workflow(
         Structured result with paths, readback results, errors, and timing.
     """
     t0 = time.time()
-    stamp = _now_stamp()
-    paths = _make_run_paths(settings.output, stamp)
+
+    stamp = now_stamp()
+    paths = make_run_paths(settings.output, stamp)
     errors = []
 
     # Save config copy for provenance
@@ -95,7 +58,7 @@ def run_bruker_eds_workflow(
         paths["config_copy_path"].write_text(config_yaml_text, encoding="utf-8")
 
     if log_fn:
-        log_fn(f"=== Bruker EDS workflow start ===")
+        log_fn("=== Bruker EDS workflow start ===")
         log_fn(f"Run dir: {paths['run_dir']}")
 
     # --- Session ---
@@ -155,8 +118,12 @@ def run_bruker_eds_workflow(
     # Finalize output paths on the map settings (replace placeholders)
     map_settings = settings.map._replace(
         output_bcf_path=str(paths["bcf_path"]),
-        output_image_path=str(paths["bmp_path"]) if settings.output.save_image else None,
-        output_image_format=settings.output.image_format if settings.output.save_image else None,
+        output_image_path=str(paths["bmp_path"])
+        if settings.output.save_image
+        else None,
+        output_image_format=settings.output.image_format
+        if settings.output.save_image
+        else None,
     )
 
     bcf_path_str = None
@@ -196,9 +163,8 @@ def run_bruker_eds_workflow(
 
     # --- Readback ---
     readback_results = None
-    if (
-        settings.readback.enabled
-        and isinstance(map_settings, BrukerEDSProfileMapSettings)
+    if settings.readback.enabled and isinstance(
+        map_settings, BrukerEDSProfileMapSettings
     ):
         if log_fn:
             log_fn("Starting element map readback")
