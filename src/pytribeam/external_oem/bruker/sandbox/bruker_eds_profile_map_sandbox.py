@@ -122,7 +122,7 @@ def main():
             settings=settings,
             poll_interval_s=0.5,
             max_wait_s=600.0,
-            log_fn=print,
+            log_fn=log,
         )
         log(f"Profile map outputs: {outputs}")
 
@@ -130,7 +130,7 @@ def main():
 
         # Try a few indices intentionally, because Bruker element indexing may
         # include image channel / internal offset behavior.
-        for idx in range(0, len(settings.elements) + 2):
+        for idx in range(0, len(settings.elements) + 1):
             try:
                 elem_path = OUT_DIR / f"eds_profile_map_{STAMP}_element_index_{idx}.bmp"
                 saved = eds.save_element_image(
@@ -160,7 +160,7 @@ def main():
 
         log("Exporting raw element data byte lengths for diagnostics")
         readback = BrukerEDSReadbackController(session)
-        for idx in range(0, len(settings.elements) + 2):
+        for idx in range(0, len(settings.elements) + 1):
             try:
                 data = readback.get_element_data_bytes(element_index=idx)
                 log(
@@ -182,7 +182,7 @@ def main():
             log("BMP missing")
 
         log("Exporting parsed numeric element arrays for diagnostics")
-        for idx in range(0, len(settings.elements) + 2):
+        for idx in range(0, len(settings.elements) + 1):
             try:
                 arr = readback.get_element_data_array(
                     element_index=idx,
