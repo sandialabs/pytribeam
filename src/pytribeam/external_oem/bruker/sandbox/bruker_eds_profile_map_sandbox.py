@@ -14,6 +14,7 @@ from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import (
     BrukerEDSElementMapSetting,
     BrukerEDSProfileMapSettings,
+    BrukerRectROI,
     BrukerSessionSettings,
 )
 
@@ -106,6 +107,12 @@ def main():
             absolute_scaling=False,
             normalization=True,
             deconvolution=False,
+            roi=BrukerRectROI(
+                x_start_px=5,
+                y_start_px=5,
+                width_px=20,
+                height_px=30,
+            ),
         )
 
         log(f"Profile map settings: {settings}")
@@ -124,6 +131,7 @@ def main():
             max_wait_s=600.0,
             log_fn=log,
         )
+
         log(f"Profile map outputs: {outputs}")
 
         log("Exporting element images by index for diagnostics")
@@ -182,12 +190,15 @@ def main():
             log("BMP missing")
 
         log("Exporting parsed numeric element arrays for diagnostics")
+        # Use ROI dimensions if ROI is active, otherwise full map dimensions
+        diag_width = settings.roi.width_px if settings.roi else settings.width_px
+        diag_height = settings.roi.height_px if settings.roi else settings.height_px
         for idx in range(0, len(settings.elements) + 1):
             try:
                 arr = readback.get_element_data_array(
                     element_index=idx,
-                    width_px=settings.width_px,
-                    height_px=settings.height_px,
+                    width_px=diag_width,
+                    height_px=diag_height,
                     dtype="uint16",
                 )
                 log(

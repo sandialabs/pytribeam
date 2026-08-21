@@ -126,6 +126,16 @@ def bind_eds(esprit):
     ]
     esprit.HyMapStartWithProfile.restype = c_i32
 
+    # HyMapStartEx(uint32 CID, int32 SPU, uint32 PixelTime, uint32 RealTime, TFeatureData Region)
+    esprit.HyMapStartEx.argtypes = [
+        c_u32,
+        c_i32,
+        c_u32,
+        c_u32,
+        TFeatureData,
+    ]
+    esprit.HyMapStartEx.restype = c_i32
+
     esprit.HyMapGetElementImage.argtypes = [
         c_u32,
         ct.c_char_p,

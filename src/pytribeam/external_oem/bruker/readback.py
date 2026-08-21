@@ -151,6 +151,24 @@ class BrukerEDSReadbackController:
 
         return arr.reshape((int(height_px), int(width_px))).copy()
 
+    @staticmethod
+    def _effective_readback_dimensions(
+        settings: BrukerEDSProfileMapSettings,
+    ) -> Tuple[int, int]:
+        """Determine the pixel dimensions for element data readback.
+
+        When a ROI is active, Bruker returns element data sized to the ROI,
+        not the full configured map dimensions.
+
+        Returns
+        -------
+        tuple of (width_px, height_px)
+            The dimensions to use for array reshaping.
+        """
+        if settings.roi is not None:
+            return (settings.roi.width_px, settings.roi.height_px)
+        return (settings.width_px, settings.height_px)
+
     def read_all_element_maps(
         self,
         settings: BrukerEDSProfileMapSettings,
@@ -180,8 +198,8 @@ class BrukerEDSReadbackController:
         tuple of BrukerElementReadbackResult
             One result per requested element, in settings.elements order.
         """
-        import numpy as np
 
+        readback_width, readback_height = self._effective_readback_dimensions(settings)
         results = []
 
         for idx, element in enumerate(settings.elements):
@@ -194,8 +212,8 @@ class BrukerEDSReadbackController:
 
                 arr = self.get_element_data_array(
                     element_index=idx,
-                    width_px=settings.width_px,
-                    height_px=settings.height_px,
+                    width_px=readback_width,
+                    height_px=readback_height,
                     dtype=dtype,
                 )
 
@@ -279,6 +297,7 @@ class BrukerEDSReadbackController:
         if prefix is None:
             prefix = settings.name
 
+        readback_width, readback_height = self._effective_readback_dimensions(settings)
         results = []
 
         for idx, element in enumerate(settings.elements):
@@ -295,8 +314,8 @@ class BrukerEDSReadbackController:
 
                 arr = self.get_element_data_array(
                     element_index=idx,
-                    width_px=settings.width_px,
-                    height_px=settings.height_px,
+                    width_px=readback_width,
+                    height_px=readback_height,
                     dtype=dtype,
                 )
 
@@ -374,6 +393,7 @@ class BrukerEDSReadbackController:
             "map_name": settings.name,
             "map_width_px": settings.width_px,
             "map_height_px": settings.height_px,
+            "roi": settings.roi._asdict() if settings.roi is not None else None,
             "pixel_time_us": settings.pixel_time_us,
             "dtype": dtype,
             "elements_requested": len(settings.elements),

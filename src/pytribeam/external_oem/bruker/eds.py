@@ -21,6 +21,7 @@ from pytribeam.external_oem.bruker.types import (
     BrukerEDSProfileMapSettings,
     BrukerMapOutputs,
     BrukerMapProgress,
+    BrukerRectROI,
 )
 
 DEFAULT_EDS_ELEMENT_COLORS = (
@@ -69,6 +70,47 @@ class BrukerEDSController:
             Segments=ct.cast(segments, ct.POINTER(TSegment)),
         )
         return feature, segments
+
+    @staticmethod
+    def _validate_roi(roi: BrukerRectROI, map_width_px: int, map_height_px: int):
+        """Validate that a ROI fits within the configured map dimensions.
+
+        Parameters
+        ----------
+        roi : BrukerRectROI
+            The ROI to validate.
+        map_width_px : int
+            Full map width from ImageSetConfiguration.
+        map_height_px : int
+            Full map height from ImageSetConfiguration.
+
+        Raises
+        ------
+        ValueError
+            If the ROI is out of bounds or has invalid dimensions.
+        """
+        if roi.width_px <= 0 or roi.height_px <= 0:
+            raise ValueError(
+                f"ROI dimensions must be positive: "
+                f"width_px={roi.width_px}, height_px={roi.height_px}"
+            )
+        if roi.x_start_px < 0 or roi.y_start_px < 0:
+            raise ValueError(
+                f"ROI origin must be non-negative: "
+                f"x_start_px={roi.x_start_px}, y_start_px={roi.y_start_px}"
+            )
+        if roi.x_start_px + roi.width_px > map_width_px:
+            raise ValueError(
+                f"ROI exceeds map width: "
+                f"x_start_px({roi.x_start_px}) + width_px({roi.width_px}) = "
+                f"{roi.x_start_px + roi.width_px} > map_width_px({map_width_px})"
+            )
+        if roi.y_start_px + roi.height_px > map_height_px:
+            raise ValueError(
+                f"ROI exceeds map height: "
+                f"y_start_px({roi.y_start_px}) + height_px({roi.height_px}) = "
+                f"{roi.y_start_px + roi.height_px} > map_height_px({map_height_px})"
+            )
 
     def _element_setting_to_region(
         self,
@@ -203,12 +245,28 @@ class BrukerEDSController:
             profile_xml.encode("ascii", errors="ignore") + b"\x00"
         )
 
-        region, segments_keepalive = self._build_rect_region(
-            width_px=settings.width_px,
-            height_px=settings.height_px,
-            x_start_px=0,
-            y_start_px=0,
-        )
+        # Build region from ROI if provided, otherwise full-frame
+        if settings.roi is not None:
+            self._validate_roi(settings.roi, settings.width_px, settings.height_px)
+            region, segments_keepalive = self._build_rect_region(
+                width_px=settings.roi.width_px,
+                height_px=settings.roi.height_px,
+                x_start_px=settings.roi.x_start_px,
+                y_start_px=settings.roi.y_start_px,
+            )
+            if log_fn:
+                log_fn(
+                    f"Using ROI: x={settings.roi.x_start_px}, "
+                    f"y={settings.roi.y_start_px}, "
+                    f"w={settings.roi.width_px}, h={settings.roi.height_px}"
+                )
+        else:
+            region, segments_keepalive = self._build_rect_region(
+                width_px=settings.width_px,
+                height_px=settings.height_px,
+                x_start_px=0,
+                y_start_px=0,
+            )
 
         rc = self._session.dll.HyMapStartWithProfile(
             self._session.cid,
@@ -316,13 +374,40 @@ class BrukerEDSController:
         )
         self._session._check(rc, "ImageSetConfiguration")
 
-        rc = self._session.dll.HyMapStart(
-            self._session.cid,
-            int(settings.spu_device),
-            int(settings.pixel_time_us),
-            int(settings.real_time_s),
-        )
-        self._session._check(rc, "HyMapStart")
+        # Use HyMapStartEx with region if ROI is specified, otherwise HyMapStart
+        if settings.roi is not None:
+            self._validate_roi(settings.roi, settings.width_px, settings.height_px)
+            region, segments_keepalive = self._build_rect_region(
+                width_px=settings.roi.width_px,
+                height_px=settings.roi.height_px,
+                x_start_px=settings.roi.x_start_px,
+                y_start_px=settings.roi.y_start_px,
+            )
+            rc = self._session.dll.HyMapStartEx(
+                self._session.cid,
+                int(settings.spu_device),
+                int(settings.pixel_time_us),
+                int(settings.real_time_s),
+                region,
+            )
+            self._session._check(rc, "HyMapStartEx")
+            # Keep segment array alive
+            _ = segments_keepalive
+
+            if log_fn:
+                log_fn(
+                    f"Using ROI: x={settings.roi.x_start_px}, "
+                    f"y={settings.roi.y_start_px}, "
+                    f"w={settings.roi.width_px}, h={settings.roi.height_px}"
+                )
+        else:
+            rc = self._session.dll.HyMapStart(
+                self._session.cid,
+                int(settings.spu_device),
+                int(settings.pixel_time_us),
+                int(settings.real_time_s),
+            )
+            self._session._check(rc, "HyMapStart")
 
         if log_fn:
             log_fn(
