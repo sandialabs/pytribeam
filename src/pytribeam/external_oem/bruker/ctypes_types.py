@@ -70,3 +70,34 @@ class TRTHyMapProfileSettings(ct.Structure):
         ("Normalization", ct.c_bool),
         ("Deconvolution", ct.c_bool),
     ]
+
+
+class TRTDetectorStatus(ct.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("Version", ct.c_int32),
+        ("Status", ct.c_int32),
+        ("CountRate", ct.c_uint32),
+        ("Temperature", ct.c_int32),
+        ("CoolingMode", ct.c_uint32),
+    ]
+
+
+class TRTSpectrometerStatus(ct.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("Version", ct.c_int32),
+        ("DetectorStatus", TRTDetectorStatus * 4),
+        ("Status", ct.c_uint32),
+        ("Ready", ct.c_bool),
+    ]
+
+
+class TRTDetectorRanges(ct.Structure):
+    _pack_ = 1
+    _fields_ = [
+        ("MaxEnergy", ct.c_int32 * 8),
+        ("PulseThroughPut", ct.c_int32 * 8),
+        ("EnergyIndexCount", ct.c_int32),
+        ("PulseIndexCount", ct.c_int32),
+    ]

@@ -4,7 +4,9 @@ import os
 from .ctypes_types import (
     TFeatureData,
     TOpenClientOptions,
+    TRTDetectorRanges,
     TRTHyMapProfileSettings,
+    TRTSpectrometerStatus,
     c_bool,
     c_dbl,
     c_i32,
@@ -179,3 +181,33 @@ def bind_image_config(esprit):
     # ImageGetFieldWidth(CID, &FieldWidth)
     esprit.ImageGetFieldWidth.argtypes = [c_u32, ct.POINTER(c_dbl)]
     esprit.ImageGetFieldWidth.restype = c_i32
+
+
+def bind_spectrometer(esprit):
+    """Bind spectrometer status and configuration query functions."""
+
+    # GetSpectrometerStatus(CID, SPU, &Status)
+    esprit.GetSpectrometerStatus.argtypes = [
+        c_u32,
+        c_i32,
+        ct.POINTER(TRTSpectrometerStatus),
+    ]
+    esprit.GetSpectrometerStatus.restype = c_i32
+
+    # GetSpectrometerConfiguration(CID, SPU, &MaxEnergyIndex, &PulseThroughputIndex)
+    esprit.GetSpectrometerConfiguration.argtypes = [
+        c_u32,
+        c_i32,
+        ct.POINTER(c_u32),
+        ct.POINTER(c_u32),
+    ]
+    esprit.GetSpectrometerConfiguration.restype = c_i32
+
+    # GetSpectrometerRanges(CID, SPU, Det, &DetectorSettings)
+    esprit.GetSpectrometerRanges.argtypes = [
+        c_u32,
+        c_i32,
+        c_i32,
+        ct.POINTER(TRTDetectorRanges),
+    ]
+    esprit.GetSpectrometerRanges.restype = c_i32
