@@ -205,12 +205,14 @@ class BrukerDetectorRanges(NamedTuple):
     max_energy: Tuple[int, ...]
     pulse_throughput: Tuple[int, ...]
     energy_index_count: int
-    pulse_index_count: int
 
-    # ---------------------------------------------------------------------------
-    # Workflow settings and result types
-    # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Workflow settings and result types
+# ---------------------------------------------------------------------------
+
+
+class BrukerEDSOutputSettings(NamedTuple):
     """Output configuration for a Bruker EDS workflow run.
 
     The output directory name is constructed as:

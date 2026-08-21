@@ -249,6 +249,8 @@ def parse_detector_motion_settings(cfg: Dict[str, Any]) -> BrukerDetectorMotionS
         poll_interval_s=float(d.get("poll_interval_s", 0.5)),
     )
 
+
+def parse_output_settings(cfg: Dict[str, Any]) -> BrukerEDSOutputSettings:
     """Parse output settings from config dictionary.
 
     The slice_number and repeat_index fields are typically set by the
