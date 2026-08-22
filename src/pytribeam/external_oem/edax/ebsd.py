@@ -5,8 +5,11 @@ from pytribeam import log
 from pytribeam import image as img
 from pytribeam import types as tbt
 from pytribeam.constants import Constants, Conversions
-from pytribeam.external_oem.com import socket_command, socket_response, parse_socket_response
-
+from pytribeam.external_oem.com import (
+    socket_command,
+    socket_response,
+    parse_socket_response,
+)
 
 
 def configure_scan(connection: socket.socket, settings: tbt.EBSDSettings) -> bool:

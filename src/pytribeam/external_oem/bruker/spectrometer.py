@@ -82,9 +82,7 @@ class BrukerSpectrometerController:
             ready=bool(status.Ready),
         )
 
-    def get_spectrometer_configuration(
-        self, spu: int = 1
-    ) -> Tuple[int, int]:
+    def get_spectrometer_configuration(self, spu: int = 1) -> Tuple[int, int]:
         """Query current spectrometer configuration indices.
 
         Parameters

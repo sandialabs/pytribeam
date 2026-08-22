@@ -167,9 +167,7 @@ def test_get_element_data_array_size_mismatch(monkeypatch):
     controller = BrukerEDSReadbackController(DummySession(dll))
 
     with pytest.raises(ValueError, match="size mismatch"):
-        controller.get_element_data_array(
-            element_index=0, width_px=8, height_px=4
-        )
+        controller.get_element_data_array(element_index=0, width_px=8, height_px=4)
 
 
 def test_read_all_element_maps_per_element_error(monkeypatch):
