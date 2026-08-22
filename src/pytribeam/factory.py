@@ -144,22 +144,22 @@ step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_se
 """
 
 ## python standard libraries
-from pathlib import Path
-from typing import List, Union
+import math
 import warnings
 from functools import singledispatch
-import math
-
+from pathlib import Path
+from typing import List, Union
 
 # 3rd party libraries
 from schema import And, Or, Schema
 
+import pytribeam.image as img
+
 # Local
 import pytribeam.insertable_devices as devices
-import pytribeam.image as img
-import pytribeam.utilities as ut
 import pytribeam.stage as stage
-from pytribeam.constants import Conversions, Constants
+import pytribeam.utilities as ut
+from pytribeam.constants import Constants, Conversions
 from pytribeam.fib import application_files
 
 try:
@@ -770,7 +770,7 @@ def general(
         If the provided yml format is unsupported.
     """
 
-    if not yml_format in tbt.YMLFormatVersion:
+    if yml_format not in tbt.YMLFormatVersion:
         raise NotImplementedError(
             """Due to the complexity and number of variables, 
         image objects should only be constructed using a yml file."""
@@ -1612,9 +1612,27 @@ def custom(
                 f"Invalid location for executable at location {executable_path}. File does not exist."
             )
 
+        script_args = step_settings.get("script_args")
+        if script_args is not None:
+            if not isinstance(script_args, list):
+                raise ValueError(
+                    f"Invalid .yml file, 'script_args' in custom step_type for step '{step_name}' must be a list of strings."
+                )
+            script_args = [str(arg) for arg in script_args]
+
+        environment = step_settings.get("environment")
+        if environment is not None:
+            if not isinstance(environment, dict):
+                raise ValueError(
+                    f"Invalid .yml file, 'environment' in custom step_type for step '{step_name}' must be a dictionary."
+                )
+            environment = {str(key): str(value) for key, value in environment.items()}
+
     custom_settings = tbt.CustomSettings(
         script_path=Path(script_path),
         executable_path=Path(executable_path),
+        script_args=script_args,
+        environment=environment,
     )
     return custom_settings
 

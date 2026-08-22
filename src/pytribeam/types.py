@@ -288,16 +288,16 @@ YMLFormatVersion(YMLFormat, Enum)
 """
 
 # Default python modules
-from typing import NamedTuple, List, Union
 from enum import Enum, IntEnum
 from pathlib import Path
+from typing import List, NamedTuple, Union
+
+import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
+import autoscript_sdb_microscope_client.enumerations as as_enums
+import autoscript_sdb_microscope_client.structures as as_structs
 
 # Autoscript modules
 from autoscript_sdb_microscope_client import SdbMicroscopeClient
-import autoscript_sdb_microscope_client.enumerations as as_enums
-import autoscript_sdb_microscope_client.structures as as_structs
-import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
-
 
 ### BASE CLASSES
 
@@ -1968,10 +1968,16 @@ class CustomSettings(NamedTuple):
         The path to the script.
     executable_path : Path
         The path to the executable.
+    script_args : list of str, optional
+        Additional command-line arguments passed to the script.
+    environment : dict, optional
+        Additional environment variables passed to the subprocess.
     """
 
     script_path: Path
     executable_path: Path
+    script_args: List[str] = None
+    environment: dict = None
 
 
 class RectanglePattern(as_dynamics.RectanglePattern):

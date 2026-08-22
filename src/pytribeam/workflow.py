@@ -46,24 +46,24 @@ run_experiment_cli(start_slice: int, start_step: int, yml_path: Path)
 
 # Default python modules
 # from functools import singledispatch
+import os
+import subprocess
+from functools import singledispatch
 from pathlib import Path
 from typing import List
-from functools import singledispatch
-import subprocess
 
 # 3rd party module
-
 # Local scripts
 import pytribeam.constants as cs
-import pytribeam.insertable_devices as devices
 import pytribeam.factory as factory
+import pytribeam.fib as fib
+import pytribeam.image as img
+import pytribeam.insertable_devices as devices
+import pytribeam.laser as laser
+import pytribeam.log as log
+import pytribeam.stage as stage
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
-import pytribeam.stage as stage
-import pytribeam.log as log
-import pytribeam.laser as laser
-import pytribeam.image as img
-import pytribeam.fib as fib
 
 
 @singledispatch
@@ -224,9 +224,23 @@ def _(
     db = {"exp_dir": str(general_settings.exp_dir), "slice_number": slice_number}
     ut.dict_to_yml(db=db, file_path=slice_info_path)
 
+    command = [str(step_settings.executable_path), str(step_settings.script_path)]
+    if step_settings.script_args:
+        command.extend([str(arg) for arg in step_settings.script_args])
+
+    custom_env = os.environ.copy()
+    custom_env.setdefault("PYTRIBEAM_SLICE_INFO_PATH", str(slice_info_path))
+    custom_env.setdefault("PYTRIBEAM_EXP_DIR", str(general_settings.exp_dir))
+    custom_env.setdefault("PYTRIBEAM_SLICE_NUMBER", str(slice_number))
+    if step_settings.environment:
+        custom_env.update(
+            {str(k): str(v) for k, v in step_settings.environment.items()}
+        )
+
     output = subprocess.run(
-        [step_settings.executable_path, step_settings.script_path],
+        command,
         capture_output=True,
+        env=custom_env,
     )
     stdout, stderr = output.stdout.decode("utf-8"), output.stderr.decode("utf-8")
     if stdout:

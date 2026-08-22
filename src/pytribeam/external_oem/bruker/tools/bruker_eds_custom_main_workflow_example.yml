@@ -1,0 +1,118 @@
+# Example main pytribeam workflow YAML for running Bruker EDS through a CUSTOM step.
+#
+# This is a conservative fallback path. The main pytribeam workflow still handles
+# slice/step iteration and stage positioning. The CUSTOM script handles
+# AutoScript beam/scan setup, AutoScript-controlled detector retraction, and then
+# calls the standalone Bruker EDS workflow.
+#
+# Before running, replace all C:/path/to/... placeholders with real paths.
+# Keep EBSD_OEM and EDS_OEM as null for this fallback so pytribeam does not call
+# the legacy TFS Laser API EBSD/EDS control path.
+
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 2.0
+  max_slice_num: 100
+  pre_tilt_deg: 36.0
+  sectioning_axis: Z
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost
+  connection_port: null
+
+  # Important for CUSTOM fallback: leave these disabled.
+  EBSD_OEM: null
+  EDS_OEM: null
+
+  exp_dir: C:/path/to/pytribeam_experiment
+  h5_log_name: log
+  step_count: 1
+
+steps:
+  bruker_eds_custom:
+    step_general:
+      step_number: 1
+      step_type: custom
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 1.0
+          y_mm: 2.0
+          z_mm: 5.0
+          r_deg: -50.0
+          t_deg: 0.0
+
+    # Existing pytribeam CUSTOM settings.
+    executable_path: C:/path/to/python.exe
+    script_path: C:/path/to/pytribeam/src/pytribeam/external_oem/bruker/tools/run_bruker_eds_custom_step.py
+
+    # Generic CUSTOM-step command-line arguments.
+    # No pre-set environment variables are required for normal workflow use.
+    script_args:
+      - --bruker-config
+      - C:/path/to/bruker_eds_workflow.yml
+      - --image-config
+      - C:/path/to/bruker_eds_custom_main_workflow_example.yml
+      - --image-step
+      - bruker_eds_custom
+
+      # Optional: write the fallback script log to a known path.
+      # If omitted, the script writes a timestamped log under the Bruker output root.
+      # - --log-path
+      # - C:/path/to/pytribeam_experiment/bruker_eds_custom.log
+
+            # Optional: capture an AutoScript preview image before Bruker mapping.
+      # Preview imaging requires explicit AutoScript detector setup.
+      # Use only after site-specific collision review.
+      # - --set-autoscript-detector
+      # - --preview-image
+      # - --preview-image-dir
+      # - C:/path/to/pytribeam_experiment/bruker_preview_images
+
+      # Optional and safety-sensitive: configure the AutoScript detector from
+      # the detector block below without taking a preview image.
+      # - --set-autoscript-detector
+
+
+      # Optional and more safety-sensitive: allow insertion of an insertable
+      # AutoScript detector during setup. Do not use unless reviewed locally.
+      # - --allow-insertable-autoscript-detector
+
+    # The following image-style settings are not parsed by pytribeam as CUSTOM
+    # settings. The Bruker custom script reads them using --image-config and
+    # --image-step, then uses pytribeam's normal image helpers to set beam/scan
+    # conditions before Bruker acquisition.
+    beam:
+      type: electron
+      voltage_kv: 20.0
+      voltage_tol_kv: 0.5
+      current_na: 6.4
+      current_tol_na: 0.3
+      hfw_mm: 0.9
+      working_dist_mm: 10.0
+      dynamic_focus: false
+      tilt_correction: false
+
+    # Prefer a stationary detector such as ETD for fallback setup/preview.
+    # The custom script does not insert AutoScript-controlled detectors unless
+    # explicitly requested with --set-autoscript-detector and, for insertable
+    # detectors, --allow-insertable-autoscript-detector.
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.2
+      contrast: 0.3
+      auto_cb:
+        left: null
+        top: null
+        width: null
+        height: null
+
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: "768x512"
+
+    bit_depth: 8
