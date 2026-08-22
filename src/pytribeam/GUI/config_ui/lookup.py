@@ -1,11 +1,10 @@
-from typing import Any, Dict, NamedTuple, Optional, Type, Union
-from copy import deepcopy
 import tkinter as tk
-import pytribeam.GUI.CustomTkinterWidgets as ctk
+from copy import deepcopy
+from typing import Any, Dict, NamedTuple, Optional, Type, Union
 
+import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam import types as tbt
 from pytribeam import utilities as ut
-
 
 VERSIONS = [version.version for version in tbt.YMLFormatVersion]
 
@@ -260,8 +259,8 @@ sectioning_axis = LUTField(
     "Sectioning Axis",
     "Z",
     ctk.MenuButton,
-    {"options": ["X", "Y", "Z"], "dtype": str, "state": "disabled"},
-    "The axis that the laser will cut along. Can be X, Y, or Z.",
+    {"options": ["Z", "+Y_FIB"], "dtype": str},  # "state": "disabled"},
+    "The axis that the milling device will cut along. Can be Z with laser or +Y for FIB only.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
@@ -361,7 +360,8 @@ general_lut.add_entry("EBSD_OEM", deepcopy(ebsd_oem))
 general_lut.add_entry("EDS_OEM", deepcopy(eds_oem))
 general_lut.add_entry("exp_dir", deepcopy(exp_dir))
 general_lut.add_entry("h5_log_name", deepcopy(h5_log_name))
-general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
+# TODO bring these back
+# general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
 general_lut.add_entry("step_count", deepcopy(step_count))
 
 ### STAGE ###
