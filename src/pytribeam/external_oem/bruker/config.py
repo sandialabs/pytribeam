@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
-from schema import And, Optional as SchemaOptional, Or, Schema, SchemaError
+from schema import And, Or, Schema, SchemaError
+from schema import Optional as SchemaOptional
 
 from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
@@ -278,6 +279,7 @@ def parse_readback_settings(cfg: Dict[str, Any]) -> BrukerEDSReadbackSettings:
         enabled=bool(r.get("save_element_npy", True)),
         dtype="uint16",
         save_element_npy=bool(r.get("save_element_npy", True)),
+        save_element_tiff=bool(r.get("save_element_tiff", False)),
         save_element_images=bool(r.get("save_element_images", False)),
         log_element_stats=bool(r.get("log_element_stats", True)),
     )

@@ -1,13 +1,14 @@
 from pytribeam.external_oem.bruker.types import (
-    BrukerSessionSettings,
-    BrukerEDSMapSettings,
-    BrukerEDSProfileMapSettings,
-    BrukerEDSElementMapSetting,
     BrukerDetectorMotionSettings,
-    BrukerRectROI,
-    BrukerElementReadbackResult,
+    BrukerDetectorRanges,
+    BrukerEDSElementMapSetting,
+    BrukerEDSMapSettings,
     BrukerEDSOutputSettings,
+    BrukerEDSProfileMapSettings,
     BrukerEDSWorkflowResult,
+    BrukerElementReadbackResult,
+    BrukerRectROI,
+    BrukerSessionSettings,
 )
 
 
@@ -143,6 +144,17 @@ def test_output_settings_with_repeat():
         repeat_index=2,
     )
     assert settings.repeat_index == 2
+
+
+def test_detector_ranges_construct():
+    ranges = BrukerDetectorRanges(
+        max_energy=(10, 20, 30),
+        pulse_throughput=(1, 2, 3),
+        energy_index_count=3,
+        pulse_index_count=3,
+    )
+    assert ranges.energy_index_count == 3
+    assert ranges.pulse_index_count == 3
 
 
 def test_workflow_result_success():

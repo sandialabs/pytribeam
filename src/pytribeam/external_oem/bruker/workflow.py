@@ -30,7 +30,6 @@ from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.spectrometer import BrukerSpectrometerController
 from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
-    BrukerEDSMapSettings,
     BrukerEDSProfileMapSettings,
     BrukerEDSWorkflowResult,
     BrukerEDSWorkflowSettings,
@@ -192,6 +191,7 @@ def run_bruker_eds_workflow(
             prefix=map_settings.name,
             dtype=settings.readback.dtype,
             strict=False,
+            save_element_tiff=settings.readback.save_element_tiff,
             log_fn=log_fn if settings.readback.log_element_stats else None,
         )
 

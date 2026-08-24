@@ -1,6 +1,7 @@
-import pytest
-import numpy as np
 from pathlib import Path
+
+import numpy as np
+import pytest
 
 from pytribeam.external_oem.bruker.readback import BrukerEDSReadbackController
 from pytribeam.external_oem.bruker.types import (
@@ -286,3 +287,45 @@ def test_save_element_maps_npy_writes_files(monkeypatch, tmp_path):
     # Check summary JSON
     summary_path = tmp_path / "test_map_readback_summary.json"
     assert summary_path.exists()
+
+
+def test_save_element_maps_npy_can_also_write_tiff(monkeypatch, tmp_path):
+    """Verify optional 16-bit TIFF files are written from successful readback."""
+    dll = DummyDLL()
+    width, height = 4, 3
+    pixel_data = np.arange(width * height, dtype=np.uint16).tobytes()
+
+    def side_effect(cid, element_index, buf_ptr, size_ptr):
+        import ctypes as ct
+
+        ct.memmove(buf_ptr, pixel_data, len(pixel_data))
+        size_ptr._obj.value = len(pixel_data)
+        return 0
+
+    dll.HyMapGetElementData.side_effect = side_effect
+
+    monkeypatch.setattr(
+        "pytribeam.external_oem.bruker.readback.bind_eds",
+        lambda esprit: None,
+    )
+
+    controller = BrukerEDSReadbackController(DummySession(dll))
+    settings = _make_profile_settings(width=width, height=height)
+
+    results = controller.save_element_maps_npy(
+        settings=settings,
+        output_dir=str(tmp_path),
+        prefix="test_map_tiff",
+        save_element_tiff=True,
+    )
+
+    assert len(results) == 2
+    assert all(r.error is None for r in results)
+    assert all(r.tiff_path is not None for r in results)
+
+    for result in results:
+        tiff_path = Path(result.tiff_path)
+        assert tiff_path.exists()
+        assert tiff_path.suffix == ".tiff"
+        with open(tiff_path, "rb") as f:
+            assert f.read(4) in (b"II*\x00", b"MM\x00*")

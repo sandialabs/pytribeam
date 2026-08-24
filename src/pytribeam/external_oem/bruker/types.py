@@ -132,7 +132,8 @@ class BrukerElementReadbackResult(NamedTuple):
     element_index: int
     atomic_number: int
     line: str
-    path: Optional[str] = None
+    path: Optional[str] = None  # .npy path when numeric readback succeeded
+    tiff_path: Optional[str] = None  # optional 16-bit TIFF path
     shape: Optional[Tuple[int, int]] = None
     dtype: Optional[str] = None
     min_val: Optional[int] = None
@@ -205,6 +206,7 @@ class BrukerDetectorRanges(NamedTuple):
     max_energy: Tuple[int, ...]
     pulse_throughput: Tuple[int, ...]
     energy_index_count: int
+    pulse_index_count: int
 
 
 # ---------------------------------------------------------------------------
@@ -257,6 +259,7 @@ class BrukerEDSReadbackSettings(NamedTuple):
     enabled: bool = True
     dtype: str = "uint16"
     save_element_npy: bool = True
+    save_element_tiff: bool = False
     save_element_images: bool = False
     log_element_stats: bool = True
 

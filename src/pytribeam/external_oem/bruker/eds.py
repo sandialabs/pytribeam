@@ -201,6 +201,30 @@ class BrukerEDSController:
 
         raise RuntimeError("HyMapCreateProfile failed: buffer insufficient after 1 MB")
 
+    def stop_map(self, discard: bool = False) -> None:
+        """Stop the current HyperMap acquisition via ``HyMapStop``.
+
+        This is exposed primarily for operator/recovery scripts. During normal
+        acquisition, ``acquire_map`` and ``acquire_map_with_profile`` call it
+        automatically after ESPRIT reports that acquisition is no longer running.
+        """
+        rc = self._session.dll.HyMapStop(self._session.cid, bool(discard))
+        self._session._check(rc, "HyMapStop")
+
+    def _best_effort_stop_map(
+        self,
+        discard: bool = True,
+        log_fn: Optional[Callable[[str], None]] = None,
+    ) -> None:
+        """Attempt to stop a running HyperMap without masking the original error."""
+        try:
+            if log_fn:
+                log_fn("Attempting best-effort HyMapStop after acquisition error")
+            self.stop_map(discard=discard)
+        except Exception as stop_exc:
+            if log_fn:
+                log_fn(f"Best-effort HyMapStop failed: {stop_exc}")
+
     def acquire_map_with_profile(
         self,
         settings: BrukerEDSProfileMapSettings,
@@ -229,6 +253,11 @@ class BrukerEDSController:
         HyMapStartWithProfile does not expose RealTime in the header signature we have.
         Behavior should be validated empirically.
         """
+        # SAFETY: validate ROI before any DLL/API call. Out-of-bounds ROIs have
+        # been observed to freeze ESPRIT when passed to Bruker acquisition calls.
+        if settings.roi is not None:
+            self._validate_roi(settings.roi, settings.width_px, settings.height_px)
+
         # Configure scan/image dimensions first
         rc = self._session.dll.ImageSetConfiguration(
             self._session.cid,
@@ -289,37 +318,43 @@ class BrukerEDSController:
             )
 
         t0 = time.time()
-        while True:
-            progress = self.get_map_progress()
-            if not progress.running:
-                break
-            elapsed = time.time() - t0
-            if log_fn:
-                eta_s = None
-                if progress.percent_complete > 0:
-                    eta_s = (
-                        elapsed
-                        / progress.percent_complete
-                        * (100.0 - progress.percent_complete)
+        try:
+            while True:
+                progress = self.get_map_progress()
+                if not progress.running:
+                    break
+
+                elapsed = time.time() - t0
+                if log_fn:
+                    eta_s = None
+                    if progress.percent_complete > 0:
+                        eta_s = (
+                            elapsed
+                            / progress.percent_complete
+                            * (100.0 - progress.percent_complete)
+                        )
+                    eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
+                    log_fn(
+                        f"Map progress: {progress.percent_complete:.1f}%, "
+                        f"line={progress.current_line}, "
+                        f"elapsed={elapsed:.1f}s{eta_str}"
                     )
-                eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
-                log_fn(
-                    f"Map progress: {progress.percent_complete:.1f}%, "
-                    f"line={progress.current_line}, "
-                    f"elapsed={elapsed:.1f}s{eta_str}"
-                )
 
-            if elapsed > max_wait_s:
-                raise TimeoutError(f"Profile map acquisition exceeded {max_wait_s} s")
+                if elapsed > max_wait_s:
+                    raise TimeoutError(
+                        f"Profile map acquisition exceeded {max_wait_s} s"
+                    )
 
-            time.sleep(poll_interval_s)
+                time.sleep(poll_interval_s)
+        except BaseException:
+            self._best_effort_stop_map(discard=True, log_fn=log_fn)
+            raise
 
         elapsed_total = time.time() - t0
         if log_fn:
             log_fn(f"Profile map acquisition complete: elapsed={elapsed_total:.1f}s")
 
-        rc = self._session.dll.HyMapStop(self._session.cid, False)
-        self._session._check(rc, "HyMapStop")
+        self.stop_map(discard=False)
 
         output_bcf = str(Path(settings.output_bcf_path))
         rc = self._session.dll.HyMapSaveToFile(self._session.cid, output_bcf.encode())
@@ -364,6 +399,11 @@ class BrukerEDSController:
         max_wait_s: float = 600.0,
         log_fn: Optional[Callable[[str], None]] = None,
     ) -> BrukerMapOutputs:
+        # SAFETY: validate ROI before any DLL/API call. Out-of-bounds ROIs have
+        # been observed to freeze ESPRIT when passed to Bruker acquisition calls.
+        if settings.roi is not None:
+            self._validate_roi(settings.roi, settings.width_px, settings.height_px)
+
         rc = self._session.dll.ImageSetConfiguration(
             self._session.cid,
             int(settings.width_px),
@@ -418,37 +458,41 @@ class BrukerEDSController:
             )
 
         t0 = time.time()
-        while True:
-            progress = self.get_map_progress()
-            if not progress.running:
-                break
-            elapsed = time.time() - t0
-            if log_fn:
-                eta_s = None
-                if progress.percent_complete > 0:
-                    eta_s = (
-                        elapsed
-                        / progress.percent_complete
-                        * (100.0 - progress.percent_complete)
+        try:
+            while True:
+                progress = self.get_map_progress()
+                if not progress.running:
+                    break
+
+                elapsed = time.time() - t0
+                if log_fn:
+                    eta_s = None
+                    if progress.percent_complete > 0:
+                        eta_s = (
+                            elapsed
+                            / progress.percent_complete
+                            * (100.0 - progress.percent_complete)
+                        )
+                    eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
+                    log_fn(
+                        f"Map progress: {progress.percent_complete:.1f}%, "
+                        f"line={progress.current_line}, "
+                        f"elapsed={elapsed:.1f}s{eta_str}"
                     )
-                eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
-                log_fn(
-                    f"Map progress: {progress.percent_complete:.1f}%, "
-                    f"line={progress.current_line}, "
-                    f"elapsed={elapsed:.1f}s{eta_str}"
-                )
 
-            if elapsed > max_wait_s:
-                raise TimeoutError(f"Map acquisition exceeded {max_wait_s} s")
+                if elapsed > max_wait_s:
+                    raise TimeoutError(f"Map acquisition exceeded {max_wait_s} s")
 
-            time.sleep(poll_interval_s)
+                time.sleep(poll_interval_s)
+        except BaseException:
+            self._best_effort_stop_map(discard=True, log_fn=log_fn)
+            raise
 
         elapsed_total = time.time() - t0
         if log_fn:
             log_fn(f"Simple map acquisition complete: elapsed={elapsed_total:.1f}s")
 
-        rc = self._session.dll.HyMapStop(self._session.cid, False)
-        self._session._check(rc, "HyMapStop")
+        self.stop_map(discard=False)
 
         output_bcf = str(Path(settings.output_bcf_path))
         rc = self._session.dll.HyMapSaveToFile(self._session.cid, output_bcf.encode())

@@ -17,11 +17,12 @@ Test capability tiers:
 
 from __future__ import annotations
 
+import os
+import platform
+import textwrap
 from copy import deepcopy
 from pathlib import Path
-import platform
-from typing import Iterable, Any
-import textwrap
+from typing import Any, Iterable
 
 import pytest
 import yaml
@@ -51,9 +52,9 @@ def temp_dir(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def safe_microscope():
-    from pytribeam import types as tbt
     from pytribeam import insertable_devices as devices
     from pytribeam import stage
+    from pytribeam import types as tbt
 
     # Create microscope
     try:
@@ -142,6 +143,50 @@ def has_laser_hardware() -> bool:
     return ut.is_laser_available()
 
 
+BRUKER_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_BRUKER_HARDWARE"
+BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
+
+
+def _env_flag_enabled(name: str) -> bool:
+    """Return True when an environment variable is an explicit truthy opt-in."""
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _bruker_test_env() -> str:
+    """Return the operator-declared Bruker test environment.
+
+    Valid values are "", "simulator", and "hardware". An empty value means
+    no Bruker environment was explicitly declared.
+    """
+    return os.environ.get(BRUKER_TEST_ENV_VAR, "").strip().lower()
+
+
+def _is_bruker_test_item(item) -> bool:
+    """Return True for tests under tests/bruker."""
+    path = str(getattr(item, "path", item.fspath)).replace("\\", "/").lower()
+    return "/tests/bruker/" in f"/{path}"
+
+
+def _has_bruker_hardware_override(item) -> bool:
+    """Allow standalone Bruker hardware tests outside TFS host-name lists.
+
+    Bruker EDS support is intentionally independent of TFS AutoScript and may be
+    validated on a Bruker/ESPRIT machine whose hostname is not listed in
+    Constants.microscope_machines. The override is restricted to tests under
+    tests/bruker that are marked both esprit and hardware, and it must be
+    explicitly enabled by the operator with both:
+    - PYTRIBEAM_BRUKER_TEST_ENV=hardware
+    - PYTRIBEAM_RUN_BRUKER_HARDWARE=1
+    """
+    return (
+        "esprit" in item.keywords
+        and "hardware" in item.keywords
+        and _is_bruker_test_item(item)
+        and _bruker_test_env() == "hardware"
+        and _env_flag_enabled(BRUKER_HARDWARE_ENV_VAR)
+    )
+
+
 def pytest_collection_modifyitems(config, items):
     """Skip marked tests automatically based on the current environment."""
     SIMULATED_ONLY_REASON = "requires a simulated microscope environment"
@@ -168,7 +213,11 @@ def pytest_collection_modifyitems(config, items):
         if "simulated" in item.keywords and not CAN_RUN_SIMULATED:
             item.add_marker(skip_simulated)
 
-        if "hardware" in item.keywords and not CAN_RUN_HARDWARE:
+        if (
+            "hardware" in item.keywords
+            and not CAN_RUN_HARDWARE
+            and not _has_bruker_hardware_override(item)
+        ):
             item.add_marker(skip_hardware)
 
         if "laser_hardware" in item.keywords and not CAN_RUN_LASER_HARDWARE:

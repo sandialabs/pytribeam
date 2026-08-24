@@ -258,6 +258,7 @@ class BrukerEDSReadbackController:
         prefix: Optional[str] = None,
         dtype: str = "uint16",
         strict: bool = False,
+        save_element_tiff: bool = False,
         log_fn: Optional[Callable[[str], None]] = None,
     ) -> Tuple[BrukerElementReadbackResult, ...]:
         """Save all requested element maps as .npy arrays with metadata.
@@ -280,6 +281,9 @@ class BrukerEDSReadbackController:
             NumPy dtype string (default "uint16").
         strict : bool
             If True, raise on the first element readback failure.
+        save_element_tiff : bool
+            If True, also save each successful numeric element map as a 16-bit
+            TIFF using the same base filename as the .npy file.
         log_fn : callable, optional
             Logging callback for progress messages.
 
@@ -302,8 +306,9 @@ class BrukerEDSReadbackController:
 
         for idx, element in enumerate(settings.elements):
             safe_line = element.line.replace(" ", "_")
-            fname = f"{prefix}_element_{idx}_Z{element.atomic_number}_{safe_line}.npy"
-            npy_path = out_dir / fname
+            base_name = f"{prefix}_element_{idx}_Z{element.atomic_number}_{safe_line}"
+            npy_path = out_dir / f"{base_name}.npy"
+            tiff_path = out_dir / f"{base_name}.tiff"
 
             try:
                 if log_fn:
@@ -321,11 +326,17 @@ class BrukerEDSReadbackController:
 
                 np.save(npy_path, arr)
 
+                tiff_path_str = None
+                if save_element_tiff:
+                    self._save_array_as_tiff(arr, tiff_path)
+                    tiff_path_str = str(tiff_path)
+
                 result = BrukerElementReadbackResult(
                     element_index=idx,
                     atomic_number=element.atomic_number,
                     line=element.line,
                     path=str(npy_path),
+                    tiff_path=tiff_path_str,
                     shape=(int(arr.shape[0]), int(arr.shape[1])),
                     dtype=str(arr.dtype),
                     min_val=int(arr.min()),
@@ -336,8 +347,9 @@ class BrukerEDSReadbackController:
                 results.append(result)
 
                 if log_fn:
+                    tiff_msg = f", tiff={tiff_path.name}" if tiff_path_str else ""
                     log_fn(
-                        f"Saved element {idx}: {npy_path.name} "
+                        f"Saved element {idx}: {npy_path.name}{tiff_msg} "
                         f"shape={arr.shape} min={arr.min()} max={arr.max()}"
                     )
 
@@ -370,6 +382,19 @@ class BrukerEDSReadbackController:
         )
 
         return tuple(results)
+
+    @staticmethod
+    def _save_array_as_tiff(arr, path: Path) -> str:
+        """Save a numeric element map array as a TIFF image.
+
+        For uint16 arrays this writes a 16-bit grayscale TIFF. This file is a
+        portable numeric image export of the same data stored in the .npy file.
+        """
+        from PIL import Image
+
+        path.parent.mkdir(parents=True, exist_ok=True)
+        Image.fromarray(arr).save(path)
+        return str(path)
 
     def _write_readback_summary(
         self,

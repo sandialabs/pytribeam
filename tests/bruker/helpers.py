@@ -1,9 +1,44 @@
-import pytest
+import os
 import time
 
-from pytribeam.external_oem.bruker.session import BrukerSession
+import pytest
+
 from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
+from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.core.errors import APICallError
+
+BRUKER_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_BRUKER_HARDWARE"
+BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
+
+
+def bruker_hardware_tests_enabled() -> bool:
+    """Return True when Bruker hardware tests were explicitly enabled."""
+    return os.environ.get(BRUKER_HARDWARE_ENV_VAR, "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
+def bruker_test_environment() -> str:
+    """Return operator-declared Bruker test environment.
+
+    Expected values are "simulator" or "hardware". An empty value means the
+    environment was not declared explicitly.
+    """
+    return os.environ.get(BRUKER_TEST_ENV_VAR, "").strip().lower()
+
+
+def require_declared_bruker_hardware_environment():
+    """Require the operator to declare this run as true Bruker hardware."""
+    env = bruker_test_environment()
+    if env != "hardware":
+        pytest.skip(
+            f"Bruker true-hardware tests require {BRUKER_TEST_ENV_VAR}=hardware. "
+            f"Current value: {env or '<unset>'}. Use {BRUKER_TEST_ENV_VAR}=simulator "
+            "for ESPRIT simulator runs."
+        )
 
 
 def require_esprit(session_settings):
@@ -17,9 +52,22 @@ def require_esprit(session_settings):
 
 def require_hardware(session_settings, detector_index: int = 1):
     """
-    Require a real Esprit session plus accessible EDS detector hardware.
-    Returns a connected session if available, otherwise skips the test.
+    Require an explicit operator opt-in plus accessible EDS detector hardware.
+
+    Bruker hardware tests may move the detector. They are therefore gated by
+    both PYTRIBEAM_BRUKER_TEST_ENV=hardware and
+    PYTRIBEAM_RUN_BRUKER_HARDWARE=1 even on machines that pytest recognizes as
+    hardware hosts. This avoids treating ESPRIT simulator detector stubs as true
+    hardware.
     """
+    require_declared_bruker_hardware_environment()
+
+    if not bruker_hardware_tests_enabled():
+        pytest.skip(
+            f"Bruker hardware tests are disabled. Set {BRUKER_HARDWARE_ENV_VAR}=1 "
+            "to enable detector-hardware tests."
+        )
+
     session = require_esprit(session_settings)
 
     try:
