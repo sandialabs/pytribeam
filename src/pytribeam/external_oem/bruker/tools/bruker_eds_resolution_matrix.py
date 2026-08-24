@@ -32,6 +32,7 @@ from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionCo
 from pytribeam.external_oem.bruker.eds import BrukerEDSController
 from pytribeam.external_oem.bruker.image_config import BrukerImageConfigController
 from pytribeam.external_oem.bruker.readback import BrukerEDSReadbackController
+from pytribeam.external_oem.bruker.runtime import validate_bruker_runtime_environment
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.spectrometer import BrukerSpectrometerController
 from pytribeam.external_oem.bruker.types import (
@@ -155,7 +156,45 @@ def _profile_settings(
     )
 
 
+def _validate_matrix_config(cfg: Dict[str, Any]) -> None:
+    """Validate runner-specific matrix YAML with user-readable messages."""
+    for section in ("session", "output", "detector", "map", "matrix", "profile"):
+        if section not in cfg or not isinstance(cfg[section], dict):
+            raise ValueError(f"Matrix config requires a '{section}' mapping")
+
+    matrix = cfg["matrix"]
+    if "resolutions" not in matrix:
+        raise ValueError("Matrix config requires matrix.resolutions")
+    if "element_counts" not in matrix:
+        raise ValueError("Matrix config requires matrix.element_counts")
+    if not isinstance(matrix["resolutions"], list) or not matrix["resolutions"]:
+        raise ValueError(
+            "matrix.resolutions must be a non-empty list of [width, height]"
+        )
+    if not isinstance(matrix["element_counts"], list) or not matrix["element_counts"]:
+        raise ValueError("matrix.element_counts must be a non-empty list of integers")
+
+    for idx, resolution in enumerate(matrix["resolutions"]):
+        if (
+            not isinstance(resolution, list)
+            or len(resolution) != 2
+            or not all(isinstance(v, int) and v > 0 for v in resolution)
+        ):
+            raise ValueError(
+                f"matrix.resolutions[{idx}] must be [positive_width, positive_height]; "
+                f"got {resolution!r}"
+            )
+
+    for idx, element_count in enumerate(matrix["element_counts"]):
+        if not isinstance(element_count, int) or element_count <= 0:
+            raise ValueError(
+                f"matrix.element_counts[{idx}] must be a positive integer; "
+                f"got {element_count!r}"
+            )
+
+
 def _path_size(path_str):
+
     if not path_str:
         return None
     path = Path(path_str)
@@ -206,7 +245,6 @@ def _write_outputs(rows: List[Dict[str, Any]], summary_path: Path, csv_path: Pat
         "bmp_path",
         "bmp_size",
         "acquisition_elapsed_s",
-        "readback_delay_s",
         "readback_elapsed_s",
         "error",
     ]
@@ -220,6 +258,8 @@ def _write_outputs(rows: List[Dict[str, Any]], summary_path: Path, csv_path: Pat
 
 def run_matrix(config_path: Path) -> int:
     cfg = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    _validate_matrix_config(cfg)
+
     run_dir = (
         Path(cfg["output"]["root_dir"])
         / f"{cfg['output'].get('run_name', 'eds_resolution_matrix')}_{_stamp()}"
@@ -234,11 +274,16 @@ def run_matrix(config_path: Path) -> int:
     log(f"Config: {config_path}")
     log(f"Run dir: {run_dir}")
 
-    session = BrukerSession(_session_settings(cfg))
+    session_settings = _session_settings(cfg)
+    validate_bruker_runtime_environment(session_settings)
+
+    session = BrukerSession(session_settings)
+
     rows: List[Dict[str, Any]] = []
 
     try:
         info = session.connect()
+
         log(f"Connected CID={info.cid}")
         log(f"QueryInfo: {info.query_info}")
         session.check_connection()
@@ -314,15 +359,8 @@ def run_matrix(config_path: Path) -> int:
                 if row.get("acquisition_success") and bool(
                     cfg.get("readback", {}).get("enabled", True)
                 ):
-                    readback_delay_s = float(
-                        cfg.get("readback", {}).get("delay_s", 0.0)
-                    )
-                    row["readback_delay_s"] = readback_delay_s
-                    if readback_delay_s > 0:
-                        log(f"Waiting {readback_delay_s:.1f} s before numeric readback")
-                        time.sleep(readback_delay_s)
-
                     t_read = time.time()
+
                     results = readback.save_element_maps_npy(
                         settings=settings,
                         output_dir=str(case_dir / "readback"),
@@ -367,9 +405,9 @@ def run_matrix(config_path: Path) -> int:
 
 
 def main():
-
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("config", type=Path, help="Path to matrix YAML config")
+
     args = parser.parse_args()
     raise SystemExit(run_matrix(args.config))
 

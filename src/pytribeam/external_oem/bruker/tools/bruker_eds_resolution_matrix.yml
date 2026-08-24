@@ -178,8 +178,6 @@ readback:
   dtype: "uint16"
   strict: false
   save_element_tiff: false
-  # Optional delay between BCF/BMP save and HyMapGetElementData numeric readback.
 
-  # Useful for testing whether larger maps need ESPRIT finalization time.
-  delay_s: 0.0
+
 

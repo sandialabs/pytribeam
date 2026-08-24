@@ -107,7 +107,8 @@ Important: do not use immediate direct `.bcf` byte reads as a test requirement. 
 
 ## ESPRIT interaction during active scans
 
-During an active HyperMap scan, ESPRIT may appear locked or unresponsive. In practice, do not assume an operator or another API client can interact with ESPRIT normally while a scan is running.
+During an active HyperMap scan, ESPRIT may appear locked or unresponsive. In practice, do not assume an operator or another API client can interact with ESPRIT normally while a scan is running. On tested systems, interacting with the ESPRIT GUI while Python/API workflows were active often made the GUI appear frozen, even though repeated API mapping calls could still complete.
+
 
 The wrapper polls scan state with `HyMapGetStateEx`. On normal completion it calls `HyMapStop(..., discard=False)` before saving outputs. If polling raises an exception or the configured timeout is exceeded, the wrapper now attempts a best-effort `HyMapStop(..., discard=True)` before re-raising the original error.
 
@@ -115,7 +116,33 @@ This is best-effort recovery only. If ESPRIT itself is blocked inside a long acq
 
 For manual/operator recovery scripts, `BrukerEDSController.stop_map(discard=True)` is available as a direct stop attempt for the current HyperMap acquisition.
 
+Recommended user guidance: start ESPRIT, then avoid interacting with the ESPRIT GUI while pytribeam is connected and especially while acquisition is active. Wait for the Python workflow to finish and park/cleanup messages to complete before using the GUI.
+
+## Bruker map dimensions and dwell time
+
+ESPRIT documentation describes map resolution primarily as an x-axis value; y-axis resolution is derived from microscope installation/aspect ratio. The low-level API accepts explicit width and height, but users should prefer validated full-frame dimension pairs for their installation.
+
+On one tested hardware system, full-frame dimensions were:
+
+```text
+64 x 43
+100 x 66
+200 x 133
+400 x 266
+600 x 399
+800 x 533
+1000 x 666
+2000 x 1332
+```
+
+These approximately follow `height_px = floor(width_px * 2 / 3)`, but this relationship may be installation-specific.
+
+`pixel_time_us` is the map dwell/pixel time passed to Bruker. Hardware testing showed non-power-of-two values such as 100 microseconds can work, so pytribeam validates only that this value is a positive integer. Supported values and any internal ESPRIT rounding/normalization should be validated on the target system.
+
+`real_time_s` applies only to simple maps using `HyMapStart`/`HyMapStartEx`. It is not used by profile maps because the available `HyMapStartWithProfile` API does not expose a RealTime argument.
+
 ## Running true hardware smoke tests
+
 
 
 Only run these tests after confirming the microscope/detector state is safe. They may move the EDS detector.
@@ -194,42 +221,11 @@ The runner records:
 - `.bmp` path and size
 - per-element readback success/error
 - acquisition elapsed time
-- configured readback delay
 - readback elapsed time
 
 
-### Matrix runner numeric readback delay
-
-The YAML supports an optional delay before numeric readback:
-
-```yaml
-readback:
-  enabled: true
-  dtype: "uint16"
-  strict: false
-  delay_s: 5.0
-```
-
-This delay occurs after acquisition/save/export and before calling `HyMapGetElementData`. It is useful for testing whether larger maps need ESPRIT finalization time before immediate API readback.
-
-For a first delay test on the smallest failing size, run one-element cases such as:
-
-```yaml
-matrix:
-  resolutions:
-    - [800, 533]
-  element_counts: [1]
-
-readback:
-  enabled: true
-  dtype: "uint16"
-  strict: false
-  delay_s: 5.0
-```
-
-If `delay_s: 5.0` still fails, repeat with `15.0` or `30.0` before concluding it is not simply a finalization-delay issue.
-
 ### Matrix runner detector motion
+
 
 
 The YAML has:
@@ -374,10 +370,44 @@ Validate `.npy` outputs by:
 - dtype is `uint16`
 - optional statistics such as min/max/sum/nonzero
 
-At present, `.npy` is the authoritative pytribeam numeric element-map output. Rendered `.bmp` output from ESPRIT is useful for quick visual checks but should not be treated as authoritative scientific numeric data. If needed, we can add optional TIFF export of the same numeric arrays later; `.bmp` is less suitable for scientific output because it usually implies display scaling/quantization.
+At present, `.npy` is the authoritative pytribeam numeric element-map output. If `save_element_tiff: true`, the same successful numeric arrays are also saved as 16-bit grayscale `.tiff` files for portable image inspection. Rendered `.bmp` output from ESPRIT is useful for quick visual checks but should not be treated as authoritative scientific numeric data because it usually implies display scaling/quantization.
 
+
+
+## Runtime preflight and detector index discovery
+
+Python must load local Bruker DLLs with `ctypes`. Operator-facing scripts now run a runtime preflight that checks:
+
+```text
+session.dll_dir exists
+Bruker.API.Esprit64.dll exists
+```
+
+`Bruker.API.Logging64.dll` is optional by default.
+
+Most tested systems use:
+
+```yaml
+detector:
+  detector_index: 1
+```
+
+To probe detector indices on a system, run:
+
+```powershell
+python src/pytribeam/external_oem/bruker/tools/bruker_detector_probe.py --dll-dir "C:/Program Files/Bruker/Esprit API"
+```
+
+or reuse a workflow YAML session configuration:
+
+```powershell
+python src/pytribeam/external_oem/bruker/tools/bruker_detector_probe.py --config src/pytribeam/external_oem/bruker/tools/bruker_eds_workflow_test.yml
+```
+
+The tool tries detector indices `0,1,2,3,4` by default and reports which indices return a valid EDS detector position.
 
 ## Local vs TCP ESPRIT
+
 
 The Bruker DLLs must be local to the Python process because they are loaded with `ctypes`.
 

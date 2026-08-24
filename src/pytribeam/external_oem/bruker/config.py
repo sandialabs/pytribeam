@@ -13,8 +13,7 @@ from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Union
 
 import yaml
-from schema import And, Or, Schema, SchemaError
-from schema import Optional as SchemaOptional
+from schema import SchemaError
 
 from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
@@ -75,149 +74,224 @@ def load_bruker_eds_yaml(path: Union[str, Path]) -> BrukerEDSWorkflowSettings:
     )
 
 
-def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
-    """Validate top-level structure of the Bruker EDS YAML config.
+def _require_keys(section: Dict[str, Any], section_name: str, keys: Tuple[str, ...]):
+    for key in keys:
+        if key not in section:
+            path = f"{section_name}.{key}" if section_name else key
+            raise SchemaError(f"Missing required setting: {path}")
 
-    Parameters
-    ----------
-    cfg : dict
-        Parsed YAML dictionary.
 
-    Returns
-    -------
-    bool
-        True if validation passes.
-
-    Raises
-    ------
-    SchemaError
-        If required sections are missing or have wrong types.
-    """
-    top_level_schema = Schema(
-        {
-            "session": dict,
-            "output": dict,
-            "detector": dict,
-            "map": dict,
-            SchemaOptional("readback"): Or(dict, None),
-        }
-    )
-    top_level_schema.validate(cfg)
-
-    # Validate session section
-    session_schema = Schema(
-        {
-            "dll_dir": And(str, len),
-            SchemaOptional("mode"): And(str, lambda s: s in ("local", "tcp")),
-            SchemaOptional("server"): str,
-            SchemaOptional("user"): str,
-            SchemaOptional("password"): str,
-            SchemaOptional("host"): Or(str, None),
-            SchemaOptional("port"): Or(int, None),
-            SchemaOptional("close_on_exit"): bool,
-            SchemaOptional("keep_connection_open"): bool,
-        }
-    )
-    session_schema.validate(cfg["session"])
-
-    # Validate output section
-    output_schema = Schema(
-        {
-            "root_dir": And(str, len),
-            SchemaOptional("run_name"): str,
-            SchemaOptional("slice_number"): Or(int, None),
-            SchemaOptional("repeat_index"): Or(int, None),
-            SchemaOptional("save_bcf"): bool,
-            SchemaOptional("save_image"): bool,
-            SchemaOptional("image_format"): str,
-        }
-    )
-    output_schema.validate(cfg["output"])
-
-    # Validate map section
-    map_schema = Schema(
-        {
-            SchemaOptional("mode"): And(
-                str, lambda s: s.lower() in ("profile", "simple")
-            ),
-            SchemaOptional("name"): str,
-            "width_px": And(int, lambda x: x > 0),
-            "height_px": And(int, lambda x: x > 0),
-            "pixel_time_us": And(int, lambda x: x > 0),
-            SchemaOptional("real_time_s"): And(int, lambda x: x >= 0),
-            SchemaOptional("spu_device"): And(int, lambda x: x > 0),
-            SchemaOptional("save_bcf"): bool,
-            SchemaOptional("save_image"): bool,
-            SchemaOptional("image_format"): str,
-            SchemaOptional("poll_interval_s"): And(float, lambda x: x > 0),
-            SchemaOptional("max_wait_s"): And(float, lambda x: x > 0),
-            SchemaOptional("profile"): dict,
-            SchemaOptional("roi"): Or(dict, None),
-        },
-        ignore_extra_keys=True,
-    )
-    map_schema.validate(cfg["map"])
-
-    # Validate ROI if present
-    roi_cfg = cfg["map"].get("roi")
-    if roi_cfg is not None:
-        roi_schema = Schema(
-            {
-                "x_start_px": And(int, lambda x: x >= 0),
-                "y_start_px": And(int, lambda x: x >= 0),
-                "width_px": And(int, lambda x: x > 0),
-                "height_px": And(int, lambda x: x > 0),
-            }
+def _require_type(value: Any, expected_type, path: str):
+    if not isinstance(value, expected_type):
+        expected_name = getattr(expected_type, "__name__", str(expected_type))
+        raise SchemaError(
+            f"{path} must be {expected_name}; got {type(value).__name__}: {value!r}"
         )
-        roi_schema.validate(roi_cfg)
 
-        # Bounds check
-        map_w = cfg["map"]["width_px"]
-        map_h = cfg["map"]["height_px"]
-        if roi_cfg["x_start_px"] + roi_cfg["width_px"] > map_w:
+
+def _require_nonempty_str(value: Any, path: str):
+    _require_type(value, str, path)
+    if not value:
+        raise SchemaError(f"{path} must be a non-empty string")
+
+
+def _require_bool(value: Any, path: str):
+    if not isinstance(value, bool):
+        raise SchemaError(f"{path} must be true or false; got {value!r}")
+
+
+def _require_int(value: Any, path: str):
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise SchemaError(f"{path} must be an integer; got {value!r}")
+
+
+def _require_positive_int(value: Any, path: str):
+    _require_int(value, path)
+    if value <= 0:
+        raise SchemaError(f"{path} must be a positive integer; got {value}")
+
+
+def _require_nonnegative_int(value: Any, path: str):
+    _require_int(value, path)
+    if value < 0:
+        raise SchemaError(f"{path} must be a non-negative integer; got {value}")
+
+
+def _require_positive_number(value: Any, path: str):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise SchemaError(f"{path} must be a positive number; got {value!r}")
+    if value <= 0:
+        raise SchemaError(f"{path} must be a positive number; got {value}")
+
+
+def _require_nonnegative_number(value: Any, path: str):
+    if not isinstance(value, (int, float)) or isinstance(value, bool):
+        raise SchemaError(f"{path} must be a non-negative number; got {value!r}")
+    if value < 0:
+        raise SchemaError(f"{path} must be a non-negative number; got {value}")
+
+
+def _require_optional_type(section: Dict[str, Any], key: str, expected_type, path: str):
+    if key in section and section[key] is not None:
+        _require_type(section[key], expected_type, path)
+
+
+def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
+    """Validate top-level structure and semantic constraints of Bruker EDS YAML."""
+    if not isinstance(cfg, dict):
+        raise SchemaError("Bruker EDS YAML must parse to a mapping/dictionary")
+
+    _require_keys(cfg, "", ("session", "output", "detector", "map"))
+    for section_name in ("session", "output", "detector", "map"):
+        if not isinstance(cfg[section_name], dict):
+            raise SchemaError(f"{section_name} must be a mapping/dictionary")
+    if (
+        "readback" in cfg
+        and cfg["readback"] is not None
+        and not isinstance(cfg["readback"], dict)
+    ):
+        raise SchemaError("readback must be a mapping/dictionary or null")
+
+    session_cfg = cfg["session"]
+    _require_keys(session_cfg, "session", ("dll_dir",))
+    _require_nonempty_str(session_cfg["dll_dir"], "session.dll_dir")
+    mode = session_cfg.get("mode", "local")
+    _require_type(mode, str, "session.mode")
+    if mode not in ("local", "tcp"):
+        raise SchemaError(f"session.mode must be one of ['local', 'tcp']; got {mode!r}")
+    for key in ("server", "user", "password"):
+        _require_optional_type(session_cfg, key, str, f"session.{key}")
+    if "host" in session_cfg and session_cfg["host"] is not None:
+        _require_type(session_cfg["host"], str, "session.host")
+    if "port" in session_cfg and session_cfg["port"] is not None:
+        _require_int(session_cfg["port"], "session.port")
+    for key in ("close_on_exit", "keep_connection_open"):
+        if key in session_cfg:
+            _require_bool(session_cfg[key], f"session.{key}")
+
+    output_cfg = cfg["output"]
+    _require_keys(output_cfg, "output", ("root_dir",))
+    _require_nonempty_str(output_cfg["root_dir"], "output.root_dir")
+    _require_optional_type(output_cfg, "run_name", str, "output.run_name")
+    for key in ("slice_number", "repeat_index"):
+        if key in output_cfg and output_cfg[key] is not None:
+            _require_int(output_cfg[key], f"output.{key}")
+    for key in ("save_bcf", "save_image"):
+        if key in output_cfg:
+            _require_bool(output_cfg[key], f"output.{key}")
+    _require_optional_type(output_cfg, "image_format", str, "output.image_format")
+
+    detector_cfg = cfg["detector"]
+    if "detector_index" in detector_cfg:
+        _require_positive_int(detector_cfg["detector_index"], "detector.detector_index")
+    if "move_timeout_s" in detector_cfg:
+        _require_positive_number(
+            detector_cfg["move_timeout_s"], "detector.move_timeout_s"
+        )
+    if "poll_interval_s" in detector_cfg:
+        _require_positive_number(
+            detector_cfg["poll_interval_s"], "detector.poll_interval_s"
+        )
+
+    map_cfg = cfg["map"]
+    _require_keys(map_cfg, "map", ("width_px", "height_px", "pixel_time_us"))
+    map_mode = map_cfg.get("mode", "profile")
+    _require_type(map_mode, str, "map.mode")
+    map_mode = map_mode.lower().strip()
+    if map_mode not in ("profile", "simple"):
+        raise SchemaError(
+            f"map.mode must be one of ['profile', 'simple']; got {map_cfg.get('mode')!r}"
+        )
+    _require_optional_type(map_cfg, "name", str, "map.name")
+    _require_positive_int(map_cfg["width_px"], "map.width_px")
+    _require_positive_int(map_cfg["height_px"], "map.height_px")
+    _require_positive_int(map_cfg["pixel_time_us"], "map.pixel_time_us")
+    if "real_time_s" in map_cfg:
+        _require_nonnegative_int(map_cfg["real_time_s"], "map.real_time_s")
+    if "spu_device" in map_cfg:
+        _require_positive_int(map_cfg["spu_device"], "map.spu_device")
+    for key in ("save_bcf", "save_image"):
+        if key in map_cfg:
+            _require_bool(map_cfg[key], f"map.{key}")
+    _require_optional_type(map_cfg, "image_format", str, "map.image_format")
+    if "poll_interval_s" in map_cfg:
+        _require_positive_number(map_cfg["poll_interval_s"], "map.poll_interval_s")
+    if "max_wait_s" in map_cfg:
+        _require_positive_number(map_cfg["max_wait_s"], "map.max_wait_s")
+    if (
+        "profile" in map_cfg
+        and map_cfg["profile"] is not None
+        and not isinstance(map_cfg["profile"], dict)
+    ):
+        raise SchemaError("map.profile must be a mapping/dictionary")
+
+    roi_cfg = map_cfg.get("roi")
+    if roi_cfg is not None:
+        if not isinstance(roi_cfg, dict):
+            raise SchemaError("map.roi must be a mapping/dictionary or null")
+        _require_keys(
+            roi_cfg, "map.roi", ("x_start_px", "y_start_px", "width_px", "height_px")
+        )
+        _require_nonnegative_int(roi_cfg["x_start_px"], "map.roi.x_start_px")
+        _require_nonnegative_int(roi_cfg["y_start_px"], "map.roi.y_start_px")
+        _require_positive_int(roi_cfg["width_px"], "map.roi.width_px")
+        _require_positive_int(roi_cfg["height_px"], "map.roi.height_px")
+        if roi_cfg["x_start_px"] + roi_cfg["width_px"] > map_cfg["width_px"]:
             raise SchemaError(
-                f"ROI x_start_px({roi_cfg['x_start_px']}) + width_px({roi_cfg['width_px']}) "
-                f"= {roi_cfg['x_start_px'] + roi_cfg['width_px']} exceeds map width_px({map_w})"
+                "map.roi exceeds map width: "
+                f"x_start_px({roi_cfg['x_start_px']}) + width_px({roi_cfg['width_px']}) "
+                f"= {roi_cfg['x_start_px'] + roi_cfg['width_px']} > map.width_px({map_cfg['width_px']})"
             )
-        if roi_cfg["y_start_px"] + roi_cfg["height_px"] > map_h:
+        if roi_cfg["y_start_px"] + roi_cfg["height_px"] > map_cfg["height_px"]:
             raise SchemaError(
-                f"ROI y_start_px({roi_cfg['y_start_px']}) + height_px({roi_cfg['height_px']}) "
-                f"= {roi_cfg['y_start_px'] + roi_cfg['height_px']} exceeds map height_px({map_h})"
+                "map.roi exceeds map height: "
+                f"y_start_px({roi_cfg['y_start_px']}) + height_px({roi_cfg['height_px']}) "
+                f"= {roi_cfg['y_start_px'] + roi_cfg['height_px']} > map.height_px({map_cfg['height_px']})"
             )
 
-    # Validate profile elements if profile mode
-    map_mode = cfg["map"].get("mode", "profile").lower()
     if map_mode == "profile":
-        profile = cfg["map"].get("profile", {})
-        elements = profile.get("elements", [])
+        profile = map_cfg.get("profile", {})
+        elements = profile.get("elements", []) if isinstance(profile, dict) else []
+        if not isinstance(elements, list):
+            raise SchemaError("map.profile.elements must be a list")
         if not elements:
             raise SchemaError(
-                "Profile map mode requires at least one element in map.profile.elements"
+                "map.profile.elements must contain at least one element for profile maps"
             )
         if len(elements) > 51:
             raise SchemaError(
-                f"Bruker supports at most 51 elements, got {len(elements)}"
+                f"map.profile.elements supports at most 51 elements; got {len(elements)}"
             )
-
-        for i, elem in enumerate(elements):
-            elem_schema = Schema(
-                {
-                    "atomic_number": And(int, lambda x: 1 <= x <= 118),
-                    SchemaOptional("symbol"): str,
-                    SchemaOptional("line"): str,
-                    SchemaOptional("energy_keV"): And(float, lambda x: x >= 0),
-                    SchemaOptional("width"): And(float, lambda x: x > 0),
-                    SchemaOptional("display_rgb"): And(list, lambda x: len(x) == 3),
-                    SchemaOptional("rgb"): And(list, lambda x: len(x) == 3),
-                },
-                ignore_extra_keys=True,
-            )
-            try:
-                elem_schema.validate(elem)
-            except SchemaError as exc:
+        for idx, element in enumerate(elements):
+            if not isinstance(element, dict):
                 raise SchemaError(
-                    f"Validation failed for element {i} in map.profile.elements: {exc}"
+                    f"map.profile.elements[{idx}] must be a mapping/dictionary"
                 )
+            path = f"map.profile.elements[{idx}]"
+            _require_keys(element, path, ("atomic_number",))
+            _require_int(element["atomic_number"], f"{path}.atomic_number")
+            if not 1 <= element["atomic_number"] <= 118:
+                raise SchemaError(
+                    f"{path}.atomic_number must be between 1 and 118; "
+                    f"got {element['atomic_number']}"
+                )
+            _require_optional_type(element, "symbol", str, f"{path}.symbol")
+            _require_optional_type(element, "line", str, f"{path}.line")
+            if "energy_keV" in element:
+                _require_nonnegative_number(element["energy_keV"], f"{path}.energy_keV")
+            if "width" in element:
+                _require_positive_number(element["width"], f"{path}.width")
+            for rgb_key in ("display_rgb", "rgb"):
+                if rgb_key in element:
+                    rgb = element[rgb_key]
+                    if not isinstance(rgb, list) or len(rgb) != 3:
+                        raise SchemaError(f"{path}.{rgb_key} must be a 3-item RGB list")
+                    for channel_idx, channel in enumerate(rgb):
+                        _require_int(channel, f"{path}.{rgb_key}[{channel_idx}]")
+                        if not 0 <= channel <= 255:
+                            raise SchemaError(
+                                f"{path}.{rgb_key}[{channel_idx}] must be 0..255; got {channel}"
+                            )
 
     return True
 

@@ -346,6 +346,7 @@ class BrukerEDSController:
                     )
 
                 time.sleep(poll_interval_s)
+
         except BaseException:
             self._best_effort_stop_map(discard=True, log_fn=log_fn)
             raise
@@ -484,6 +485,7 @@ class BrukerEDSController:
                     raise TimeoutError(f"Map acquisition exceeded {max_wait_s} s")
 
                 time.sleep(poll_interval_s)
+
         except BaseException:
             self._best_effort_stop_map(discard=True, log_fn=log_fn)
             raise

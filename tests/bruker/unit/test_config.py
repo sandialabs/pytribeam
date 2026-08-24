@@ -1,18 +1,16 @@
 import pytest
 import yaml
-from pathlib import Path
 
 from pytribeam.external_oem.bruker.config import (
     load_bruker_eds_yaml,
-    validate_bruker_eds_config,
-    parse_session_settings,
     parse_output_settings,
     parse_readback_settings,
     parse_roi_settings,
+    parse_session_settings,
+    validate_bruker_eds_config,
 )
 from pytribeam.external_oem.bruker.types import (
     BrukerEDSProfileMapSettings,
-    BrukerEDSMapSettings,
 )
 
 
@@ -75,13 +73,13 @@ def test_validate_config_missing_map(minimal_valid_config):
 
 def test_validate_config_invalid_width(minimal_valid_config):
     minimal_valid_config["map"]["width_px"] = 0
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="map.width_px must be a positive integer"):
         validate_bruker_eds_config(minimal_valid_config)
 
 
 def test_validate_config_negative_pixel_time(minimal_valid_config):
     minimal_valid_config["map"]["pixel_time_us"] = -1
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="map.pixel_time_us must be a positive integer"):
         validate_bruker_eds_config(minimal_valid_config)
 
 
@@ -124,7 +122,7 @@ def test_validate_config_roi_exceeds_width(minimal_valid_config):
         "width_px": 20,
         "height_px": 10,
     }
-    with pytest.raises(Exception):
+    with pytest.raises(Exception, match="map.roi exceeds map width"):
         validate_bruker_eds_config(minimal_valid_config)
 
 
@@ -136,6 +134,12 @@ def test_validate_config_roi_exceeds_height(minimal_valid_config):
         "height_px": 20,
     }
     with pytest.raises(Exception):
+        validate_bruker_eds_config(minimal_valid_config)
+
+
+def test_validate_config_invalid_session_mode_message(minimal_valid_config):
+    minimal_valid_config["session"]["mode"] = "serial"
+    with pytest.raises(Exception, match="session.mode must be one of"):
         validate_bruker_eds_config(minimal_valid_config)
 
 
@@ -189,6 +193,7 @@ def test_parse_readback_settings_defaults(minimal_valid_config):
     settings = parse_readback_settings(minimal_valid_config)
     assert settings.enabled is True
     assert settings.dtype == "uint16"
+    assert settings.save_element_tiff is False
     assert settings.log_element_stats is True
 
 

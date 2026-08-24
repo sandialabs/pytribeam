@@ -8,12 +8,9 @@ Usage:
 """
 
 import argparse
-
 import sys
-
 from datetime import datetime
 from pathlib import Path
-
 
 # If package is not installed, uncomment/adjust this block.
 REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -22,6 +19,7 @@ sys.path.insert(0, str(SRC_ROOT))
 
 
 from pytribeam.external_oem.bruker.config import load_bruker_eds_yaml
+from pytribeam.external_oem.bruker.runtime import validate_bruker_runtime_environment
 from pytribeam.external_oem.bruker.workflow import run_bruker_eds_workflow
 
 
@@ -60,7 +58,9 @@ def main():
 
     log(f"Config: {config_path}")
 
-    log(f"Validated settings loaded successfully")
+    log("Validated settings loaded successfully")
+    dll_info = validate_bruker_runtime_environment(settings.session)
+    log(f"Bruker runtime preflight passed: {dll_info['esprit_dll']}")
 
     # Run the workflow
     result = run_bruker_eds_workflow(
