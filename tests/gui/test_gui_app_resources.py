@@ -18,9 +18,8 @@ def temp_resource_root(tmp_path: Path) -> Path:
     # └── docs/userguide/src/logos/
     logos_dir = tmp_path / "docs" / "userguide" / "src" / "logos"
     logos_dir.mkdir(parents=True)
-    (logos_dir / "logo_color_alt.ico").write_text("icon")
-    (logos_dir / "logo_color_dark.png").write_text("dark")
-    (logos_dir / "logo_color.png").write_text("light")
+    (logos_dir / "logo_color.ico").write_text("icon")
+    (logos_dir / "logo_color.png").write_text("logo")
 
     # └── docs/userguide/book/
     guide_dir = tmp_path / "docs" / "userguide" / "book"
@@ -73,20 +72,12 @@ class TestAppResources:
             / "userguide"
             / "src"
             / "logos"
-            / "logo_color_alt.ico"
+            / "logo_color.ico"
         )
         assert app_resources.icon_path == expected
 
     def test_logo_paths(self, app_resources: AppResources):
-        dark_expected = (
-            app_resources.base_path
-            / "docs"
-            / "userguide"
-            / "src"
-            / "logos"
-            / "logo_color_dark.png"
-        )
-        light_expected = (
+        expected = (
             app_resources.base_path
             / "docs"
             / "userguide"
@@ -94,25 +85,15 @@ class TestAppResources:
             / "logos"
             / "logo_color.png"
         )
-        assert app_resources.logo_dark_path == dark_expected
-        assert app_resources.logo_light_path == light_expected
+        assert app_resources.logo_path == expected
 
     # ------------------------------------------------------------------
     # get_logo_path()
     # ------------------------------------------------------------------
-    @pytest.mark.parametrize(
-        "theme,expected_suffix", [("dark", "dark.png"), ("light", ".png")]
-    )
-    def test_get_logo_path_valid_themes(
-        self, app_resources: AppResources, theme, expected_suffix
-    ):
-        logo_path = app_resources.get_logo_path(theme)
+    def test_get_logo_path_valid_themes(self, app_resources: AppResources):
+        logo_path = app_resources.get_logo_path()
         assert isinstance(logo_path, Path)
-        assert logo_path.name.endswith(expected_suffix)
-
-    def test_get_logo_path_invalid_theme(self, app_resources: AppResources):
-        with pytest.raises(ValueError, match="Unknown theme"):
-            app_resources.get_logo_path("unknown")
+        assert logo_path.name.endswith("logo_color.png")
 
     # ------------------------------------------------------------------
     # verify_resources() & get_missing_resources()
@@ -129,8 +110,7 @@ class TestAppResources:
         status = app_resources.verify_resources()
         assert status == {
             "icon": True,
-            "logo_dark": True,
-            "logo_light": True,
+            "logo": True,
             "user_guide": True,
         }
         assert app_resources.get_missing_resources() == []
@@ -139,7 +119,7 @@ class TestAppResources:
         self, app_resources: AppResources, monkeypatch
     ):
         # Remove the dark logo to simulate a missing file
-        (app_resources.logo_dark_path).unlink()
+        (app_resources.logo_path).unlink()
         # Patch user_guide_path to an existing file
         guide_path = (
             app_resources.base_path / "docs" / "userguide" / "book" / "index.html"
@@ -148,12 +128,11 @@ class TestAppResources:
 
         status = app_resources.verify_resources()
         assert status["icon"] is True
-        assert status["logo_dark"] is False
-        assert status["logo_light"] is True
+        assert status["logo"] is False
         assert status["user_guide"] is True
 
         missing = app_resources.get_missing_resources()
-        assert missing == ["logo_dark"]
+        assert missing == ["logo"]
 
     # ------------------------------------------------------------------
     # from_module_file()
