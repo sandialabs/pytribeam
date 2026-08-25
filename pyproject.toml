@@ -9,7 +9,7 @@ name = "pytribeam"
 # version = "0.0.2"  # Deprecated static version, now determined by VCS
 dynamic = ["version"]  # Removed static version, now determined by VCS
 description = "automated data collection on TriBeam tools"
-requires-python = ">=3.8.12,<3.9"
+requires-python = ">=3.8.12, <=3.11.14"
 readme = "README.md"
 authors = [
   { name="Andrew Polonsky", email="apolon@sandia.gov" },
@@ -38,6 +38,7 @@ dev = [
     "interrogate",
     "requests",
     "ruff",
+    "coverage==7.5.1",
 ]
 
 # pdoc configuration
@@ -119,27 +120,16 @@ branch = true
 relative_files = true
 source = [
     "src",
-    "C:/Users/User/Desktop/Polonsky/____SOFTWARE/pytribeam/src",
-    "C:/Users/User/Documents/pytribeam/src",
-    "C:/Users/apolon/Codebases/pytribeam/src",
 ]
 omit = [
-    "src/pytribeam/GUI/CustomTkinterWidgets/*",
-    "src/pytribeam/GUI/runner_util/ui_components.py",
-    "src/pytribeam/GUI/runner.py",
-    "src/pytribeam/GUI/config_ui/App.py",
-    "src/pytribeam/GUI/*"
+    "src/pytribeam/GUI/*",
+    "src/pytribeam/_version.py",
+    "src/pytribeam/doc_examples.py",
 ]
 
 [tool.coverage.paths]
 pytribeam = [
     "src/pytribeam",
-    "*/pytribeam/src/pytribeam",
-    "*\\pytribeam\\src\\pytribeam",
-    "C:\\Users\\User\\Desktop\\Polonsky\\____SOFTWARE\\pytribeam-dev\\src\\pytribeam",
-    "C:\\Users\\User\\Documents\\pytribeam\\src\\pytribeam",
-    "C:\\Users\\apolon\\Codebases\\pytribeam\\src\\pytribeam",
-    "E:\\pytribeam\\src\\pytribeam",
 ]
 
 [tool.coverage.report]  # Coverage is used for test coverage reports

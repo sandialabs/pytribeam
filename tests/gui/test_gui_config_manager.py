@@ -4,13 +4,11 @@
 import json
 import os
 import time
-from pathlib import Path
-import pathlib
-
-pathlib.PosixPath = pathlib.WindowsPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 import pytest
 
+from src.pytribeam.GUI.common import config_manager
 from src.pytribeam.GUI.common.config_manager import AppConfig
 
 
@@ -45,14 +43,14 @@ class TestAppConfigFromEnv:
     """Tests for the ``AppConfig.from_env`` class method."""
 
     @pytest.mark.parametrize(
-        "os_name, env_var, expected_subdir",
+        "os_name, env_var, expected_subdir, path_cls",
         [
-            ("nt", "LOCALAPPDATA", "AppData"),
-            ("posix", "XDG_DATA_HOME", ".local/share"),
+            ("nt", "LOCALAPPDATA", "AppData", PureWindowsPath),
+            ("posix", "XDG_DATA_HOME", ".local/share", PurePosixPath),
         ],
     )
     def test_respects_environment(
-        self, monkeypatch, tmp_path, os_name, env_var, expected_subdir
+        self, monkeypatch, tmp_path, os_name, env_var, expected_subdir, path_cls
     ):
         # Arrange – set environment to a known temporary location
         fake_base = tmp_path / "fake_base"
@@ -60,13 +58,18 @@ class TestAppConfigFromEnv:
         monkeypatch.setenv(env_var, str(fake_base))
         # monkeypatch os.name – it is read‑only, so we replace the attribute on the os module
         monkeypatch.setattr(os, "name", os_name, raising=False)
+        # Use the OS-independent "Pure" path classes so the "nt" case is testable
+        # on any host: a real concrete WindowsPath can't be instantiated outside
+        # Windows (and vice versa for PosixPath), but PureWindowsPath/PurePosixPath
+        # do the same path-string logic without that OS restriction.
+        monkeypatch.setattr(config_manager, "Path", path_cls)
 
         # Act
         cfg = AppConfig.from_env(app_name="myapp")
 
         # Assert – the data_dir and log_dir should be sub‑directories of the fake base
-        assert cfg.data_dir == Path(fake_base) / "myapp" / "data"
-        assert cfg.log_dir == Path(fake_base) / "myapp" / "logs"
+        assert cfg.data_dir == path_cls(fake_base) / "myapp" / "data"
+        assert cfg.log_dir == path_cls(fake_base) / "myapp" / "logs"
 
     def test_default_values(self, monkeypatch, tmp_path):
         # Ensure defaults are set correctly when only the base paths are provided.
@@ -74,6 +77,7 @@ class TestAppConfigFromEnv:
         fake_base.mkdir()
         monkeypatch.setenv("LOCALAPPDATA", str(fake_base))
         monkeypatch.setattr(os, "name", "nt", raising=False)
+        monkeypatch.setattr(config_manager, "Path", PureWindowsPath)
 
         cfg = AppConfig.from_env(app_name="app")
         assert cfg.default_theme == "dark"

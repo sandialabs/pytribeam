@@ -54,6 +54,8 @@ def test_generate_coverage_report(tmp_path):
     root = ET.Element("coverage")
     root.attrib["lines-valid"] = "100"
     root.attrib["lines-covered"] = "85"
+    root.attrib["branches-valid"] = "100"
+    root.attrib["branches-covered"] = "85"
     tree = ET.ElementTree(root)
     tree.write(input_file)
 
@@ -73,6 +75,5 @@ def test_generate_coverage_report(tmp_path):
     assert "85.00%" in html
     assert "<strong>Lines Covered:</strong> 85" in html
     assert "<strong>Total Lines:</strong> 100" in html
-    assert "85.00%" in html
-    assert "<strong>Lines Covered:</strong> 85" in html
-    assert "<strong>Total Lines:</strong> 100" in html
+    assert "<strong>Branches Covered:</strong> 85" in html
+    assert "<strong>Total Branches:</strong> 100" in html

@@ -1,5 +1,5 @@
 # This workflow will not run without Autoscript.
-name: Test-Docker
+name: CI (Continuous Integration)
 
 on:
   push:
@@ -63,24 +63,200 @@ jobs:
           name: report-lint
           path: report_lint.txt
 
-      - name: Run Pytest
-        run: uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+      - name: If .coverage exists
+        if: ${{ hashFiles('.coverage') != '' }}
+        run: |
+          echo "Found a .coverage file"
+          uv run coverage html -d htmlcov
+          uv run coverage xml -o report_coverage.xml
 
-      - name: Upload Coverage Artifacts
+      - name: If no .coverage exists
+        if: ${{ hashFiles('.coverage') == '' }}
+        run: |
+          echo "Did not find a .coverage file"
+          uv run pytest tests/test_example.py tests/cicd/test_badges.py tests/cicd/ --cov=src/pytribeam --cov-report=xml:report_coverage.xml --cov-report=html:htmlcov
+
+      - name: Upload HTML Coverage Artifact
         uses: actions/upload-artifact@v7
         with:
           name: report-coverage
           path: |
-            report_coverage.xml
             htmlcov/
+            report_coverage.xml
 
+  api-docs:
+    name: Build API Documentation with pdoc
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # Just pick one of the below AS versions at a time
+        # Full matrix test would require separate artifacts
+        # This was deemed unnecessary for api docs
+        include:
+          # AS 4.8
+          - image_tag: autoscript_4.8.1-py3.8.12
+            wheelset: autoscript_4.8.1-py3.8.12
+          # # AS 4.10
+          # - image_tag: autoscript_4.10.0-py3.8.12
+          #   wheelset: autoscript_4.10.0-py3.8.12
+          # # AS 4.11
+          # - image_tag: autoscript_4.11.0-py3.8.18
+          #   wheelset: autoscript_4.11.0-py3.8.18
+          # # AS 4.13
+          # - image_tag: autoscript_4.13.1-py3.11.14
+          #   wheelset: autoscript_4.13.1-py3.11.14
+
+    # Pull the AutoScript Python CI image.
+    # This image contains /opt/venv, vendor wheels, uv, and install-pytribeam-ci-deps.
+    container:
+      image: ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:${{ matrix.image_tag }}
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    env:
+      WHEELSET: ${{ matrix.wheelset }}
+      UV_SYSTEM_CERTS: "true"
+      UV_LINK_MODE: copy
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Verify base image environment
+        run: |
+          echo "Selected image tag: ${{ matrix.image_tag }}"
+          echo "Selected wheelset: ${WHEELSET}"
+          /opt/venv/bin/python --version
+          uv --version
+          ls -la /opt/vendor-wheels/${WHEELSET}
+          /opt/venv/bin/python -c "import pandas; print('base image pandas ok')"
+
+      - name: Install project dependencies, vendor wheels, and pdoc deps
+        run: |
+          # Avoid uv using the image-level /opt/venv as the project environment.
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
+
+          # Create project .venv using the Python version from the selected image.
+          uv sync --all-extras --dev --python /opt/venv/bin/python
+
+          # Install vendor wheels and requirements-pdoc.txt into project .venv.
+          install-pytribeam-ci-deps .venv/bin/python "${WHEELSET}"
+
+          # Verify the project .venv is using the expected Python and imports.
+          .venv/bin/python --version
+          .venv/bin/python -c "import pandas; print('project .venv pandas ok')"
+          .venv/bin/python -c "import autoscript_sdb_microscope_client; print('autoscript_sdb_microscope_client import ok')"
+          .venv/bin/python -c "import pytribeam; print('pytribeam import ok')"
+
+      - name: Generate CLI Documentation
+        run: |
+          mkdir -p docs/generated/cli
+
+          .venv/bin/pytribeam > docs/generated/cli/pytribeam.txt
+          .venv/bin/pytribeam_info > docs/generated/cli/pytribeam-info.txt
+          .venv/bin/pytribeam_exp --help > docs/generated/cli/pytribeam-exp-help.txt
+
+          echo "Generated CLI docs:"
+          ls -la docs/generated/cli
+
+      - name: Build API Documentation
+        run: |
+          unset VIRTUAL_ENV || true
+          unset UV_PROJECT_ENVIRONMENT || true
+          unset UV_NATIVE_TLS || true
+
+          rm -rf docs/api
+          .venv/bin/pdoc src/pytribeam -o docs/api
+
+      # This step must run AFTER pdoc generates docs/api and BEFORE upload-artifact.
+      # It copies custom CSS/JS into the generated API docs and injects <link>/<script>
+      # tags into every generated HTML file.
+      - name: Apply pdoc light/dark theme toggle
+        run: |
+          mkdir -p docs/api/assets
+          cp docs/pdoc-theme/pdoc-custom.css docs/api/assets/pdoc-custom.css
+          cp docs/pdoc-theme/pdoc-theme-toggle.js docs/api/assets/pdoc-theme-toggle.js
+
+          .venv/bin/python - <<'PY'
+          from pathlib import Path
+          import os
+
+          root = Path("docs/api")
+          css = root / "assets" / "pdoc-custom.css"
+          js = root / "assets" / "pdoc-theme-toggle.js"
+
+          if not css.exists():
+              raise FileNotFoundError(css)
+
+          if not js.exists():
+              raise FileNotFoundError(js)
+
+          html_files = list(root.rglob("*.html"))
+          if not html_files:
+              raise RuntimeError("No HTML files found under docs/api")
+
+          for html in html_files:
+              rel_css = os.path.relpath(css, html.parent).replace(os.sep, "/")
+              rel_js = os.path.relpath(js, html.parent).replace(os.sep, "/")
+
+              css_tag = f'  <link rel="stylesheet" href="{rel_css}">\n'
+              js_tag = f'  <script src="{rel_js}"></script>\n'
+
+              text = html.read_text(encoding="utf-8")
+
+              if "pdoc-custom.css" not in text:
+                  if "</head>" not in text:
+                      raise RuntimeError(f"No </head> tag found in {html}")
+                  text = text.replace("</head>", f"{css_tag}</head>")
+
+              if "pdoc-theme-toggle.js" not in text:
+                  if "</body>" in text:
+                      text = text.replace("</body>", f"{js_tag}</body>")
+                  else:
+                      text += f"\n{js_tag}\n"
+
+              html.write_text(text, encoding="utf-8")
+
+          print(f"Applied pdoc theme toggle to {len(html_files)} HTML files.")
+          PY
+
+
+      - name: Upload API Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-api
+          path: docs/api
+
+      - name: Upload CLI Documentation Artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/generated/cli
+  
   github-pages:
     name: Create Github Pages
-    needs: test
+    needs:
+      - test
+      - api-docs
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/gui_tests'
     permissions:
       contents: write  # Required to push commits to the gh-pages branch
+      pages: write     # Required for GitHub Pages deployment
+      id-token: write  # Required for OIDC-based Pages deployment
       packages: read   # Required to pull the docs-builder container image
 
     # Serialize all gh-pages deployments across branches into a single queue.
@@ -91,9 +267,11 @@ jobs:
       group: gh-pages-deploy
       cancel-in-progress: false
 
-    # Pull the prebuilt tools image tagged by branch name: dev/main/docker
+    # Pull the prebuilt mdBook/tools image.
+    # This image contains mdbook, mdbook-cmdrun, mdbook-katex, mdbook-alerts,
+    # and support tools.
     container:
-      image: ghcr.io/${{ github.repository_owner }}/docs-builder:${{ github.ref_name }}
+      image: ghcr.io/${{ github.repository_owner }}/docs-builder:mdbook-0.4.52
       credentials:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
@@ -124,26 +302,40 @@ jobs:
         with:
           name: report-coverage
 
-      # mdbook + preprocessors are already in the container now
+      - name: Download API Documentation
+        uses: actions/download-artifact@v7
+        with:
+          name: docs-api
+          path: docs/api
+
+      - name: Download CLI Documentation
+        uses: actions/download-artifact@v7
+        with:
+          name: docs-cli
+          path: docs/userguide/src/generated/cli
+
+      # mdbook + preprocessors are already in the docs-builder container.
       - name: Build User Guide
         run: mdbook build
 
-      # pdoc requires an offline-only Python module and cannot run in CI.
-      # API docs are generated manually and committed directly to gh-pages.
-      # - name: Build API Documentation
-      #   run: uv run pdoc src/pytribeam -o docs/api
-
       - name: Set Deploy Directory
         run: |
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            echo "DEPLOY_SUBDIR=main" >> $GITHUB_ENV
-          else
-            echo "DEPLOY_SUBDIR=dev" >> $GITHUB_ENV
-          fi
+          case "${{ github.ref_name }}" in
+            main)
+              echo "DEPLOY_SUBDIR=main" >> "$GITHUB_ENV"
+              ;;
+            dev)
+              echo "DEPLOY_SUBDIR=dev" >> "$GITHUB_ENV"
+              ;;
+            *)
+              echo "Unsupported branch for deploy: ${{ github.ref_name }}"
+              exit 1
+              ;;
+          esac
 
       - name: Create badges
         run: |
-          # Lint badge (now using Python script)
+          # Lint badge
           uv run python src/pytribeam/cicd/badge_lint.py \
             --input_file report_lint.txt \
             --output_dir badges \
@@ -173,7 +365,7 @@ jobs:
         # │   └── docs/
         # │       ├── userguide/
         # │       │   └── book/         (User Manual)
-        # │       └── api/              (API Reference)
+        # │       └── api/              (API Reference generated by pdoc)
         # └── dev/                      (Development content, deployed from dev)
         #     ├── badges/
         #     │   ├── lint.svg
@@ -187,22 +379,22 @@ jobs:
         #     └── docs/
         #         ├── userguide/
         #         │   └── book/         (User Manual)
-        #         └── api/              (API Reference)
+        #         └── api/              (API Reference generated by pdoc)
 
         run: |
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/lint
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/badges
-          
+
           # Copy User Manual
           mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide
           cp -r docs/userguide/book pages/${{ env.DEPLOY_SUBDIR }}/docs/userguide/
 
-          # API docs are manually maintained on gh-pages (see pdoc note above).
-          # mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
-          # cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
-          
-          # Create badges (Must be done before dashboard or concurrently)
+          # Copy API Documentation generated by api-docs job
+          mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
+          cp -r docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
+
+          # Create badges
           uv run python src/pytribeam/cicd/report_badges.py \
             --lint_file report_lint.txt \
             --coverage_file report_coverage.xml \
@@ -236,14 +428,18 @@ jobs:
             --ref_name "${{ github.ref_name }}" \
             --github_sha "${{ github.sha }}" \
             --output_file pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/index.html
-            
+
           # Copy the detailed HTML coverage report
           cp -r htmlcov pages/${{ env.DEPLOY_SUBDIR }}/reports/coverage/
-          
+
           # Validation check to ensure files exist
           ls -R pages/
           cat pages/${{ env.DEPLOY_SUBDIR }}/badges/lint.svg || echo "Lint badge missing"
           cat pages/${{ env.DEPLOY_SUBDIR }}/badges/coverage.svg || echo "Coverage badge missing"
+
+          # Validation check to ensure API docs exist
+          test -d pages/${{ env.DEPLOY_SUBDIR }}/docs/api || (echo "API docs missing" && exit 1)
+          ls -la pages/${{ env.DEPLOY_SUBDIR }}/docs/api
 
       # Push built artifacts directly to the gh-pages branch rather than using
       # actions/deploy-pages, which replaces the entire site on every run and
@@ -260,14 +456,10 @@ jobs:
             https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git \
             gh-pages-deploy
 
-          # Preserve manually-maintained content that CI cannot regenerate
-          # (e.g. API docs built offline with pdoc). Copy from the existing
-          # gh-pages subdir into the pages/ staging area before wiping, so
-          # the content survives the replace-and-push cycle.
-          if [ -d gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/docs/api ]; then
-            mkdir -p pages/${{ env.DEPLOY_SUBDIR }}/docs/api
-            cp -r gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}/docs/api/. pages/${{ env.DEPLOY_SUBDIR }}/docs/api/
-          fi
+          # API docs are now generated by CI in the api-docs job and copied into
+          # pages/${{ env.DEPLOY_SUBDIR }}/docs/api above. Do not preserve the
+          # old gh-pages copy here; doing so would overwrite newly generated API
+          # docs with stale manually-maintained content.
 
           rm -rf gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
           mkdir -p gh-pages-deploy/${{ env.DEPLOY_SUBDIR }}
@@ -277,6 +469,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add .
+
           # Skip commit if nothing changed (e.g. re-run with no code changes)
           git diff --staged --quiet || git commit -m "Deploy ${{ env.DEPLOY_SUBDIR }} docs from ${{ github.sha }}"
-          git push origin gh-pages
+
+          # Retry around git push to reduce intermittent queue/race/network issues
+          n=0
+          until [ "$n" -ge 3 ]
+          do
+            git push origin gh-pages && break
+            n=$((n+1))
+            echo "Push failed, retry $n/3 after rebase..."
+            git pull --rebase origin gh-pages || true
+            sleep $((5*n))
+          done
+          [ "$n" -lt 3 ] || (echo "Failed to push gh-pages after retries" && exit 1)

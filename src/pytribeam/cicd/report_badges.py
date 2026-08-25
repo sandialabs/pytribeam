@@ -33,9 +33,11 @@ def get_coverage_score(input_file: str) -> str:
         root = tree.getroot()
         lines_valid = float(root.attrib.get("lines-valid", 0))
         lines_covered = float(root.attrib.get("lines-covered", 0))
+        branches_valid = float(root.attrib.get("branches-valid", 0))
+        branches_covered = float(root.attrib.get("branches-covered", 0))
         if lines_valid == 0:
             return "0.0"
-        return f"{(lines_covered / lines_valid * 100):.1f}"
+        return f"{((lines_covered + branches_covered) / (lines_valid + branches_valid) * 100):.1f}"
     except Exception:
         return "0.0"
 
