@@ -1,0 +1,88 @@
+# Template standalone Bruker EDS workflow YAML for CUSTOM-step fallback use.
+#
+# This file is consumed by run_bruker_eds_custom_step.py. The main pytribeam
+# YAML only decides where in the slice workflow the custom step runs; Bruker
+# session, detector, map, output, and readback settings live here.
+#
+# Path rules:
+# - session.dll_dir must exist on the machine running Python, even in TCP mode.
+# - Bruker.API.Esprit64.dll must exist in session.dll_dir.
+# - output.root_dir is interpreted by the ESPRIT/Bruker machine.
+
+session:
+  dll_dir: "C:/Program Files/Bruker/Esprit API"
+  mode: local
+  server: "Lokaler Server"
+  user: "edx"
+  password: "edx"
+  host: null
+  port: null
+  close_on_exit: false
+  keep_connection_open: true
+
+output:
+  root_dir: "C:/Users/your_user/Documents/pytribeam_bruker_custom_test/EDS"
+  run_name: "eds_workflow_test"
+
+detector:
+  # If uncertain, run bruker_detector_probe.py before using hardware motion.
+  detector_index: 1
+  verify_park_before: true
+  move_to_acquire_before: true
+  park_after: true
+  move_timeout_s: 60.0
+  poll_interval_s: 0.5
+
+map:
+  mode: profile
+  name: "workflow_test_map"
+  width_px: 64
+  height_px: 48
+  pixel_time_us: 1024
+  real_time_s: 0
+  spu_device: 1
+
+  save_bcf: true
+  save_image: true
+  image_format: "bmp"
+
+  # Optional ROI. Comment out for full-frame. ROI must fit within width_px x height_px.
+  roi:
+    x_start_px: 5
+    y_start_px: 5
+    width_px: 20
+    height_px: 30
+
+  profile:
+    elements:
+      - atomic_number: 14
+        symbol: "Si"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+      - atomic_number: 26
+        symbol: "Fe"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+      - atomic_number: 13
+        symbol: "Al"
+        line: "KA"
+        energy_keV: 0.0
+        width: 1.0
+
+    image_filter: 0
+    map_filter: 0
+    map_filter_width: 3
+    color_mix_method: 0
+    brightness: 0.0
+    gamma: 1.0
+    color_saturation: 1.0
+    absolute_scaling: false
+    normalization: true
+    deconvolution: false
+
+readback:
+  save_element_npy: true
+  save_element_images: true
+  log_element_stats: true

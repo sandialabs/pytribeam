@@ -1,0 +1,139 @@
+# Template main pytribeam workflow YAML for Bruker EDS via a CUSTOM step.
+#
+# Recommended workflow:
+# 1. Use pytribeam_gui to build/save your normal experiment YAML.
+# 2. Add or keep a custom step at the point where Bruker EDS should run.
+# 3. Run prepare_bruker_eds_custom_step.py to fill script_path,
+#    executable_path, and script_args automatically.
+# 4. Run pytribeam with the generated main YAML.
+#
+# This template is intentionally simulator-friendly and mirrors a known working
+# test run with simulator microscope + simulator Bruker/ESPRIT.
+
+config_file_version: 1.0
+
+general:
+  slice_thickness_um: 10.0
+  max_slice_num: 3
+  pre_tilt_deg: 0.0
+  sectioning_axis: +Y_FIB
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost
+  connection_port: null
+
+  # Important for the Bruker CUSTOM fallback: keep both OEMs disabled so the
+  # main pytribeam workflow does not call the legacy TFS Laser API EDS/EBSD path.
+  EBSD_OEM: null
+  EDS_OEM: null
+
+  exp_dir: C:/Users/your_user/Documents/pytribeam_bruker_custom_test
+  h5_log_name: log
+  step_count: 2
+
+steps:
+  image_1:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fib_mill
+        initial_position:
+          x_mm: 1.0
+          y_mm: 1.998824
+          z_mm: 5.001618
+          t_deg: 0.0
+          r_deg: -50.0
+      step_number: 1
+
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.2
+      contrast: 0.2
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: 768x512
+
+    bit_depth: 8
+
+  custom_1:
+    step_general:
+      step_type: custom
+      frequency: 1
+      stage:
+        rotation_side: fib_mill
+        initial_position:
+          x_mm: 1.0
+          y_mm: 1.998824
+          z_mm: 5.001618
+          t_deg: 0.0
+          r_deg: -50.0
+      step_number: 2
+
+    # The custom runner uses these image-style settings to set microscope
+    # beam/scan conditions before Bruker acquisition. These fields are not part
+    # of the normal custom-step GUI form, so add them manually or with
+    # prepare_bruker_eds_custom_step.py --copy-imaging-from image_1.
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.2
+      contrast: 0.2
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: 768x512
+
+    bit_depth: 8
+
+    # Replace these paths manually, or run prepare_bruker_eds_custom_step.py to
+    # populate them from command-line arguments.
+    executable_path: C:/Program Files/Enthought/Python/envs/AutoScript/python.exe
+    script_path: C:/path/to/pytribeam/src/pytribeam/external_oem/bruker/tools/run_bruker_eds_custom_step.py
+    script_args:
+      - --bruker-config
+      - C:/path/to/bruker_eds_workflow.yml
+      - --image-config
+      - C:/path/to/this_main_config.yml
+      - --image-step
+      - custom_1
+      - --image-step-number
+      - 2
+      - --log-path
+      - C:/path/to/bruker_custom_step_debug.log

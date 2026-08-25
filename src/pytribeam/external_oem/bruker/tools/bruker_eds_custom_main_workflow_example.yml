@@ -63,7 +63,7 @@ steps:
       # - --log-path
       # - C:/path/to/pytribeam_experiment/bruker_eds_custom.log
 
-            # Optional: capture an AutoScript preview image before Bruker mapping.
+      # Optional: capture an AutoScript preview image before Bruker mapping.
       # Preview imaging requires explicit AutoScript detector setup.
       # Use only after site-specific collision review.
       # - --set-autoscript-detector

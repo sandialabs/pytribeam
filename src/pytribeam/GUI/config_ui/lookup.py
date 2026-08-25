@@ -360,8 +360,7 @@ general_lut.add_entry("EBSD_OEM", deepcopy(ebsd_oem))
 general_lut.add_entry("EDS_OEM", deepcopy(eds_oem))
 general_lut.add_entry("exp_dir", deepcopy(exp_dir))
 general_lut.add_entry("h5_log_name", deepcopy(h5_log_name))
-# TODO bring these back
-# general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
+general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
 general_lut.add_entry("step_count", deepcopy(step_count))
 
 ### STAGE ###

@@ -1,8 +1,9 @@
 """Run Bruker EDS from a pytribeam CUSTOM step.
 
-This script is a conservative fallback path for Bruker EDS integration. It is
-intended to be launched by pytribeam's existing CUSTOM step machinery while the
-full OEM-aware EDS workflow dispatch is developed.
+This script is a conservative fallback/bridge path for Bruker EDS integration.
+It is intended to be launched by pytribeam's existing CUSTOM step machinery
+before full native OEM-aware EDS main-loop dispatch is available. It still uses
+the standalone Bruker workflow runner and standalone Bruker YAML configuration.
 
 Safety model
 ------------
@@ -99,9 +100,21 @@ import pytribeam.types as tbt
 import pytribeam.utilities as ut
 from pytribeam.external_oem.bruker.config import load_bruker_eds_yaml
 from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionController
+from pytribeam.external_oem.bruker.runtime import validate_bruker_runtime_environment
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import BrukerDetectorMotionSettings
 from pytribeam.external_oem.bruker.workflow import run_bruker_eds_workflow
+
+BRUKER_RUNTIME_OPERATOR_HINTS = (
+    "Check that session.dll_dir exists on the machine running Python.",
+    "Check that Bruker.API.Esprit64.dll exists in session.dll_dir.",
+    "If using TCP mode, the Bruker API DLL still must exist locally on the "
+    "Python machine.",
+    "ESPRIT may be local or remote, but ctypes requires local Bruker API DLLs.",
+    "Bruker output paths are interpreted by the ESPRIT/Bruker machine.",
+    "Do not interact with the ESPRIT GUI during pytribeam/Bruker API acquisition.",
+    "Use bruker_detector_probe.py if the Bruker detector_index is uncertain.",
+)
 
 
 class TextLogger:
@@ -140,6 +153,31 @@ def _read_yaml(path: Path) -> dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"YAML file did not contain a dictionary: {path}")
     return data
+
+
+def _run_bruker_runtime_preflight(settings, log: TextLogger) -> dict[str, str]:
+    """Validate local Bruker DLL availability before any Bruker session exists."""
+    log("Checking local Bruker API DLL runtime preflight")
+    try:
+        dll_info = validate_bruker_runtime_environment(settings.session)
+    except FileNotFoundError as exc:
+        log(f"ERROR: Bruker runtime preflight failed: {exc}")
+        log("Operator checks before retrying:")
+        for hint in BRUKER_RUNTIME_OPERATOR_HINTS:
+            log(f"  - {hint}")
+        raise RuntimeError(
+            "Bruker runtime preflight failed before creating a BrukerSession. "
+            "Fix session.dll_dir / local Bruker API DLL availability on the "
+            "Python host and retry. Operator checks: "
+            + " ".join(BRUKER_RUNTIME_OPERATOR_HINTS)
+        ) from exc
+
+    log(f"Bruker runtime preflight passed: {dll_info['esprit_dll']}")
+    if "logging_dll" in dll_info:
+        log(f"Optional Bruker logging DLL found: {dll_info['logging_dll']}")
+    else:
+        log("Optional Bruker logging DLL not found; continuing")
+    return dll_info
 
 
 def _load_slice_number(
@@ -385,8 +423,19 @@ def _retract_autoscript_controlled_detectors(
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Run Bruker EDS from a pytribeam CUSTOM step. Values may "
-        "also be supplied by PYTRIBEAM_* environment variables."
+        description=(
+            "Run Bruker EDS from a pytribeam CUSTOM step using the standalone "
+            "Bruker workflow YAML as a fallback/bridge before native main-loop "
+            "integration. Values may also be supplied by PYTRIBEAM_* "
+            "environment variables."
+        ),
+        epilog=(
+            "Runtime notes: session.dll_dir and Bruker.API.Esprit64.dll must "
+            "exist on the Python host even in TCP mode; Bruker output paths are "
+            "interpreted by the ESPRIT/Bruker machine; do not interact with the "
+            "ESPRIT GUI during acquisition; use bruker_detector_probe.py if the "
+            "detector index is uncertain."
+        ),
     )
     parser.add_argument(
         "--bruker-config",
@@ -494,6 +543,11 @@ def main() -> int:
 
     log("=== Bruker EDS CUSTOM-step fallback start ===")
     log(f"Bruker config: {bruker_config_path}")
+    log("Using standalone Bruker workflow runner and Bruker YAML config")
+    log("Reminder: Bruker output paths are interpreted by the ESPRIT/Bruker machine")
+    log("Reminder: do not interact with ESPRIT GUI during API acquisition")
+
+    _run_bruker_runtime_preflight(settings=settings, log=log)
 
     slice_number = _load_slice_number(
         image_config_path=image_config_path,
@@ -547,7 +601,8 @@ def main() -> int:
             _retract_autoscript_controlled_detectors(microscope=microscope, log=log)
         else:
             log(
-                "No PYTRIBEAM_IMAGE_CONFIG/--image-config provided; skipping AutoScript imaging setup"
+                "No PYTRIBEAM_IMAGE_CONFIG/--image-config provided; "
+                "skipping AutoScript imaging setup"
             )
 
         log("Creating Bruker session")

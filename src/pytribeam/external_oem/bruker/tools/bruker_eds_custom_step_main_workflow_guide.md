@@ -16,14 +16,23 @@ This approach intentionally avoids changes to the existing Oxford/EDAX/TFS Laser
 Use these two YAML files:
 
 1. **Main pytribeam workflow YAML**
-   - Example: `bruker_eds_custom_main_workflow_example.yml`
+   - Strong template: `bruker_eds_custom_main_workflow_template.yml`
+   - Older minimal example: `bruker_eds_custom_main_workflow_example.yml`
    - Contains normal pytribeam experiment settings, stage position, and the `custom` step.
 
 2. **Standalone Bruker EDS workflow YAML**
-   - Example: `bruker_eds_workflow_test.yml`
+   - Strong template: `bruker_eds_workflow_custom_template.yml`
+   - Hardware/simulator validation example: `bruker_eds_workflow_test.yml`
    - Contains Bruker session, detector, map, ROI, output, and readback settings.
 
-The custom step runs:
+The helper script for preparing a GUI-created main YAML is:
+
+```text
+prepare_bruker_eds_custom_step.py
+```
+
+The custom step itself runs:
+
 
 ```text
 run_bruker_eds_custom_step.py
@@ -50,25 +59,58 @@ It does **not** use TFS Laser API.
 
 Bruker detector motion is handled by the standalone Bruker module.
 
+## Recommended setup helper
+
+The least error-prone workflow is to let the GUI produce a normal main YAML, then run `prepare_bruker_eds_custom_step.py` to fill in the custom-step paths and arguments.
+
+Example using a GUI-created `config.yml`, standalone `bruker_eds_workflow.yml`, and custom step named `custom_1`:
+
+```powershell
+python src/pytribeam/external_oem/bruker/tools/prepare_bruker_eds_custom_step.py `
+  --main-config C:/Users/your_user/experiment/config.yml `
+  --bruker-config C:/Users/your_user/experiment/bruker_eds_workflow.yml `
+  --custom-step custom_1 `
+  --python-exe "C:/Program Files/Enthought/Python/envs/AutoScript/python.exe" `
+  --copy-imaging-from image_1 `
+  --log-path C:/Users/your_user/experiment/bruker_custom_step_debug.log `
+  --output-main-config C:/Users/your_user/experiment/config_bruker_custom.yml
+```
+
+What the helper does:
+
+- finds the selected `custom` step by name or step number;
+- sets `executable_path`;
+- sets `script_path` to `run_bruker_eds_custom_step.py` unless overridden;
+- writes correct `script_args` for `--bruker-config`, `--image-config`, `--image-step`, and `--image-step-number`;
+- optionally copies `beam`, `detector`, `scan`, and `bit_depth` from an existing image step;
+- sets `general.EBSD_OEM: null` and `general.EDS_OEM: null` unless `--preserve-oems` is supplied.
+
+After this, run pytribeam with the generated `config_bruker_custom.yml`.
+
 ## Main workflow CUSTOM step
 
-The CUSTOM step passes configuration through generic `script_args`; no environment variables are required for normal use.
+The CUSTOM step passes configuration through generic `script_args`; no environment variables are required for normal use. If editing manually, the custom step must point to both the standalone Bruker YAML and the main pytribeam YAML.
 
-Example:
+Known-good pattern:
 
 ```yaml
 script_path: C:/path/to/pytribeam/src/pytribeam/external_oem/bruker/tools/run_bruker_eds_custom_step.py
-executable_path: C:/path/to/python.exe
+executable_path: C:/Program Files/Enthought/Python/envs/AutoScript/python.exe
 script_args:
   - --bruker-config
   - C:/path/to/bruker_eds_workflow.yml
   - --image-config
-  - C:/path/to/main_pytribeam_workflow.yml
+  - C:/path/to/this_main_pytribeam_workflow.yml
   - --image-step
-  - bruker_eds_custom
+  - custom_1
+  - --image-step-number
+  - 2
+  - --log-path
+  - C:/path/to/bruker_custom_step_debug.log
 ```
 
-The `--image-config` and `--image-step` arguments let the custom runner reuse generic pytribeam beam/scan settings from the custom step itself.
+The `--image-config` and `--image-step` arguments let the custom runner reuse generic pytribeam microscope connection and beam/scan settings from the custom step itself. The optional `--image-step-number` is included to make the configuration easier to audit and debug.
+
 
 ## Beam and scan setup
 
@@ -201,12 +243,14 @@ Out-of-bounds ROI settings can freeze ESPRIT and are rejected by the Bruker YAML
 
 ## Minimal run checklist
 
-1. Edit `bruker_eds_custom_main_workflow_example.yml` paths.
-2. Edit the standalone Bruker EDS YAML paths and map settings.
-3. Keep `EBSD_OEM: null` and `EDS_OEM: null` in the main YAML for this fallback.
-4. Confirm the Bruker detector is configured to park after acquisition.
-5. Run pytribeam with the main workflow YAML.
-6. Review Bruker output directory and custom log file.
+1. Use `pytribeam_gui` to create and save the normal main workflow YAML, or start from `bruker_eds_custom_main_workflow_template.yml`.
+2. Create/edit the standalone Bruker EDS YAML, using `bruker_eds_workflow_custom_template.yml` as a starting point.
+3. Run `prepare_bruker_eds_custom_step.py` to generate a prepared main YAML with correct custom-step paths and `script_args`.
+4. Keep `EBSD_OEM: null` and `EDS_OEM: null` in the main YAML for this fallback.
+5. Confirm the Bruker detector index and park/acquire settings are correct. Use `bruker_detector_probe.py` if the detector index is uncertain.
+6. Run pytribeam with the generated main workflow YAML.
+7. Review Bruker output directory and custom log file.
+
 
 ## Command-line test outside pytribeam
 
@@ -215,9 +259,12 @@ The same runner can be tested directly:
 ```powershell
 python C:/path/to/run_bruker_eds_custom_step.py `
   --bruker-config C:/path/to/bruker_eds_workflow.yml `
-  --image-config C:/path/to/main_pytribeam_workflow.yml `
-  --image-step bruker_eds_custom `
-  --slice-number 1
+  --image-config C:/path/to/config_bruker_custom.yml `
+  --image-step custom_1 `
+  --image-step-number 2 `
+  --slice-number 1 `
+  --log-path C:/path/to/bruker_custom_step_debug.log
 ```
+
 
 This is useful for validating paths and Bruker YAML parsing before launching a full serial-sectioning workflow.
