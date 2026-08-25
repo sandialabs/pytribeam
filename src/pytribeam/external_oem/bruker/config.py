@@ -184,6 +184,14 @@ def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
     detector_cfg = cfg["detector"]
     if "detector_index" in detector_cfg:
         _require_positive_int(detector_cfg["detector_index"], "detector.detector_index")
+    for key in (
+        "move_detector",
+        "verify_park_before",
+        "move_to_acquire_before",
+        "park_after",
+    ):
+        if key in detector_cfg:
+            _require_bool(detector_cfg[key], f"detector.{key}")
     if "move_timeout_s" in detector_cfg:
         _require_positive_number(
             detector_cfg["move_timeout_s"], "detector.move_timeout_s"
@@ -317,11 +325,22 @@ def parse_detector_motion_settings(cfg: Dict[str, Any]) -> BrukerDetectorMotionS
     """Parse detector motion settings from config dictionary."""
     d = cfg["detector"]
 
+    # Convenience switch used by simulator/characterization configs. If the
+    # more specific keys below are omitted, move_detector controls all detector
+    # position API calls. Hardware configs should generally leave this true and
+    # keep verify_park_before/park_after enabled for safety.
+    detector_motion_enabled = bool(d.get("move_detector", True))
+
     return BrukerDetectorMotionSettings(
         detector_index=int(d.get("detector_index", 1)),
         target_position="acquire",
         timeout_s=float(d.get("move_timeout_s", 60.0)),
         poll_interval_s=float(d.get("poll_interval_s", 0.5)),
+        verify_park_before=bool(d.get("verify_park_before", detector_motion_enabled)),
+        move_to_acquire_before=bool(
+            d.get("move_to_acquire_before", detector_motion_enabled)
+        ),
+        park_after=bool(d.get("park_after", detector_motion_enabled)),
     )
 
 

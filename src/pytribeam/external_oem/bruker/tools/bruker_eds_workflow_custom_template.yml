@@ -25,13 +25,22 @@ output:
   run_name: "eds_workflow_test"
 
 detector:
-  # If uncertain, run bruker_detector_probe.py before using hardware motion.
+  # Simulator-safe default: do not call Bruker detector position APIs.
+  # For real hardware after local safety review, set move_detector: true.
+  # With move_detector: true, the workflow defaults to verifying park before
+  # acquisition, moving to acquire, and parking after acquisition.
   detector_index: 1
-  verify_park_before: true
-  move_to_acquire_before: true
-  park_after: true
+  move_detector: false
+
+  # Hardware-equivalent explicit settings. Uncomment/override for real hardware
+  # if you want the safety checks to be obvious in the YAML.
+  # verify_park_before: true
+  # move_to_acquire_before: true
+  # park_after: true
+
   move_timeout_s: 60.0
   poll_interval_s: 0.5
+
 
 map:
   mode: profile

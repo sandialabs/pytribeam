@@ -234,7 +234,44 @@ roi:
 
 Out-of-bounds ROI settings can freeze ESPRIT and are rejected by the Bruker YAML validator.
 
+## Bruker detector motion settings
+
+For simulator/ESPRIT-only tests where detector position APIs are unavailable, disable Bruker detector motion in the standalone Bruker YAML:
+
+```yaml
+detector:
+  detector_index: 1
+  move_detector: false
+  move_timeout_s: 60.0
+  poll_interval_s: 0.5
+```
+
+For real hardware after local safety review, enable detector motion. With `move_detector: true`, the workflow defaults to verifying that the detector is parked before acquisition, moving to acquire before the map, and parking after acquisition:
+
+```yaml
+detector:
+  detector_index: 1
+  move_detector: true
+  move_timeout_s: 60.0
+  poll_interval_s: 0.5
+```
+
+You can also spell out the safety-critical flags explicitly in hardware configs:
+
+```yaml
+detector:
+  detector_index: 1
+  verify_park_before: true
+  move_to_acquire_before: true
+  park_after: true
+  move_timeout_s: 60.0
+  poll_interval_s: 0.5
+```
+
+The CUSTOM-step wrapper also attempts a best-effort park if an exception occurs after a Bruker session has been created.
+
 ## Path requirements
+
 
 - `script_path` and `executable_path` must be valid on the machine running pytribeam.
 - Bruker `session.dll_dir` must be valid on the Python machine because ctypes loads the Bruker DLL locally.

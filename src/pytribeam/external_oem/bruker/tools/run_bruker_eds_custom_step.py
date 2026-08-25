@@ -80,6 +80,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional, Tuple
@@ -545,6 +546,7 @@ def main() -> int:
     log(f"Bruker config: {bruker_config_path}")
     log("Using standalone Bruker workflow runner and Bruker YAML config")
     log("Reminder: Bruker output paths are interpreted by the ESPRIT/Bruker machine")
+
     log("Reminder: do not interact with ESPRIT GUI during API acquisition")
 
     _run_bruker_runtime_preflight(settings=settings, log=log)
@@ -628,10 +630,23 @@ def main() -> int:
         log("=== Bruker EDS CUSTOM-step fallback complete ===")
         return 0
 
-    except Exception:
+    except Exception as exc:
+        log(f"ERROR: Bruker EDS CUSTOM-step failed: {type(exc).__name__}: {exc}")
+        log("Traceback follows:")
+        for line in traceback.format_exc().rstrip().splitlines():
+            log(f"  {line}")
         if bruker_session is not None:
-            _park_bruker_detector(session=bruker_session, settings=settings, log=log)
+            if settings.detector.park_after:
+                _park_bruker_detector(
+                    session=bruker_session, settings=settings, log=log
+                )
+            else:
+                log(
+                    "Skipping best-effort Bruker EDS detector park because "
+                    "detector.park_after=false"
+                )
         raise
+
     finally:
         if bruker_session is not None and settings.session.close_on_exit:
             log("Closing Bruker session (close_on_exit=True)")

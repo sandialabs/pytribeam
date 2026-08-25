@@ -92,6 +92,9 @@ class BrukerDetectorMotionSettings(NamedTuple):
     target_position: BrukerEDSDetectorPositionName
     timeout_s: float
     poll_interval_s: float
+    verify_park_before: bool = True
+    move_to_acquire_before: bool = True
+    park_after: bool = True
 
 
 class BrukerMapProgress(NamedTuple):

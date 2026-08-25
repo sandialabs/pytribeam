@@ -5,14 +5,14 @@ Bruker EDS Workflow Runner
 Orchestrates a complete Bruker EDS mapping workflow:
 1. Connect session (or accept existing session)
 2. Query/log spectrometer status (pre-acquisition)
-3. Move detector to acquire
+3. Optionally verify detector is parked and/or move detector to acquire
 4. Configure image dimensions + log accepted config
 5. Acquire map (simple or profile, with or without ROI)
 6. Save .bcf
 7. Save element map images
 8. Readback numeric element data -> .npy + metadata JSON
 9. Query/log spectrometer status (post-acquisition)
-10. Park detector
+10. Optionally park detector
 11. Return structured BrukerEDSWorkflowResult
 """
 
@@ -97,21 +97,45 @@ def run_bruker_eds_workflow(
         if log_fn:
             log_fn(f"Spectrometer status query failed (non-fatal): {exc}")
 
-    # --- Detector motion: acquire ---
+    # --- Detector safety/motion: pre-acquisition ---
     detector_cfg = settings.detector
     motion = BrukerDetectorMotionController(session)
 
-    if log_fn:
-        log_fn("Moving EDS detector to acquire")
-    acquire_settings = BrukerDetectorMotionSettings(
-        detector_index=detector_cfg.detector_index,
-        target_position="acquire",
-        timeout_s=detector_cfg.timeout_s,
-        poll_interval_s=detector_cfg.poll_interval_s,
-    )
-    motion.move_eds_detector(acquire_settings)
-    if log_fn:
-        log_fn("EDS detector in acquire position")
+    if detector_cfg.verify_park_before:
+        if log_fn:
+            log_fn("Verifying EDS detector is parked before acquisition")
+        state = motion.get_eds_detector_position(detector_cfg.detector_index)
+        if log_fn:
+            log_fn(
+                "EDS detector pre-acquisition position: "
+                f"{state.position_name} (code={state.position_code})"
+            )
+        if state.position_name != "park":
+            raise RuntimeError(
+                f"Refusing to start Bruker EDS acquisition because detector "
+                f"{detector_cfg.detector_index} is not parked: "
+                f"{state.position_name} (code={state.position_code})."
+            )
+    elif log_fn:
+        log_fn("detector.verify_park_before=false; skipping pre-acquisition park check")
+
+    if detector_cfg.move_to_acquire_before:
+        if log_fn:
+            log_fn("Moving EDS detector to acquire")
+        acquire_settings = BrukerDetectorMotionSettings(
+            detector_index=detector_cfg.detector_index,
+            target_position="acquire",
+            timeout_s=detector_cfg.timeout_s,
+            poll_interval_s=detector_cfg.poll_interval_s,
+        )
+        motion.move_eds_detector(acquire_settings)
+        if log_fn:
+            log_fn("EDS detector in acquire position")
+    elif log_fn:
+        log_fn(
+            "detector.move_to_acquire_before=false; leaving Bruker detector "
+            "motion disabled before acquisition"
+        )
 
     # --- Image config + log readback ---
     try:
@@ -211,18 +235,21 @@ def run_bruker_eds_workflow(
         if log_fn:
             log_fn(f"Post-acquisition spectrometer status query failed: {exc}")
 
-    # --- Detector motion: park ---
-    if log_fn:
-        log_fn("Moving EDS detector to park")
-    park_settings = BrukerDetectorMotionSettings(
-        detector_index=detector_cfg.detector_index,
-        target_position="park",
-        timeout_s=detector_cfg.timeout_s,
-        poll_interval_s=detector_cfg.poll_interval_s,
-    )
-    motion.move_eds_detector(park_settings)
-    if log_fn:
-        log_fn("EDS detector parked")
+    # --- Detector safety/motion: post-acquisition ---
+    if detector_cfg.park_after:
+        if log_fn:
+            log_fn("Moving EDS detector to park")
+        park_settings = BrukerDetectorMotionSettings(
+            detector_index=detector_cfg.detector_index,
+            target_position="park",
+            timeout_s=detector_cfg.timeout_s,
+            poll_interval_s=detector_cfg.poll_interval_s,
+        )
+        motion.move_eds_detector(park_settings)
+        if log_fn:
+            log_fn("EDS detector parked")
+    elif log_fn:
+        log_fn("detector.park_after=false; skipping post-acquisition detector park")
 
     # --- Close session if we created it ---
     if own_session and settings.session.close_on_exit:

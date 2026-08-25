@@ -3,6 +3,7 @@ import yaml
 
 from pytribeam.external_oem.bruker.config import (
     load_bruker_eds_yaml,
+    parse_detector_motion_settings,
     parse_output_settings,
     parse_readback_settings,
     parse_roi_settings,
@@ -173,6 +174,42 @@ def test_parse_session_settings_defaults(minimal_valid_config):
     assert settings.server == "Lokaler Server"
     assert settings.user == "edx"
     assert settings.close_on_exit is False
+
+
+def test_parse_detector_motion_settings_defaults_to_hardware_safety(
+    minimal_valid_config,
+):
+    settings = parse_detector_motion_settings(minimal_valid_config)
+    assert settings.verify_park_before is True
+    assert settings.move_to_acquire_before is True
+    assert settings.park_after is True
+
+
+def test_parse_detector_motion_settings_move_detector_false_disables_all_motion(
+    minimal_valid_config,
+):
+    minimal_valid_config["detector"]["move_detector"] = False
+    settings = parse_detector_motion_settings(minimal_valid_config)
+    assert settings.verify_park_before is False
+    assert settings.move_to_acquire_before is False
+    assert settings.park_after is False
+
+
+def test_parse_detector_motion_settings_explicit_flags_override_move_detector(
+    minimal_valid_config,
+):
+    minimal_valid_config["detector"].update(
+        {
+            "move_detector": False,
+            "verify_park_before": True,
+            "move_to_acquire_before": False,
+            "park_after": True,
+        }
+    )
+    settings = parse_detector_motion_settings(minimal_valid_config)
+    assert settings.verify_park_before is True
+    assert settings.move_to_acquire_before is False
+    assert settings.park_after is True
 
 
 def test_parse_output_settings_with_slice(minimal_valid_config):
