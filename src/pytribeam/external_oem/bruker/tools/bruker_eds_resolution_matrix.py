@@ -4,7 +4,8 @@ This is an explicit, operator-run validation tool for ESPRIT simulator or real
 hardware. It does not depend on TFS AutoScript or the TFS Laser API.
 
 Usage:
-    python bruker_eds_resolution_matrix.py bruker_eds_resolution_matrix.yml
+    python bruker_eds_resolution_matrix.py validation/bruker_eds_resolution_matrix.yml
+
 
 Safety:
     The YAML key detector.move_detector defaults to false. Set it to true only

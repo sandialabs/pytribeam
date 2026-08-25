@@ -13,17 +13,19 @@ This approach intentionally avoids changes to the existing Oxford/EDAX/TFS Laser
 
 ## Files involved
 
-Use these two YAML files:
+Use these two YAML files. Paths below are relative to `src/pytribeam/external_oem/bruker/tools/`:
 
 1. **Main pytribeam workflow YAML**
-   - Strong template: `bruker_eds_custom_main_workflow_template.yml`
-   - Older minimal example: `bruker_eds_custom_main_workflow_example.yml`
+   - Strong template: `templates/pytribeam_main_with_bruker_custom.yml`
+   - Legacy minimal example: `legacy/bruker_eds_custom_main_workflow_example.yml`
    - Contains normal pytribeam experiment settings, stage position, and the `custom` step.
 
 2. **Standalone Bruker EDS workflow YAML**
-   - Strong template: `bruker_eds_workflow_custom_template.yml`
-   - Hardware/simulator validation example: `bruker_eds_workflow_test.yml`
+   - Strong template: `templates/bruker_eds_workflow_custom.yml`
+   - Hardware/simulator validation fixture: `validation/bruker_eds_workflow_test.yml`
    - Contains Bruker session, detector, map, ROI, output, and readback settings.
+
+
 
 The helper script for preparing a GUI-created main YAML is:
 
@@ -33,10 +35,26 @@ prepare_bruker_eds_custom_step.py
 
 The custom step itself runs:
 
-
 ```text
 run_bruker_eds_custom_step.py
 ```
+
+Current `tools/` organization:
+
+```text
+src/pytribeam/external_oem/bruker/tools/
+  prepare_bruker_eds_custom_step.py      # prepares GUI-created YAMLs
+  run_bruker_eds_custom_step.py          # custom-step subprocess target
+  bruker_detector_probe.py               # detector index discovery
+  bruker_eds_yml_hardware_validation.py  # standalone workflow validation
+  bruker_eds_resolution_matrix.py        # characterization runner
+  templates/                             # recommended starting YAMLs
+  validation/                            # validation/example configs
+  legacy/                                # deprecated/site-specific examples
+  dev/                                   # developer diagnostics/notes
+  docs/                                  # operator guides
+```
+
 
 ## Important safety behavior
 
@@ -270,18 +288,24 @@ detector:
 
 The CUSTOM-step wrapper also attempts a best-effort park if an exception occurs after a Bruker session has been created.
 
+## Troubleshooting
+
+If the custom log reaches `Connected Bruker session` but does not reach `=== Bruker EDS workflow start ===`, check `output.root_dir` in the Bruker YAML. The workflow creates the Bruker output run directory before logging workflow start, so an invalid or unwritable output root can fail at that point.
+
 ## Path requirements
 
-
 - `script_path` and `executable_path` must be valid on the machine running pytribeam.
+
 - Bruker `session.dll_dir` must be valid on the Python machine because ctypes loads the Bruker DLL locally.
 - Bruker output paths must be valid on the ESPRIT/Bruker machine.
 - If using TCP remote ESPRIT, the local Python machine still needs the Bruker API DLLs.
 
 ## Minimal run checklist
 
-1. Use `pytribeam_gui` to create and save the normal main workflow YAML, or start from `bruker_eds_custom_main_workflow_template.yml`.
-2. Create/edit the standalone Bruker EDS YAML, using `bruker_eds_workflow_custom_template.yml` as a starting point.
+1. Use `pytribeam_gui` to create and save the normal main workflow YAML, or start from `tools/templates/pytribeam_main_with_bruker_custom.yml`.
+2. Create/edit the standalone Bruker EDS YAML, using `tools/templates/bruker_eds_workflow_custom.yml` as a starting point.
+
+
 3. Run `prepare_bruker_eds_custom_step.py` to generate a prepared main YAML with correct custom-step paths and `script_args`.
 4. Keep `EBSD_OEM: null` and `EDS_OEM: null` in the main YAML for this fallback.
 5. Confirm the Bruker detector index and park/acquire settings are correct. Use `bruker_detector_probe.py` if the detector index is uncertain.

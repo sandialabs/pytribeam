@@ -1,5 +1,10 @@
+# DEPRECATED legacy example.
+# Prefer tools/templates/pytribeam_main_with_bruker_custom.yml or generate a
+# prepared GUI-created workflow with tools/prepare_bruker_eds_custom_step.py.
+#
 # Example main pytribeam workflow YAML for running Bruker EDS through a CUSTOM step.
 #
+
 # This is a conservative fallback path. The main pytribeam workflow still handles
 # slice/step iteration and stage positioning. The CUSTOM script handles
 # AutoScript beam/scan setup, AutoScript-controlled detector retraction, and then
@@ -54,7 +59,8 @@ steps:
       - --bruker-config
       - C:/path/to/bruker_eds_workflow.yml
       - --image-config
-      - C:/path/to/bruker_eds_custom_main_workflow_example.yml
+            - C:/path/to/this_main_pytribeam_workflow.yml
+
       - --image-step
       - bruker_eds_custom
 

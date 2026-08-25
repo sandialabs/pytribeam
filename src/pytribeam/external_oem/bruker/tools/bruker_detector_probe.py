@@ -6,7 +6,8 @@ Bruker YAML configs. It tries a range of detector indices and reports whether
 
 Usage:
     python bruker_detector_probe.py --dll-dir "C:/Program Files/Bruker/Esprit API"
-    python bruker_detector_probe.py --config bruker_eds_workflow_test.yml
+    python bruker_detector_probe.py --config validation/bruker_eds_workflow_test.yml
+
 """
 
 import argparse

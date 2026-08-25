@@ -18,6 +18,7 @@ WORKFLOW_TEST_YAML = (
     / "external_oem"
     / "bruker"
     / "tools"
+    / "validation"
     / "bruker_eds_workflow_test.yml"
 )
 

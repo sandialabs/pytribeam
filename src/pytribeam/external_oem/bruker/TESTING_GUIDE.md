@@ -26,7 +26,29 @@ pytest -m "esprit and hardware" tests/bruker/hardware -rs
 
 If in doubt, run the simulator command first. Hardware tests may move the EDS detector.
 
+## CUSTOM-step fallback templates
+
+For running Bruker EDS from a normal pytribeam workflow before native main-loop integration is available, use the CUSTOM-step fallback guide:
+
+```text
+src/pytribeam/external_oem/bruker/tools/docs/bruker_eds_custom_step_main_workflow_guide.md
+```
+
+Recommended templates:
+
+```text
+src/pytribeam/external_oem/bruker/tools/templates/pytribeam_main_with_bruker_custom.yml
+src/pytribeam/external_oem/bruker/tools/templates/bruker_eds_workflow_custom.yml
+```
+
+Recommended setup helper:
+
+```powershell
+python src/pytribeam/external_oem/bruker/tools/prepare_bruker_eds_custom_step.py --help
+```
+
 ## Key concepts
+
 
 ### Test categories
 
@@ -196,7 +218,7 @@ Use this only when the sample should contain the requested smoke-test elements.
 For longer resolution and element-count characterization, use the standalone tool rather than normal pytest:
 
 ```powershell
-python src/pytribeam/external_oem/bruker/tools/bruker_eds_resolution_matrix.py src/pytribeam/external_oem/bruker/tools/bruker_eds_resolution_matrix.yml
+python src/pytribeam/external_oem/bruker/tools/bruker_eds_resolution_matrix.py src/pytribeam/external_oem/bruker/tools/validation/bruker_eds_resolution_matrix.yml
 ```
 
 The matrix runner writes:
@@ -401,7 +423,7 @@ python src/pytribeam/external_oem/bruker/tools/bruker_detector_probe.py --dll-di
 or reuse a workflow YAML session configuration:
 
 ```powershell
-python src/pytribeam/external_oem/bruker/tools/bruker_detector_probe.py --config src/pytribeam/external_oem/bruker/tools/bruker_eds_workflow_test.yml
+python src/pytribeam/external_oem/bruker/tools/bruker_detector_probe.py --config src/pytribeam/external_oem/bruker/tools/validation/bruker_eds_workflow_test.yml
 ```
 
 The tool tries detector indices `0,1,2,3,4` by default and reports which indices return a valid EDS detector position.

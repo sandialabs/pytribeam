@@ -1,3 +1,8 @@
+# DEPRECATED legacy/site-specific Bruker EDS validation config.
+# Prefer tools/templates/bruker_eds_workflow_custom.yml for CUSTOM-step fallback
+# setup, or tools/validation/bruker_eds_workflow_test.yml for packaged
+# simulator/hardware validation examples.
+
 session:
   dll_dir: "C:/Program Files/Bruker/Esprit API"
   mode: local

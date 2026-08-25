@@ -23,7 +23,12 @@ from pytribeam.external_oem.bruker.config import load_bruker_eds_yaml
 from pytribeam.external_oem.bruker.workflow import run_bruker_eds_workflow
 
 # Default config path
-DEFAULT_CONFIG = Path(__file__).parent.parent / "tools" / "bruker_eds_workflow_test.yml"
+DEFAULT_CONFIG = (
+    Path(__file__).parent.parent
+    / "tools"
+    / "validation"
+    / "bruker_eds_workflow_test.yml"
+)
 
 
 def log(msg: str):

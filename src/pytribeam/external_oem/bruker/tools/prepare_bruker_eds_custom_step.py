@@ -15,6 +15,11 @@ Example:
         --python-exe "C:/Program Files/Enthought/Python/envs/AutoScript/python.exe" \
         --copy-imaging-from image_1 \
         --output-main-config config_bruker_custom.yml
+
+Recommended starting templates live under ``tools/templates/``:
+``pytribeam_main_with_bruker_custom.yml`` and
+``bruker_eds_workflow_custom.yml``.
+
 """
 
 from __future__ import annotations
