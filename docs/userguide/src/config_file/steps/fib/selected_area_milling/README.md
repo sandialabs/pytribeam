@@ -35,7 +35,7 @@ We want to create a binarized mask of the V-shaped region of interest in order t
 
 This image was produced with the following script, which we will discuss in further detail below:
 ```python
-<!-- cmdrun type fib_stream_recipe.py -->
+<!-- cmdrun sh -lc "cat ./fib_stream_recipe.py" -->
 ```
 
 ### The image processing script

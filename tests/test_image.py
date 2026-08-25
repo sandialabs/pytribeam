@@ -33,7 +33,7 @@ class TestBeam:
         assert cc == current_target_na * Conversions.NA_TO_A
 
         current_target_na = 15.0  # overwrite
-        microscope.beams.ion_beam.beam_current.value = 5.0 * Conversions.NA_TO_A
+        microscope.beams.ion_beam.beam_current.value = 6.4 * Conversions.NA_TO_A
         img.beam_current(
             tbt.IonBeam(settings=settings),
             microscope=microscope,

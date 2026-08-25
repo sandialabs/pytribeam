@@ -21,12 +21,6 @@ def verify_stdout(capsys):
     return _verify
 
 
-# https://stackoverflow.com/questions/16039463/how-to-access-the-py-test-capsys-from-inside-a-test
-# @pytest.fixture(autouse=True)
-# def capsys(capsys):
-#     capsys = capsys
-# @cs.run_on_standalone_machine
-# TODO get custom fixutre working with arg capsys, see above function
 @pytest.mark.simulated
 def test_microscope_connection(verify_stdout):
     microscope = tbt.Microscope()
@@ -245,8 +239,8 @@ class TestYAMLUtilities:
                 "type": "electron",
                 "voltage_kv": 5.0,
                 "voltage_tol_kv": 0.5,
-                "current_na": 5.0,
-                "current_tol_na": 0.5,
+                "current_na": 6.4,
+                "current_tol_na": 0.3,
                 "hfw_mm": 0.9,
                 "working_dist_mm": 4.093,
                 "dynamic_focus": False,
