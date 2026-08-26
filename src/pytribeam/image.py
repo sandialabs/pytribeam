@@ -1,95 +1,126 @@
+#!/usr/bin/python3
+"""Microscope imaging configuration and acquisition utilities.
+
+This module provides the imaging-control functions used throughout `pytribeam`.
+It includes helpers for selecting microscope views and imaging devices,
+configuring electron/ion beam parameters, setting detector state, configuring
+scan settings, and acquiring image frames.
+
+Most workflows should use `image_operation` or `prepare_imaging` rather than
+calling low-level beam, detector, and scan setters directly.
+
+## Typical usage
+
+```python
+from pytribeam import image
+
+image.image_operation(
+    step=step,
+    image_settings=image_settings,
+    general_settings=general_settings,
+    slice_number=slice_number,
+)
+```
+
+For lower-level control:
+
+```python
+from pytribeam import image
+import pytribeam.types as tbt
+
+image.set_view(microscope, tbt.ViewQuad.UPPER_LEFT)
+image.set_beam_device(microscope, tbt.Device.ELECTRON_BEAM)
+image.prepare_imaging(image_settings)
+```
+
+## Main entry points
+
+- `image_operation`: perform a complete image-acquisition operation for one
+  workflow step and slice.
+- `prepare_imaging`: apply beam, detector, and scan settings before acquisition.
+- `collect_single_image`: acquire and save one image frame.
+- `collect_multiple_images`: acquire multiple image frames.
+- `imaging_device`: select the active beam/device and prepare voltage/current.
+- `imaging_detector`: configure and insert the requested detector when needed.
+- `imaging_scan`: apply scan settings other than resolution.
+
+## Beam configuration
+
+Beam helper functions configure common electron- and ion-beam properties,
+including voltage, current, dwell time, horizontal field width, working distance,
+scan rotation, scan resolution, full-frame scan mode, and angular corrections.
+
+The generic beam helpers operate on `tbt.ElectronBeam` and `tbt.IonBeam`
+settings objects and use shared dispatch/utility behavior to access the
+corresponding microscope beam object.
+
+## Detector configuration
+
+Detector helper functions select detector type and mode, set contrast and
+brightness, and optionally run automatic contrast/brightness adjustment.
+Insertable detectors are handled through `pytribeam.insertable_devices`.
+
+## Image acquisition
+
+The acquisition helpers support both preset and custom scan resolutions. Image
+files are written according to the paths and formats defined by the active
+`tbt.ImageSettings` and workflow settings.
+
+## Unit conventions
+
+User-facing imaging settings use explicit field names to indicate units:
+
+| Quantity | Units |
+| --- | --- |
+| Beam voltage | kilovolts |
+| Beam current | nanoamperes |
+| Dwell time | microseconds |
+| Horizontal field width | millimeters |
+| Working distance | millimeters |
+| Scan rotation | degrees |
+| Contrast/brightness | normalized range from 0 to 1 |
+
+Values are converted internally as needed before being passed to the microscope
+API.
+
+> **Warning**
+>
+> Functions in this module can change microscope beam, detector, scan, and image
+> acquisition state. Confirm that the selected beam, detector, field of view,
+> scan conditions, and save paths are appropriate before acquiring images.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Microscope Imaging Module
-=========================
 
-This module provides a set of functions for configuring and operating the microscope for imaging purposes.
-It includes functions for setting beam parameters, detector settings, and capturing images with custom
-or preset resolutions.
-
-Functions
----------
-beam_angular_correction(microscope, dynamic_focus, tilt_correction, delay_s=0.5)
-    Uses auto mode to set tilt correction and dynamic focus.
-
-beam_current(beam, microscope, current_na, current_tol_na, delay_s=5.0)
-    Sets the current for the selected beam type, with inputs in units of nanoamps.
-
-beam_dwell_time(beam, microscope, dwell_us, delay_s=0.1)
-    Sets the dwell time for the selected beam, with inputs in units of microseconds.
-
-beam_hfw(beam, microscope, hfw_mm, delay_s=0.1)
-    Sets the horizontal field width for the selected beam, with inputs in units of millimeters.
-
-beam_ready(beam, microscope, delay_s=5.0, attempts=2)
-    Checks if the beam is on or blanked, and tries to turn it on and unblank it if possible.
-
-beam_scan_full_frame(beam, microscope)
-    Sets the beam scan mode to full frame.
-
-beam_scan_resolution(beam, microscope, resolution, delay_s=0.1)
-    Sets the scan resolution for the selected beam, with inputs in units of preset resolutions.
-
-beam_scan_rotation(beam, microscope, rotation_deg, delay_s=0.1)
-    Sets the scan rotation for the selected beam, with inputs in units of degrees.
-
-beam_voltage(beam, microscope, voltage_kv, voltage_tol_kv, delay_s=5.0)
-    Sets the voltage for a given beam type, with inputs in units of kilovolts.
-
-beam_working_dist(beam, microscope, wd_mm, delay_s=0.1)
-    Sets the working distance for the selected beam, with inputs in units of millimeters.
-
-collect_multiple_images(multiple_img_settings, num_frames)
-    Sets up scanning for multiple frames.
-
-collect_single_image(save_path, img_settings)
-    Collects a single frame image with defined image settings.
-
-detector_auto_cb(microscope, beam, settings, delay_s=0.1)
-    Runs the detector auto contrast-brightness function.
-
-detector_brightness(microscope, brightness, delay_s=0.1)
-    Sets the detector brightness with input from 0 to 1.
-
-detector_cb(microscope, detector_settings, beam)
-    Sets detector contrast and brightness.
-
-detector_contrast(microscope, contrast, delay_s=0.1)
-    Sets the detector contrast with input from 0 to 1.
-
-detector_mode(microscope, detector_mode, delay_s=0.1)
-    Sets the detector mode.
-
-detector_type(microscope, detector, delay_s=0.1)
-    Sets the detector type.
-
-grab_custom_resolution_frame(img_settings, save_path)
-    Captures a single frame image using custom resolutions and saves it to the specified path.
-
-grab_preset_resolution_frame(img_settings)
-    Captures a single frame image using preset resolutions.
-
-image_operation(step, image_settings, general_settings, slice_number)
-    Performs an image operation based on the specified settings.
-
-imaging_detector(img_settings)
-    Prepares the detector and inserts it if applicable.
-
-imaging_device(microscope, beam)
-    Prepares the imaging beam, viewing quad, and the beam voltage and current.
-
-imaging_scan(img_settings)
-    Sets all scan settings except for the resolution.
-
-prepare_imaging(img_settings)
-    Prepares various imaging settings.
-
-set_beam_device(microscope, device, delay_s=0.1)
-    Sets the active imaging device.
-
-set_view(microscope, quad)
-    Sets the active view to the specified quad.
-
-"""
+__all__ = [
+    "beam_angular_correction",
+    "beam_current",
+    "beam_dwell_time",
+    "beam_hfw",
+    "beam_ready",
+    "beam_scan_full_frame",
+    "beam_scan_resolution",
+    "beam_scan_rotation",
+    "beam_voltage",
+    "beam_working_dist",
+    "collect_multiple_images",
+    "collect_single_image",
+    "detector_auto_cb",
+    "detector_brightness",
+    "detector_cb",
+    "detector_contrast",
+    "detector_mode",
+    "detector_type",
+    "grab_custom_resolution_frame",
+    "grab_preset_resolution_frame",
+    "image_operation",
+    "imaging_detector",
+    "imaging_device",
+    "imaging_scan",
+    "prepare_imaging",
+    "set_beam_device",
+    "set_view",
+]
 
 # Default python modules
 # from functools import singledispatch
