@@ -78,26 +78,20 @@ def perform_operation(
 
     This function performs the operation for the specified step settings, including validation.
 
-    Parameters
-    ----------
-    step_settings : Any
-        The step settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the operation is performed successfully.
+    - `step_settings` (`Any`): The step settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
 
-    Raises
-    ------
-    NotImplementedError
-        If no handler is available for the provided step settings type.
+    ## Returns
+
+    - `bool`: True if the operation is performed successfully.
+
+    ## Raises
+
+    - `NotImplementedError`: If no handler is available for the provided step settings type.
     """
     _ = step_settings
     __ = step
@@ -116,21 +110,16 @@ def _(
     """
     Perform the image operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.ImageSettings
-        The image settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the image operation is performed successfully.
+    - `step_settings` (`tbt.ImageSettings`): The image settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the image operation is performed successfully.
     """
     return img.image_operation(
         step=step,
@@ -150,21 +139,16 @@ def _(
     """
     Perform the FIB operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.FIBSettings
-        The FIB settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the FIB operation is performed successfully.
+    - `step_settings` (`tbt.FIBSettings`): The FIB settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the FIB operation is performed successfully.
     """
     # collect image
     image_step = tbt.Step(
@@ -203,21 +187,16 @@ def _(
     """
     Perform the custom operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.CustomSettings
-        The custom settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the custom operation is performed successfully.
+    - `step_settings` (`tbt.CustomSettings`): The custom settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the custom operation is performed successfully.
     """
     # dump out .yml with experiment info
     slice_info_path = Path.joinpath(general_settings.exp_dir, "slice_info.yml")
@@ -253,21 +232,16 @@ def _(
     """
     Perform the EBSD operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.EBSDSettings
-        The EBSD settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EBSD operation is performed successfully.
+    - `step_settings` (`tbt.EBSDSettings`): The EBSD settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the EBSD operation is performed successfully.
     """
     image_settings = step_settings.image
     microscope = image_settings.microscope
@@ -326,21 +300,16 @@ def _(
     """
     Perform the EDS operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.EDSSettings
-        The EDS settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EDS operation is performed successfully.
+    - `step_settings` (`tbt.EDSSettings`): The EDS settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the EDS operation is performed successfully.
     """
     image_settings = step_settings.image
     microscope = image_settings.microscope
@@ -395,21 +364,16 @@ def _(
     """
     Perform the laser operation for the specified step settings.
 
-    Parameters
-    ----------
-    step_settings : tbt.LaserSettings
-        The laser settings for the operation.
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser operation is performed successfully.
+    - `step_settings` (`tbt.LaserSettings`): The laser settings for the operation.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the laser operation is performed successfully.
     """
     return laser.laser_operation(
         step=step,
@@ -433,20 +397,17 @@ def ebsd_eds_conflict_free(step_sequence: List[tbt.Step]) -> bool:
 
     This function checks if the step sequence is free of EBSD and EDS conflicts.
 
-    Parameters
-    ----------
-    step_sequence : List[tbt.Step]
-        The step sequence to check.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the step sequence is free of EBSD and EDS conflicts.
+    - `step_sequence` (`List[tbt.Step]`): The step sequence to check.
 
-    Raises
-    ------
-    ValueError
-        If an EBSD or EDS conflict is found in the step sequence.
+    ## Returns
+
+    - `bool`: True if the step sequence is free of EBSD and EDS conflicts.
+
+    ## Raises
+
+    - `ValueError`: If an EBSD or EDS conflict is found in the step sequence.
     """
     EBSD_EDS_conflict_msg = "Due to current limitations in 3rd party EBSD/EDS integration with the TriBeam, only one of these step types is allowed as only one map can be configured for an experiment, but EDS can be configured to be included with an EBSD type step. See User Guide for more details."
 
@@ -477,22 +438,18 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
 
     This function performs a pre-flight check for the experiment by validating the YAML configuration, connecting to the microscope, and validating the step sequence.
 
-    Parameters
-    ----------
-    yml_path : Path
-        The path to the YAML configuration file.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.ExperimentSettings
-        The validated experiment settings.
+    - `yml_path` (`Path`): The path to the YAML configuration file.
 
-    Raises
-    ------
-    SystemError
-        If there are issues with the EBSD or EDS camera, or if the laser control is not enabled.
-    ValueError
-        If the step sequence is not parsed correctly or if there are EBSD/EDS conflicts.
+    ## Returns
+
+    - `tbt.ExperimentSettings`: The validated experiment settings.
+
+    ## Raises
+
+    - `SystemError`: If there are issues with the EBSD or EDS camera, or if the laser control is not enabled.
+    - `ValueError`: If the step sequence is not parsed correctly or if there are EBSD/EDS conflicts.
     """
     # get configuration from yml
     yml_version = ut.yml_version(yml_path)
@@ -615,15 +572,13 @@ def setup_experiment(
 
     This function sets up the experiment by validating the YAML configuration, creating the log file, linking the stage, and retracting all devices.
 
-    Parameters
-    ----------
-    yml_path : Path
-        The path to the YAML configuration file.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.ExperimentSettings
-        The experiment settings.
+    - `yml_path` (`Path`): The path to the YAML configuration file.
+
+    ## Returns
+
+    - `tbt.ExperimentSettings`: The experiment settings.
     """
     # validate yml
     experiment_settings = pre_flight_check(yml_path=yml_path)
@@ -655,19 +610,15 @@ def perform_step(
 
     This function performs a step in the experiment based on the slice number, step number, and experiment settings.
 
-    Parameters
-    ----------
-    slice_number : int
-        The slice number for the step.
-    step_number : int
-        The step number for the experiment.
-    experiment_settings : tbt.ExperimentSettings
-        The experiment settings.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the step is performed successfully.
+    - `slice_number` (`int`): The slice number for the step.
+    - `step_number` (`int`): The step number for the experiment.
+    - `experiment_settings` (`tbt.ExperimentSettings`): The experiment settings.
+
+    ## Returns
+
+    - `bool`: True if the step is performed successfully.
     """
     # # breakout experiment settings elements
     microscope = experiment_settings.microscope
@@ -760,18 +711,15 @@ def run_experiment_cli(
 
     This function runs the main loop for the experiment based on the specified start slice, start step, and YAML configuration file.
 
-    Parameters
-    ----------
-    start_slice : int
-        The starting slice number for the experiment.
-    start_step : int
-        The starting step number for the experiment.
-    yml_path : Path
-        The path to the YAML configuration file.
+    ## Parameters
 
-    Returns
-    -------
-    None
+    - `start_slice` (`int`): The starting slice number for the experiment.
+    - `start_step` (`int`): The starting step number for the experiment.
+    - `yml_path` (`Path`): The path to the YAML configuration file.
+
+    ## Returns
+
+    - `None`
     """
 
     experiment_settings = setup_experiment(yml_path=yml_path)

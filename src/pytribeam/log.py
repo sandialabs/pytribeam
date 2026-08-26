@@ -51,20 +51,17 @@ def create_file(path: Path) -> bool:
 
     This function creates a log file at the specified path if it does not already exist.
 
-    Parameters
-    ----------
-    path : Path
-        The path where the log file should be created.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the log file is created successfully.
+    - `path` (`Path`): The path where the log file should be created.
 
-    Raises
-    ------
-    ValueError
-        If the log file cannot be created.
+    ## Returns
+
+    - `bool`: True if the log file is created successfully.
+
+    ## Raises
+
+    - `ValueError`: If the log file cannot be created.
     """
     if not path.is_file():
         log = h5py.File(path, "w")
@@ -82,10 +79,9 @@ def current_time() -> tbt.TimeStamp:
 
     This function returns the current time as a `TimeStamp` object, including both human-readable and UNIX time formats.
 
-    Returns
-    -------
-    tbt.TimeStamp
-        The current time as a `TimeStamp` object.
+    ## Returns
+
+    - `tbt.TimeStamp`: The current time as a `TimeStamp` object.
     """
     now = datetime.datetime.now()
     human_readable = now.strftime("%m/%d/%Y %H:%M:%S")
@@ -105,21 +101,16 @@ def yml_from_log(
 
     This function extracts the YAML configuration from a specified row in the log file and saves it to the output path.
 
-    Parameters
-    ----------
-    log_path_h5 : Path
-        The path to the log file.
-    output_path_yml : Path
-        The path to save the extracted YAML configuration.
-    row : int
-        The row number to extract the configuration from.
-    config_field : str, optional
-        The field name for the configuration in the log file (default is "Config File").
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the YAML configuration is extracted and saved successfully.
+    - `log_path_h5` (`Path`): The path to the log file.
+    - `output_path_yml` (`Path`): The path to save the extracted YAML configuration.
+    - `row` (`int`): The row number to extract the configuration from.
+    - `config_field` (`str, optional`): The field name for the configuration in the log file (default is "Config File").
+
+    ## Returns
+
+    - `bool`: True if the YAML configuration is extracted and saved successfully.
     """
     # TODO enforce file formats on inputs
     with h5py.File(log_path_h5, "r") as file:
@@ -145,21 +136,16 @@ def experiment_settings(
 
     This function logs the experiment settings from a YAML file to the log file.
 
-    Parameters
-    ----------
-    slice_number : int
-        The slice number for the experiment.
-    step_number : int
-        The step number for the experiment.
-    log_filepath : Path
-        The path to the log file.
-    yml_path : Path
-        The path to the YAML file containing the experiment settings.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the experiment settings are logged successfully.
+    - `slice_number` (`int`): The slice number for the experiment.
+    - `step_number` (`int`): The step number for the experiment.
+    - `log_filepath` (`Path`): The path to the log file.
+    - `yml_path` (`Path`): The path to the YAML file containing the experiment settings.
+
+    ## Returns
+
+    - `bool`: True if the experiment settings are logged successfully.
     """
     dataset_name = Constants.settings_dataset_name
     settings_dtype = Constants.settings_dtype
@@ -212,25 +198,18 @@ def position(
 
     This function logs the current position of the stage to the log file.
 
-    Parameters
-    ----------
-    step_number : int
-        The step number for the experiment.
-    step_name : str
-        The name of the step.
-    slice_number : int
-        The slice number for the experiment.
-    log_filepath : Path
-        The path to the log file.
-    dataset_name : str
-        The name of the dataset to log the position to.
-    current_position : tbt.StagePositionUser
-        The current position of the stage.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the current position is logged successfully.
+    - `step_number` (`int`): The step number for the experiment.
+    - `step_name` (`str`): The name of the step.
+    - `slice_number` (`int`): The slice number for the experiment.
+    - `log_filepath` (`Path`): The path to the log file.
+    - `dataset_name` (`str`): The name of the dataset to log the position to.
+    - `current_position` (`tbt.StagePositionUser`): The current position of the stage.
+
+    ## Returns
+
+    - `bool`: True if the current position is logged successfully.
     """
     print("\tLogging current position...")
     dataset_location = f"{step_number:02d}_{step_name}/{dataset_name}"
@@ -286,25 +265,18 @@ def laser_power(
 
     This function logs the laser power to the log file.
 
-    Parameters
-    ----------
-    step_number : int
-        The step number for the experiment.
-    step_name : str
-        The name of the step.
-    slice_number : int
-        The slice number for the experiment.
-    log_filepath : Path
-        The path to the log file.
-    dataset_name : str
-        The name of the dataset to log the laser power to.
-    power_w : float
-        The laser power in watts.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser power is logged successfully.
+    - `step_number` (`int`): The step number for the experiment.
+    - `step_name` (`str`): The name of the step.
+    - `slice_number` (`int`): The slice number for the experiment.
+    - `log_filepath` (`Path`): The path to the log file.
+    - `dataset_name` (`str`): The name of the dataset to log the laser power to.
+    - `power_w` (`float`): The laser power in watts.
+
+    ## Returns
+
+    - `bool`: True if the laser power is logged successfully.
     """
     print("\tLogging laser power...")
     dataset_location = f"{step_number:02d}_{step_name}/{dataset_name}"
@@ -350,25 +322,18 @@ def specimen_current(
 
     This function logs the specimen current to the log file.
 
-    Parameters
-    ----------
-    step_number : int
-        The step number for the experiment.
-    step_name : str
-        The name of the step.
-    slice_number : int
-        The slice number for the experiment.
-    log_filepath : Path
-        The path to the log file.
-    dataset_name : str
-        The name of the dataset to log the specimen current to.
-    specimen_current_na : float
-        The specimen current in nanoamperes.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the specimen current is logged successfully.
+    - `step_number` (`int`): The step number for the experiment.
+    - `step_name` (`str`): The name of the step.
+    - `slice_number` (`int`): The slice number for the experiment.
+    - `log_filepath` (`Path`): The path to the log file.
+    - `dataset_name` (`str`): The name of the dataset to log the specimen current to.
+    - `specimen_current_na` (`float`): The specimen current in nanoamperes.
+
+    ## Returns
+
+    - `bool`: True if the specimen current is logged successfully.
     """
     print("\tLogging sample current...")
     dataset_location = f"{step_number:02d}_{step_name}/{dataset_name}"

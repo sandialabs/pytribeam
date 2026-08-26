@@ -84,22 +84,17 @@ def detector_insertable(
 
     This function checks if the specified detector is being read by Autoscript and if it is insertable.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check the detector.
-    detector : tbt.DetectorType
-        The type of the detector to check.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the detector is insertable, False otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check the detector.
+    - `detector` (`tbt.DetectorType`): The type of the detector to check.
 
-    Warnings
-    --------
-    UserWarning
-        If the detector type is invalid for the currently selected device or if the detector is not found on the system.
+    ## Returns
+
+    - `bool`: True if the detector is insertable, False otherwise.
+    - `Warnings`:
+    - `--------`:
+    - `UserWarning`: If the detector type is invalid for the currently selected device or if the detector is not found on the system.
     """
     # check if the detector is being read by Autoscript
     try:
@@ -107,7 +102,7 @@ def detector_insertable(
         microscope.detector.type.value = detector.value
     except:
         warnings.warn(
-            f"""Warning. Invalid detector type of "{detector.value}" for currently selected device 
+            f"""Warning. Invalid detector type of "{detector.value}" for currently selected device
             of "{tbt.Device(microscope.imaging.get_active_device()).value}" or detector not found on this system.
             Detector will be assumed to not be insertable."""
         )
@@ -132,17 +127,14 @@ def detector_state(
 
     This function checks if the specified detector is insertable and returns its state.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check the detector state.
-    detector : tbt.DetectorType
-        The type of the detector to check.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.RetractableDeviceState
-        The state of the detector if it is insertable, None otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check the detector state.
+    - `detector` (`tbt.DetectorType`): The type of the detector to check.
+
+    ## Returns
+
+    - `tbt.RetractableDeviceState`: The state of the detector if it is insertable, None otherwise.
     """
     # check if the detector is being read by Autoscriptdevice_access(microscope)
     # try:
@@ -166,17 +158,14 @@ def detectors_will_collide(
 
     This function checks if inserting the specified detector will cause a collision with any other detectors.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check for potential collisions.
-    detector_to_insert : tbt.DetectorType
-        The type of the detector to insert.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if a collision may occur, False otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check for potential collisions.
+    - `detector_to_insert` (`tbt.DetectorType`): The type of the detector to insert.
+
+    ## Returns
+
+    - `bool`: True if a collision may occur, False otherwise.
     """
     device_retracted = tbt.RetractableDeviceState.RETRACTED.value
     for detector_combo in Constants.detector_collisions:
@@ -203,15 +192,13 @@ def device_access(microscope: tbt.Microscope) -> tbt.ViewQuad:
 
     This function switches the view to the upper-left quadrant and assigns the electron beam as the active device, which is the only device with access to insertable devices like the CBS/ABS detector. Other devices, like the ion beam, CCD, or Nav-Cam, do not have CBS/ABS access.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to switch the view and assign the active device.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.ViewQuad
-        The upper-left quadrant view.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to switch the view and assign the active device.
+
+    ## Returns
+
+    - `tbt.ViewQuad`: The upper-left quadrant view.
     """
     img.set_view(
         microscope=microscope,
@@ -232,20 +219,17 @@ def insert_EBSD(
 
     This function connects to the EBSD system, checks for potential collisions with other detectors, and inserts the EBSD camera if it is not already inserted. It raises an error if the EBSD camera cannot be inserted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to insert the EBSD camera.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EBSD camera is successfully inserted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to insert the EBSD camera.
 
-    Raises
-    ------
-    SystemError
-        If a collision may occur with another detector, if the EBSD camera is in an error state, if the EBSD mapping is not idle, or if the EBSD camera cannot be inserted.
+    ## Returns
+
+    - `bool`: True if the EBSD camera is successfully inserted.
+
+    ## Raises
+
+    - `SystemError`: If a collision may occur with another detector, if the EBSD camera is in an error state, if the EBSD mapping is not idle, or if the EBSD camera cannot be inserted.
     """
     connect_EBSD()
     if detectors_will_collide(
@@ -303,20 +287,17 @@ def insert_EDS(
 
     This function connects to the EDS system, checks for potential collisions with other detectors, and inserts the EDS camera if it is not already inserted. It raises an error if the EDS camera cannot be inserted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to insert the EDS camera.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EDS camera is successfully inserted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to insert the EDS camera.
 
-    Raises
-    ------
-    SystemError
-        If a collision may occur with another detector, if the EDS camera is in an error state, if the EDS mapping is not idle, or if the EDS camera cannot be inserted.
+    ## Returns
+
+    - `bool`: True if the EDS camera is successfully inserted.
+
+    ## Raises
+
+    - `SystemError`: If a collision may occur with another detector, if the EDS camera is in an error state, if the EDS mapping is not idle, or if the EDS camera cannot be inserted.
     """
     connect_EDS()
     if detectors_will_collide(
@@ -324,7 +305,7 @@ def insert_EDS(
         detector_to_insert=tbt.DetectorType.EDS,
     ):
         raise SystemError(
-            f"""Error. Cannot insert EDS while CBS not in "Retracted" state. 
+            f"""Error. Cannot insert EDS while CBS not in "Retracted" state.
             CBS detector currently in "{detector_state(microscope=microscope, detector=tbt.DetectorType.CBS).value}" state."""
         )
     eds_cam_status = tbt.RetractableDeviceState(external.EDS_CameraStatus())
@@ -360,26 +341,20 @@ def insert_detector(
 
     This function ensures the specified detector is the active one, confirms it is insertable, and inserts it if it is not already inserted. It raises an error if the detector cannot be inserted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to insert the detector.
-    detector : tbt.DetectorType
-        The type of the detector to insert.
-    time_delay_s : float, optional
-        The time delay in seconds after inserting the detector (default is 0.5 seconds).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the detector is successfully inserted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to insert the detector.
+    - `detector` (`tbt.DetectorType`): The type of the detector to insert.
+    - `time_delay_s` (`float, optional`): The time delay in seconds after inserting the detector (default is 0.5 seconds).
 
-    Raises
-    ------
-    ValueError
-        If the detector is not insertable.
-    SystemError
-        If a collision may occur with another detector or if the detector cannot be inserted.
+    ## Returns
+
+    - `bool`: True if the detector is successfully inserted.
+
+    ## Raises
+
+    - `ValueError`: If the detector is not insertable.
+    - `SystemError`: If a collision may occur with another detector or if the detector cannot be inserted.
     """
     # ensure detector is the active one
     microscope.detector.type.value = detector.value
@@ -425,23 +400,19 @@ def retract_all_devices(
 
     This function retracts all insertable devices, first retracting microscope detectors and then retracting EBSD/EDS detectors if they are integrated and enabled.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for accessing the Autoscript API.
-    enable_EBSD : bool
-        Whether to enable retraction of the EBSD detector.
-    enable_EDS : bool
-        Whether to enable retraction of the EDS detector.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if all devices are successfully retracted.
+    - `microscope` (`tbt.Microscope`): The microscope object for accessing the Autoscript API.
+    - `enable_EBSD` (`bool`): Whether to enable retraction of the EBSD detector.
+    - `enable_EDS` (`bool`): Whether to enable retraction of the EDS detector.
 
-    Raises
-    ------
-    None
+    ## Returns
+
+    - `bool`: True if all devices are successfully retracted.
+
+    ## Raises
+
+    - `None`:
     """
     print("\tRetracting devices, do not interact with xTUI during this process...")
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
@@ -494,21 +465,22 @@ def connect_EBSD() -> tbt.RetractableDeviceState:
 
     This function attempts to connect to the EBSD system and retrieve the camera status. It raises a ConnectionError if the connection fails.
 
-    Returns
-    -------
+    ## Returns
+
     tbt.RetractableDeviceState
         The status of the EBSD camera.
 
-    Raises
-    ------
+    ## Raises
+
     ConnectionError
         If the EBSD control is not connected.
+
     """
     try:
         status = external.EBSD_CameraStatus()
     except:
         raise ConnectionError(
-            """EBSD control not connected, "Laser Control" from ThermoFisher must be open. 
+            """EBSD control not connected, "Laser Control" from ThermoFisher must be open.
             Try closing Laser Control, restarting EBSD/EDS software, then opening Laser Control again."""
         )
     return tbt.RetractableDeviceState(status)
@@ -520,20 +492,17 @@ def retract_EBSD(microscope: tbt.Microscope) -> bool:
 
     This function connects to the EBSD system, checks the camera status, and retracts the EBSD camera if it is not already retracted. It raises an error if the EBSD camera cannot be retracted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to retract the EBSD camera.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EBSD camera is successfully retracted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to retract the EBSD camera.
 
-    Raises
-    ------
-    SystemError
-        If the EBSD camera is in an error state, if the EBSD mapping is not completed, or if the EBSD camera retraction fails.
+    ## Returns
+
+    - `bool`: True if the EBSD camera is successfully retracted.
+
+    ## Raises
+
+    - `SystemError`: If the EBSD camera is in an error state, if the EBSD mapping is not completed, or if the EBSD camera retraction fails.
     """
     connect_EBSD()
     ebsd_status = tbt.RetractableDeviceState(external.EBSD_CameraStatus())
@@ -587,21 +556,22 @@ def connect_EDS() -> tbt.RetractableDeviceState:
 
     This function attempts to connect to the EDS system and retrieve the camera status. It raises a ConnectionError if the connection fails.
 
-    Returns
-    -------
+    ## Returns
+
     tbt.RetractableDeviceState
         The status of the EDS camera.
 
-    Raises
-    ------
+    ## Raises
+
     ConnectionError
         If the EDS control is not connected.
+
     """
     try:
         status = external.EDS_CameraStatus()
     except:
         raise ConnectionError(
-            """EDS control not connected, "Laser Control" from ThermoFisher must be open. 
+            """EDS control not connected, "Laser Control" from ThermoFisher must be open.
             Try closing Laser Control, restarting EBSD/EDS software, then opening Laser Control again."""
         )
     return tbt.RetractableDeviceState(status)
@@ -613,20 +583,17 @@ def retract_EDS(microscope: tbt.Microscope) -> bool:
 
     This function connects to the EDS system, checks the camera status, and retracts the EDS camera if it is not already retracted. It raises an error if the EDS camera cannot be retracted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to retract the EDS camera.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the EDS camera is successfully retracted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to retract the EDS camera.
 
-    Raises
-    ------
-    SystemError
-        If the EDS camera is in an error state or if the EDS camera retraction fails.
+    ## Returns
+
+    - `bool`: True if the EDS camera is successfully retracted.
+
+    ## Raises
+
+    - `SystemError`: If the EDS camera is in an error state or if the EDS camera retraction fails.
     """
     # print(f"\t\tRetracting EDS detector")
     connect_EDS()
@@ -656,22 +623,18 @@ def retract_device(microscope: tbt.Microscope, detector: tbt.DetectorType) -> bo
 
     This function ensures the specified detector is the active one, retracts it, and checks its state. It raises an error if the detector cannot be retracted.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to retract the detector.
-    detector : tbt.DetectorType
-        The type of the detector to retract.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the detector is successfully retracted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to retract the detector.
+    - `detector` (`tbt.DetectorType`): The type of the detector to retract.
 
-    Raises
-    ------
-    SystemError
-        If the detector cannot be retracted.
+    ## Returns
+
+    - `bool`: True if the detector is successfully retracted.
+
+    ## Raises
+
+    - `SystemError`: If the detector cannot be retracted.
     """
     CCD_view(microscope=microscope)
     print(f"\t\tRetracting {detector.value} detector")
@@ -697,22 +660,17 @@ def CCD_pause(
 
     This function pauses the CCD camera by switching to the specified quadrant, setting the beam device to the CCD camera, and stopping the acquisition. It restores the initial view afterward.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to pause the CCD camera.
-    quad : tbt.ViewQuad, optional
-        The quadrant to switch to before pausing the CCD camera (default is tbt.ViewQuad.LOWER_RIGHT).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the CCD camera is successfully paused.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to pause the CCD camera.
+    - `quad` (`tbt.ViewQuad, optional`): The quadrant to switch to before pausing the CCD camera (default is tbt.ViewQuad.LOWER_RIGHT).
 
-    Warnings
-    --------
-    UserWarning
-        If the CCD camera is not installed on the microscope.
+    ## Returns
+
+    - `bool`: True if the CCD camera is successfully paused.
+    - `Warnings`:
+    - `--------`:
+    - `UserWarning`: If the CCD camera is not installed on the microscope.
     """
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     img.set_view(microscope=microscope, quad=quad)
@@ -736,22 +694,17 @@ def CCD_view(
 
     This function visualizes detector or stage movement by switching to the specified quadrant, setting the beam device to the CCD camera, and starting the acquisition. It restores the initial view afterward.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to visualize the movement.
-    quad : tbt.ViewQuad, optional
-        The quadrant to switch to before visualizing the movement (default is tbt.ViewQuad.LOWER_RIGHT).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the CCD camera is successfully used for visualization.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to visualize the movement.
+    - `quad` (`tbt.ViewQuad, optional`): The quadrant to switch to before visualizing the movement (default is tbt.ViewQuad.LOWER_RIGHT).
 
-    Warnings
-    --------
-    UserWarning
-        If the CCD camera is not installed on the microscope.
+    ## Returns
+
+    - `bool`: True if the CCD camera is successfully used for visualization.
+    - `Warnings`:
+    - `--------`:
+    - `UserWarning`: If the CCD camera is not installed on the microscope.
     """
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     img.set_view(microscope=microscope, quad=quad)
@@ -776,19 +729,15 @@ def specimen_current(
 
     This function sets the beam device to the electron beam, adjusts the horizontal field width (HFW) and detector, starts the acquisition, and measures the specimen current. It then resets the detector and HFW to their initial values.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to measure the specimen current.
-    hfw_mm : float, optional
-        The horizontal field width in millimeters (default is Constants.specimen_current_hfw_mm).
-    delay_s : float, optional
-        The delay in seconds before measuring the specimen current (default is Constants.specimen_current_delay_s).
+    ## Parameters
 
-    Returns
-    -------
-    float
-        The measured specimen current in nA.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to measure the specimen current.
+    - `hfw_mm` (`float, optional`): The horizontal field width in millimeters (default is Constants.specimen_current_hfw_mm).
+    - `delay_s` (`float, optional`): The delay in seconds before measuring the specimen current (default is Constants.specimen_current_delay_s).
+
+    ## Returns
+
+    - `float`: The measured specimen current in nA.
     """
     img.set_beam_device(
         microscope=microscope,

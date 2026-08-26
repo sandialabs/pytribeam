@@ -88,17 +88,14 @@ def coordinate_system(
 
     This function sets the stage coordinate system mode. The default mode is "RAW", which is recommended.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to set the stage coordinate system mode.
-    mode : tbt.StageCoordinateSystem, optional
-        The stage coordinate system mode to set (default is tbt.StageCoordinateSystem.RAW).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the coordinate system mode is set successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to set the stage coordinate system mode.
+    - `mode` (`tbt.StageCoordinateSystem, optional`): The stage coordinate system mode to set (default is tbt.StageCoordinateSystem.RAW).
+
+    ## Returns
+
+    - `bool`: True if the coordinate system mode is set successfully.
     """
     if mode != tbt.StageCoordinateSystem.RAW:
         warnings.warn(
@@ -117,15 +114,13 @@ def stop(microscope: tbt.Microscope) -> None:
 
     This function stops all stage movement and disconnects the microscope.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to stop stage movement.
+    ## Parameters
 
-    Raises
-    ------
-    SystemError
-        If the stage movement is halted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to stop stage movement.
+
+    ## Raises
+
+    - `SystemError`: If the stage movement is halted.
     """
     microscope.specimen.stage.stop()
     microscope.disconnect()
@@ -140,20 +135,17 @@ def encoder_to_user_position(pos: tbt.StagePositionEncoder) -> tbt.StagePosition
 
     This function converts a stage position from encoder units to user units.
 
-    Parameters
-    ----------
-    pos : tbt.StagePositionEncoder
-        The stage position in encoder units.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.StagePositionUser
-        The stage position in user units.
+    - `pos` (`tbt.StagePositionEncoder`): The stage position in encoder units.
 
-    Raises
-    ------
-    TypeError
-        If the provided position is not of type tbt.StagePositionEncoder.
+    ## Returns
+
+    - `tbt.StagePositionUser`: The stage position in user units.
+
+    ## Raises
+
+    - `TypeError`: If the provided position is not of type tbt.StagePositionEncoder.
     """
     if not isinstance(pos, tbt.StagePositionEncoder):
         raise TypeError(
@@ -176,20 +168,17 @@ def user_to_encoder_position(pos: tbt.StagePositionUser) -> tbt.StagePositionEnc
 
     This function converts a stage position from user units to encoder units.
 
-    Parameters
-    ----------
-    pos : tbt.StagePositionUser
-        The stage position in user units.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.StagePositionEncoder
-        The stage position in encoder units.
+    - `pos` (`tbt.StagePositionUser`): The stage position in user units.
 
-    Raises
-    ------
-    TypeError
-        If the provided position is not of type tbt.StagePositionUser.
+    ## Returns
+
+    - `tbt.StagePositionEncoder`: The stage position in encoder units.
+
+    ## Raises
+
+    - `TypeError`: If the provided position is not of type tbt.StagePositionUser.
     """
 
     if not isinstance(pos, tbt.StagePositionUser):
@@ -218,24 +207,19 @@ def rotation_side_adjustment(
 
     This function adjusts the translation stage destination based on the specified rotation side.
 
-    Parameters
-    ----------
-    rotation_side : tbt.RotationSide
-        The rotation side to consider for the adjustment.
-    initial_position_m : float
-        The initial position in meters.
-    delta_pos_m : float
-        The change in position in meters.
+    ## Parameters
 
-    Returns
-    -------
-    float
-        The adjusted target position in meters.
+    - `rotation_side` (`tbt.RotationSide`): The rotation side to consider for the adjustment.
+    - `initial_position_m` (`float`): The initial position in meters.
+    - `delta_pos_m` (`float`): The change in position in meters.
 
-    Raises
-    ------
-    NotImplementedError
-        If the rotation side is unsupported.
+    ## Returns
+
+    - `float`: The adjusted target position in meters.
+
+    ## Raises
+
+    - `NotImplementedError`: If the rotation side is unsupported.
     """
     if rotation_side == tbt.RotationSide.FSL_MILL:
         target_m = (
@@ -272,24 +256,19 @@ def target_position(
     For X-axis sectioning (not yet implemented, need to determine rotation_side_adjustment)
     For Y-axis sectioning (not yet implemented, need to determine rotation_side_adjustment)
 
-    Parameters
-    ----------
-    stage : tbt.StageSettings
-        The stage settings for the experiment.
-    slice_number : int
-        The slice number for the experiment.
-    slice_thickness_um : float
-        The slice thickness in micrometers.
+    ## Parameters
 
-    Returns
-    -------
-    tbt.StagePositionUser
-        The target position for the stage movement.
+    - `stage` (`tbt.StageSettings`): The stage settings for the experiment.
+    - `slice_number` (`int`): The slice number for the experiment.
+    - `slice_thickness_um` (`float`): The slice thickness in micrometers.
 
-    Raises
-    ------
-    NotImplementedError
-        If the sectioning axis is unsupported.
+    ## Returns
+
+    - `tbt.StagePositionUser`: The target position for the stage movement.
+
+    ## Raises
+
+    - `NotImplementedError`: If the sectioning axis is unsupported.
     """
 
     initial_pos_user = stage.initial_position
@@ -369,17 +348,14 @@ def safe(
 
     This function checks if the target position is within the stage limits.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check the stage limits.
-    position : tbt.StagePositionUser
-        The target position to check.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the target position is within the stage limits, False otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check the stage limits.
+    - `position` (`tbt.StagePositionUser`): The target position to check.
+
+    ## Returns
+
+    - `bool`: True if the target position is within the stage limits, False otherwise.
     """
 
     # returns in user units (mm, deg)
@@ -419,19 +395,15 @@ def axis_translational_in_range(
 
     This function checks if the translation axis is within the specified tolerance.
 
-    Parameters
-    ----------
-    current_pos_mm : float
-        The current position of the translation axis in millimeters.
-    target_pos_mm : float
-        The target position of the translation axis in millimeters.
-    stage_tolerance_um : float
-        The tolerance for the translation axis in micrometers.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the translation axis is within the specified tolerance, False otherwise.
+    - `current_pos_mm` (`float`): The current position of the translation axis in millimeters.
+    - `target_pos_mm` (`float`): The target position of the translation axis in millimeters.
+    - `stage_tolerance_um` (`float`): The tolerance for the translation axis in micrometers.
+
+    ## Returns
+
+    - `bool`: True if the translation axis is within the specified tolerance, False otherwise.
     """
     return ut.in_interval(
         current_pos_mm,
@@ -453,19 +425,15 @@ def axis_angular_in_range(
 
     This function checks if the angular axis is within the specified tolerance.
 
-    Parameters
-    ----------
-    current_pos_deg : float
-        The current position of the angular axis in degrees.
-    target_pos_deg : float
-        The target position of the angular axis in degrees.
-    stage_tolerance_deg : float
-        The tolerance for the angular axis in degrees.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the angular axis is within the specified tolerance, False otherwise.
+    - `current_pos_deg` (`float`): The current position of the angular axis in degrees.
+    - `target_pos_deg` (`float`): The target position of the angular axis in degrees.
+    - `stage_tolerance_deg` (`float`): The tolerance for the angular axis in degrees.
+
+    ## Returns
+
+    - `bool`: True if the angular axis is within the specified tolerance, False otherwise.
     """
     return ut.in_interval(
         current_pos_deg,
@@ -488,21 +456,16 @@ def axis_in_range(
 
     This function checks if the position of the specified axis is within the stage tolerance.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check the axis position.
-    axis : tbt.StageAxis
-        The axis to check.
-    target_position : tbt.StagePositionUser
-        The target position to check.
-    stage_tolerance : tbt.StageTolerance, optional
-        The stage tolerance for the axis (default is cs.Constants.default_stage_tolerance).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the axis position is within the stage tolerance, False otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check the axis position.
+    - `axis` (`tbt.StageAxis`): The axis to check.
+    - `target_position` (`tbt.StagePositionUser`): The target position to check.
+    - `stage_tolerance` (`tbt.StageTolerance, optional`): The stage tolerance for the axis (default is cs.Constants.default_stage_tolerance).
+
+    ## Returns
+
+    - `bool`: True if the axis position is within the stage tolerance, False otherwise.
     """
     current_position = factory.active_stage_position_settings(
         microscope=microscope
@@ -559,23 +522,17 @@ def move_axis(
 
     This function moves the specified stage axis to the requested user target position.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to move the stage axis.
-    axis : tbt.StageAxis
-        The stage axis to move.
-    target_position : tbt.StagePositionUser
-        The target position to move the axis to.
-    num_attempts : int, optional
-        The number of attempts to move the axis (default is cs.Constants.stage_move_attempts).
-    stage_delay_s : float, optional
-        The delay in seconds between attempts (default is cs.Constants.stage_move_delay_s).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the axis is moved to the target position successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to move the stage axis.
+    - `axis` (`tbt.StageAxis`): The stage axis to move.
+    - `target_position` (`tbt.StagePositionUser`): The target position to move the axis to.
+    - `num_attempts` (`int, optional`): The number of attempts to move the axis (default is cs.Constants.stage_move_attempts).
+    - `stage_delay_s` (`float, optional`): The delay in seconds between attempts (default is cs.Constants.stage_move_delay_s).
+
+    ## Returns
+
+    - `bool`: True if the axis is moved to the target position successfully.
     """
     encoder_position = user_to_encoder_position(target_position)
     # TODO convert to match statements at python >=3.10
@@ -607,19 +564,15 @@ def move_stage(
     - Z-axis
     - T-axis
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to move the stage.
-    target_position : tbt.StagePositionUser
-        The target position to move the stage to.
-    stage_tolerance : tbt.StageTolerance
-        The stage tolerance for the movement.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the stage is moved to the target position successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to move the stage.
+    - `target_position` (`tbt.StagePositionUser`): The target position to move the stage to.
+    - `stage_tolerance` (`tbt.StageTolerance`): The stage tolerance for the movement.
+
+    ## Returns
+
+    - `bool`: True if the stage is moved to the target position successfully.
     """
 
     # ensure RAW specimen coordiantes
@@ -684,19 +637,15 @@ def move_completed(
 
     This function checks if the stage is at the target position within the specified tolerance.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to check the stage position.
-    target_position : tbt.StagePositionUser
-        The target position to check.
-    stage_tolerance : tbt.StageTolerance
-        The stage tolerance for the position.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the stage is at the target position, False otherwise.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to check the stage position.
+    - `target_position` (`tbt.StagePositionUser`): The target position to check.
+    - `stage_tolerance` (`tbt.StageTolerance`): The stage tolerance for the position.
+
+    ## Returns
+
+    - `bool`: True if the stage is at the target position, False otherwise.
     """
     # ensure RAW specimen coordiantes
     coordinate_system(microscope=microscope, mode=tbt.StageCoordinateSystem.RAW)
@@ -757,17 +706,14 @@ def home_stage(
 
     This function moves the stage to the home position defined in pytribeam.constants, which is a special case of the move_to_position function.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to move the stage.
-    stage_tolerance : tbt.StageTolerance, optional
-        The stage tolerance for the movement (default is cs.Constants.default_stage_tolerance).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the stage is moved to the home position successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to move the stage.
+    - `stage_tolerance` (`tbt.StageTolerance, optional`): The stage tolerance for the movement (default is cs.Constants.default_stage_tolerance).
+
+    ## Returns
+
+    - `bool`: True if the stage is moved to the home position successfully.
     """
     target_position = cs.Constants.home_position
     move_to_position(
@@ -788,25 +734,18 @@ def move_to_position(
 
     This function moves the stage to the target position with error checking.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to move the stage.
-    target_position : tbt.StagePositionUser
-        The target position to move the stage to.
-    stage_tolerance : tbt.StageTolerance, optional
-        The stage tolerance for the movement (default is cs.Constants.default_stage_tolerance).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the stage is moved to the target position successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to move the stage.
+    - `target_position` (`tbt.StagePositionUser`): The target position to move the stage to.
+    - `stage_tolerance` (`tbt.StageTolerance, optional`): The stage tolerance for the movement (default is cs.Constants.default_stage_tolerance).
 
-    Raises
-    ValueError
-        If the target position is unsafe.
-    SystemError
-        If the stage move did not execute correctly.
+    ## Returns
+
+    - `bool`: True if the stage is moved to the target position successfully.
+    - `Raises`:
+    - `ValueError`: If the target position is unsafe.
+    - `SystemError`: If the stage move did not execute correctly.
     """
     # check if safe
     if not safe(microscope=microscope, position=target_position):
@@ -866,19 +805,15 @@ def _bad_axes_message(
 
     This function generates an error message for axes that are out of tolerance.
 
-    Parameters
-    ----------
-    target_position : tbt.StagePositionUser
-        The target position of the stage.
-    current_position : tbt.StagePositionUser
-        The current position of the stage.
-    stage_tolerance : tbt.StageTolerance
-        The stage tolerance for the movement.
+    ## Parameters
 
-    Returns
-    -------
-    str
-        The error message for axes that are out of tolerance.
+    - `target_position` (`tbt.StagePositionUser`): The target position of the stage.
+    - `current_position` (`tbt.StagePositionUser`): The current position of the stage.
+    - `stage_tolerance` (`tbt.StageTolerance`): The stage tolerance for the movement.
+
+    ## Returns
+
+    - `str`: The error message for axes that are out of tolerance.
     """
     error_msg = "Error: Stage move did not execute correctly.\n"
     x_error_um = np.around(
@@ -919,21 +854,16 @@ def step_start_position(
 
     This function moves the stage to the starting position for the step based on the slice number, operation, and general settings.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to move the stage.
-    slice_number : int
-        The slice number for the step.
-    operation : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the stage is moved to the starting position successfully.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to move the stage.
+    - `slice_number` (`int`): The slice number for the step.
+    - `operation` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+
+    ## Returns
+
+    - `bool`: True if the stage is moved to the starting position successfully.
     """
     position = target_position(
         operation.stage,

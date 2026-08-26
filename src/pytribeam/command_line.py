@@ -51,13 +51,13 @@ def pytribeam():
     command window. It is assumed that `CLI_DOCS` contains the necessary
     documentation in string format.
 
-    Parameters
-    ----------
+    ## Parameters
+
     None
 
-    Returns
-    -------
-    None
+    ## Returns
+
+    - `None`:
     """
     print(CLI_DOCS.strip())
 
@@ -196,12 +196,12 @@ def work_in_progress():
     This function prints a warning message indicating that the function is a
     work in progress and has not yet been implemented.
 
-    Parameters
-    ----------
+    ## Parameters
+
     None
 
-    Returns
-    -------
-    None
+    ## Returns
+
+    - `None`:
     """
     print("Warning: Work in progress (WIP), function not yet implemented.")
