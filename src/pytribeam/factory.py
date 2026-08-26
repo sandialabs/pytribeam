@@ -223,7 +223,7 @@ def active_beam_with_settings(
     if angular_correction is None:
         dynamic_focus = None
         tilt_correction = None
-    else: 
+    else:
         dynamic_focus = bool(angular_correction.dynamic_focus.is_on)
         tilt_correction = bool(angular_correction.tilt_correction.is_on)
 
