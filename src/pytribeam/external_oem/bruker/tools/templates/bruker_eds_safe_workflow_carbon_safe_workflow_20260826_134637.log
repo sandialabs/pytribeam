@@ -1,0 +1,74 @@
+[2026-08-26T13:46:37] === Bruker EDS safe standalone workflow start ===
+[2026-08-26T13:46:37] Config: C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\tools\templates\bruker_eds_safe_workflow_carbon.yml
+[2026-08-26T13:46:37] Log path: C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\tools\templates\bruker_eds_safe_workflow_carbon_safe_workflow_20260826_134637.log
+[2026-08-26T13:46:37] Using standalone Bruker YAML workflow; no AutoScript or TFS Laser API
+[2026-08-26T13:46:37] Reminder: do not interact with ESPRIT GUI during API acquisition
+[2026-08-26T13:46:37] Bruker YAML loaded and validated
+[2026-08-26T13:46:37] Session mode: local
+[2026-08-26T13:46:37] DLL directory: C:/Program Files/Bruker/Esprit API
+[2026-08-26T13:46:37] Output root: C:/Users/your_user/Documents/pytribeam_bruker_safe_workflow/EDS
+[2026-08-26T13:46:37] Run name: carbon_eds_map
+[2026-08-26T13:46:37] Map: carbon_map, 64x48, pixel_time=1024 us
+[2026-08-26T13:46:37] ROI: x=5, y=5, w=20, h=30
+[2026-08-26T13:46:37] Detector index: 1
+[2026-08-26T13:46:37] Detector motion settings: verify_park_before=False, move_to_acquire_before=False, park_after=False
+[2026-08-26T13:46:37] Detector motion disabled; final detector confirmation will be skipped
+[2026-08-26T13:46:37] Readback: disabled for safe CLI run
+[2026-08-26T13:46:37] Validating Bruker runtime DLL environment
+[2026-08-26T13:46:37] DLL directory found: C:\Program Files\Bruker\Esprit API
+[2026-08-26T13:46:37] Required ESPRIT DLL found: C:\Program Files\Bruker\Esprit API\Bruker.API.Esprit64.dll
+[2026-08-26T13:46:37] Optional Bruker logging DLL found: C:\Program Files\Bruker\Esprit API\Bruker.API.Logging64.dll
+[2026-08-26T13:46:37] Creating Bruker session
+[2026-08-26T13:46:37] Connected Bruker session CID=19530230
+[2026-08-26T13:46:37] Starting Bruker EDS workflow
+[2026-08-26T13:46:37] ERROR: Bruker EDS safe workflow failed: PermissionError: [WinError 5] Access is denied: 'C:\\Users\\your_user'
+[2026-08-26T13:46:37] Traceback follows:
+[2026-08-26T13:46:37]   Traceback (most recent call last):
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1288, in mkdir
+[2026-08-26T13:46:37]       self._accessor.mkdir(self, mode)
+[2026-08-26T13:46:37]   FileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\Users\\your_user\\Documents\\pytribeam_bruker_safe_workflow\\EDS\\carbon_eds_map_20260826_134637'
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   During handling of the above exception, another exception occurred:
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   Traceback (most recent call last):
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1288, in mkdir
+[2026-08-26T13:46:37]       self._accessor.mkdir(self, mode)
+[2026-08-26T13:46:37]   FileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\Users\\your_user\\Documents\\pytribeam_bruker_safe_workflow\\EDS'
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   During handling of the above exception, another exception occurred:
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   Traceback (most recent call last):
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1288, in mkdir
+[2026-08-26T13:46:37]       self._accessor.mkdir(self, mode)
+[2026-08-26T13:46:37]   FileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\Users\\your_user\\Documents\\pytribeam_bruker_safe_workflow'
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   During handling of the above exception, another exception occurred:
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   Traceback (most recent call last):
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1288, in mkdir
+[2026-08-26T13:46:37]       self._accessor.mkdir(self, mode)
+[2026-08-26T13:46:37]   FileNotFoundError: [WinError 3] The system cannot find the path specified: 'C:\\Users\\your_user\\Documents'
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   During handling of the above exception, another exception occurred:
+[2026-08-26T13:46:37]   
+[2026-08-26T13:46:37]   Traceback (most recent call last):
+[2026-08-26T13:46:37]     File "src/pytribeam/external_oem/bruker/tools/run_bruker_eds_safe_workflow.py", line 342, in main
+[2026-08-26T13:46:37]       result = run_bruker_eds_workflow(
+[2026-08-26T13:46:37]     File "C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\workflow.py", line 67, in run_bruker_eds_workflow
+[2026-08-26T13:46:37]       paths = make_run_paths(settings.output, stamp)
+[2026-08-26T13:46:37]     File "C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\output.py", line 92, in make_run_paths
+[2026-08-26T13:46:37]       run_dir.mkdir(parents=True, exist_ok=True)
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1292, in mkdir
+[2026-08-26T13:46:37]       self.parent.mkdir(parents=True, exist_ok=True)
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1292, in mkdir
+[2026-08-26T13:46:37]       self.parent.mkdir(parents=True, exist_ok=True)
+[2026-08-26T13:46:37]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1292, in mkdir
+[2026-08-26T13:46:37]       self.parent.mkdir(parents=True, exist_ok=True)
+[2026-08-26T13:46:37]     [Previous line repeated 1 more time]
+[2026-08-26T13:46:38]     File "C:\Program Files\Enthought\Python\envs\AutoScript\lib\pathlib.py", line 1288, in mkdir
+[2026-08-26T13:46:38]       self._accessor.mkdir(self, mode)
+[2026-08-26T13:46:38]   PermissionError: [WinError 5] Access is denied: 'C:\\Users\\your_user'
+[2026-08-26T13:46:38] Skipping best-effort detector park because detector.park_after=false
+[2026-08-26T13:46:38] Detector motion disabled; final detector position check skipped
+[2026-08-26T13:46:38] === Bruker EDS safe standalone workflow FAILURE ===
+[2026-08-26T13:46:38] Process exit code: 1
