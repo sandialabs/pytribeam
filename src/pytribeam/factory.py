@@ -1,147 +1,138 @@
 #!/usr/bin/python3
+"""Factory and validation functions for `pytribeam` settings objects.
+
+This module converts raw configuration dictionaries and live microscope state
+into structured `pytribeam.types` objects. It is the main construction layer used
+by the workflow to validate YAML input, read current hardware settings, enforce
+limits, and create typed settings for imaging, FIB, laser, EBSD, EDS, custom,
+stage, beam, detector, and scan operations.
+
+Most users should not need to call the low-level validation helpers directly.
+Workflow code typically enters this module through `general`, `step`, or one of
+the `active_*` functions.
+
+## Typical usage
+
+Create experiment-wide general settings from a parsed YAML dictionary:
+
+```python
+import pytribeam.factory as factory
+
+general_settings = factory.general(
+    general_db=general_db,
+    yml_format=yml_format,
+)
+```
+
+Create a typed workflow step from a YAML step dictionary:
+
+```python
+step = factory.step(
+    microscope=microscope,
+    step_name=step_name,
+    step_settings=step_settings,
+    general_settings=general_settings,
+    yml_format=yml_format,
+)
+```
+
+Read the current microscope state into `pytribeam` settings objects:
+
+```python
+beam = factory.active_beam_with_settings(microscope)
+image_settings = factory.active_image_settings(microscope)
+stage_position = factory.active_stage_position_settings(microscope)
+```
+
+## Main entry points
+
+- `general`: validate and create `tbt.GeneralSettings`.
+- `step`: validate and create a `tbt.Step` for the configured step type.
+- `active_image_settings`: read the current microscope imaging state.
+- `active_beam_with_settings`: read the active beam and beam settings.
+- `active_detector_settings`: read the active detector settings.
+- `active_scan_settings`: read the active scan settings.
+- `active_stage_position_settings`: read the current stage position in user
+  units.
+- `active_laser_state`: read the current laser state.
+- `stage_limits`, `beam_limits`, and `scan_limits`: read hardware limits from
+  the active microscope connection.
+
+## Configuration workflow
+
+The workflow module uses this factory layer to transform parsed YAML data into
+validated runtime objects:
+
+```text
+YAML file
+  -> raw dictionaries
+  -> validation helpers
+  -> typed settings objects
+  -> workflow execution
+```
+
+For example, image, FIB, laser, EBSD, EDS, and custom steps are all constructed
+from dictionaries using step-type-specific factory functions. These functions
+validate required keys, convert strings to enums, check numeric limits, and
+return the appropriate `tbt.*Settings` object.
+
+## Validation behavior
+
+Validation helpers check user configuration against package schema information,
+supported enum values, microscope hardware limits, and workflow constraints.
+Invalid settings generally raise `ValueError`, `TypeError`, `KeyError`, or
+`NotImplementedError` with context about the step or setting that failed.
+
+## Active-state helpers
+
+Functions beginning with `active_` read the current microscope or laser state and
+return a corresponding `pytribeam.types` object. These are useful for logging,
+GUI display, default-setting generation, and validating that requested hardware
+changes were applied successfully.
+
+## Units
+
+Factory functions preserve the package-wide unit conventions used by
+`pytribeam.types`. User-facing values generally use explicit suffixes such as
+`_mm`, `_um`, `_deg`, `_kv`, `_na`, and `_us`, while values read from or written
+to hardware APIs may be converted internally as needed.
+
+> **Warning**
+>
+> Many functions in this module query live microscope or laser state. Ensure that
+> the required hardware connections and external APIs are available before using
+> active-state or hardware-limit factory functions.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Factory Module
-==============
 
-This module contains functions for creating and validating various settings and objects used in the microscope operations. The functions are organized to handle different step types, including EBSD, EDS, IMAGE, LASER, CUSTOM, and FIB.
-
-Functions
----------
-active_fib_applications(microscope: tbt.Microscope) -> list
-    Retrieve a list of all active FIB (Focused Ion Beam) application files from the microscope.
-
-active_beam_with_settings(microscope: tbt.Microscope) -> tbt.Beam
-    Retrieve the current active beam and its settings from the microscope to create a beam object.
-
-active_detector_settings(microscope: tbt.Microscope) -> tbt.Detector
-    Retrieve the current active detector settings from the microscope to create a detector object.
-
-active_image_settings(microscope: tbt.Microscope) -> tbt.ImageSettings
-    Retrieve the current active image settings from the microscope to create an image settings object.
-
-active_imaging_device(microscope: tbt.Microscope) -> tbt.Beam
-    Determine the active imaging device and return the corresponding internal beam type object with null beam settings.
-
-active_scan_settings(microscope: tbt.Microscope) -> tbt.Scan
-    Retrieve the current active scan settings from the microscope to create a scan object.
-
-active_stage_position_settings(microscope: tbt.Microscope) -> tbt.StagePositionUser
-    Retrieve the current stage position in the raw coordinate system and user units [mm, deg].
-
-active_laser_state() -> tbt.LaserState
-    Retrieve the current state of the laser, including various properties that can be quickly read.
-
-active_laser_settings(microscope: tbt.Microscope) -> tbt.LaserSettings
-    Retrieve the current active laser settings from the microscope to create a laser settings object.
-
-available_detector_types(microscope: tbt.Microscope) -> List[str]
-    Retrieve the available detector types on the current microscope.
-
-available_detector_modes(microscope: tbt.Microscope) -> List[str]
-    Retrieve the available detector modes on the current microscope.
-
-beam_object_type(type: tbt.BeamType) -> tbt.Beam
-    Retrieve the beam object type based on the given beam type.
-
-stage_limits(microscope: tbt.Microscope) -> tbt.StageLimits
-    Retrieve the stage limits from the current microscope connection.
-
-beam_limits(selected_beam: property, beam_type: tbt.BeamType) -> tbt.BeamLimits
-    Retrieve the beam limits for the selected beam and beam type.
-
-general(general_db: dict, yml_format: tbt.YMLFormatVersion) -> tbt.GeneralSettings
-    Convert a general settings dictionary to a built-in type and perform schema checking.
-
-laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern
-    Convert a dictionary of laser box pattern settings to a `LaserBoxPattern` object.
-
-laser_line_pattern(settings: dict) -> tbt.LaserLinePattern
-    Convert a dictionary of laser line pattern settings to a `LaserLinePattern` object.
-
-laser(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.LaserSettings
-    Convert a laser step from a .yml file to microscope settings for performing laser milling.
-
-image(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.ImageSettings
-    Convert an image step from a .yml file to microscope settings for capturing an image.
-
-fib(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.FIBSettings
-    Convert a FIB step from a .yml file to microscope settings for performing a FIB operation.
-
-enforce_beam_type(beam_type, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> bool
-    Enforce a specific beam type is used for an operation based on a dictionary.
-
-ebsd(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.EBSDSettings
-    Convert an EBSD step from a .yml file to microscope settings for performing an EBSD operation.
-
-eds(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.EDSSettings
-    Convert an EDS step from a .yml file to microscope settings for performing an EDS operation.
-
-custom(microscope: tbt.Microscope, step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion) -> tbt.CustomSettings
-    Convert a custom step from a .yml file to custom settings for the microscope.
-
-scan_limits(selected_beam: property) -> tbt.ScanLimits
-    Retrieve the scan settings limits for the selected beam.
-
-string_to_res(input: str) -> tbt.Resolution
-    Convert a string in the format "{{width}}x{{height}}" to a resolution object.
-
-valid_string_resolution(string_resolution: str) -> bool
-    Validate a string resolution.
-
-validate_auto_cb_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for auto contrast/brightness setting dictionary.
-
-validate_stage_position(microscope: tbt.Microscope, step_name: str, settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
-    Perform schema checking for stage position dictionary.
-
-validate_beam_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for beam setting dictionary.
-
-validate_detector_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for detector setting dictionary.
-
-validate_EBSD_EDS_settings(ebsd_oem: str, eds_oem: str) -> bool
-    Check EBSD and EDS OEM and connection for supported OEMs.
-
-validate_general_settings(settings: dict, yml_format: tbt.YMLFormatVersion) -> bool
-    Perform schema checking for general setting dictionary.
-
-validate_scan_settings(microscope: tbt.Microscope, beam_type: tbt.BeamType, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for scan setting dictionary.
-
-stage_position_settings(microscope: tbt.Microscope, step_name: str, general_settings: tbt.GeneralSettings, step_stage_settings: dict, yml_format: tbt.YMLFormatVersion) -> tbt.StageSettings
-    Create a StagePositionUser object from settings, including validation.
-
-validate_pulse_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for pulse setting dictionary.
-
-validate_laser_optics_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for laser optics setting dictionary.
-
-validate_laser_box_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for laser box pattern setting dictionary.
-
-validate_laser_line_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for laser line pattern setting dictionary.
-
-validate_laser_mode_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> bool
-    Perform schema checking for laser mode setting dictionary.
-
-validate_laser_pattern_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> tbt.LaserPatternType
-    Perform schema checking for laser pattern setting dictionary.
-
-validate_fib_pattern_settings(microscope: tbt.Microscope, settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str) -> Union[tbt.FIBRectanglePattern, tbt.FIBRegularCrossSection, tbt.FIBCleaningCrossSection, tbt.FIBStreamPattern]
-    Perform schema checking for FIB pattern setting dictionary.
-
-validate_fib_box_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str, pattern_type: tbt.FIBPatternType) -> bool
-    Perform schema checking for FIB box pattern setting dictionary.
-
-validate_fib_selected_area_settings(settings: dict, yml_format: tbt.YMLFormatVersion, step_name: str, pattern_type: tbt.FIBPatternType) -> bool
-    Perform schema checking for FIB selected area pattern setting dictionary.
-
-step(microscope: tbt.Microscope, step_name: str, step_settings: dict, general_settings: tbt.GeneralSettings, yml_format: tbt.YMLFormatVersion) -> tbt.Step
-    Create a step object for different step types, including validation.
-"""
+__all__ = [
+    "active_fib_applications",
+    "active_beam_with_settings",
+    "active_detector_settings",
+    "active_image_settings",
+    "active_imaging_device",
+    "active_scan_settings",
+    "active_stage_position_settings",
+    "active_laser_state",
+    "active_laser_settings",
+    "available_detector_types",
+    "available_detector_modes",
+    "beam_object_type",
+    "stage_limits",
+    "beam_limits",
+    "scan_limits",
+    "general",
+    "image",
+    "fib",
+    "laser",
+    "ebsd",
+    "eds",
+    "custom",
+    "step",
+    "string_to_res",
+    "valid_string_resolution",
+]
 
 ## python standard libraries
 from pathlib import Path
