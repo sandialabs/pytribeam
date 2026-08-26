@@ -41,14 +41,6 @@ dev = [
     "coverage==7.5.1",
 ]
 
-# pdoc configuration
-# we only build pdoc on the source code, so we can ignore the tests and GUI for doc coverage
-# [docstr-coverage]
-# ignore = [
-#     "tests/",
-#     "src/pytribeam/GUI/",
-# ]
-
 # CLI Entry Points
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html
 [project.scripts]
