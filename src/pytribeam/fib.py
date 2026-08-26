@@ -1,42 +1,109 @@
 #!/usr/bin/python3
 """
-FIB Module
-==========
+Focused ion beam patterning and milling operations.
 
-This module contains functions for performing various operations related to Focused Ion Beam (FIB) milling, including preparing the microscope for milling, creating patterns, and performing milling operations.
+This module provides the high-level utilities used to prepare, create, and run
+FIB milling patterns on a microscope. It includes helpers for loading patterning
+applications, configuring the microscope patterning system, creating microscope
+patterns from `pytribeam` geometry objects, and executing a milling operation
+for a single slice.
 
-Functions
----------
-application_files(microscope: tbt.Microscope) -> List[str]
-    Get the list of application files from the current microscope.
+Most users should interact with this module through `mill_operation`, which
+coordinates shutter setup, beam selection, patterning application setup, pattern
+creation, and execution. Lower-level functions such as `prepare_milling` and
+`create_pattern` are available for workflows that need finer control.
 
-shutter_control(microscope: tbt.Microscope) -> None
-    Ensure auto control is set on the e-beam shutter. Manual control is not currently offered.
+## Typical workflow
 
-prepare_milling(microscope: tbt.Microscope, application: str, patterning_device: tbt.Device = tbt.Device.ION_BEAM) -> bool
-    Clear old patterns, assign patterning to ion beam by default, and load the application.
+from pytribeam.fib import mill_operation
 
-create_pattern(geometry, microscope: tbt.Microscope, **kwargs: dict) -> bool
-    Create a pattern on the microscope based on the provided geometry.
+mill_operation(
+    step=step,
+    fib_settings=fib_settings,
+    general_settings=general_settings,
+    slice_number=0,
+)
 
-create_pattern(geometry: tbt.FIBRectanglePattern, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.RectanglePattern
-    Create a rectangle pattern on the microscope.
+For workflows that need to prepare the microscope and create a pattern manually:
 
-create_pattern(geometry: tbt.FIBRegularCrossSection, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.RegularCrossSectionPattern
-    Create a regular cross-section pattern on the microscope.
 
-create_pattern(geometry: tbt.FIBCleaningCrossSection, microscope: tbt.Microscope, **kwargs: dict) -> tbt.as_dynamics.CleaningCrossSectionPattern
-    Create a cleaning cross-section pattern on the microscope.
+from pytribeam.fib import prepare_milling, create_pattern
 
-create_pattern(geometry: tbt.FIBStreamPattern, microscope: tbt.Microscope, **kwargs: dict) -> tbt.StreamPattern
-    Create a stream pattern on the microscope.
+prepare_milling(
+    microscope=microscope,
+    application="Si-ccs",
+)
 
-image_processing(geometry: tbt.FIBStreamPattern, input_image_path: Path) -> bool
-    Perform image processing for FIB stream pattern.
+pattern = create_pattern(
+    geometry=fib_settings.pattern.geometry,
+    microscope=microscope,
+)
 
-mill_operation(step: tbt.Step, fib_settings: tbt.FIBSettings, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform a milling operation based on the provided step and settings.
+
+## Main entry points
+
+- `application_files`: return the available patterning application files on a
+  microscope.
+- `shutter_control`: ensure the electron-beam protective shutter is in automatic
+  mode before milling.
+- `prepare_milling`: clear existing patterns, select the patterning beam, and
+  load a patterning application.
+- `create_pattern`: create a microscope pattern from a supported FIB geometry
+  object.
+- `image_processing`: run a recipe script to generate a mask for stream-pattern
+  milling.
+- `mill_operation`: perform the complete milling operation for one step and
+  slice.
+
+## Supported pattern geometries
+
+`create_pattern` is implemented as a `functools.singledispatch` function. The
+currently supported geometry types are:
+
+| Geometry type | Created microscope pattern |
+| --- | --- |
+| `tbt.FIBRectanglePattern` | Rectangle pattern |
+| `tbt.FIBRegularCrossSection` | Regular cross-section pattern |
+| `tbt.FIBCleaningCrossSection` | Cleaning cross-section pattern |
+| `tbt.FIBStreamPattern` | Stream pattern generated from an image mask |
+
+Unsupported geometry types raise `NotImplementedError`.
+
+## Units
+
+User-facing FIB geometry values are expected to be in micrometers or
+microseconds according to the field name, for example `width_um`, `depth_um`,
+and `dwell_us`. Values are converted to microscope API units internally using
+`pytribeam.constants.Conversions`.
+
+## Stream-pattern image processing
+
+Stream patterns use an external image-processing recipe to convert an input
+image into a mask. The recipe is executed as a Python subprocess using
+`geometry.recipe_file`, and the generated mask is expected at
+`geometry.mask_file`.
+
+The mask image is converted into a stream-pattern point list, where active mask
+pixels define beam-on points and the first and last points are used to define
+the pattern extents.
+
+> **Warning**
+>
+> Functions in this module can modify microscope state and may initiate
+> milling. Use them only when the microscope, beam conditions, stage position,
+> patterning application, and sample state have been verified.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
+
+__all__ = [
+    "application_files",
+    "shutter_control",
+    "prepare_milling",
+    "create_pattern",
+    "image_processing",
+    "mill_operation",
+]
 
 # Default python modules
 from functools import singledispatch
@@ -97,8 +164,9 @@ def shutter_control(microscope: tbt.Microscope) -> None:
     ## Raises
 
     - `SystemError`: If the e-beam shutter is installed but cannot be set to automatic mode.
-    - `Warnings`:
-    - `--------`:
+
+    ## Warnings
+
     - `UserWarning`: If the e-beam shutter is not installed or if it is set to automatic mode.
     """
     shutter = microscope.beams.electron_beam.protective_shutter
@@ -194,7 +262,7 @@ def create_pattern(
 
 
 @create_pattern.register
-def _(
+def _create_rectangle_pattern(
     geometry: tbt.FIBRectanglePattern,
     microscope: tbt.Microscope,
     **kwargs: dict,
@@ -226,7 +294,7 @@ def _(
 
 
 @create_pattern.register
-def _(
+def _create_regular_cs_pattern(
     geometry: tbt.FIBRegularCrossSection,
     microscope: tbt.Microscope,
     **kwargs: dict,
@@ -258,7 +326,7 @@ def _(
 
 
 @create_pattern.register
-def _(
+def _create_cleaning_cs_pattern(
     geometry: tbt.FIBCleaningCrossSection,
     microscope: tbt.Microscope,
     **kwargs: dict,
@@ -290,7 +358,7 @@ def _(
 
 
 @create_pattern.register
-def _(
+def _create_stream_pattern(
     geometry: tbt.FIBStreamPattern,
     microscope: tbt.Microscope,
     **kwargs: dict,
