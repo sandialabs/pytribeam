@@ -175,15 +175,13 @@ def active_fib_applications(
     """
     Retrieve a list of all active FIB (Focused Ion Beam) patterning application files from the microscope.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object from which to retrieve the application files.
+    ## Parameters
 
-    Returns
-    -------
-    list
-        A list of active FIB patterning application files.
+    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
+
+    ## Returns
+
+    - `list`: A list of active FIB patterning application files.
     """
     return microscope.patterning.list_all_application_files()
 
