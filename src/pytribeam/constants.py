@@ -1,18 +1,64 @@
 #!/usr/bin/python3
+"""Package-wide constants and unit conversion factors.
+
+This module centralizes shared constants used throughout `pytribeam`, including
+software version identifiers, logging dataset names and dtypes, beam and detector
+tolerances, laser and FIB defaults, stage limits, mapping defaults, and test
+configuration values.
+
+It also defines the unit conversion factors used by the package. Most modules
+should import conversion factors from `Conversions` rather than hard-coding
+numeric scale factors.
+
+## Typical usage
+
+```python
+from pytribeam.constants import Constants, Conversions
+
+width_m = width_um * Conversions.UM_TO_M
+current_a = current_pa * Conversions.PA_TO_A
+
+if dwell_ratio > Constants.beam_dwell_tol_ratio:
+    ...
+```
+
+## Main objects
+
+- `Constants`: package-wide configuration constants, default values, hardware
+  limits, logging dataset definitions, and test configuration values.
+- `Conversions`: scalar conversion factors for length, time, voltage, current,
+  and angle units.
+
+## Unit conventions
+
+The package uses explicit field names to indicate user-facing units, for example
+`x_mm`, `width_um`, `current_pa`, `dwell_us`, and `rotation_deg`. Values passed
+to microscope APIs are converted internally as needed using `Conversions`.
+
+Common conversion factors include:
+
+| Conversion | Factor |
+| --- | ---: |
+| micrometers to meters | `Conversions.UM_TO_M` |
+| millimeters to meters | `Conversions.MM_TO_M` |
+| microseconds to seconds | `Conversions.US_TO_S` |
+| kilovolts to volts | `Conversions.KV_TO_V` |
+| picoamperes to amperes | `Conversions.PA_TO_A` |
+| degrees to radians | `Conversions.DEG_TO_RAD` |
+
+> **Warning**
+>
+> Constants in this module are used across the package. Update them carefully and
+> verify downstream behavior, especially for values related to hardware limits,
+> pattern generation, stage motion, and file/log formats.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Constants Module
-================
 
-This module contains various constants and conversion factors used throughout the software. The constants are organized into two main classes: `Constants` and `Conversions`.
-
-Classes
--------
-Constants : NamedTuple
-    A NamedTuple containing various constants related to software versions, log files, beam parameters, detector parameters, laser parameters, FIB parameters, stage parameters, mapping parameters, test suite parameters, and error message display parameters.
-
-Conversions : NamedTuple
-    A NamedTuple containing various conversion factors for length, time, voltage, current, and angle.
-"""
+__all__ = [
+    "Constants",
+    "Conversions",
+]
 
 # Default python modules
 import math
