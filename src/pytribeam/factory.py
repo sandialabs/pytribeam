@@ -219,6 +219,14 @@ def active_beam_with_settings(
 
     working_dist_mm = round(beam.working_distance.value * Conversions.M_TO_MM, 6)
 
+    angular_correction = getattr(beam, "angular_correction", None)
+    if angular_correction is None:
+        dynamic_focus = None
+        tilt_correction = None
+    else: 
+        dynamic_focus = bool(angular_correction.dynamic_focus.is_on)
+        tilt_correction = bool(angular_correction.tilt_correction.is_on)
+
     active_settings = tbt.BeamSettings(
         voltage_kv=voltage_kv,
         current_na=current_na,
@@ -226,6 +234,8 @@ def active_beam_with_settings(
         working_dist_mm=working_dist_mm,
         voltage_tol_kv=voltage_tol_kv,
         current_tol_na=current_tol_na,
+        dynamic_focus=dynamic_focus,
+        tilt_correction=tilt_correction,
     )
 
     return type(selected_beam)(settings=active_settings)

@@ -632,6 +632,15 @@ class Configurator:
                 f"{pkey}beam/working_dist_mm",
                 imaging_settings.beam.settings.working_dist_mm,
             )
+            if self.STEP != "fib":
+                self.controller.update_parameter(
+                    f"{pkey}beam/dynamic_focus",
+                    imaging_settings.beam.settings.dynamic_focus,
+                )
+                self.controller.update_parameter(
+                    f"{pkey}beam/tilt_correction",
+                    imaging_settings.beam.settings.tilt_correction,
+                )
             if "mill" not in pkey:
                 self.controller.update_parameter(
                     f"{pkey}detector/type",
