@@ -28,6 +28,9 @@ insert_EDS(microscope: tbt.Microscope) -> bool
 insert_detector(microscope: tbt.Microscope, detector: tbt.DetectorType, time_delay_s: float = 0.5) -> bool
     Insert the selected detector into the microscope.
 
+retract_all_microscope_insertable_detectors(microscope: tbt.Microscope) -> bool
+    Retract all AutoScript-visible microscope insertable detectors.
+
 retract_all_devices(microscope: tbt.Microscope, enable_EBSD: bool, enable_EDS: bool) -> bool
     Retract all insertable devices, including microscope detectors and EBSD/EDS detectors if integrated.
 
@@ -62,11 +65,10 @@ import time
 import warnings
 
 # 3rd party module
-
 # Local scripts
 import pytribeam.constants as cs
-from pytribeam.constants import Constants
 import pytribeam.image as img
+from pytribeam.constants import Constants
 
 try:
     from pytribeam.laser import tfs_laser as external
@@ -414,36 +416,28 @@ def insert_detector(
     )
 
 
-def retract_all_devices(
+def retract_all_microscope_insertable_detectors(
     microscope: tbt.Microscope,
-    enable_EBSD: bool,
-    enable_EDS: bool,
 ) -> bool:
-    # TODO come up with better system for enable_EBSD_EDS
     """
-    Retract all insertable devices, including microscope detectors and EBSD/EDS detectors if integrated.
+    Retract all AutoScript-visible microscope insertable detectors.
 
-    This function retracts all insertable devices, first retracting microscope detectors and then retracting EBSD/EDS detectors if they are integrated and enabled.
+    This function owns generic microscope detector safety only. It does not
+    connect, insert, or retract external OEM EBSD/EDS detectors.
 
     Parameters
     ----------
     microscope : tbt.Microscope
-        The microscope object for accessing the Autoscript API.
-    enable_EBSD : bool
-        Whether to enable retraction of the EBSD detector.
-    enable_EDS : bool
-        Whether to enable retraction of the EDS detector.
+        The microscope object for accessing the AutoScript API.
 
     Returns
     -------
     bool
-        True if all devices are successfully retracted.
-
-    Raises
-    ------
-    None
+        True if all AutoScript-visible insertable detectors are retracted.
     """
-    print("\tRetracting devices, do not interact with xTUI during this process...")
+    print(
+        "\tRetracting microscope insertable detectors, do not interact with xTUI during this process..."
+    )
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
     device_access(microscope)
 
@@ -463,6 +457,49 @@ def retract_all_devices(
                 detector=detector,
             )
 
+    # reset initial settings:
+    img.set_view(
+        microscope=microscope,
+        quad=initial_view,
+    )
+    print("\t\tAll AutoScript-visible microscope insertable detectors retracted.")
+    return True
+
+
+def retract_all_devices(
+    microscope: tbt.Microscope,
+    enable_EBSD: bool,
+    enable_EDS: bool,
+) -> bool:
+    # TODO come up with better system for enable_EBSD_EDS
+    """
+    Retract all insertable devices, including microscope detectors and EBSD/EDS detectors if integrated.
+
+    This function is retained as a backward-compatible wrapper. New workflow code
+    should call retract_all_microscope_insertable_detectors() for microscope
+    detector safety and use pytribeam.external_oem.device_control for external
+    OEM EBSD/EDS detector control.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for accessing the Autoscript API.
+    enable_EBSD : bool
+        Whether to enable retraction of the EBSD detector.
+    enable_EDS : bool
+        Whether to enable retraction of the EDS detector.
+
+    Returns
+    -------
+    bool
+        True if all devices are successfully retracted.
+
+    Raises
+    ------
+    None
+    """
+    retract_all_microscope_insertable_detectors(microscope=microscope)
+
     # EBSD/EDS detectors:
     try:
         external
@@ -479,11 +516,6 @@ def retract_all_devices(
         #         "\t\tWarning: EBSD and EDS device control API is available but not being used."
         #     )
 
-    # reset initial settings:
-    img.set_view(
-        microscope=microscope,
-        quad=initial_view,
-    )
     print("\t\tAll available and enabled devices retracted.")
     return True
 

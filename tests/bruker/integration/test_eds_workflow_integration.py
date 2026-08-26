@@ -66,6 +66,7 @@ def test_packaged_workflow_yaml_loads_and_roi_is_valid():
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_small_profile_map_saves_bcf_and_bmp(connected_bruker_session, tmp_path):
     controller = BrukerEDSController(connected_bruker_session)
     settings = _make_profile_settings(tmp_path)
@@ -89,6 +90,7 @@ def test_small_profile_map_saves_bcf_and_bmp(connected_bruker_session, tmp_path)
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_small_profile_numeric_readback_npy_if_supported(
     connected_bruker_session,
     tmp_path,

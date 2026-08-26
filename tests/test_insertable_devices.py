@@ -3,14 +3,14 @@
 # 3rd party libraries
 import pytest
 
-# Local
-import pytribeam.insertable_devices as devices
 import pytribeam.factory as factory
 import pytribeam.image as img
+
+# Local
+import pytribeam.insertable_devices as devices
+import pytribeam.stage as stage
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
-import pytribeam.stage as stage
-
 
 # ----------------
 # Helper functions
@@ -124,6 +124,12 @@ class TestEBSDEDS:
 
 
 class TestDeviceMovement:
+    @pytest.mark.simulated
+    def test_retract_all_microscope_insertable_detectors(self, microscope):
+        assert devices.retract_all_microscope_insertable_detectors(
+            microscope=microscope,
+        )
+
     @pytest.mark.hardware
     def test_detector_state(self, microscope):
         devices.device_access(microscope=microscope)

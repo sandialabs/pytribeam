@@ -5,6 +5,7 @@ from pytribeam.external_oem.bruker.types import BrukerEDSMapSettings
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_bcf_file_saved_and_nontrivial(connected_bruker_session, tmp_path):
     controller = BrukerEDSController(connected_bruker_session)
 

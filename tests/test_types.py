@@ -7,7 +7,6 @@ import pytest
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
 
-
 # ----------------
 # Helper functions
 # ----------------
@@ -77,6 +76,12 @@ def electron_image(microscope: tbt.Microscope) -> tbt.ImageSettings:
 # -----
 # Tests
 # -----
+
+
+@pytest.mark.simulated
+def test_external_device_oem_bruker():
+    """Tests that Bruker is a valid external device OEM enum value."""
+    assert tbt.ExternalDeviceOEM.BRUKER.value == "Bruker"
 
 
 @pytest.mark.simulated

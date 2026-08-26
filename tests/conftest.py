@@ -12,6 +12,10 @@ Test capability tiers:
     Runs only on physical hardware systems, including laser and non-laser.
 - laser_hardware:
     Runs only on physical hardware systems with a laser subsystem.
+- oxford_hardware / edax_hardware:
+    Runs only on matching TFS Laser-style OEM hardware systems.
+- bruker_simulator / bruker_hardware:
+    Runs only on matching Bruker/ESPRIT simulator or hardware systems.
 
 """
 
@@ -143,6 +147,8 @@ def has_laser_hardware() -> bool:
     return ut.is_laser_available()
 
 
+RUN_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_HARDWARE"
+TEST_OEM_ENV_VAR = "PYTRIBEAM_TEST_OEM"
 BRUKER_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_BRUKER_HARDWARE"
 BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
 
@@ -152,6 +158,15 @@ def _env_flag_enabled(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _declared_test_oem() -> str:
+    """Return operator-declared generic OEM test target.
+
+    Valid values are "", "oxford", "edax", and "bruker". An empty value means
+    no generic OEM environment was explicitly declared.
+    """
+    return os.environ.get(TEST_OEM_ENV_VAR, "").strip().lower()
+
+
 def _bruker_test_env() -> str:
     """Return the operator-declared Bruker test environment.
 
@@ -159,6 +174,71 @@ def _bruker_test_env() -> str:
     no Bruker environment was explicitly declared.
     """
     return os.environ.get(BRUKER_TEST_ENV_VAR, "").strip().lower()
+
+
+def is_oxford_hardware_system() -> bool:
+    """Return True if running on a configured Oxford OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_oxford_machines)
+
+
+def is_edax_hardware_system() -> bool:
+    """Return True if running on a configured EDAX OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_edax_machines)
+
+
+def is_bruker_hardware_system() -> bool:
+    """Return True if running on a configured Bruker OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_bruker_machines)
+
+
+def is_bruker_simulator_system() -> bool:
+    """Return True if running on a configured Bruker simulator system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.bruker_simulator_machines)
+
+
+def can_run_oxford_hardware() -> bool:
+    """Return True when Oxford hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        and is_hardware_system()
+        and has_laser_hardware()
+        and (_declared_test_oem() == "oxford" or is_oxford_hardware_system())
+    )
+
+
+def can_run_edax_hardware() -> bool:
+    """Return True when EDAX hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        and is_hardware_system()
+        and has_laser_hardware()
+        and (_declared_test_oem() == "edax" or is_edax_hardware_system())
+    )
+
+
+def can_run_bruker_simulator() -> bool:
+    """Return True when Bruker simulator tests are enabled for this session."""
+    return _bruker_test_env() == "simulator" or is_bruker_simulator_system()
+
+
+def can_run_bruker_hardware() -> bool:
+    """Return True when Bruker hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        or _env_flag_enabled(BRUKER_HARDWARE_ENV_VAR)
+    ) and (
+        _bruker_test_env() == "hardware"
+        or _declared_test_oem() == "bruker"
+        or is_bruker_hardware_system()
+    )
 
 
 def _is_bruker_test_item(item) -> bool:
@@ -174,16 +254,15 @@ def _has_bruker_hardware_override(item) -> bool:
     validated on a Bruker/ESPRIT machine whose hostname is not listed in
     Constants.microscope_machines. The override is restricted to tests under
     tests/bruker that are marked both esprit and hardware, and it must be
-    explicitly enabled by the operator with both:
-    - PYTRIBEAM_BRUKER_TEST_ENV=hardware
-    - PYTRIBEAM_RUN_BRUKER_HARDWARE=1
+    explicitly enabled by the operator with either:
+    - PYTRIBEAM_BRUKER_TEST_ENV=hardware and PYTRIBEAM_RUN_BRUKER_HARDWARE=1
+    - PYTRIBEAM_TEST_OEM=bruker and PYTRIBEAM_RUN_HARDWARE=1
     """
     return (
         "esprit" in item.keywords
         and "hardware" in item.keywords
         and _is_bruker_test_item(item)
-        and _bruker_test_env() == "hardware"
-        and _env_flag_enabled(BRUKER_HARDWARE_ENV_VAR)
+        and can_run_bruker_hardware()
     )
 
 
@@ -194,20 +273,36 @@ def pytest_collection_modifyitems(config, items):
     LASER_HARDWARE_ONLY_REASON = (
         "requires physical microscope hardware with laser support"
     )
+    OXFORD_HARDWARE_ONLY_REASON = "requires Oxford OEM hardware/software"
+    EDAX_HARDWARE_ONLY_REASON = "requires EDAX OEM hardware/software"
+    BRUKER_SIMULATOR_ONLY_REASON = "requires Bruker/ESPRIT simulator environment"
+    BRUKER_HARDWARE_ONLY_REASON = "requires Bruker/ESPRIT hardware"
 
     CAN_RUN_DETACHED = True
     try:
         CAN_RUN_SIMULATED = is_simulated_system()
         CAN_RUN_HARDWARE = is_hardware_system()
         CAN_RUN_LASER_HARDWARE = is_hardware_system() and has_laser_hardware()
+        CAN_RUN_OXFORD_HARDWARE = can_run_oxford_hardware()
+        CAN_RUN_EDAX_HARDWARE = can_run_edax_hardware()
+        CAN_RUN_BRUKER_SIMULATOR = can_run_bruker_simulator()
+        CAN_RUN_BRUKER_HARDWARE = can_run_bruker_hardware()
     except ModuleNotFoundError:
         CAN_RUN_SIMULATED = False
         CAN_RUN_HARDWARE = False
         CAN_RUN_LASER_HARDWARE = False
+        CAN_RUN_OXFORD_HARDWARE = False
+        CAN_RUN_EDAX_HARDWARE = False
+        CAN_RUN_BRUKER_SIMULATOR = False
+        CAN_RUN_BRUKER_HARDWARE = False
 
     skip_simulated = pytest.mark.skip(reason=SIMULATED_ONLY_REASON)
     skip_hardware = pytest.mark.skip(reason=HARDWARE_ONLY_REASON)
     skip_laser_hardware = pytest.mark.skip(reason=LASER_HARDWARE_ONLY_REASON)
+    skip_oxford_hardware = pytest.mark.skip(reason=OXFORD_HARDWARE_ONLY_REASON)
+    skip_edax_hardware = pytest.mark.skip(reason=EDAX_HARDWARE_ONLY_REASON)
+    skip_bruker_simulator = pytest.mark.skip(reason=BRUKER_SIMULATOR_ONLY_REASON)
+    skip_bruker_hardware = pytest.mark.skip(reason=BRUKER_HARDWARE_ONLY_REASON)
 
     for item in items:
         if "simulated" in item.keywords and not CAN_RUN_SIMULATED:
@@ -222,6 +317,18 @@ def pytest_collection_modifyitems(config, items):
 
         if "laser_hardware" in item.keywords and not CAN_RUN_LASER_HARDWARE:
             item.add_marker(skip_laser_hardware)
+
+        if "oxford_hardware" in item.keywords and not CAN_RUN_OXFORD_HARDWARE:
+            item.add_marker(skip_oxford_hardware)
+
+        if "edax_hardware" in item.keywords and not CAN_RUN_EDAX_HARDWARE:
+            item.add_marker(skip_edax_hardware)
+
+        if "bruker_simulator" in item.keywords and not CAN_RUN_BRUKER_SIMULATOR:
+            item.add_marker(skip_bruker_simulator)
+
+        if "bruker_hardware" in item.keywords and not CAN_RUN_BRUKER_HARDWARE:
+            item.add_marker(skip_bruker_hardware)
 
 
 # ----------------------------------------------------------------------

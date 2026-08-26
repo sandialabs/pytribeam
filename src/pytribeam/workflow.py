@@ -55,6 +55,7 @@ from typing import List
 # 3rd party module
 # Local scripts
 import pytribeam.constants as cs
+import pytribeam.external_oem.device_control as external_devices
 import pytribeam.factory as factory
 import pytribeam.fib as fib
 import pytribeam.image as img
@@ -538,7 +539,7 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
     enable_EBSD = ut.enable_external_device(general_settings.EBSD_OEM)
     enable_EDS = ut.enable_external_device(general_settings.EDS_OEM)
     if enable_EBSD:
-        status = devices.connect_EBSD()
+        status = external_devices.connect_ebsd(general_settings=general_settings)
         if status == tbt.RetractableDeviceState.ERROR:
             raise SystemError("EBSD camera is connected but in error state.")
         if (
@@ -547,7 +548,7 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
         ):
             laser.ebsd_preflight(general_settings=general_settings)
     if enable_EDS:
-        status = devices.connect_EDS()
+        status = external_devices.connect_eds(general_settings=general_settings)
         if status == tbt.RetractableDeviceState.ERROR:
             raise SystemError("EDS camera is connected but in error state.")
 
@@ -660,10 +661,12 @@ def setup_experiment(
 
     # retract all devices
     print("\tRetracting all devices...")
-    devices.retract_all_devices(
+    devices.retract_all_microscope_insertable_detectors(
         microscope=experiment_settings.microscope,
-        enable_EBSD=experiment_settings.enable_EBSD,
-        enable_EDS=experiment_settings.enable_EDS,
+    )
+    external_devices.retract_all_external_devices(
+        microscope=experiment_settings.microscope,
+        general_settings=experiment_settings.general_settings,
     )
 
     return experiment_settings
@@ -697,9 +700,6 @@ def perform_step(
     microscope = experiment_settings.microscope
     general_settings = experiment_settings.general_settings
     step_sequence = experiment_settings.step_sequence
-    enable_EBSD = experiment_settings.enable_EBSD
-    enable_EDS = experiment_settings.enable_EDS
-
     # get operation settings, execute operation.
     operation = step_sequence[step_number - 1]  # list is 0-indexed
     print(
@@ -728,10 +728,10 @@ def perform_step(
     # retract all devices
     print("\tRetracting all devices...")
     # with ut.nostdout():
-    devices.retract_all_devices(
+    devices.retract_all_microscope_insertable_detectors(microscope=microscope)
+    external_devices.retract_all_external_devices(
         microscope=microscope,
-        enable_EBSD=enable_EBSD,
-        enable_EDS=enable_EDS,
+        general_settings=general_settings,
     )
     print("\tDevices retracted.")
 
@@ -766,10 +766,10 @@ def perform_step(
     # retract all devices
     print("\tRetracting all devices...")
     # with ut.nostdout():
-    devices.retract_all_devices(
+    devices.retract_all_microscope_insertable_detectors(microscope=microscope)
+    external_devices.retract_all_external_devices(
         microscope=microscope,
-        enable_EBSD=enable_EBSD,
-        enable_EDS=enable_EDS,
+        general_settings=general_settings,
     )
     print("\tDevices retracted. Step Complete.\n")
 

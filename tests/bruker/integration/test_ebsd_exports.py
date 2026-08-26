@@ -4,6 +4,7 @@ from pytribeam.external_oem.bruker.ebsd import BrukerEBSDController
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_ebsd_export_probe(connected_bruker_session):
     controller = BrukerEBSDController(connected_bruker_session)
     status = controller.export_status()

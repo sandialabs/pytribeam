@@ -739,12 +739,15 @@ class ExternalDeviceOEM(Enum):
         Oxford OEM.
     EDAX : str
         EDAX OEM.
+    BRUKER : str
+        Bruker OEM.
     NONE : str
         No OEM.
     """
 
     OXFORD: str = "Oxford"
     EDAX: str = "EDAX"
+    BRUKER: str = "Bruker"
     NONE: str = None
 
 

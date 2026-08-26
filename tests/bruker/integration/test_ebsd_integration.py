@@ -6,6 +6,7 @@ from tests.bruker.helpers import skip_if_runtime_unavailable
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_ebsd_get_profiles_raw(connected_bruker_session):
     controller = BrukerEBSDController(connected_bruker_session)
     status = controller.export_status()
@@ -26,6 +27,7 @@ def test_ebsd_get_profiles_raw(connected_bruker_session):
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_ebsd_get_detector_position_mm(connected_bruker_session):
     controller = BrukerEBSDController(connected_bruker_session)
     status = controller.export_status()
@@ -45,6 +47,7 @@ def test_ebsd_get_detector_position_mm(connected_bruker_session):
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_ebsd_get_acquisition_state_smoke(connected_bruker_session):
     controller = BrukerEBSDController(connected_bruker_session)
     status = controller.export_status()

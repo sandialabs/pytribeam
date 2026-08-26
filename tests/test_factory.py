@@ -1,23 +1,20 @@
 ## python standard libraries
-from pathlib import Path
-import platform
-import time
 import copy
+from pathlib import Path
+
+import numpy as np
 
 # 3rd party libraries
 import pytest
 from schema import SchemaError
-import numpy as np
 
 # Local
 import pytribeam.constants as cs
-from pytribeam.constants import Conversions
-import pytribeam.insertable_devices as devices
 import pytribeam.factory as factory
-import pytribeam.image as img
 import pytribeam.stage as stage
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
+from pytribeam.constants import Conversions
 
 
 class TestBeamObjectType:
@@ -30,6 +27,33 @@ class TestBeamObjectType:
     def test_beam_object_type_invalid(self):
         with pytest.raises(ValueError):
             factory.beam_object_type("test")
+
+
+class TestExternalDeviceOEMValidation:
+    @pytest.mark.simulated
+    def test_validate_bruker_eds_without_ebsd(self):
+        assert factory.validate_EBSD_EDS_settings(
+            yml_format=tbt.YMLFormatVersion.V_1_0,
+            ebsd_oem=None,
+            eds_oem="Bruker",
+        )
+
+    @pytest.mark.simulated
+    def test_validate_bruker_ebsd_and_eds(self):
+        assert factory.validate_EBSD_EDS_settings(
+            yml_format=tbt.YMLFormatVersion.V_1_0,
+            ebsd_oem="Bruker",
+            eds_oem="Bruker",
+        )
+
+    @pytest.mark.simulated
+    def test_validate_mixed_vendor_still_unsupported(self):
+        with pytest.raises(NotImplementedError):
+            factory.validate_EBSD_EDS_settings(
+                yml_format=tbt.YMLFormatVersion.V_1_0,
+                ebsd_oem="EDAX",
+                eds_oem="Bruker",
+            )
 
 
 class TestActiveSettings:

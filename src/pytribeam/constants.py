@@ -18,8 +18,8 @@ Conversions : NamedTuple
 import math
 from typing import NamedTuple
 
-import numpy as np
 import h5py
+import numpy as np
 
 # import pytribeam.utilities as ut
 import pytribeam.types as tbt
@@ -301,7 +301,12 @@ class Constants(NamedTuple):
         "daasplus2134w11",
     ]
     microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
+    # OEM-specific hardware test hosts. These are used by tests/conftest.py to
+    # prevent running vendor-specific hardware tests on the wrong microscope.
+    microscope_with_oxford_machines = ["HPN125v-MPC"]
     microscope_with_edax_machines = ["HPN276-MPC"]
+    microscope_with_bruker_machines = []
+    bruker_simulator_machines = ["S1099177"]
 
     # error message display constants
     default_column_count = 3  # for printing large lists of values

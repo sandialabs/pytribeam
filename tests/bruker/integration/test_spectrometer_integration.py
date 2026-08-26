@@ -4,6 +4,7 @@ from pytribeam.external_oem.bruker.spectrometer import BrukerSpectrometerControl
 
 
 @pytest.mark.esprit
+@pytest.mark.bruker_simulator
 def test_spectrometer_status_configuration_and_ranges_if_available(
     connected_bruker_session,
 ):

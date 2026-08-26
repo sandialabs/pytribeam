@@ -2238,12 +2238,6 @@ def validate_EBSD_EDS_settings(
     SystemError
         If the Laser API is not accessible.
     """
-    # ensure same manufacturer for both EBSD and EDS
-    if (ebsd_oem is not None) and (eds_oem is not None) and (ebsd_oem != eds_oem):
-        raise NotImplementedError(
-            f"Differing EBSD and EDS OEMs are not supported. Requested EBSD OEM of '{ebsd_oem}' and EDS OEM of '{eds_oem}'."
-        )
-
     # Check EBSD OEM
     if not ut.valid_enum_entry(ebsd_oem, tbt.ExternalDeviceOEM):
         raise ValueError(
@@ -2257,8 +2251,22 @@ def validate_EBSD_EDS_settings(
         )
     eds_device = tbt.ExternalDeviceOEM(eds_oem)
 
+    # ensure same manufacturer for both EBSD and EDS
+    if (
+        ebsd_device != tbt.ExternalDeviceOEM.NONE
+        and eds_device != tbt.ExternalDeviceOEM.NONE
+        and ebsd_device != eds_device
+    ):
+        raise NotImplementedError(
+            f"Differing EBSD and EDS OEMs are not supported. Requested EBSD OEM of '{ebsd_oem}' and EDS OEM of '{eds_oem}'."
+        )
+
     # exit if both devices are none, no need for laser control
     if ebsd_device == eds_device == tbt.ExternalDeviceOEM.NONE:
+        return True
+
+    # Bruker Phase 1 device-control validation does not require TFS Laser API.
+    if tbt.ExternalDeviceOEM.BRUKER in (ebsd_device, eds_device):
         return True
 
     # check EBSD and EDS connection
@@ -2770,6 +2778,7 @@ def validate_laser_optics_settings(
         raise ValueError(
             f"Error. Unsupported yml version {yml_format.version} provided."
         )
+    return True
 
 
 def validate_laser_box_settings(
@@ -2865,6 +2874,7 @@ def validate_laser_box_settings(
         raise ValueError(
             f"Error. Unsupported yml version {yml_format.version} provided."
         )
+    return True
 
 
 def validate_laser_line_settings(
@@ -2937,6 +2947,7 @@ def validate_laser_line_settings(
         raise ValueError(
             f"Error. Unsupported yml version {yml_format.version} provided."
         )
+    return True
 
 
 def validate_laser_mode_settings(
@@ -3028,6 +3039,7 @@ def validate_laser_mode_settings(
         raise ValueError(
             f"Error. Unsupported yml version {yml_format.version} provided."
         )
+    return True
 
 
 def validate_laser_pattern_settings(
@@ -3100,17 +3112,16 @@ def validate_laser_pattern_settings(
                 step_name=step_name,
             )
             return tbt.LaserPatternType.BOX
-        elif line_pattern:
+        if line_pattern:
             validate_laser_line_settings(
                 settings=line_settings,
                 yml_format=yml_format,
                 step_name=step_name,
             )
             return tbt.LaserPatternType.LINE
-        else:
-            raise ValueError(
-                f"Invalid laser pattern settings for step {step_name}. Supported types are {[i.value for i in tbt.LaserPatternType]}"
-            )
+    raise ValueError(
+        f"Invalid laser pattern settings for step {step_name}. Supported types are {[i.value for i in tbt.LaserPatternType]}"
+    )
 
 
 def validate_fib_pattern_settings(
@@ -3172,40 +3183,19 @@ def validate_fib_pattern_settings(
             cleaning_cross_section_settings,
             selected_area_settings,
         ]
-        (
-            rectangle_pattern,
-            regular_cross_section_pattern,
-            cleaning_cross_section_pattern,
-            selected_area_pattern,
-        ) = (None, None, None, None)
-        # pattern_names = [val.value for val in tbt.FIBPatternType]  # remembers order
-        # assert pattern_names == [
-        #     "rectangle",
-        #     "regular_cross_section",
-        #     "cleaning_cross_section",
-        #     "selected_area",
-        # ]
         pattern_names = [
             "rectangle",
             "regular_cross_section",
             "cleaning_cross_section",
             "selected_area",
         ]
-        pattern_types = [
-            rectangle_pattern,
-            regular_cross_section_pattern,
-            cleaning_cross_section_pattern,
-            selected_area_pattern,
-        ]
-
-        for type in range(len(pattern_settings)):
-            db = pattern_settings[type]
+        pattern_types = []
+        for db in pattern_settings:
             if db is None:
-                pattern_types[type] = False
+                pattern_types.append(False)
             else:
-                pattern_types[type] = not ut.none_value_dictionary(db)
+                pattern_types.append(not ut.none_value_dictionary(db))
 
-        # one and only one type of pattern can have settings
         if sum(pattern_types) != 1:
             raise KeyError(
                 f"Invalid .yml file in 'fib' step_type for step '{step_name}'. Pattern settings for one and only one type are allowed. Please provide settings for only one of the supported pattern types: {[name for name in pattern_names]}. For unused pattern types, leave the type settings completely blank, enter 'null' for each parameter, or remove the unused subdictionary completely from the .yml file."
@@ -3229,7 +3219,6 @@ def validate_fib_pattern_settings(
             step_name=step_name,
             pattern_type=pattern_type,
         )
-
         pattern = tbt.FIBPattern(
             application=application_file,
             type=pattern_type,
@@ -3263,9 +3252,9 @@ def validate_fib_pattern_settings(
             raise ValueError(
                 f'Invalid application file of "{pattern.application}" for Rectangle pattern type. Please select or create an appropriate application file.'
             )
-
         return pattern
-    elif pattern_type == tbt.FIBPatternType.REGULAR_CROSS_SECTION:
+
+    if pattern_type == tbt.FIBPatternType.REGULAR_CROSS_SECTION:
         validate_fib_box_settings(
             settings=regular_cross_section_settings,
             yml_format=yml_format,
@@ -3308,7 +3297,8 @@ def validate_fib_pattern_settings(
                 f'Invalid application file of "{pattern.application}" for Regular Cross Section pattern type. Please select or create an appropriate application file.'
             )
         return pattern
-    elif pattern_type == tbt.FIBPatternType.CLEANING_CROSS_SECTION:
+
+    if pattern_type == tbt.FIBPatternType.CLEANING_CROSS_SECTION:
         validate_fib_box_settings(
             settings=cleaning_cross_section_settings,
             yml_format=yml_format,
@@ -3351,7 +3341,8 @@ def validate_fib_pattern_settings(
                 f'Invalid application file of "{pattern.application}" for Cleaning Cross Section pattern type. Please select or create an appropriate application file.'
             )
         return pattern
-    elif pattern_type == tbt.FIBPatternType.SELECTED_AREA:
+
+    if pattern_type == tbt.FIBPatternType.SELECTED_AREA:
         validate_fib_selected_area_settings(
             settings=selected_area_settings,
             yml_format=yml_format,
@@ -3364,11 +3355,10 @@ def validate_fib_pattern_settings(
             geometry=tbt.FIBStreamPattern(
                 dwell_us=selected_area_settings.get("dwell_us"),
                 repeats=selected_area_settings.get("repeats"),
-                recipe=Path(selected_area_settings.get("recipe_file")),
-                mask=Path(selected_area_settings.get("mask_file")),
+                recipe_file=Path(selected_area_settings.get("recipe_file")),
+                mask_file=Path(selected_area_settings.get("mask_file")),
             ),
         )
-
         # make sure application file is valid for this pattern type:
         try:
             microscope.patterning.set_default_application_file(pattern.application)
@@ -3384,12 +3374,11 @@ def validate_fib_pattern_settings(
             raise ValueError(
                 f'Invalid application file of "{pattern.application}" for Selected Area pattern. Please use an application file for Rectangle milling.'
             )
-
         return pattern
-    else:
-        raise KeyError(
-            f"Invalid pattern type of {pattern_type}. Supported pattern types are: {[i.value for i in tbt.FIBPatternType]}"
-        )
+
+    raise KeyError(
+        f"Invalid pattern type of {pattern_type}. Supported pattern types are: {[i.value for i in tbt.FIBPatternType]}"
+    )
 
 
 def validate_fib_box_settings(
@@ -3562,7 +3551,6 @@ def validate_fib_selected_area_settings(
 
 def step(
     microscope: tbt.Microscope,
-    # slice_number: str,
     step_name: str,
     step_settings: dict,
     general_settings: tbt.GeneralSettings,

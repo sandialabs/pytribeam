@@ -109,6 +109,11 @@ markers = [
     "simulated: test requires a simulated/offline microscope system",
     "hardware: test requires a physical hardware system",
     "laser_hardware: test requires a physical hardware system with laser support",
+    "oxford_hardware: test requires Oxford EBSD/EDS hardware and software",
+    "edax_hardware: test requires EDAX EBSD/EDS hardware and software",
+    "bruker_simulator: test requires a Bruker/ESPRIT simulator environment",
+    "bruker_hardware: test requires Bruker/ESPRIT hardware",
+    "esprit: requires a running ESPRIT installation/API",
 ]
 
 # ----------------------
