@@ -1,52 +1,153 @@
 #!/usr/bin/python3
+"""High-level experiment workflow orchestration.
+
+This module coordinates complete `pytribeam` serial-sectioning experiments from
+a YAML configuration file. It performs pre-flight validation, initializes the
+microscope and experiment settings, prepares the log file, retracts insertable
+devices, moves the stage to each step's slice-dependent position, dispatches the
+configured operation, records position metadata, and runs the main slice/step
+experiment loop.
+
+Most users should enter this module through `run_experiment_cli`, which is used
+by the command-line interface. Programmatic workflows may call
+`setup_experiment` and `perform_step` directly when more control over execution
+is needed.
+
+## Typical usage
+
+Run an experiment from a YAML configuration file:
+
+```python
+from pathlib import Path
+from pytribeam import workflow
+
+workflow.run_experiment_cli(
+    start_slice=1,
+    start_step=1,
+    yml_path=Path("experiment.yml"),
+)
+```
+
+Set up an experiment and manually perform a step:
+
+```python
+from pathlib import Path
+from pytribeam import workflow
+
+experiment = workflow.setup_experiment(Path("experiment.yml"))
+
+workflow.perform_step(
+    slice_number=1,
+    step_number=1,
+    experiment_settings=experiment,
+)
+```
+
+## Main entry points
+
+- `run_experiment_cli`: run the full command-line experiment loop.
+- `setup_experiment`: validate configuration, create the log file, link the
+  stage, and retract insertable devices.
+- `pre_flight_check`: parse and validate the YAML file, connect to hardware, and
+  construct `tbt.ExperimentSettings`.
+- `perform_step`: execute one configured step for one slice.
+- `perform_operation`: dispatch operation execution based on the step settings
+  type.
+- `ebsd_eds_conflict_free`: validate EBSD/EDS step compatibility constraints.
+
+## Workflow sequence
+
+The command-line workflow proceeds as follows:
+
+1. Read the YAML configuration file.
+2. Determine the supported YAML schema version.
+3. Parse and validate general experiment settings.
+4. Enable or validate EBSD/EDS control when configured.
+5. Connect to the microscope.
+6. Parse and validate the configured step sequence.
+7. Check for unsupported EBSD/EDS step conflicts.
+8. Create the experiment log file.
+9. Link the stage to free working distance.
+10. Retract all available and enabled insertable devices.
+11. Log the experiment configuration.
+12. Iterate over slices and steps.
+13. For each executed step:
+    - log the pre-operation stage position,
+    - retract insertable devices,
+    - move to the step start position,
+    - perform the step operation,
+    - log the post-operation stage position,
+    - retract insertable devices again.
+14. Disconnect from the microscope when the experiment completes.
+
+## Operation dispatch
+
+`perform_operation` is implemented with `functools.singledispatch`. Dispatch is
+based on the type of `step.operation_settings`.
+
+| Settings type | Operation |
+| --- | --- |
+| `tbt.ImageSettings` | Acquire an image using `pytribeam.image.image_operation`. |
+| `tbt.FIBSettings` | Acquire an associated ion image, then run FIB milling. |
+| `tbt.LaserSettings` | Run a laser milling operation. |
+| `tbt.EBSDSettings` | Insert EBSD, optionally insert EDS, measure current, image, and map EBSD. |
+| `tbt.EDSSettings` | Insert EDS, measure current, image, and map EDS. |
+| `tbt.CustomSettings` | Execute a user-specified external script. |
+
+Unsupported operation settings types raise `NotImplementedError`.
+
+## Slice and step numbering
+
+Slice and step numbers are user-facing and one-indexed. Step sequences are stored
+internally as Python lists, so `perform_step` converts the requested
+`step_number` to a zero-indexed list index.
+
+Step frequency is evaluated relative to slice 1. A step with frequency `n` runs
+on slice 1 and then every `n` slices thereafter.
+
+## Logging
+
+The workflow logs:
+
+- experiment settings at the beginning of the run,
+- stage position before each executed step,
+- stage position after each executed step,
+- specimen current for EBSD and EDS operations,
+- laser power before and after laser operations.
+
+Dataset names and HDF5 dtypes are defined in `pytribeam.constants.Constants`.
+
+## Safety behavior
+
+Before and after each step, all available and enabled insertable devices are
+retracted. Stage movement is delegated to `pytribeam.stage`, which checks stage
+limits and verifies final position. Detector insertion, EBSD/EDS control, laser
+patterning, FIB milling, and imaging are delegated to their subsystem modules.
+
+> **Warning**
+>
+> Functions in this module orchestrate microscope motion, detector insertion,
+> FIB milling, laser firing, EBSD/EDS mapping, and external script execution.
+> Confirm that the configuration file, microscope state, sample geometry,
+> detector positions, laser state, and stage limits are safe before running an
+> experiment.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Workflow Module
-===============
 
-This module contains functions for managing and executing the workflow of an experiment, including performing operations, setting up the experiment, and running the main experiment loop.
-
-Functions
----------
-perform_operation(step_settings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the operation for the specified step settings.
-
-perform_operation(step_settings: tbt.ImageSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the image operation for the specified step settings.
-
-perform_operation(step_settings: tbt.FIBSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the FIB operation for the specified step settings.
-
-perform_operation(step_settings: tbt.CustomSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the custom operation for the specified step settings.
-
-perform_operation(step_settings: tbt.EBSDSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the EBSD operation for the specified step settings.
-
-perform_operation(step_settings: tbt.EDSSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the EDS operation for the specified step settings.
-
-perform_operation(step_settings: tbt.LaserSettings, step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform the laser operation for the specified step settings.
-
-ebsd_eds_conflict_free(step_sequence: List[tbt.Step]) -> bool
-    Check if the step sequence is free of EBSD and EDS conflicts.
-
-pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings
-    Perform a pre-flight check for the experiment.
-
-setup_experiment(yml_path: Path) -> tbt.ExperimentSettings
-    Set up the experiment based on the YAML configuration.
-
-perform_step(slice_number: int, step_number: int, experiment_settings: tbt.ExperimentSettings) -> bool
-    Perform a step in the experiment.
-
-run_experiment_cli(start_slice: int, start_step: int, yml_path: Path)
-    Main loop for the experiment, accessed through the command line.
-"""
+__all__ = [
+    "perform_operation",
+    "ebsd_eds_conflict_free",
+    "pre_flight_check",
+    "setup_experiment",
+    "perform_step",
+    "run_experiment_cli",
+]
 
 # Default python modules
 # from functools import singledispatch
 from pathlib import Path
+import sys
 from typing import List
 from functools import singledispatch
 import subprocess
@@ -101,7 +202,7 @@ def perform_operation(
 
 
 @perform_operation.register
-def _(
+def _perform_image_operation(
     step_settings: tbt.ImageSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -130,7 +231,7 @@ def _(
 
 
 @perform_operation.register
-def _(
+def _perform_fib_operation(
     step_settings: tbt.FIBSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -178,7 +279,7 @@ def _(
 
 
 @perform_operation.register
-def _(
+def _perform_custom_operation(
     step_settings: tbt.CustomSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -223,7 +324,7 @@ def _(
 
 
 @perform_operation.register
-def _(
+def _perform_ebsd_operation(
     step_settings: tbt.EBSDSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -291,7 +392,7 @@ def _(
 
 
 @perform_operation.register
-def _(
+def _perform_eds_operation(
     step_settings: tbt.EDSSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -355,7 +456,7 @@ def _(
 
 
 @perform_operation.register
-def _(
+def _perform_laser_operation(
     step_settings: tbt.LaserSettings,
     step: tbt.Step,
     general_settings: tbt.GeneralSettings,
@@ -380,15 +481,6 @@ def _(
         general_settings=general_settings,
         slice_number=slice_number,
     )
-
-
-# @perform_operation(tbt.StageSettings)
-# def _(
-#     step_settings,
-#     step: tbt.Step,
-#     log_filepath: Path,
-# ) -> bool:
-#     pass
 
 
 def ebsd_eds_conflict_free(step_sequence: List[tbt.Step]) -> bool:
@@ -526,7 +618,7 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
             )
         if (step_type == tbt.StepType.EBSD) and (not enable_EBSD):
             raise SystemError(
-                f"Step name '{step_name}' is an EDS step type but EDS control is not currently enabled."
+                f"Step name '{step_name}' is an EBSD step type but EDS control is not currently enabled."
             )
         # if (step_type == tbt.StepType.EBSD_EDS) and (
         #     (not enable_EBSD) or (not enable_EDS)
@@ -604,7 +696,7 @@ def perform_step(
     slice_number: int,
     step_number: int,
     experiment_settings: tbt.ExperimentSettings,
-):
+) -> None:
     """
     Perform a step in the experiment.
 
@@ -632,9 +724,8 @@ def perform_step(
     print(
         f"Slice {slice_number}, Step {step_number} of {general_settings.step_count}, '{operation.name}', a {operation.type.value} type step."
     )
-    if (
-        slice_number - 1
-    ) % operation.frequency != 0:  # slices start at 1, perform all steps on slice 1.
+    # slices start at 1, perform all steps on slice 1.
+    if (slice_number - 1) % operation.frequency != 0:
         print(
             f"\tStep frequency is every {operation.frequency} slices, starting on slice 1. Skipping step on this slice.\n"
         )
@@ -705,7 +796,7 @@ def run_experiment_cli(
     start_slice: int,
     start_step: int,
     yml_path: Path,
-):
+) -> None:
     """
     Main loop for the experiment, accessed through the command line.
 
@@ -732,12 +823,12 @@ def run_experiment_cli(
         print(f"\nWARNING: EBSD {warning_text}")
         if not ut.yes_no("Continue?"):
             print("\nExiting now...")
-            exit()
+            sys.exit()
     if not experiment_settings.enable_EDS:
         print(f"\nWARNING: EDS {warning_text}")
         if not ut.yes_no("Continue?"):
             print("\nExiting now...")
-            exit()
+            sys.exit()
 
     # main loop
     log.experiment_settings(
@@ -770,7 +861,3 @@ def run_experiment_cli(
     )
 
     print("\n\nExperiment complete.")
-
-
-if __name__ == "__main__":
-    pass
