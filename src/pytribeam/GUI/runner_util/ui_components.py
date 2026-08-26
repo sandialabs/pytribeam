@@ -70,7 +70,7 @@ class ControlPanel(tk.Frame):
     def _create_widgets(self):
         """Create all widgets in the control panel."""
         # Logo
-        image = Image.open(self.resources.logo_dark_path)
+        image = Image.open(self.resources.logo_path)
         image_size = (image.size[0] // 3, image.size[1] // 3)
         image.thumbnail(image_size, Image.ANTIALIAS)
         self.logo = ImageTk.PhotoImage(image)

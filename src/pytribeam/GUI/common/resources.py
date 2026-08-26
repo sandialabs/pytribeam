@@ -58,16 +58,11 @@ class AppResources:
     @property
     def icon_path(self) -> Path:
         """Path to application icon (.ico file)."""
-        return self.base_path / "docs/userguide/src/logos/logo_color_alt.ico"
+        return self.base_path / "docs/userguide/src/logos/logo_color.ico"
 
     @property
-    def logo_dark_path(self) -> Path:
+    def logo_path(self) -> Path:
         """Path to dark theme logo image."""
-        return self.base_path / "docs/userguide/src/logos/logo_color_dark.png"
-
-    @property
-    def logo_light_path(self) -> Path:
-        """Path to light theme logo image."""
         return self.base_path / "docs/userguide/src/logos/logo_color.png"
 
     @property
@@ -76,24 +71,13 @@ class AppResources:
         # return self.base_path / "docs" / "userguide" / "book" / "index.html"
         return "https://github.com/sandialabs/pytribeam/blob/main/docs/userguide/src/SUMMARY.md"
 
-    def get_logo_path(self, theme: str = "dark") -> Path:
-        """Get logo path for specified theme.
-
-        Args:
-            theme: Theme name ('dark' or 'light')
+    def get_logo_path(self) -> Path:
+        """Get logo path.
 
         Returns:
             Path to appropriate logo file
-
-        Raises:
-            ValueError: If theme is not 'dark' or 'light'
         """
-        if theme.lower() == "dark":
-            return self.logo_dark_path
-        elif theme.lower() == "light":
-            return self.logo_light_path
-        else:
-            raise ValueError(f"Unknown theme: {theme}. Must be 'dark' or 'light'")
+        return self.logo_path
 
     def verify_resources(self) -> Dict[str, bool]:
         """Check which resources exist on filesystem.
@@ -103,8 +87,7 @@ class AppResources:
         """
         return {
             "icon": self.icon_path.exists(),
-            "logo_dark": self.logo_dark_path.exists(),
-            "logo_light": self.logo_light_path.exists(),
+            "logo": self.logo_path.exists(),
             "user_guide": self.user_guide_path.exists(),
         }
 
