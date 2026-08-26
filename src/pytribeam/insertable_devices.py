@@ -1,60 +1,147 @@
 #!/usr/bin/python3
+"""Insertable-device, detector, CCD-view, and specimen-current utilities.
+
+This module provides utilities for controlling insertable microscope devices
+used during `pytribeam` workflows. It handles built-in microscope detectors
+through the microscope/AutoScript interface and EBSD/EDS camera control through
+the external Laser API interface when available.
+
+The main responsibilities of this module are:
+
+- checking whether microscope detectors are insertable,
+- querying detector and EBSD/EDS camera state,
+- preventing insertion of detector combinations known to collide,
+- inserting and retracting microscope detectors,
+- inserting and retracting EBSD and EDS cameras,
+- retracting all available insertable devices before workflow operations,
+- using the CCD camera to visualize detector or stage motion, and
+- measuring specimen current with the electron beam.
+
+Most workflow code should use `retract_all_devices`, `insert_detector`,
+`insert_EBSD`, `insert_EDS`, `CCD_view`, `CCD_pause`, and `specimen_current`
+rather than directly manipulating detector or camera state.
+
+## Device types
+
+This module works with two classes of insertable devices:
+
+| Device class | Examples | Control interface |
+| --- | --- | --- |
+| Microscope detectors | CBS, ABS, ETD, other AutoScript detectors | `microscope.detector` |
+| External EBSD/EDS cameras | EBSD camera, EDS camera | Laser API bridge |
+
+EBSD and EDS camera functions require the external Laser API object imported
+from `pytribeam.laser`. If that API is unavailable, EBSD/EDS insertion and
+retraction functions will not be usable.
+
+## Typical usage
+
+Retract all available and enabled insertable devices:
+
+```python
+from pytribeam import insertable_devices as devices
+
+devices.retract_all_devices(
+    microscope=microscope,
+    enable_EBSD=True,
+    enable_EDS=True,
+)
+```
+
+Insert a microscope detector after checking collision constraints:
+
+```python
+import pytribeam.types as tbt
+from pytribeam import insertable_devices as devices
+
+devices.insert_detector(
+    microscope=microscope,
+    detector=tbt.DetectorType.CBS,
+)
+```
+
+Insert EBSD or EDS cameras:
+
+```python
+from pytribeam import insertable_devices as devices
+
+devices.insert_EBSD(microscope)
+devices.insert_EDS(microscope)
+```
+
+Use the CCD camera to visualize motion:
+
+```python
+from pytribeam import insertable_devices as devices
+
+devices.CCD_view(microscope)
+# move stage or insert/retract detector
+devices.CCD_pause(microscope)
+```
+
+Measure specimen current:
+
+```python
+from pytribeam import insertable_devices as devices
+
+current_na = devices.specimen_current(microscope)
+```
+
+## Collision handling
+
+`detectors_will_collide` checks requested detector insertion against known
+disallowed detector combinations defined by `Constants.detector_collisions`.
+This check includes both microscope-controlled detectors and EBSD/EDS cameras
+when the external API is available.
+
+Insertion functions raise `SystemError` if the requested device may collide with
+another detector or if the device cannot be inserted successfully.
+
+## CCD visualization
+
+Several insertion, retraction, and stage-motion workflows use `CCD_view` and
+`CCD_pause` to provide visual feedback during hardware motion. These functions
+temporarily switch to the CCD camera in a selected view quadrant and then restore
+the initially active view.
+
+If the CCD camera is not available on the microscope, a warning is issued and
+the workflow continues.
+
+## Specimen-current measurement
+
+`specimen_current` temporarily switches to the electron beam, selects the ETD
+detector, sets the horizontal field width, acquires an image, reads the specimen
+current, and restores the original detector and field width.
+
+Specimen current is returned in nanoamperes.
+
+> **Warning**
+>
+> Functions in this module can move insertable hardware inside the microscope
+> chamber. Confirm detector positions, stage position, sample geometry, chamber
+> clearance, and workflow state before inserting or retracting devices.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Insertable Devices Module
-==========================
 
-This module contains functions for managing and controlling insertable devices in the microscope, including detectors, EBSD, and EDS systems.
-
-Functions
----------
-detector_insertable(microscope: tbt.Microscope, detector: tbt.DetectorType) -> bool
-    Determine whether or not the built-in microscope detector is insertable and return its state.
-
-detector_state(microscope: tbt.Microscope, detector: tbt.DetectorType) -> tbt.RetractableDeviceState
-    Determine the state of the detector, only valid if the detector is insertable.
-
-detectors_will_collide(microscope: tbt.Microscope, detector_to_insert: tbt.DetectorType) -> bool
-    Determine if a collision may occur when inserting the specified detector.
-
-device_access(microscope: tbt.Microscope) -> tbt.ViewQuad
-    Switch to the upper-left quadrant and assign the electron beam as the active device.
-
-insert_EBSD(microscope: tbt.Microscope) -> bool
-    Insert the EBSD camera into the microscope.
-
-insert_EDS(microscope: tbt.Microscope) -> bool
-    Insert the EDS camera into the microscope.
-
-insert_detector(microscope: tbt.Microscope, detector: tbt.DetectorType, time_delay_s: float = 0.5) -> bool
-    Insert the selected detector into the microscope.
-
-retract_all_devices(microscope: tbt.Microscope, enable_EBSD: bool, enable_EDS: bool) -> bool
-    Retract all insertable devices, including microscope detectors and EBSD/EDS detectors if integrated.
-
-connect_EBSD() -> tbt.RetractableDeviceState
-    Connect to the EBSD system and retrieve the camera status.
-
-retract_EBSD(microscope: tbt.Microscope) -> bool
-    Retract the EBSD camera from the microscope.
-
-connect_EDS() -> tbt.RetractableDeviceState
-    Connect to the EDS system and retrieve the camera status.
-
-retract_EDS(microscope: tbt.Microscope) -> bool
-    Retract the EDS detector from the microscope.
-
-retract_device(microscope: tbt.Microscope, detector: tbt.DetectorType) -> bool
-    Retract the specified detector from the microscope.
-
-CCD_pause(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT) -> bool
-    Pause the CCD camera, typically used after device or stage movement.
-
-CCD_view(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT) -> bool
-    Visualize detector or stage movement for the user using the CCD camera.
-
-specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_hfw_mm, delay_s=Constants.specimen_current_delay_s) -> float
-    Measure the specimen current using the electron beam and return the value in nA.
-"""
+__all__ = [
+    "detector_insertable",
+    "detector_state",
+    "detectors_will_collide",
+    "device_access",
+    "insert_EBSD",
+    "insert_EDS",
+    "insert_detector",
+    "retract_all_devices",
+    "connect_EBSD",
+    "retract_EBSD",
+    "connect_EDS",
+    "retract_EDS",
+    "retract_device",
+    "CCD_pause",
+    "CCD_view",
+    "specimen_current",
+]
 
 # Default python modules
 # from functools import singledispatch
@@ -68,11 +155,12 @@ import pytribeam.constants as cs
 from pytribeam.constants import Constants
 import pytribeam.image as img
 
-try:
-    from pytribeam.laser import tfs_laser as external
-except:
-    pass
 import pytribeam.types as tbt
+from pytribeam.laser import tfs_laser as external
+# try:
+#     from pytribeam.laser import tfs_laser as external
+# except:
+#     pass
 
 
 def detector_insertable(
@@ -92,8 +180,9 @@ def detector_insertable(
     ## Returns
 
     - `bool`: True if the detector is insertable, False otherwise.
-    - `Warnings`:
-    - `--------`:
+
+    ## Warnings
+
     - `UserWarning`: If the detector type is invalid for the currently selected device or if the detector is not found on the system.
     """
     # check if the detector is being read by Autoscript
@@ -186,7 +275,7 @@ def detectors_will_collide(
     return False
 
 
-def device_access(microscope: tbt.Microscope) -> tbt.ViewQuad:
+def device_access(microscope: tbt.Microscope) -> bool:
     """
     Switch to the upper-left quadrant and assign the electron beam as the active device.
 
@@ -198,7 +287,7 @@ def device_access(microscope: tbt.Microscope) -> tbt.ViewQuad:
 
     ## Returns
 
-    - `tbt.ViewQuad`: The upper-left quadrant view.
+    - `True`: True if the operation was successful.
     """
     img.set_view(
         microscope=microscope,
@@ -412,7 +501,7 @@ def retract_all_devices(
 
     ## Raises
 
-    - `None`:
+    - `None`
     """
     print("\tRetracting devices, do not interact with xTUI during this process...")
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
@@ -425,8 +514,8 @@ def retract_all_devices(
             detector=detector,
         )
         if (
-            state is not tbt.RetractableDeviceState.STATIONARY
-            and state is not tbt.RetractableDeviceState.RETRACTED
+            state != tbt.RetractableDeviceState.STATIONARY
+            and state != tbt.RetractableDeviceState.RETRACTED
         ):
             # if (state is not None) and (state != tbt.RetractableDeviceState.RETRACTED):
             retract_device(
@@ -435,20 +524,17 @@ def retract_all_devices(
             )
 
     # EBSD/EDS detectors:
-    try:
-        external
-    except NameError:
-        pass
+    if external is None:
+        # try:
+        #     external
+        # except NameError:
+        #     pass
         print("\t\tLaser API not imported, EBSD and EDS detectors are unavailable")
     else:
         if enable_EBSD:
             retract_EBSD(microscope=microscope)
         if enable_EDS:
             retract_EDS(microscope=microscope)
-        # else:
-        #     warnings.warn(
-        #         "\t\tWarning: EBSD and EDS device control API is available but not being used."
-        #     )
 
     # reset initial settings:
     img.set_view(
@@ -643,7 +729,7 @@ def retract_device(microscope: tbt.Microscope, detector: tbt.DetectorType) -> bo
     state = tbt.RetractableDeviceState(microscope.detector.state)
     if state != tbt.RetractableDeviceState.RETRACTED:
         raise SystemError(
-            f"{detector.value} detector not retracted, current detector state is {detector_state.value}"
+            f"{detector.value} detector not retracted, current detector state is {state.value}"
         )
     print(f"\t\t{detector.value} detector retracted")
     CCD_pause(microscope=microscope)
@@ -668,8 +754,9 @@ def CCD_pause(
     ## Returns
 
     - `bool`: True if the CCD camera is successfully paused.
-    - `Warnings`:
-    - `--------`:
+
+    ## Warnings
+
     - `UserWarning`: If the CCD camera is not installed on the microscope.
     """
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
@@ -682,7 +769,8 @@ def CCD_pause(
         microscope.imaging.stop_acquisition()
     finally:
         microscope.imaging.set_active_view(initial_view.value)
-        return True
+
+    return True
 
 
 def CCD_view(
@@ -702,8 +790,9 @@ def CCD_view(
     ## Returns
 
     - `bool`: True if the CCD camera is successfully used for visualization.
-    - `Warnings`:
-    - `--------`:
+
+    ## Warnings
+
     - `UserWarning`: If the CCD camera is not installed on the microscope.
     """
     initial_view = tbt.ViewQuad(microscope.imaging.get_active_view())
@@ -716,7 +805,8 @@ def CCD_view(
         microscope.imaging.start_acquisition()
     finally:
         microscope.imaging.set_active_view(initial_view.value)
-        return True
+
+    return True
 
 
 def specimen_current(
@@ -745,6 +835,27 @@ def specimen_current(
     )
     initial_hfw_m = microscope.beams.electron_beam.horizontal_field_width.value
     initial_detector = tbt.DetectorType(microscope.detector.type.value)
+
+    # TODO: A safer structure would be a try/except block
+    # try:
+    #     img.detector_type(microscope=microscope, detector=tbt.DetectorType.ETD)
+    #     img.beam_hfw(
+    #         beam=tbt.ElectronBeam(settings=tbt.BeamSettings()),
+    #         microscope=microscope,
+    #         hfw_mm=hfw_mm,
+    #     )
+    #     microscope.imaging.start_acquisition()
+    #     time.sleep(delay_s)
+    #     return microscope.state.specimen_current.value * cs.Conversions.A_TO_NA
+    # finally:
+    #     microscope.imaging.stop_acquisition()
+    #     microscope.beams.electron_beam.horizontal_field_width.value = initial_hfw_m
+    #     img.detector_type(microscope=microscope, detector=initial_detector)
+    #     img.beam_hfw(
+    #         beam=tbt.ElectronBeam(settings=tbt.BeamSettings()),
+    #         microscope=microscope,
+    #         hfw_mm=initial_hfw_m * cs.Conversions.M_TO_MM,
+    #     )
 
     img.detector_type(microscope=microscope, detector=tbt.DetectorType.ETD)
     img.beam_hfw(
