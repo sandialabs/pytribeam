@@ -1031,4 +1031,3 @@ def application_files(microscope: tbt.Microscope) -> List[str]:
     apps.sort(key=str.casefold)
 
     return apps
-

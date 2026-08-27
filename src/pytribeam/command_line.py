@@ -40,6 +40,7 @@ usable even when optional hardware-control dependencies are unavailable.
 
 <hr style="height: 12px; background-color: #333; border: none;">
 """
+
 from __future__ import annotations
 
 import os
