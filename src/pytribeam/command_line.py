@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import argparse
 from pathlib import Path
-from typing import Final
+from typing import Final, Optional
 
 CLI_DOCS: Final[str] = """
 --------
@@ -302,7 +302,7 @@ def _wheel_distribution_name(wheel: Path) -> str:
     return _normalize_package_name(wheel.name.split("-", 1)[0])
 
 
-def _find_autoscript_folder(folder: str | None) -> Path:
+def _find_autoscript_folder(folder: Optional[str]) -> Path:
     """
     Find the folder containing the AutoScript wheels.
     """
