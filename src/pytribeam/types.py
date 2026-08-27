@@ -1,270 +1,245 @@
 #!/usr/bin/python3
+"""Core data types, enums, settings objects, and API adapters for `pytribeam`.
+
+This module defines the shared type system used throughout `pytribeam`. It
+contains lightweight settings containers, enumerations, microscope API adapter
+classes, pattern definitions, workflow configuration objects, and YAML schema
+metadata.
+
+Most other modules import from `pytribeam.types` as `tbt` and use these classes
+to describe microscope state, experiment settings, hardware limits, imaging
+parameters, stage positions, FIB patterns, laser patterns, and workflow steps.
+
+The classes in this module are intentionally centralized so that validation,
+configuration parsing, logging, hardware control, and documentation all refer to
+the same data model.
+
+## Typical usage
+
+```python
+import pytribeam.types as tbt
+
+position = tbt.StagePositionUser(
+    x_mm=0.0,
+    y_mm=0.0,
+    z_mm=5.0,
+    r_deg=0.0,
+    t_deg=0.0,
+)
+
+pattern = tbt.FIBRectanglePattern(
+    center_um=tbt.Point(x=0.0, y=0.0),
+    width_um=10.0,
+    height_um=5.0,
+    depth_um=0.1,
+    scan_direction=tbt.FIBPatternScanDirection.TOP_TO_BOTTOM,
+    scan_type=tbt.FIBPatternScanType.RASTER,
+)
+```
+
+## Type categories
+
+The module is organized around several related groups of types:
+
+| Category | Examples | Purpose |
+| --- | --- | --- |
+| Microscope API adapters | `Microscope`, `AdornedImage`, `Point`, `StagePositionEncoder` | Wrap or re-export AutoScript-compatible objects |
+| Hardware enums | `Device`, `DetectorType`, `StageAxis`, `VacuumState` | Represent microscope hardware states and options |
+| Generic settings | `BeamSettings`, `Scan`, `Detector`, `ImageSettings` | Describe reusable microscope configuration blocks |
+| Stage settings | `StagePositionUser`, `StageLimits`, `StageTolerance`, `StageSettings` | Describe stage position, movement, limits, and tolerances |
+| FIB pattern settings | `FIBRectanglePattern`, `FIBRegularCrossSection`, `FIBStreamPattern`, `FIBSettings` | Describe FIB milling geometry and patterning behavior |
+| Laser settings | `LaserPulse`, `LaserBoxPattern`, `LaserLinePattern`, `LaserPattern`, `LaserSettings` | Describe laser pulse, geometry, and patterning behavior |
+| EBSD/EDS settings | `EBSDSettings`, `EDSSettings`, `MapStatus` | Describe external mapping operations and states |
+| Workflow settings | `Step`, `ExperimentSettings`, `GeneralSettings` | Represent parsed experiment workflow configuration |
+| YAML schema metadata | `YMLFormat`, `YMLFormatVersion` | Define supported configuration-file formats |
+| Utility types | `Limit`, `IntervalType`, `TimeStamp`, `DummyFile` | Support validation, logging, and utility functions |
+
+## API adapter classes
+
+Several classes in this module adapt types from Thermo Fisher AutoScript or
+related APIs. These adapter classes allow the rest of the package to depend on a
+stable `pytribeam` interface while still passing compatible objects to the
+underlying microscope API.
+
+Examples include:
+
+- `Microscope`
+- `AdornedImage`
+- `GrabFrameSettings`
+- `Point`
+- `StagePositionEncoder`
+- `StreamPatternDefinition`
+- `RectanglePattern`
+- `CleaningCrossSectionPattern`
+- `RegularCrossSectionPattern`
+- `StreamPattern`
+
+## Unit conventions
+
+User-facing settings use explicit field names to indicate units. For example:
+
+| Field suffix | Unit |
+| --- | --- |
+| `_mm` | millimeters |
+| `_um` | micrometers |
+| `_nm` | nanometers |
+| `_deg` | degrees |
+| `_rad` | radians |
+| `_s` | seconds |
+| `_ms` | milliseconds |
+| `_us` | microseconds |
+| `_khz` | kilohertz |
+| `_uj` | microjoules |
+| `_na` | nanoamperes |
+
+Stage positions are represented in two forms:
+
+| Type | Translation units | Angular units | Typical use |
+| --- | ---: | ---: | --- |
+| `StagePositionUser` | millimeters | degrees | User settings, YAML files, logs, and display |
+| `StagePositionEncoder` | meters | radians | Microscope API movement commands |
+
+Conversion between these representations is handled by utility functions in
+other modules using factors from `pytribeam.constants.Conversions`.
+
+## Pattern settings
+
+FIB and laser pattern settings are represented as structured Python objects
+rather than raw dictionaries. This makes pattern creation code easier to validate
+and document.
+
+FIB pattern types include rectangle, regular cross-section, cleaning
+cross-section, and stream-pattern definitions. Laser pattern types include box
+and line patterns, along with associated pulse and scan settings.
+
+## Workflow settings
+
+Workflow-level types such as `GeneralSettings`, `Step`, and
+`ExperimentSettings` represent validated experiment configuration data. These
+objects are typically created from YAML input and then passed to stage, imaging,
+FIB, laser, EBSD, EDS, logging, and workflow modules.
+
+## YAML format versions
+
+`YMLFormat` and `YMLFormatVersion` describe the supported experiment
+configuration-file schema. They define the expected top-level sections, required
+keys, step keys, and version identifiers used when parsing `.yml` experiment
+files.
+
+## Notes
+
+This module is intentionally broad because it defines the shared vocabulary used
+across the package. Individual modules should generally import these types rather
+than defining local equivalents.
+
+For example:
+
+```python
+import pytribeam.types as tbt
+```
+
+is preferred over importing many individual names when a module uses several
+types from this namespace.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Types Module
-============
 
-This module contains classes for internal data types used in the microscope operations, including settings, patterns, and enums.
-
-Classes
--------
-AdornedImage(as_structs.AdornedImage)
-    Adapter class for autoscript AdornedImage.
-
-AngularCorrectionMode(as_enums.AngularCorrectionMode)
-    Adapter class for autoscript AngularCorrectionMode.
-
-Limit(NamedTuple)
-    Limit range for a value.
-
-BeamType(Enum)
-    Specific enumerated beam types.
-
-BeamSettings(NamedTuple)
-    Settings for generic Beam types.
-
-StreamDepth(IntEnum)
-    Bit depth of stream patterns.
-
-ColorDepth(IntEnum)
-    Bit depth of images.
-
-CoordinateReference(Enum)
-    Enum of coordinate reference frames used for laser milling operations.
-
-DetectorMode(Enum)
-    Enum adapter for autoscript DetectorMode enum.
-
-DetectorType(Enum)
-    Enum adapter for autoscript DetectorType enum.
-
-Device(IntEnum)
-    Enum adapter for autoscript ImagingDevice enum.
-
-DummyFile(object)
-    Dummy file to suppress excessive printing.
-
-ExternalDeviceOEM(Enum)
-    Specific EBSD and EDS OEMs supported for collection.
-
-FIBPatternType(Enum)
-    Enum for FIB pattern types.
-
-FIBPatternScanDirection(Enum)
-    Enum for FIB pattern scan directions.
-
-FIBPatternScanType(Enum)
-    Enum for FIB pattern scan types.
-
-FocusPlaneGrid(NamedTuple)
-    Settings for performing a focus grid to fit plane for image tiling.
-
-GrabFrameSettings(as_structs.GrabFrameSettings)
-    Class adapter for autoscript GrabFrameSettings.
-
-ImageFileFormat(Enum)
-    Enum adapter for autoscript ImageFileFormat.
-
-ImageTileSettings(NamedTuple)
-    Settings for image tiling operations.
-
-IntervalType(Enum)
-    Enumerated interval types for limit checking.
-
-LaserPatternMode(Enum)
-    Enum for laser pattern modes.
-
-LaserWavelength(IntEnum)
-    Enum for laser wavelengths.
-
-Point(as_structs.Point)
-    Adapter class for autoscript Point.
-
-ProtectiveShutterMode(as_enums.ProtectiveShutterMode)
-    Adapter class for autoscript ProtectiveShutterMode.
-
-MapStatus(Enum)
-    Map status for EBSD or EDS.
-
-Microscope(SdbMicroscopeClient)
-    Class adapter for autoscript SdbMicroscopeClient.
-
-MicroscopeConnection(NamedTuple)
-    Connection to initialize microscope object.
-
-PretiltAngleDegrees(NamedTuple)
-    Specimen pretilt as measured with regard to the electron beam normal direction.
-
-Resolution(NamedTuple)
-    Arbitrary scan resolution, with limits of (12 <= input <= 65536).
-
-RetractableDeviceState(Enum)
-    Enum adapter for autoscript RetractableDeviceState enum.
-
-DeviceStatus(NamedTuple)
-    Status of connected devices.
-
-RotationSide(Enum)
-    Enum for specific rotation sides.
-
-ScanArea(NamedTuple)
-    Reduced scan area box, coordinate range in [0,1] from top left corner.
-
-ScanMode(IntEnum)
-    Enum adapter for autoscript ScanningMode enum.
-
-SectioningAxis(Enum)
-    Specific sectioning directions supported for 3D collection.
-
-StageAxis(as_enums.StageAxis)
-    Class adapter for autoscript StageAxis enum.
-
-StageCoordinateSystem(Enum)
-    Adapter enum class for autoscript CoordinateSystem.
-
-StageMovementMode(Enum)
-    Movement mode of the stage.
-
-StagePositionEncoder(as_structs.StagePosition)
-    Class adapter for autoscript StagePosition.
-
-StagePositionUser(NamedTuple)
-    Stage object with axis positions in units of mm and degrees.
-
-StageLimits(NamedTuple)
-    Limits for stage positions as determined by autoscript.
-
-StageTolerance(NamedTuple)
-    Tolerance for stage positions.
-
-StepType(Enum)
-    Specific step types supported for data collection.
-
-StreamPatternDefinition(as_structs.StreamPatternDefinition)
-    Adapter class for autoscript StreamPatternDefinition.
-
-TimeStamp(NamedTuple)
-    Timestamp with human-readable and UNIX time formats.
-
-ViewQuad(IntEnum)
-    Quadrant in xTUI to select for viewing/imaging.
-
-VacuumState(Enum)
-    Enum adapter for autoscript VacuumState enum.
-
-Beam(NamedTuple)
-    A generic Beam type, used as a template for concrete beam types.
-
-BeamLimits(NamedTuple)
-    Limits for beam settings as determined by autoscript.
-
-ElectronBeam(Beam)
-    The specific beam type 'electron'.
-
-GeneralSettings(NamedTuple)
-    General settings object.
-
-IonBeam(Beam)
-    The specific beam type 'ion'.
-
-Detector(NamedTuple)
-    Generic detector settings.
-
-PresetResolution(Resolution, Enum)
-    Enum adapter for autoscript ScanningResolution enum.
-
-Scan(NamedTuple)
-    Generic scan settings.
-
-ImageSettings(NamedTuple)
-    Image settings for the microscope.
-
-StageSettings(NamedTuple)
-    Settings for high-level stage movement operation.
-
-ScanLimits(NamedTuple)
-    Limits for beam scan settings as determined by autoscript.
-
-CustomSettings(NamedTuple)
-    Custom settings for running scripts.
-
-RectanglePattern(as_dynamics.RectanglePattern)
-    Adapter class for autoscript RectanglePattern.
-
-CleaningCrossSectionPattern(as_dynamics.CleaningCrossSectionPattern)
-    Adapter class for autoscript CleaningCrossSectionPattern.
-
-RegularCrossSectionPattern(as_dynamics.RegularCrossSectionPattern)
-    Adapter class for autoscript RegularCrossSectionPattern.
-
-StreamPattern(as_dynamics.StreamPattern)
-    Adapter class for autoscript StreamPattern.
-
-FIBBoxPattern(NamedTuple)
-    FIB box pattern settings.
-
-FIBRectanglePattern(FIBBoxPattern)
-    FIB rectangle pattern settings.
-
-FIBRegularCrossSection(FIBBoxPattern)
-    FIB regular cross-section pattern settings.
-
-FIBCleaningCrossSection(FIBBoxPattern)
-    FIB cleaning cross-section pattern settings.
-
-FIBStreamPattern(NamedTuple)
-    FIB stream pattern settings.
-
-FIBPattern(NamedTuple)
-    FIB pattern settings.
-
-FIBSettings(NamedTuple)
-    FIB settings for the microscope.
-
-EBSDSettings(NamedTuple)
-    EBSD settings for the microscope.
-
-EDSSettings(NamedTuple)
-    EDS settings for the microscope.
-
-LaserPolarization(Enum)
-    Enum for laser polarization.
-
-LaserPulse(NamedTuple)
-    Laser pulse settings.
-
-LaserScanType(Enum)
-    Enum for laser scan types.
-
-LaserPatternType(Enum)
-    Enum for laser pattern types.
-
-LaserBoxPattern(NamedTuple)
-    Laser box pattern settings.
-
-LaserLinePattern(NamedTuple)
-    Laser line pattern settings.
-
-LaserPattern(NamedTuple)
-    Laser pattern settings.
-
-LaserState(NamedTuple)
-    Settings for all readable values from TFS Laser Control.
-
-LaserSettings(NamedTuple)
-    Laser settings for the microscope.
-
-Step(NamedTuple)
-    Step settings for the experiment.
-
-ExperimentSettings(NamedTuple)
-    Experiment settings for the experiment.
-
-YMLFormat(NamedTuple)
-    YAML format settings.
-
-YMLFormatVersion(YMLFormat, Enum)
-    Enum for YAML format versions.
-"""
+__all__ = [
+    # Microscope/API adapters
+    "AdornedImage",
+    "AngularCorrectionMode",
+    "GrabFrameSettings",
+    "Microscope",
+    "Point",
+    "ProtectiveShutterMode",
+    "StageAxis",
+    "StagePositionEncoder",
+    "StreamPatternDefinition",
+    "RectanglePattern",
+    "CleaningCrossSectionPattern",
+    "RegularCrossSectionPattern",
+    "StreamPattern",
+    # Generic utility types
+    "Limit",
+    "IntervalType",
+    "TimeStamp",
+    "DummyFile",
+    # Hardware enums and states
+    "BeamType",
+    "ColorDepth",
+    "DetectorMode",
+    "DetectorType",
+    "Device",
+    "DeviceStatus",
+    "ExternalDeviceOEM",
+    "ImageFileFormat",
+    "MapStatus",
+    "RetractableDeviceState",
+    "ScanMode",
+    "StageCoordinateSystem",
+    "StageMovementMode",
+    "VacuumState",
+    "ViewQuad",
+    # Beam, scan, detector, and image settings
+    "Beam",
+    "BeamLimits",
+    "BeamSettings",
+    "ElectronBeam",
+    "IonBeam",
+    "Detector",
+    "PresetResolution",
+    "Resolution",
+    "Scan",
+    "ScanArea",
+    "ScanLimits",
+    "ImageSettings",
+    "ImageTileSettings",
+    "FocusPlaneGrid",
+    # Stage settings
+    "PretiltAngleDegrees",
+    "RotationSide",
+    "SectioningAxis",
+    "StageLimits",
+    "StagePositionUser",
+    "StageSettings",
+    "StageTolerance",
+    # FIB settings
+    "FIBPatternType",
+    "FIBPatternScanDirection",
+    "FIBPatternScanType",
+    "StreamDepth",
+    "FIBBoxPattern",
+    "FIBRectanglePattern",
+    "FIBRegularCrossSection",
+    "FIBCleaningCrossSection",
+    "FIBStreamPattern",
+    "FIBPattern",
+    "FIBSettings",
+    # Laser settings
+    "CoordinateReference",
+    "LaserPatternMode",
+    "LaserWavelength",
+    "LaserPolarization",
+    "LaserPulse",
+    "LaserScanType",
+    "LaserPatternType",
+    "LaserBoxPattern",
+    "LaserLinePattern",
+    "LaserPattern",
+    "LaserState",
+    "LaserSettings",
+    # EBSD/EDS settings
+    "EBSDSettings",
+    "EDSSettings",
+    # Workflow and configuration settings
+    "CustomSettings",
+    "GeneralSettings",
+    "StepType",
+    "Step",
+    "ExperimentSettings",
+    "YMLFormat",
+    "YMLFormatVersion",
+]
 
 # Default python modules
 from typing import NamedTuple, List, Union
