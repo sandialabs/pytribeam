@@ -69,6 +69,7 @@ def work_in_progress():
 # -------  pytribeam  --------
 # ----------------------------
 
+
 def pytribeam():
     """
     Prints the command line documentation to the command window.
@@ -91,6 +92,7 @@ def pytribeam():
 # ----------------------------
 # -----  pytribeam_info  -----
 # ----------------------------
+
 
 def module_info() -> None:
     """
@@ -159,6 +161,7 @@ def module_info() -> None:
 # -----  pytribeam_gui  ------
 # ----------------------------
 
+
 def launch_gui() -> None:
     """
     Launches the pytribeam GUI.
@@ -174,6 +177,7 @@ def launch_gui() -> None:
 # ----------------------------
 # -----  pytribeam_exp  ------
 # ----------------------------
+
 
 def build_experiment_parser() -> argparse.ArgumentParser:
     """
@@ -501,4 +505,3 @@ def setup_env() -> None:
         upgrade=args.upgrade,
         python_executable=sys.executable,
     )
-
