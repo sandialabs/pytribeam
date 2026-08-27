@@ -7,6 +7,11 @@
 html[data-theme="light"] {
   color-scheme: light;
 
+  --pdoc-background: #ffffff;
+  --text: #1f1f1f;
+  --muted: #5f6a7a;
+  --accent: #f3f3f3;
+
   --pdoc-bg: #ffffff;
   --pdoc-bg-secondary: #f8f8f8;
   --pdoc-bg-tertiary: #f3f3f3;
@@ -42,6 +47,11 @@ html[data-theme="light"] {
 
 html[data-theme="dark"] {
   color-scheme: dark;
+
+  --pdoc-background: #1e1e1e;
+  --text: #d4d4d4;
+  --muted: #9da5b4;
+  --accent: #2d2d30;
 
   /* VS Code Dark Modern-ish */
   --pdoc-bg: #1e1e1e;
