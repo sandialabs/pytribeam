@@ -1,15 +1,44 @@
+#!/usr/bin/python3
 """
-Command Line Entry Points Module
-================================
+Command-line entry points for `pytribeam`.
 
-This module provides command line entry points for various functions and utilities.
-It serves as the interface between the command line and the underlying functionality
-of the application.
+This module defines the functions used by the package's console-script entry
+points. These commands provide lightweight access to package documentation,
+installation/environment diagnostics, GUI startup, and experiment execution from
+a configuration file.
 
-Important:
-    This module should remain lightweight at import time. Do not import AutoScript,
-    Laser API, pytribeam.constants, pytribeam.workflow, or GUI modules at the top
-    level. Import those only inside functions that actually need them.
+The command functions are intentionally small wrappers around package
+functionality. Runtime-heavy imports, such as workflow, GUI, AutoScript, and
+Laser API modules, are delayed until they are needed so that simple commands
+such as help text and module information can run in environments without
+microscope or laser runtime support.
+
+## Console commands
+
+| Function | Purpose |
+| --- | --- |
+| `pytribeam` | Print command-line documentation. |
+| `module_info` | Print package, dependency, and runtime availability information. |
+| `launch_gui` | Start the `pytribeam` graphical user interface. |
+| `run_experiment` | Run an experiment from a configuration `.yml` file. |
+| `work_in_progress` | Print a placeholder warning for unfinished commands. |
+
+## Examples
+
+```console
+$ pytribeam
+$ pytribeam_info
+$ pytribeam_gui
+$ pytribeam_exp path/to/experiment.yml
+```
+
+## Import behavior
+
+Runtime-heavy imports are delayed until the corresponding command is executed.
+This keeps help text, package metadata inspection, and documentation commands
+usable even when optional hardware-control dependencies are unavailable.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
 
 import argparse
@@ -50,14 +79,6 @@ def pytribeam():
     This function prints the contents of the global variable `CLI_DOCS` to the
     command window. It is assumed that `CLI_DOCS` contains the necessary
     documentation in string format.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    None
     """
     print(CLI_DOCS.strip())
 
@@ -195,13 +216,5 @@ def work_in_progress():
 
     This function prints a warning message indicating that the function is a
     work in progress and has not yet been implemented.
-
-    Parameters
-    ----------
-    None
-
-    Returns
-    -------
-    None
     """
     print("Warning: Work in progress (WIP), function not yet implemented.")
