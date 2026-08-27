@@ -18,16 +18,18 @@ authors = [
 ]
 
 dependencies = [
-  "pytz",
-  "schema",
-]
-
-[project.optional-dependencies]
-dev = [
+    "pytz",
+    "schema",
     "h5py",
     "numpy",
     "pyyaml",
     "pillow",
+    "opencv-python",
+    "pandas",
+]
+
+[project.optional-dependencies]
+dev = [
     "pdoc",
     "pylint",
     "pytest",
@@ -48,6 +50,7 @@ pytribeam="pytribeam.command_line:pytribeam"
 pytribeam_info ="pytribeam.command_line:module_info"
 pytribeam_gui="pytribeam.command_line:launch_gui"
 pytribeam_exp="pytribeam.command_line:run_experiment"
+pytribeam_setup="pytribeam.command_line:setup_env"
 
 [project.urls]
 documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"
