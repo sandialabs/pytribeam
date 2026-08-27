@@ -100,9 +100,9 @@ def work_in_progress():
 # ----------------------------
 
 
-def work_in_progress():
+def pytribeam():
     """
-    Prints the 'Work in Progress (WIP)' warning message to the console.
+    Prints the command line documentation to the command window.
 
     This function prints the contents of the global variable `CLI_DOCS` to the
     command window. It is assumed that `CLI_DOCS` contains the necessary
