@@ -7,11 +7,6 @@
 html[data-theme="light"] {
   color-scheme: light;
 
-  --pdoc-background: #ffffff;
-  --text: #1f1f1f;
-  --muted: #5f6a7a;
-  --accent: #f3f3f3;
-
   --pdoc-bg: #ffffff;
   --pdoc-bg-secondary: #f8f8f8;
   --pdoc-bg-tertiary: #f3f3f3;
@@ -47,11 +42,6 @@ html[data-theme="light"] {
 
 html[data-theme="dark"] {
   color-scheme: dark;
-
-  --pdoc-background: #1e1e1e;
-  --text: #d4d4d4;
-  --muted: #9da5b4;
-  --accent: #2d2d30;
 
   /* VS Code Dark Modern-ish */
   --pdoc-bg: #1e1e1e;
@@ -122,13 +112,18 @@ a:hover {
 nav,
 aside,
 header,
-.pdoc,
 .modulename,
 .toc,
 .sidebar {
   background-color: var(--pdoc-bg-secondary) !important;
   color: var(--pdoc-fg) !important;
   border-color: var(--pdoc-border) !important;
+}
+
+main.pdoc,
+.pdoc {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
 }
 
 hr {
@@ -166,9 +161,7 @@ blockquote {
 }
 
 mark,
-.highlight,
-mark *,
-.highlight * {
+mark * {
   background: var(--pdoc-mark-bg) !important;
   color: var(--pdoc-mark-fg) !important;
 }
@@ -887,4 +880,28 @@ html[data-theme="dark"] .docstring tr:nth-child(even) td {
 
 .docstring li {
   margin: 0.25rem 0 !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Fix module-level docstring background                                     */
+/* ------------------------------------------------------------------------- */
+
+#section-intro,
+#section-intro .docstring,
+section.docstring,
+.docstring {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+/* Keep normal docstring children transparent unless they intentionally style themselves */
+.docstring p,
+.docstring ul,
+.docstring ol,
+.docstring li,
+.docstring dl,
+.docstring dt,
+.docstring dd {
+  background-color: transparent !important;
+  color: inherit !important;
 }
