@@ -112,7 +112,6 @@ a:hover {
 nav,
 aside,
 header,
-.modulename,
 .toc,
 .sidebar {
   background-color: var(--pdoc-bg-secondary) !important;
@@ -161,9 +160,7 @@ blockquote {
 }
 
 mark,
-.highlight,
-mark *,
-.highlight * {
+mark * {
   background: var(--pdoc-mark-bg) !important;
   color: var(--pdoc-mark-fg) !important;
 }
@@ -919,4 +916,26 @@ html[data-theme="dark"] .attr.classattr {
   background-color: var(--pdoc-bg-secondary) !important;
   color: var(--pdoc-fg) !important;
   border-color: var(--pdoc-border) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Module/page title should blend into the main page background               */
+/* ------------------------------------------------------------------------- */
+
+.modulename,
+h1.modulename,
+main.pdoc > h1,
+.pdoc > h1 {
+  background: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.modulename a,
+h1.modulename a,
+main.pdoc > h1 a,
+.pdoc > h1 a {
+  background-color: transparent !important;
+  color: var(--pdoc-fg) !important;
 }
