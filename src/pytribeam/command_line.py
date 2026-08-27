@@ -40,6 +40,7 @@ usable even when optional hardware-control dependencies are unavailable.
 
 <hr style="height: 12px; background-color: #333; border: none;">
 """
+from __future__ import annotations
 
 import os
 import sys
@@ -47,7 +48,7 @@ import shutil
 import subprocess
 import argparse
 from pathlib import Path
-from typing import Final, Optional, List
+from typing import Final, Optional
 
 CLI_DOCS: Final[str] = """
 --------
@@ -369,7 +370,7 @@ def _find_autoscript_folder(folder: Optional[str]) -> Path:
     return wheel_folder
 
 
-def _find_required_wheels(folder: Path) -> List[Path]:
+def _find_required_wheels(folder: Path) -> list[Path]:
     """
     Find the required AutoScript wheels in the given folder.
     """
@@ -378,14 +379,14 @@ def _find_required_wheels(folder: Path) -> List[Path]:
     if not wheels:
         raise RuntimeError(f"No wheel files were found in {folder}.")
 
-    wheels_by_distribution: dict[str, List[Path]] = {}
+    wheels_by_distribution: dict[str, list[Path]] = {}
 
     for wheel in wheels:
         distribution_name = _wheel_distribution_name(wheel)
         wheels_by_distribution.setdefault(distribution_name, []).append(wheel)
 
-    selected_wheels: List[Path] = []
-    missing_packages: List[str] = []
+    selected_wheels: list[Path] = []
+    missing_packages: list[str] = []
 
     for package in NEEDED_AUTOSCRIPT_PACKAGES:
         normalized_package = _normalize_package_name(package)
@@ -461,7 +462,7 @@ def _choose_installer(requested: str, python_executable: str) -> str:
 
 
 def _install_wheels(
-    wheels: List[Path],
+    wheels: list[Path],
     installer: str,
     upgrade: bool = False,
     python_executable: str = sys.executable,
