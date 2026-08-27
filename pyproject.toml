@@ -25,6 +25,7 @@ dependencies = [
     "pyyaml",
     "pillow",
     "opencv-python",
+    "scikit-image",
     "pandas",
 ]
 
