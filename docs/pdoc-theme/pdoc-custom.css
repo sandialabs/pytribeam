@@ -7,8 +7,8 @@
 html[data-theme="light"] {
   color-scheme: light;
 
-  --pdoc-bg: #ffffff;
-  --pdoc-bg-secondary: #f8f8f8;
+  --pdoc-bg-secondary: #ffffff;
+  --pdoc-bg: #f8f8f8;
   --pdoc-bg-tertiary: #f3f3f3;
   --pdoc-fg: #1f1f1f;
   --pdoc-fg-muted: #5f6a7a;
@@ -44,8 +44,8 @@ html[data-theme="dark"] {
   color-scheme: dark;
 
   /* VS Code Dark Modern-ish */
-  --pdoc-bg: #1e1e1e;
-  --pdoc-bg-secondary: #252526;
+  --pdoc-bg-secondary: #1e1e1e;
+  --pdoc-bg: #252526;
   --pdoc-bg-tertiary: #2d2d30;
   --pdoc-fg: #d4d4d4;
   --pdoc-fg-muted: #9da5b4;
@@ -161,7 +161,9 @@ blockquote {
 }
 
 mark,
-mark * {
+.highlight,
+mark *,
+.highlight * {
   background: var(--pdoc-mark-bg) !important;
   color: var(--pdoc-mark-fg) !important;
 }
@@ -202,10 +204,10 @@ code {
 
 /* pdoc signatures */
 .signature,
-.function,
-.class,
-.variable,
-.classattr,
+.attr.function,
+.attr.class,
+.attr.variable,
+.attr.classattr,
 .def,
 .source {
   background: var(--pdoc-bg-secondary) !important;
@@ -550,7 +552,7 @@ html[data-theme="dark"] .attr.function,
 html[data-theme="dark"] .attr.class,
 html[data-theme="dark"] .attr.variable,
 html[data-theme="dark"] .attr.classattr {
-  background: #252526 !important;
+  background: var(--pdoc-bg-secondary) !important;
   color: var(--pdoc-fg) !important;
   border-color: var(--pdoc-border) !important;
 }
@@ -883,25 +885,38 @@ html[data-theme="dark"] .docstring tr:nth-child(even) td {
 }
 
 /* ------------------------------------------------------------------------- */
-/* Fix module-level docstring background                                     */
+/* Force page and docstrings to share the same background                     */
 /* ------------------------------------------------------------------------- */
 
-#section-intro,
-#section-intro .docstring,
-section.docstring,
-.docstring {
+html[data-theme="light"] body,
+html[data-theme="light"] main,
+html[data-theme="light"] article,
+html[data-theme="light"] section,
+html[data-theme="light"] .pdoc,
+html[data-theme="light"] .docstring,
+html[data-theme="dark"] body,
+html[data-theme="dark"] main,
+html[data-theme="dark"] article,
+html[data-theme="dark"] section,
+html[data-theme="dark"] .pdoc,
+html[data-theme="dark"] .docstring {
   background-color: var(--pdoc-bg) !important;
   color: var(--pdoc-fg) !important;
 }
 
-/* Keep normal docstring children transparent unless they intentionally style themselves */
-.docstring p,
-.docstring ul,
-.docstring ol,
-.docstring li,
-.docstring dl,
-.docstring dt,
-.docstring dd {
-  background-color: transparent !important;
-  color: inherit !important;
+/* ------------------------------------------------------------------------- */
+/* Function/class/variable definition headers use the contrasting background  */
+/* ------------------------------------------------------------------------- */
+
+html[data-theme="light"] .attr.function,
+html[data-theme="light"] .attr.class,
+html[data-theme="light"] .attr.variable,
+html[data-theme="light"] .attr.classattr,
+html[data-theme="dark"] .attr.function,
+html[data-theme="dark"] .attr.class,
+html[data-theme="dark"] .attr.variable,
+html[data-theme="dark"] .attr.classattr {
+  background-color: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
 }
