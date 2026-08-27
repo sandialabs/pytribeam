@@ -149,6 +149,7 @@ __all__ = [
     "get_test_description",
     "get_autoscript_version",
     "is_laser_available",
+    "application_files",
 ]
 
 
@@ -1006,3 +1007,28 @@ def is_laser_available() -> bool:
         return True
     except ImportError:
         return False
+
+
+def application_files(microscope: tbt.Microscope) -> List[str]:
+    """
+    Get the list of application files from the current microscope.
+
+    This function retrieves the list of application files available on the current microscope, removes any "None" entries, and sorts the list.
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
+
+    ## Returns
+
+    - `List[str]`: A sorted list of application files available on the microscope.
+    """
+    apps = microscope.patterning.list_all_application_files()
+
+    # Remove "None" entry
+    while "None" in apps:
+        apps.remove("None")
+    apps.sort(key=str.casefold)
+
+    return apps
+

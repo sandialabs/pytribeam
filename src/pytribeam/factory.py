@@ -151,7 +151,7 @@ import pytribeam.image as img
 import pytribeam.utilities as ut
 import pytribeam.stage as stage
 from pytribeam.constants import Conversions, Constants
-from pytribeam.fib import application_files
+from pytribeam.utilities import application_files
 
 try:
     import pytribeam.laser as fs_laser
@@ -175,7 +175,7 @@ def active_fib_applications(
     - `list`: A list of active FIB patterning application files.
 
     """
-    return microscope.patterning.list_all_application_files()
+    return application_files(microscope)
 
 
 def active_beam_with_settings(

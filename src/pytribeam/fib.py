@@ -42,8 +42,6 @@ pattern = create_pattern(
 
 ## Main entry points
 
-- `application_files`: return the available patterning application files on a
-  microscope.
 - `shutter_control`: ensure the electron-beam protective shutter is in automatic
   mode before milling.
 - `prepare_milling`: clear existing patterns, select the patterning beam, and
@@ -97,7 +95,6 @@ the pattern extents.
 """
 
 __all__ = [
-    "application_files",
     "shutter_control",
     "prepare_milling",
     "create_pattern",
@@ -106,6 +103,7 @@ __all__ = [
 ]
 
 # Default python modules
+import sys
 from functools import singledispatch
 from pathlib import Path
 import warnings
@@ -125,30 +123,6 @@ import pytribeam.constants as cs
 from pytribeam.constants import Conversions
 import pytribeam.types as tbt
 import pytribeam.image as img
-
-
-def application_files(microscope: tbt.Microscope) -> List[str]:
-    """
-    Get the list of application files from the current microscope.
-
-    This function retrieves the list of application files available on the current microscope, removes any "None" entries, and sorts the list.
-
-    ## Parameters
-
-    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
-
-    ## Returns
-
-    - `List[str]`: A sorted list of application files available on the microscope.
-    """
-    apps = microscope.patterning.list_all_application_files()
-
-    # Remove "None" entry
-    while "None" in apps:
-        apps.remove("None")
-    apps.sort(key=str.casefold)
-
-    return apps
 
 
 def shutter_control(microscope: tbt.Microscope) -> None:
@@ -466,7 +440,7 @@ def image_processing(
     """
     output = subprocess.run(
         [
-            "python",
+            sys.executable,
             (geometry.recipe_file).as_posix(),  # recipe_file
             input_image_path.as_posix(),  # input path,
             (geometry.mask_file).as_posix(),  # outputpath,
