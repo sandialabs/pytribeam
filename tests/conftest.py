@@ -151,6 +151,8 @@ RUN_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_HARDWARE"
 TEST_OEM_ENV_VAR = "PYTRIBEAM_TEST_OEM"
 BRUKER_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_BRUKER_HARDWARE"
 BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
+RUN_EDAX_IPAPI_ENV_VAR = "PYTRIBEAM_RUN_EDAX_IPAPI"
+EDAX_HOST_ENV_VAR = "PYTRIBEAM_EDAX_HOST"
 
 
 def _env_flag_enabled(name: str) -> bool:
@@ -224,6 +226,46 @@ def can_run_edax_hardware() -> bool:
     )
 
 
+def can_run_edax_ipapi() -> bool:
+    """Return True when EDAX IPAPI service tests are enabled for this session.
+
+    The EDAX IPAPI is a TCP service and is reachable from any machine on the
+    network, including the EDAX workstation itself, so this deliberately does
+    not require AutoScript, a laser, or a TFS host name. The operator opts in
+    by naming the service host and setting one of the run flags.
+    """
+    if not os.environ.get(EDAX_HOST_ENV_VAR, "").strip():
+        return False
+    return _env_flag_enabled(RUN_EDAX_IPAPI_ENV_VAR) or _env_flag_enabled(
+        RUN_HARDWARE_ENV_VAR
+    )
+
+
+def _is_edax_test_item(item) -> bool:
+    """Return True for tests under tests/edax."""
+    path = str(getattr(item, "path", item.fspath)).replace("\\", "/").lower()
+    return "/tests/edax/" in f"/{path}"
+
+
+def _has_edax_ipapi_override(item) -> bool:
+    """Allow standalone EDAX IPAPI tests outside TFS host-name lists.
+
+    The EDAX IPAPI wrapper speaks TCP to the EDAX application and is
+    independent of TFS AutoScript, so it can be exercised from the EDAX
+    workstation or an engineering laptop for debugging. The override is
+    restricted to tests under tests/edax marked both edax_ipapi and hardware,
+    and it must be explicitly enabled by the operator with:
+    - PYTRIBEAM_EDAX_HOST=<host> and PYTRIBEAM_RUN_EDAX_IPAPI=1
+    - PYTRIBEAM_EDAX_HOST=<host> and PYTRIBEAM_RUN_HARDWARE=1
+    """
+    return (
+        "edax_ipapi" in item.keywords
+        and "hardware" in item.keywords
+        and _is_edax_test_item(item)
+        and can_run_edax_ipapi()
+    )
+
+
 def can_run_bruker_simulator() -> bool:
     """Return True when Bruker simulator tests are enabled for this session."""
     return _bruker_test_env() == "simulator" or is_bruker_simulator_system()
@@ -277,6 +319,14 @@ def pytest_collection_modifyitems(config, items):
     EDAX_HARDWARE_ONLY_REASON = "requires EDAX OEM hardware/software"
     BRUKER_SIMULATOR_ONLY_REASON = "requires Bruker/ESPRIT simulator environment"
     BRUKER_HARDWARE_ONLY_REASON = "requires Bruker/ESPRIT hardware"
+    EDAX_IPAPI_ONLY_REASON = (
+        f"requires a reachable EDAX IPAPI service; set {EDAX_HOST_ENV_VAR} and "
+        f"{RUN_EDAX_IPAPI_ENV_VAR}=1"
+    )
+
+    # Determined before the AutoScript-dependent probes below, because the EDAX
+    # IPAPI is reachable from machines that have no AutoScript installation.
+    CAN_RUN_EDAX_IPAPI = can_run_edax_ipapi()
 
     CAN_RUN_DETACHED = True
     try:
@@ -303,6 +353,7 @@ def pytest_collection_modifyitems(config, items):
     skip_edax_hardware = pytest.mark.skip(reason=EDAX_HARDWARE_ONLY_REASON)
     skip_bruker_simulator = pytest.mark.skip(reason=BRUKER_SIMULATOR_ONLY_REASON)
     skip_bruker_hardware = pytest.mark.skip(reason=BRUKER_HARDWARE_ONLY_REASON)
+    skip_edax_ipapi = pytest.mark.skip(reason=EDAX_IPAPI_ONLY_REASON)
 
     for item in items:
         if "simulated" in item.keywords and not CAN_RUN_SIMULATED:
@@ -312,8 +363,12 @@ def pytest_collection_modifyitems(config, items):
             "hardware" in item.keywords
             and not CAN_RUN_HARDWARE
             and not _has_bruker_hardware_override(item)
+            and not _has_edax_ipapi_override(item)
         ):
             item.add_marker(skip_hardware)
+
+        if "edax_ipapi" in item.keywords and not CAN_RUN_EDAX_IPAPI:
+            item.add_marker(skip_edax_ipapi)
 
         if "laser_hardware" in item.keywords and not CAN_RUN_LASER_HARDWARE:
             item.add_marker(skip_laser_hardware)
