@@ -1404,6 +1404,7 @@ class StepType(Enum):
     IMAGE: str = "image"
     FIB: str = "fib"
     EDS: str = "eds"
+    BRUKER_EDS: str = "bruker_eds"
     EBSD: str = "ebsd"
     # EBSD_EDS: str = "ebsd_eds"
     CUSTOM: str = "custom"
@@ -2210,6 +2211,78 @@ class EDSSettings(NamedTuple):
 
     image: ImageSettings
     enable_eds: bool = True
+
+
+class MapROI(NamedTuple):
+    """
+    A bounding box for a map
+
+    TODO: VERIFY COORDINATE SYSTEM
+    
+    Attributes
+    ----------
+    x_start_px : int
+        The x coordinate of the left-most pixel of the bounding box
+    y_start_px : int
+        The y coordinate of the top-most pixel of the bounding box
+    width_px : int
+        The horizontal span of the bounding box in pixels
+    height_px : int
+        The vertical span of the bounding box in pixels
+    """
+    x_start_px : int
+    y_start_px : int
+    width_px : int
+    height_px : int
+
+class EDSMap(NamedTuple):
+    """
+    Parameters for an EDS map
+    
+    Attributes
+    ----------
+    width_px : int
+        The width of the map in pixels
+    height_px : int
+        The height of the map in pixels
+    dwell_us : int
+        The dwell time of the map
+    """
+    width_px: int
+    height_px: int
+    dwell_us: int
+    roi: MapROI = None
+
+
+class BrukerEDSSettings(NamedTuple):
+    """
+    EDS settings for the microscope.
+
+    Attributes
+    ----------
+    image : ImageSettings
+        The image settings.
+    dll_dir : str
+        The folder containing the DLLs.
+    output_path : str
+        The folder to save the EDS data to
+    map : EDSMap
+        The map settings for the EDS map
+    host : str
+        The host name for the connection to the Bruker PC
+    port : int
+        The port for the connection to the Bruker PC
+    detector_index : int
+        The index of the detector in the Bruker software
+    """
+
+    image: ImageSettings
+    dll_dir: Path
+    output_path: Path
+    map: EDSMap
+    host: str = None
+    port: int = None
+    detector_index: int = 1
 
 
 class LaserPolarization(Enum):
