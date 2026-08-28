@@ -1557,6 +1557,195 @@ def eds(
     return eds_settings
 
 
+def bruker_eds(
+    microscope: tbt.Microscope,
+    step_settings: dict,
+    step_name: str,
+    yml_format: tbt.YMLFormatVersion,
+) -> tbt.BrukerEDSSettings:
+    """
+    Convert an EDS step from a .yml file to microscope settings for performing an EDS operation.
+
+    This function converts an EDS step from a .yml file to `EDSSettings` for the microscope. It performs schema checking to ensure valid inputs are requested.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope object for which to set the EDS settings.
+    step_settings : dict
+        The dictionary containing the EDS step settings from the .yml file.
+    step_name : str
+        The name of the step in the .yml file.
+    yml_format : tbt.YMLFormatVersion
+        The format specified by the version of the .yml file.
+
+    Returns
+    -------
+    tbt.BrukerEDSSettings
+        The Bruker EDS settings object.
+    """
+    enforce_beam_type(
+        tbt.ElectronBeam(settings=None),
+        step_settings=step_settings,
+        step_name=step_name,
+        yml_format=yml_format,
+    )
+    image_settings = image(
+        microscope=microscope,
+        step_settings=step_settings,
+        step_name=step_name,
+        yml_format=yml_format,
+    )
+
+    bruker_settings = step_settings["bruker_settings"]
+    dll_dir = bruker_settings.get("dll_dir", None)
+    host = bruker_settings.get("host", None)
+    port = bruker_settings.get("host", None)
+    detector_index = bruker_settings.get("detector_index", None)
+    map_settings = bruker_settings.get("map", None)
+
+    if dll_dir is None:
+        raise KeyError(
+            f"Invalid .yml file, no 'dll_dir' found in bruker eds step '{step_name}'."
+        )
+    if not Path(dll_dir).is_dir():
+        raise ValueError(f"Invalid DLL directory.")
+
+    if host is not None and type(host) != str:
+        raise ValueError("Bruker connection host must be a string.")
+
+    if port is not None and type(host) != int:
+        raise ValueError("Bruker connection port must be an integer.")
+
+    if not (type(detector_index) == int and detector_index >= 0):
+        raise ValueError("Bruker detector_index be a positive integer.")
+
+    if (map_settings is None or ut.none_value_dictionary(map_settings)):
+        raise ValueError("Bruker map settings must be provided")
+    else:
+        validate_bruker_eds_map(map_settings, step_name)
+
+    if bruker_settings["map"]["roi"]["x_start_px"] is None:
+        roi = None
+    else:
+        roi = tbt.MapROI(
+            x_start_px=bruker_settings["map"]["roi"]["x_start_px"],
+            y_start_px=bruker_settings["map"]["roi"]["y_start_px"],
+            width_px=bruker_settings["map"]["roi"]["width_px"],
+            height_px=bruker_settings["map"]["roi"]["height_px"],
+        )
+    map_settings = tbt.EDSMap(
+        width_px=bruker_settings["map"]["width_px"],
+        height_px=bruker_settings["map"]["height_px"],
+        dwell_us=bruker_settings["map"]["dwell_us"],
+        roi=roi,
+    )
+    eds_settings = tbt.BrukerEDSSettings(
+        image=image_settings,
+        dll_dir=bruker_settings["dll_dir"],
+        output_path=bruker_settings["output_path"],
+        map=map_settings,
+        host=bruker_settings["host"],
+        port=bruker_settings["port"],
+        detector_index=bruker_settings["detector_index"],
+    )
+    return eds_settings
+
+
+def validate_bruker_eds_map(
+    settings: dict,
+    step_name: str,
+) -> bool:
+    """
+    Perform schema checking for EDSMap dictionary.
+
+    Parameters
+    ----------
+    eds_map_dict : dict
+        Dictionary containing EDSMap parameters with structure:
+        {
+            "width_px": int,
+            "height_px": int,
+            "dwell_us": int,
+            "roi": {
+                "x_start_px": int,
+                "y_start_px": int,
+                "width_px": int,
+                "height_px": int
+            } or None
+        }
+    step_name : str
+        The name of the step in the .yml file.
+
+    Returns
+    -------
+    bool
+        True if the settings are valid, False otherwise.
+
+    Raises
+    ------
+    ValueError
+        If the settings do not satisfy the specified schema.
+    """
+    roi_schema = Schema(
+        {
+            "x_start_px": And(
+                int,
+                error=f"In step '{step_name}', 'roi.x_start_px' must be an integer.",
+            ),
+            "y_start_px": And(
+                int,
+                error=f"In step '{step_name}', 'roi.y_start_px' must be an integer.",
+            ),
+            "width_px": And(
+                int,
+                lambda x: x > 0,
+                error=f"In step '{step_name}', 'roi.width_px' must be a positive integer.",
+            ),
+            "height_px": And(
+                int,
+                lambda x: x > 0,
+                error=f"In step '{step_name}', 'roi.height_px' must be a positive integer.",
+            ),
+        },
+        ignore_extra_keys=True,
+    )
+
+
+    if not ut.none_value_dictionary(settings["roi"]):
+        try:
+            roi_schema.validate(settings["roi"])
+        except Exception as e:
+            raise ValueError(str(e))
+
+    schema = Schema(
+        {
+            "width_px": And(
+                int,
+                lambda x: x > 0,
+                error=f"In step '{step_name}', 'width_px' must be a positive integer but '{settings['width_px']}' was provided.",
+            ),
+            "height_px": And(
+                int,
+                lambda x: x > 0,
+                error=f"In step '{step_name}', 'height_px' must be a positive integer but '{settings['height_px']}' was provided.",
+            ),
+            "dwell_us": And(
+                int,
+                lambda x: x > 0,
+                error=f"In step '{step_name}', 'dwell_us' must be a positive integer but '{settings['dwell_us']}' was provided.",
+            ),
+        },
+        ignore_extra_keys=True,
+    )
+
+    try:
+        schema.validate(settings)
+        return True
+    except Exception as e:
+        raise ValueError(str(e))
+
+
 def custom(
     microscope: tbt.Microscope,
     step_settings: dict,
@@ -3645,6 +3834,13 @@ def step(
         )
     if step_type == tbt.StepType.EDS:
         operation_settings = eds(
+            microscope=microscope,
+            step_settings=step_settings,
+            step_name=step_name,
+            yml_format=yml_format,
+        )
+    if step_type == tbt.StepType.BRUKER_EDS:
+        operation_settings = bruker_eds(
             microscope=microscope,
             step_settings=step_settings,
             step_name=step_name,

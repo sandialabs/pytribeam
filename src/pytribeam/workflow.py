@@ -47,6 +47,7 @@ run_experiment_cli(start_slice: int, start_step: int, yml_path: Path)
 # Default python modules
 # from functools import singledispatch
 import os
+import sys
 import subprocess
 from functools import singledispatch
 from pathlib import Path
@@ -400,6 +401,167 @@ def _(
 
     # retract detector
     devices.retract_EDS(microscope=microscope)
+
+    return True
+
+
+@perform_operation.register
+def _(
+    step_settings: tbt.BrukerEDSSettings,
+    step: tbt.Step,
+    general_settings: tbt.GeneralSettings,
+    slice_number: int,
+) -> bool:
+    """
+    Perform the Bruker EDS operation for the specified step settings.
+
+    Parameters
+    ----------
+    step_settings : tbt.EDSSettings
+        The EDS settings for the operation.
+    step : tbt.Step
+        The step object containing the operation settings.
+    general_settings : tbt.GeneralSettings
+        The general settings object.
+    slice_number : int
+        The slice number for the operation.
+
+    Returns
+    -------
+    bool
+        True if the EDS operation is performed successfully.
+    """
+    image_settings = step_settings.image
+    microscope = image_settings.microscope
+
+    # insert detector
+    # devices.insert_EDS(microscope=microscope)
+
+    # measure and log specimen current
+    found_current_na = devices.specimen_current(microscope=microscope)
+    log.specimen_current(
+        step_number=step.number,
+        step_name=step.name,
+        slice_number=slice_number,
+        log_filepath=general_settings.log_filepath,
+        dataset_name=cs.Constants.specimen_current_dataset_name,
+        specimen_current_na=found_current_na,
+    )
+
+    # take image
+    img.image_operation(
+        step=step,
+        image_settings=image_settings,
+        general_settings=general_settings,
+        slice_number=slice_number,
+    )
+
+    # set dynamic focus/tilt correction
+    dynamic_focus = image_settings.beam.settings.dynamic_focus
+    tilt_correction = image_settings.beam.settings.tilt_correction
+    img.beam_angular_correction(
+        microscope=microscope,
+        dynamic_focus=dynamic_focus,
+        tilt_correction=tilt_correction,
+    )
+
+    # Create configuration file
+    db = {
+        "session": {
+            "dll_dir": step_settings.dll_dir,
+            "mode": "local",
+            "server": "Lokaler Server",
+            "user": "edx",
+            "password": "edx",
+            "host": step_settings.host,
+            "port": step_settings.port,
+            "close_on_exit": False,
+            "keep_connection_open": True,
+        },
+        "output": {
+            "root_dir": step_settings.output_path,
+            "run_name": step.name ,
+        },
+        "detector": {
+            "detector_index": step_settings.detector_index,
+            "move_detector": False,
+            "move_timeout_s": 60.0,
+            "poll_interval_s ": 0.5,
+
+        },
+        "map": {
+            "mode": "profile",
+            "name": f"{step.name}_{slice_number:05d}",
+            "width_px": step_settings.map.width_px,
+            "height_px": step_settings.map.height_px,
+            "pixel_time_us": step_settings.map.dwell_us,
+            "real_time_s": 0,
+            "spu_device": step_settings.detector_index,
+            "save_bcf": True,
+            "save_image": True,
+            "image_format": "bmp",
+            "profile": {
+                "elements": [
+                    {"atomic_number": 6, "symbol": "C", "line": "KA", "energy_keV": 0.0, "width": 1.0,}
+                ],
+                "image_filter": 0,
+                "map_filter": 0,
+                "map_filter_width": 3,
+                "color_mix_method": 0,
+                "brightness": 0.0,
+                "gamma": 1.0,
+                "color_saturation": 1.0,
+                "absolute_scaling": False,
+                "normalization": True,
+                "deconvolution": False,
+            },
+        },
+        "readback": {
+            "save_element_npy": False,
+            "save_element_images": False,
+            "log_element_stats": False,
+        },
+    }
+    if step_settings.map.roi is not None:
+        db["map"]["roi"] = {"x_start_px": step_settings.map.roi.x_start_px,
+                            "y_start_px": step_settings.map.roi.y_start_px,
+                            "width_px": step_settings.map.roi.width_px,
+                            "height_px": step_settings.map.roi.height_px}
+    bruker_config_path = general_settings.exp_dir.joinpath("bruker_settings.yml")
+    ut.dict_to_yml(db, bruker_config_path)
+
+
+    # take map
+    # bruker_script_path = Path(__file__).parent.joinpath(
+    #     "external_oem",
+    #     "bruker",
+    #     "tools",
+    #     "run_bruker_eds_safe_workflow.py",
+    # )
+    # args = [
+    #     sys.executable,
+    #     str(bruker_script_path),
+    #     "--config",
+    #     str(bruker_config_path)
+    # ]
+    # subprocess.call(
+    #     args,
+    #     capture_output=True,
+    # )
+    args = [
+        "--config",
+        str(bruker_config_path),
+    ]
+    from pytribeam.external_oem.bruker.tools.run_bruker_eds_safe_workflow import main as map_eds
+    exit_code = map_eds(args)
+
+    if exit_code != 0:
+        raise RuntimeError("Bruker EDS step failed.")
+
+    # laser.map_eds()
+
+    # retract detector
+    # devices.retract_EDS(microscope=microscope)
 
     return True
 
