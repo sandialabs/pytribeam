@@ -547,7 +547,7 @@ class Configurator:
 
     def update_step_imaging_from_scope(self):
         """Update the imaging settings of the current step based on the current microscope settings."""
-        if self.STEP not in ["image", "fib", "ebsd", "eds"]:
+        if self.STEP not in ["image", "fib", "ebsd", "eds", "bruker_eds"]:
             messagebox.showinfo(
                 parent=self.toplevel,
                 title="Error",

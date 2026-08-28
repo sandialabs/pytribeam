@@ -918,6 +918,7 @@ image_lut.add_entry("scan", deepcopy(scan_lut))
 image_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 # Image should have a step type and name of image
 
+
 ### EDS ###
 eds_lut = LUT("eds")
 eds_lut.add_entry("step_general", deepcopy(common_lut))
@@ -926,6 +927,143 @@ eds_lut.add_entry("detector", deepcopy(detector_lut))
 eds_lut.add_entry("scan", deepcopy(scan_lut))
 eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 # EDS should be electron beam types only, and should have a step type and name of eds
+
+
+### EDS ###
+bruker_dll_dir = LUTField(
+    "DLL Directory",
+    "./",
+    ctk.PathEntry,
+    {"directory": True},
+    "The directory where the Bruker API DLLs are stored.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_output_path = LUTField(
+    "Output Directory",
+    "./",
+    ctk.PathEntry,
+    {"directory": True},
+    "The directory where to save the EDS data.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_connection_host = LUTField(
+    "Connection Host",
+    "localhost",
+    ctk.Entry,
+    {"dtype": str},
+    "The host of the connection to the PC running the Bruker software.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_connection_port = LUTField(
+    "Connection Port",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The port of the connection to the PC running the Bruker software.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_detector_index = LUTField(
+    "Detector Index",
+    1,
+    ctk.Entry,
+    {"dtype": int},
+    "The index of the Bruker detector. Almost always '1' unless you have mutliple detectors.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_x_start_px = LUTField(
+    "ROI X Start (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The x coordinate of the left-most pixel of the bounding box.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_y_start_px = LUTField(
+    "ROI Y Start (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The y coordinate of the top-most pixel of the bounding box.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_width_px = LUTField(
+    "ROI Width (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The horizontal span of the bounding box in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_height_px = LUTField(
+    "ROI Height (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The vertical span of the bounding box in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_width_px = LUTField(
+    "Map Width (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The width of the map in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_height_px = LUTField(
+    "Map Height (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The height of the map in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_dwell_us = LUTField(
+    "Dwell Time (us)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The dwell time for each point in the EDS map.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_roi = LUT("roi")
+bruker_map_roi.add_entry("x_start_px", bruker_roi_x_start_px)
+bruker_map_roi.add_entry("y_start_px", bruker_roi_y_start_px)
+bruker_map_roi.add_entry("width_px", bruker_roi_width_px)
+bruker_map_roi.add_entry("height_px", bruker_roi_height_px)
+bruker_map = LUT("map")
+bruker_map.add_entry("width_px", bruker_map_width_px)
+bruker_map.add_entry("height_px", bruker_map_height_px)
+bruker_map.add_entry("dwell_us", bruker_map_dwell_us)
+bruker_map.add_entry("roi", bruker_map_roi)
+bruker_eds_settings_lut = LUT("bruker_settings")
+bruker_eds_settings_lut.add_entry("dll_dir", deepcopy(bruker_dll_dir))
+bruker_eds_settings_lut.add_entry("output_path", deepcopy(bruker_output_path))
+bruker_eds_settings_lut.add_entry("map", deepcopy(bruker_map))
+bruker_eds_settings_lut.add_entry("host", deepcopy(bruker_connection_host))
+bruker_eds_settings_lut.add_entry("port", deepcopy(bruker_connection_port))
+bruker_eds_settings_lut.add_entry("detector_index", deepcopy(bruker_detector_index))
+bruker_eds_lut = LUT("bruker_eds")
+bruker_eds_lut.add_entry("step_general", deepcopy(common_lut))
+bruker_eds_lut.add_entry("beam", deepcopy(beam_lut))
+bruker_eds_lut.add_entry("detector", deepcopy(detector_lut))
+bruker_eds_lut.add_entry("scan", deepcopy(scan_lut))
+bruker_eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
+bruker_eds_lut.add_entry("bruker_settings", deepcopy(bruker_eds_settings_lut))
+# EDS should be electron beam types only, and should have a step type and name of eds
+
 
 ### EBSD ###
 ebsd_concurrent_eds = LUTField(
@@ -1192,6 +1330,7 @@ custom_lut.add_entry("executable_path", deepcopy(custom_executable_path))
 custom_lut.add_entry("script_path", deepcopy(custom_script_path))
 # Custom should have a step type and name of custom
 
+
 # Apply edits to luts based on step type (enforce names/types, disable/enable fields, etc.)
 laser_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1248,6 +1387,33 @@ eds_lut["step_general"]["step_name"] = LUTField(
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 eds_lut["beam"]["type"] = LUTField(
+    "Beam Type",
+    beam_types[0],
+    ctk.MenuButton,
+    {"options": beam_types, "dtype": str, "state": "disabled"},
+    "The type of beam used to acquire the image.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["step_general"]["step_type"] = LUTField(
+    "Step Type",
+    "eds",
+    ctk.Entry,
+    {"state": "disabled", "dtype": str},
+    "The step type.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["step_general"]["step_name"] = LUTField(
+    "Step Name",
+    "eds",
+    ctk.Entry,
+    {"dtype": str},
+    "The name of the step.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["beam"]["type"] = LUTField(
     "Beam Type",
     beam_types[0],
     ctk.MenuButton,
@@ -1407,6 +1573,7 @@ LUTs = {
     "eds": eds_lut,
     "ebsd": ebsd_lut,
     "custom": custom_lut,
+    "bruker_eds": bruker_eds_lut,
 }
 
 
