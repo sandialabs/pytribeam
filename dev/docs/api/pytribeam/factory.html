@@ -404,7 +404,7 @@ to hardware APIs may be converted internally as needed.</p>
 </span><span id="L-151"><a href="#L-151"><span class="linenos"> 151</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytribeam.utilities</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ut</span>
 </span><span id="L-152"><a href="#L-152"><span class="linenos"> 152</span></a><span class="kn">import</span><span class="w"> </span><span class="nn">pytribeam.stage</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">stage</span>
 </span><span id="L-153"><a href="#L-153"><span class="linenos"> 153</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pytribeam.constants</span><span class="w"> </span><span class="kn">import</span> <span class="n">Conversions</span><span class="p">,</span> <span class="n">Constants</span>
-</span><span id="L-154"><a href="#L-154"><span class="linenos"> 154</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pytribeam.fib</span><span class="w"> </span><span class="kn">import</span> <span class="n">application_files</span>
+</span><span id="L-154"><a href="#L-154"><span class="linenos"> 154</span></a><span class="kn">from</span><span class="w"> </span><span class="nn">pytribeam.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">application_files</span>
 </span><span id="L-155"><a href="#L-155"><span class="linenos"> 155</span></a>
 </span><span id="L-156"><a href="#L-156"><span class="linenos"> 156</span></a><span class="k">try</span><span class="p">:</span>
 </span><span id="L-157"><a href="#L-157"><span class="linenos"> 157</span></a>    <span class="kn">import</span><span class="w"> </span><span class="nn">pytribeam.laser</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">fs_laser</span>
@@ -428,7 +428,7 @@ to hardware APIs may be converted internally as needed.</p>
 </span><span id="L-175"><a href="#L-175"><span class="linenos"> 175</span></a><span class="sd">    - `list`: A list of active FIB patterning application files.</span>
 </span><span id="L-176"><a href="#L-176"><span class="linenos"> 176</span></a>
 </span><span id="L-177"><a href="#L-177"><span class="linenos"> 177</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="L-178"><a href="#L-178"><span class="linenos"> 178</span></a>    <span class="k">return</span> <span class="n">microscope</span><span class="o">.</span><span class="n">patterning</span><span class="o">.</span><span class="n">list_all_application_files</span><span class="p">()</span>
+</span><span id="L-178"><a href="#L-178"><span class="linenos"> 178</span></a>    <span class="k">return</span> <span class="n">application_files</span><span class="p">(</span><span class="n">microscope</span><span class="p">)</span>
 </span><span id="L-179"><a href="#L-179"><span class="linenos"> 179</span></a>
 </span><span id="L-180"><a href="#L-180"><span class="linenos"> 180</span></a>
 </span><span id="L-181"><a href="#L-181"><span class="linenos"> 181</span></a><span class="k">def</span><span class="w"> </span><span class="nf">active_beam_with_settings</span><span class="p">(</span>
@@ -3640,7 +3640,7 @@ to hardware APIs may be converted internally as needed.</p>
 </span><span id="active_fib_applications-176"><a href="#active_fib_applications-176"><span class="linenos">176</span></a><span class="sd">    - `list`: A list of active FIB patterning application files.</span>
 </span><span id="active_fib_applications-177"><a href="#active_fib_applications-177"><span class="linenos">177</span></a>
 </span><span id="active_fib_applications-178"><a href="#active_fib_applications-178"><span class="linenos">178</span></a><span class="sd">    &quot;&quot;&quot;</span>
-</span><span id="active_fib_applications-179"><a href="#active_fib_applications-179"><span class="linenos">179</span></a>    <span class="k">return</span> <span class="n">microscope</span><span class="o">.</span><span class="n">patterning</span><span class="o">.</span><span class="n">list_all_application_files</span><span class="p">()</span>
+</span><span id="active_fib_applications-179"><a href="#active_fib_applications-179"><span class="linenos">179</span></a>    <span class="k">return</span> <span class="n">application_files</span><span class="p">(</span><span class="n">microscope</span><span class="p">)</span>
 </span></pre></div>
 
 
