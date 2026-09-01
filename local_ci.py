@@ -192,54 +192,28 @@ class Spinner:
             self._thread.join(timeout=1.5)
 
 
-
-
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Command-line interface for running selected actions."
     )
 
+    parser.add_argument("--all", action="store_true", help="Run all actions.")
+
     parser.add_argument(
-        "--all",
-        action="store_true",
-        help="Run all actions."
+        "-b", "--book", action="store_true", help="Run book-related action."
     )
 
     parser.add_argument(
-        "-b",
-        "--book",
-        action="store_true",
-        help="Run book-related action."
+        "-d", "--doc", action="store_true", help="Run book-related action."
     )
 
     parser.add_argument(
-        "-d",
-        "--doc",
-        action="store_true",
-        help="Run book-related action."
+        "-a", "--api", action="store_true", help="Run API-related action."
     )
 
+    parser.add_argument("-t", "--test", action="store_true", help="Run tests.")
 
-    parser.add_argument(
-        "-a",
-        "--api",
-        action="store_true",
-        help="Run API-related action."
-    )
-
-    parser.add_argument(
-        "-t",
-        "--test",
-        action="store_true",
-        help="Run tests."
-    )
-
-    parser.add_argument(
-        "-l",
-        "--lint",
-        action="store_true",
-        help="Run linting."
-    )
+    parser.add_argument("-l", "--lint", action="store_true", help="Run linting.")
 
     return parser.parse_args()
 
@@ -703,7 +677,13 @@ def main(args) -> int:
         names.append("API docs")
     if args.test or args.all:
         cmds.extend(["pytest", "coverage"])
-        funcs.extend([run_tests_and_store_coverage, build_combined_coverage, make_test_coverage_badge])
+        funcs.extend(
+            [
+                run_tests_and_store_coverage,
+                build_combined_coverage,
+                make_test_coverage_badge,
+            ]
+        )
         names.extend(["unit test", "combine coverage", "coverage badge"])
     if args.lint or args.all:
         cmds.extend(["pylint", "pylint-exit"])
