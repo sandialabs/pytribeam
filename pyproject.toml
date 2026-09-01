@@ -23,7 +23,7 @@ dependencies = [
     "h5py",
     "numpy",
     "pyyaml",
-    "pillow",
+    "pillow<10.0",
     "opencv-python",
     "scikit-image",
     "pandas",
@@ -41,7 +41,7 @@ dev = [
     "interrogate",
     "requests",
     "ruff",
-    "coverage==7.5.1",
+    "coverage",
 ]
 
 # CLI Entry Points
