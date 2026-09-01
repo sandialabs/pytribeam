@@ -69,7 +69,7 @@
                     <a class="function" href="#beam_voltage">beam_voltage</a>
             </li>
             <li>
-                    <a class="variable" href="#beam_working_dist">beam_working_dist</a>
+                    <a class="function" href="#beam_working_distance">beam_working_distance</a>
             </li>
             <li>
                     <a class="function" href="#collect_multiple_images">collect_multiple_images</a>
@@ -374,7 +374,7 @@ API.</p>
 </span><span id="L-102"><a href="#L-102"><span class="linenos"> 102</span></a>    <span class="s2">&quot;beam_scan_resolution&quot;</span><span class="p">,</span>
 </span><span id="L-103"><a href="#L-103"><span class="linenos"> 103</span></a>    <span class="s2">&quot;beam_scan_rotation&quot;</span><span class="p">,</span>
 </span><span id="L-104"><a href="#L-104"><span class="linenos"> 104</span></a>    <span class="s2">&quot;beam_voltage&quot;</span><span class="p">,</span>
-</span><span id="L-105"><a href="#L-105"><span class="linenos"> 105</span></a>    <span class="s2">&quot;beam_working_dist&quot;</span><span class="p">,</span>
+</span><span id="L-105"><a href="#L-105"><span class="linenos"> 105</span></a>    <span class="s2">&quot;beam_working_distance&quot;</span><span class="p">,</span>
 </span><span id="L-106"><a href="#L-106"><span class="linenos"> 106</span></a>    <span class="s2">&quot;collect_multiple_images&quot;</span><span class="p">,</span>
 </span><span id="L-107"><a href="#L-107"><span class="linenos"> 107</span></a>    <span class="s2">&quot;collect_single_image&quot;</span><span class="p">,</span>
 </span><span id="L-108"><a href="#L-108"><span class="linenos"> 108</span></a>    <span class="s2">&quot;detector_auto_cb&quot;</span><span class="p">,</span>
@@ -2880,15 +2880,114 @@ If the voltage difference exceeds the tolerance, it adjusts the beam voltage and
 
 
                 </section>
-                <section id="beam_working_dist">
-                    <div class="attr variable">
-            <span class="name">beam_working_dist</span>
+                <section id="beam_working_distance">
+                            <input id="beam_working_distance-view-source" class="view-source-toggle-state" type="checkbox" aria-hidden="true" tabindex="-1">
+<div class="attr function">
+            
+        <span class="def">def</span>
+        <span class="name">beam_working_distance</span><span class="signature pdoc-code multiline">(<span class="param">	<span class="n">beam</span><span class="p">:</span> <span class="n"><a href="types.html#Beam">pytribeam.types.Beam</a></span>,</span><span class="param">	<span class="n">microscope</span><span class="p">:</span> <span class="n"><a href="types.html#Microscope">pytribeam.types.Microscope</a></span>,</span><span class="param">	<span class="n">wd_mm</span><span class="p">:</span> <span class="nb">float</span>,</span><span class="param">	<span class="n">delay_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span></span><span class="return-annotation">) -> <span class="nb">bool</span>:</span></span>
 
-        
+                <label class="view-source-button" for="beam_working_distance-view-source"><span>View Source</span></label>
+
     </div>
-    <a class="headerlink" href="#beam_working_dist"></a>
-    
-    
+    <a class="headerlink" href="#beam_working_distance"></a>
+            <div class="pdoc-code codehilite"><pre><span></span><span id="beam_working_distance-692"><a href="#beam_working_distance-692"><span class="linenos">692</span></a><span class="k">def</span><span class="w"> </span><span class="nf">beam_working_distance</span><span class="p">(</span>
+</span><span id="beam_working_distance-693"><a href="#beam_working_distance-693"><span class="linenos">693</span></a>    <span class="n">beam</span><span class="p">:</span> <span class="n">tbt</span><span class="o">.</span><span class="n">Beam</span><span class="p">,</span>
+</span><span id="beam_working_distance-694"><a href="#beam_working_distance-694"><span class="linenos">694</span></a>    <span class="n">microscope</span><span class="p">:</span> <span class="n">tbt</span><span class="o">.</span><span class="n">Microscope</span><span class="p">,</span>
+</span><span id="beam_working_distance-695"><a href="#beam_working_distance-695"><span class="linenos">695</span></a>    <span class="n">wd_mm</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+</span><span id="beam_working_distance-696"><a href="#beam_working_distance-696"><span class="linenos">696</span></a>    <span class="n">delay_s</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.1</span><span class="p">,</span>
+</span><span id="beam_working_distance-697"><a href="#beam_working_distance-697"><span class="linenos">697</span></a><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+</span><span id="beam_working_distance-698"><a href="#beam_working_distance-698"><span class="linenos">698</span></a><span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+</span><span id="beam_working_distance-699"><a href="#beam_working_distance-699"><span class="linenos">699</span></a><span class="sd">    Sets the working distance for the selected beam, with inputs in units of millimeters.</span>
+</span><span id="beam_working_distance-700"><a href="#beam_working_distance-700"><span class="linenos">700</span></a>
+</span><span id="beam_working_distance-701"><a href="#beam_working_distance-701"><span class="linenos">701</span></a><span class="sd">    This function sets the working distance (WD) for the specified beam type on the microscope.</span>
+</span><span id="beam_working_distance-702"><a href="#beam_working_distance-702"><span class="linenos">702</span></a><span class="sd">    It converts the WD from millimeters to meters, sets the WD, and waits for the specified delay.</span>
+</span><span id="beam_working_distance-703"><a href="#beam_working_distance-703"><span class="linenos">703</span></a><span class="sd">    This should be done before adjusting the horizontal field width.</span>
+</span><span id="beam_working_distance-704"><a href="#beam_working_distance-704"><span class="linenos">704</span></a>
+</span><span id="beam_working_distance-705"><a href="#beam_working_distance-705"><span class="linenos">705</span></a><span class="sd">    ## Parameters</span>
+</span><span id="beam_working_distance-706"><a href="#beam_working_distance-706"><span class="linenos">706</span></a>
+</span><span id="beam_working_distance-707"><a href="#beam_working_distance-707"><span class="linenos">707</span></a><span class="sd">    - `beam` (`tbt.Beam`): The beam type to configure.</span>
+</span><span id="beam_working_distance-708"><a href="#beam_working_distance-708"><span class="linenos">708</span></a><span class="sd">    - `microscope` (`tbt.Microscope`): The microscope object to configure.</span>
+</span><span id="beam_working_distance-709"><a href="#beam_working_distance-709"><span class="linenos">709</span></a><span class="sd">    - `wd_mm` (`float`): The desired working distance in millimeters.</span>
+</span><span id="beam_working_distance-710"><a href="#beam_working_distance-710"><span class="linenos">710</span></a><span class="sd">    - `delay_s` (`float, optional`): The delay in seconds to wait after adjusting the working distance (default is 0.1).</span>
+</span><span id="beam_working_distance-711"><a href="#beam_working_distance-711"><span class="linenos">711</span></a>
+</span><span id="beam_working_distance-712"><a href="#beam_working_distance-712"><span class="linenos">712</span></a><span class="sd">    ## Returns</span>
+</span><span id="beam_working_distance-713"><a href="#beam_working_distance-713"><span class="linenos">713</span></a>
+</span><span id="beam_working_distance-714"><a href="#beam_working_distance-714"><span class="linenos">714</span></a><span class="sd">    - `bool`: True if the working distance is set successfully, False otherwise.</span>
+</span><span id="beam_working_distance-715"><a href="#beam_working_distance-715"><span class="linenos">715</span></a>
+</span><span id="beam_working_distance-716"><a href="#beam_working_distance-716"><span class="linenos">716</span></a><span class="sd">    ## Raises</span>
+</span><span id="beam_working_distance-717"><a href="#beam_working_distance-717"><span class="linenos">717</span></a>
+</span><span id="beam_working_distance-718"><a href="#beam_working_distance-718"><span class="linenos">718</span></a><span class="sd">    - `ValueError`: If the working distance cannot be adjusted correctly.</span>
+</span><span id="beam_working_distance-719"><a href="#beam_working_distance-719"><span class="linenos">719</span></a>
+</span><span id="beam_working_distance-720"><a href="#beam_working_distance-720"><span class="linenos">720</span></a><span class="sd">    ## Examples</span>
+</span><span id="beam_working_distance-721"><a href="#beam_working_distance-721"><span class="linenos">721</span></a>
+</span><span id="beam_working_distance-722"><a href="#beam_working_distance-722"><span class="linenos">722</span></a><span class="sd">    &gt;&gt;&gt; import pytribeam.types as tbt</span>
+</span><span id="beam_working_distance-723"><a href="#beam_working_distance-723"><span class="linenos">723</span></a><span class="sd">    &gt;&gt;&gt; microscope = tbt.Microscope()</span>
+</span><span id="beam_working_distance-724"><a href="#beam_working_distance-724"><span class="linenos">724</span></a><span class="sd">    &gt;&gt;&gt; microscope.connect(&quot;localhost&quot;)</span>
+</span><span id="beam_working_distance-725"><a href="#beam_working_distance-725"><span class="linenos">725</span></a><span class="sd">    Client connecting to [localhost:7520]...</span>
+</span><span id="beam_working_distance-726"><a href="#beam_working_distance-726"><span class="linenos">726</span></a><span class="sd">    Client connected to [localhost:7520]</span>
+</span><span id="beam_working_distance-727"><a href="#beam_working_distance-727"><span class="linenos">727</span></a><span class="sd">    &gt;&gt;&gt; beam = tbt.ElectronBeam(settings=None)</span>
+</span><span id="beam_working_distance-728"><a href="#beam_working_distance-728"><span class="linenos">728</span></a><span class="sd">    &gt;&gt;&gt; success = beam_working_dist(beam, microscope, wd_mm=5.0)</span>
+</span><span id="beam_working_distance-729"><a href="#beam_working_distance-729"><span class="linenos">729</span></a><span class="sd">    &gt;&gt;&gt; print(success)</span>
+</span><span id="beam_working_distance-730"><a href="#beam_working_distance-730"><span class="linenos">730</span></a><span class="sd">    True&quot;&quot;&quot;</span>
+</span><span id="beam_working_distance-731"><a href="#beam_working_distance-731"><span class="linenos">731</span></a>    <span class="n">selected_beam</span> <span class="o">=</span> <span class="n">ut</span><span class="o">.</span><span class="n">beam_type</span><span class="p">(</span><span class="n">beam</span><span class="p">,</span> <span class="n">microscope</span><span class="p">)</span>
+</span><span id="beam_working_distance-732"><a href="#beam_working_distance-732"><span class="linenos">732</span></a>    <span class="n">wd_m</span> <span class="o">=</span> <span class="n">wd_mm</span> <span class="o">*</span> <span class="n">cs</span><span class="o">.</span><span class="n">Conversions</span><span class="o">.</span><span class="n">MM_TO_M</span>
+</span><span id="beam_working_distance-733"><a href="#beam_working_distance-733"><span class="linenos">733</span></a>    <span class="n">selected_beam</span><span class="o">.</span><span class="n">working_distance</span><span class="o">.</span><span class="n">value</span> <span class="o">=</span> <span class="n">wd_m</span>
+</span><span id="beam_working_distance-734"><a href="#beam_working_distance-734"><span class="linenos">734</span></a>    <span class="n">time</span><span class="o">.</span><span class="n">sleep</span><span class="p">(</span><span class="n">delay_s</span><span class="p">)</span>
+</span><span id="beam_working_distance-735"><a href="#beam_working_distance-735"><span class="linenos">735</span></a>    <span class="k">if</span> <span class="n">selected_beam</span><span class="o">.</span><span class="n">working_distance</span><span class="o">.</span><span class="n">value</span> <span class="o">!=</span> <span class="n">wd_m</span><span class="p">:</span>
+</span><span id="beam_working_distance-736"><a href="#beam_working_distance-736"><span class="linenos">736</span></a>        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+</span><span id="beam_working_distance-737"><a href="#beam_working_distance-737"><span class="linenos">737</span></a>            <span class="sa">f</span><span class="s2">&quot;&quot;&quot;Could not correctly adjust working distance,</span>
+</span><span id="beam_working_distance-738"><a href="#beam_working_distance-738"><span class="linenos">738</span></a><span class="s2">            requested </span><span class="si">{</span><span class="n">wd_m</span><span class="si">}</span><span class="s2"> meters, current working distance is</span>
+</span><span id="beam_working_distance-739"><a href="#beam_working_distance-739"><span class="linenos">739</span></a><span class="s2">            </span><span class="si">{</span><span class="n">selected_beam</span><span class="o">.</span><span class="n">working_distance</span><span class="o">.</span><span class="n">value</span><span class="si">}</span><span class="s2"> meters&quot;&quot;&quot;</span>
+</span><span id="beam_working_distance-740"><a href="#beam_working_distance-740"><span class="linenos">740</span></a>        <span class="p">)</span>
+</span><span id="beam_working_distance-741"><a href="#beam_working_distance-741"><span class="linenos">741</span></a>
+</span><span id="beam_working_distance-742"><a href="#beam_working_distance-742"><span class="linenos">742</span></a>    <span class="k">return</span> <span class="kc">True</span>
+</span></pre></div>
+
+
+            <div class="docstring"><p>Sets the working distance for the selected beam, with inputs in units of millimeters.</p>
+
+<p>This function sets the working distance (WD) for the specified beam type on the microscope.
+It converts the WD from millimeters to meters, sets the WD, and waits for the specified delay.
+This should be done before adjusting the horizontal field width.</p>
+
+<h2 id="parameters">Parameters</h2>
+
+<ul>
+<li><code>beam</code> (<code>tbt.Beam</code>): The beam type to configure.</li>
+<li><code>microscope</code> (<code>tbt.Microscope</code>): The microscope object to configure.</li>
+<li><code>wd_mm</code> (<code>float</code>): The desired working distance in millimeters.</li>
+<li><code>delay_s</code> (<code>float, optional</code>): The delay in seconds to wait after adjusting the working distance (default is 0.1).</li>
+</ul>
+
+<h2 id="returns">Returns</h2>
+
+<ul>
+<li><code>bool</code>: True if the working distance is set successfully, False otherwise.</li>
+</ul>
+
+<h2 id="raises">Raises</h2>
+
+<ul>
+<li><code>ValueError</code>: If the working distance cannot be adjusted correctly.</li>
+</ul>
+
+<h2 id="examples">Examples</h2>
+
+<div class="pdoc-code codehilite">
+<pre><span></span><code><span class="gp">&gt;&gt;&gt; </span><span class="kn">import</span><span class="w"> </span><span class="nn"><a href="types.html">pytribeam.types</a></span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">tbt</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">microscope</span> <span class="o">=</span> <span class="n">tbt</span><span class="o">.</span><span class="n">Microscope</span><span class="p">()</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">microscope</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="s2">&quot;localhost&quot;</span><span class="p">)</span>
+<span class="go">Client connecting to [localhost:7520]...</span>
+<span class="go">Client connected to [localhost:7520]</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">beam</span> <span class="o">=</span> <span class="n">tbt</span><span class="o">.</span><span class="n">ElectronBeam</span><span class="p">(</span><span class="n">settings</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">success</span> <span class="o">=</span> <span class="n">beam_working_dist</span><span class="p">(</span><span class="n">beam</span><span class="p">,</span> <span class="n">microscope</span><span class="p">,</span> <span class="n">wd_mm</span><span class="o">=</span><span class="mf">5.0</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="nb">print</span><span class="p">(</span><span class="n">success</span><span class="p">)</span>
+<span class="go">True</span>
+</code></pre>
+</div>
+</div>
+
 
                 </section>
                 <section id="collect_multiple_images">
