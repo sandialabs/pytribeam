@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import random
 import string
 import re
@@ -189,6 +190,58 @@ class Spinner:
         self._stop_event.set()
         if self._thread.is_alive():
             self._thread.join(timeout=1.5)
+
+
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Command-line interface for running selected actions."
+    )
+
+    parser.add_argument(
+        "--all",
+        action="store_true",
+        help="Run all actions."
+    )
+
+    parser.add_argument(
+        "-b",
+        "--book",
+        action="store_true",
+        help="Run book-related action."
+    )
+
+    parser.add_argument(
+        "-d",
+        "--doc",
+        action="store_true",
+        help="Run book-related action."
+    )
+
+
+    parser.add_argument(
+        "-a",
+        "--api",
+        action="store_true",
+        help="Run API-related action."
+    )
+
+    parser.add_argument(
+        "-t",
+        "--test",
+        action="store_true",
+        help="Run tests."
+    )
+
+    parser.add_argument(
+        "-l",
+        "--lint",
+        action="store_true",
+        help="Run linting."
+    )
+
+    return parser.parse_args()
 
 
 def run_to_log(
@@ -621,9 +674,9 @@ def run_pylint_and_badge() -> None:
         )
 
 
-def main() -> int:
-    for cmd in [
-        # "mdbook",
+def main(args) -> int:
+    all_cmds = [
+        "mdbook",
         "pdoc",
         "interrogate",
         "anybadge",
@@ -631,7 +684,36 @@ def main() -> int:
         "coverage",
         "pylint",
         "pylint-exit",
-    ]:
+    ]
+
+    cmds = []
+    funcs = []
+    names = []
+    if args.book or args.all:
+        cmds.append("mdbook")
+        funcs.extend([build_userguide, create_userguide_badge])
+        names.extend(["userguide", "userguide badge"])
+    if args.doc or args.all:
+        cmds.append("interrogate")
+        funcs.append(run_docstring_coverage)
+        names.append("docstring coverage")
+    if args.api or args.all:
+        cmds.append("pdoc")
+        funcs.append(build_api_docs)
+        names.append("API docs")
+    if args.test or args.all:
+        cmds.extend(["pytest", "coverage"])
+        funcs.extend([run_tests_and_store_coverage, build_combined_coverage, make_test_coverage_badge])
+        names.extend(["unit test", "combine coverage", "coverage badge"])
+    if args.lint or args.all:
+        cmds.extend(["pylint", "pylint-exit"])
+        funcs.append(run_pylint_and_badge)
+        names.append("lint")
+
+    if args.book or args.api or args.test or args.lint:
+        cmds.append("anybadge")
+
+    for cmd in cmds:
         need(cmd)
 
     require_repo_root()
@@ -639,18 +721,19 @@ def main() -> int:
 
     print("=== Local CI workflow (no git actions) ===")
 
-    # if available("mdbook"):
-    # build_userguide()
-    # create_userguide_badge()
-    # else:
-    #     print("WARNING: mdbook was not found, the userguide will not be built")
+    # build_api_docs()
+    # run_docstring_coverage()
+    # run_tests_and_store_coverage()
+    # build_combined_coverage()
+    # make_test_coverage_badge()
+    # run_pylint_and_badge()
 
-    build_api_docs()
-    run_docstring_coverage()
-    run_tests_and_store_coverage()
-    build_combined_coverage()
-    make_test_coverage_badge()
-    run_pylint_and_badge()
+    for i in range(len(funcs)):
+        try:
+            funcs[i]()
+        except Exception as e:
+            print(f"Failed to complete step {names[i]}")
+            raise e
 
     print(
         "\nDone. Artifacts updated in: badges/, logs/, docs/api/, docs/userguide/book/, coverage_reports/"
@@ -686,6 +769,7 @@ COVERAGE_DIR = REPO_ROOT / LOCAL_CI.get("coverage_dir", "coverage_reports")
 USERGUIDE_BADGE_LABEL = LOCAL_CI.get("userguide_badge_label", "userguide")
 USERGUIDE_BADGE_VALUE = LOCAL_CI.get("userguide_badge_value", "📖")
 
+VERSION_LOG = LOGS_DIR / "version.log"
 MDBOOK_LOG = LOGS_DIR / "mdbook.log"
 PDOC_LOG = LOGS_DIR / "pdoc.log"
 DOCSTRING_LOG = LOGS_DIR / "docstring_coverage.log"
@@ -707,5 +791,5 @@ userguide_badge_value = "📖"
 
 
 if __name__ == "__main__":
-    main()
+    main(parse_args())
     # raise SystemExit(main())
