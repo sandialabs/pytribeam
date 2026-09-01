@@ -102,7 +102,7 @@ __all__ = [
     "beam_scan_resolution",
     "beam_scan_rotation",
     "beam_voltage",
-    "beam_working_dist",
+    "beam_working_distance",
     "collect_multiple_images",
     "collect_single_image",
     "detector_auto_cb",
