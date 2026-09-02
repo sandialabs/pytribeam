@@ -3,15 +3,18 @@
 This module provides centralized management of application resources like
 images, icons, and documentation files.
 """
+
 from __future__ import annotations
 
 from contextlib import ExitStack
 from pathlib import Path
 from typing import Dict, List
+
 try:
     from importlib.resources import as_file, files
 except ImportError:
     from importlib_resources import as_file, files
+
 
 class AppResources:
     """Manages paths to application resources.
