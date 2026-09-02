@@ -1,151 +1,134 @@
 # tests/test_gui.py
-import pytest
+
 from pathlib import Path
 
-# Import the class under test
-from src.pytribeam.GUI.common.resources import AppResources
+import pytest
+
+from pytribeam.GUI.common import AppResources
 
 
 # ----------------------------------------------------------------------
 # Fixtures
 # ----------------------------------------------------------------------
 @pytest.fixture
-def temp_resource_root(tmp_path: Path) -> Path:
-    """
-    Create a temporary directory that mimics the expected layout of the
-    ``docs/userguide`` folder used by :class:`AppResources`.
-    """
-    # └── docs/userguide/src/logos/
-    logos_dir = tmp_path / "docs" / "userguide" / "src" / "logos"
-    logos_dir.mkdir(parents=True)
-    (logos_dir / "logo_color.ico").write_text("icon")
-    (logos_dir / "logo_color.png").write_text("logo")
-
-    # └── docs/userguide/book/
-    guide_dir = tmp_path / "docs" / "userguide" / "book"
-    guide_dir.mkdir(parents=True)
-    (guide_dir / "index.html").write_text("<html></html>")
-
-    return tmp_path
-
-
-@pytest.fixture
-def app_resources(temp_resource_root: Path) -> AppResources:
-    """
-    Return an ``AppResources`` instance that points at the temporary
-    resource tree created by ``temp_resource_root``.
-    """
-    return AppResources(base_path=temp_resource_root)
-
-
-# ----------------------------------------------------------------------
-# Helper
-# ----------------------------------------------------------------------
-def _patch_user_guide_path(monkeypatch, resources: AppResources, new_path: Path):
-    """
-    The original ``user_guide_path`` property returns a hard‑coded URL, which
-    does not have an ``exists()`` method.  For the purpose of testing the
-    ``verify_resources`` logic we replace it with a property that returns a
-    ``Path`` object pointing at ``new_path``.
-    """
-    monkeypatch.setattr(
-        type(resources),
-        "user_guide_path",
-        property(lambda self: new_path),
-        raising=False,
-    )
+def app_resources() -> AppResources:  # type: ignore
+    """Return an AppResources instance using packaged resources."""
+    resources = AppResources()
+    yield resources
+    resources.close()
 
 
 # ----------------------------------------------------------------------
 # Tests
 # ----------------------------------------------------------------------
 class TestAppResources:
-    """Tests for :class:`src.pytribeam.GUI.common.resources.AppResources`."""
+    """Tests for pytribeam.GUI.common.resources.AppResources."""
 
     # ------------------------------------------------------------------
-    # Basic path properties
+    # Basic resource path properties
     # ------------------------------------------------------------------
     def test_icon_path(self, app_resources: AppResources):
-        expected = (
-            app_resources.base_path
-            / "docs"
-            / "userguide"
-            / "src"
-            / "logos"
-            / "logo_color.ico"
-        )
-        assert app_resources.icon_path == expected
+        icon_path = app_resources.icon_path
 
-    def test_logo_paths(self, app_resources: AppResources):
-        expected = (
-            app_resources.base_path
-            / "docs"
-            / "userguide"
-            / "src"
-            / "logos"
-            / "logo_color.png"
-        )
-        assert app_resources.logo_path == expected
+        assert isinstance(icon_path, Path)
+        assert icon_path.name == "logo_color.ico"
+        assert icon_path.exists()
+        assert icon_path.is_file()
+
+    def test_logo_path(self, app_resources: AppResources):
+        logo_path = app_resources.logo_path
+
+        assert isinstance(logo_path, Path)
+        assert logo_path.name == "logo_color.png"
+        assert logo_path.exists()
+        assert logo_path.is_file()
 
     # ------------------------------------------------------------------
     # get_logo_path()
     # ------------------------------------------------------------------
-    def test_get_logo_path_valid_themes(self, app_resources: AppResources):
+    def test_get_logo_path(self, app_resources: AppResources):
         logo_path = app_resources.get_logo_path()
+
         assert isinstance(logo_path, Path)
-        assert logo_path.name.endswith("logo_color.png")
+        assert logo_path.name == "logo_color.png"
+        assert logo_path.exists()
+        assert logo_path.is_file()
+
+    # ------------------------------------------------------------------
+    # user guide
+    # ------------------------------------------------------------------
+    def test_user_guide_path(self, app_resources: AppResources):
+        assert isinstance(app_resources.user_guide_path, str)
+        assert app_resources.user_guide_path.startswith("https://")
 
     # ------------------------------------------------------------------
     # verify_resources() & get_missing_resources()
     # ------------------------------------------------------------------
-    def test_verify_resources_all_present(
-        self, app_resources: AppResources, monkeypatch
-    ):
-        # Patch user_guide_path to point at the temporary index.html file
-        guide_path = (
-            app_resources.base_path / "docs" / "userguide" / "book" / "index.html"
-        )
-        _patch_user_guide_path(monkeypatch, app_resources, guide_path)
-
+    def test_verify_resources_all_present(self, app_resources: AppResources):
         status = app_resources.verify_resources()
+
         assert status == {
             "icon": True,
             "logo": True,
-            "user_guide": True,
+            "user_guide_path": True,
         }
+
+    def test_get_missing_resources_all_present(self, app_resources: AppResources):
         assert app_resources.get_missing_resources() == []
 
-    def test_verify_resources_some_missing(
-        self, app_resources: AppResources, monkeypatch
-    ):
-        # Remove the dark logo to simulate a missing file
-        (app_resources.logo_path).unlink()
-        # Patch user_guide_path to an existing file
-        guide_path = (
-            app_resources.base_path / "docs" / "userguide" / "book" / "index.html"
-        )
-        _patch_user_guide_path(monkeypatch, app_resources, guide_path)
+    def test_verify_resources_some_missing(self, monkeypatch):
+        resources = AppResources()
 
-        status = app_resources.verify_resources()
+        original_resource = resources._resource
+
+        def fake_resource(*parts: str):
+            resource_name = parts[-1]
+
+            if resource_name == "logo_color.png":
+                return FakeMissingResource()
+
+            return original_resource(*parts)
+
+        monkeypatch.setattr(resources, "_resource", fake_resource)
+
+        status = resources.verify_resources()
+
         assert status["icon"] is True
         assert status["logo"] is False
-        assert status["user_guide"] is True
+        assert status["user_guide_path"] is True
 
-        missing = app_resources.get_missing_resources()
+        missing = resources.get_missing_resources()
+
         assert missing == ["logo"]
+
+        resources.close()
 
     # ------------------------------------------------------------------
     # from_module_file()
     # ------------------------------------------------------------------
-    def test_from_module_file_resolves_correct_base(self, tmp_path: Path):
-        """
-        Simulate the file layout ``.../src/pytribeam/GUI/common/resources.py``.
-        The method should walk up four parents to reach the repository root.
-        """
-        # Create a dummy module file path inside the expected package layout
-        module_file = tmp_path / "src" / "pytribeam" / "GUI" / "common" / "resources.py"
-        module_file.parent.mkdir(parents=True)
+    def test_from_module_file_returns_app_resources_instance(self):
+        resources = AppResources.from_module_file(__file__)
 
-        # The expected base path is the repository root (tmp_path)
-        resources = AppResources.from_module_file(str(module_file))
-        assert resources.base_path == tmp_path
+        try:
+            assert isinstance(resources, AppResources)
+            assert resources.verify_resources()["icon"] is True
+        finally:
+            resources.close()
+
+    # ------------------------------------------------------------------
+    # Context manager behavior
+    # ------------------------------------------------------------------
+    def test_context_manager(self):
+        with AppResources() as resources:
+            logo_path = resources.get_logo_path()
+
+            assert isinstance(logo_path, Path)
+            assert logo_path.exists()
+            assert logo_path.is_file()
+
+
+class FakeMissingResource:
+    """Small fake importlib resource object for missing-resource tests."""
+
+    def is_file(self) -> bool:
+        return False
