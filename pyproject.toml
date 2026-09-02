@@ -18,16 +18,19 @@ authors = [
 ]
 
 dependencies = [
-  "pytz",
-  "schema",
+    "pytz",
+    "schema",
+    "h5py",
+    "numpy",
+    "pyyaml",
+    "pillow<10.0",
+    "opencv-python",
+    "scikit-image",
+    "pandas",
 ]
 
 [project.optional-dependencies]
 dev = [
-    "h5py",
-    "numpy",
-    "pyyaml",
-    "pillow",
     "pdoc",
     "pylint",
     "pytest",
@@ -38,16 +41,8 @@ dev = [
     "interrogate",
     "requests",
     "ruff",
-    "coverage==7.5.1",
+    "coverage",
 ]
-
-# pdoc configuration
-# we only build pdoc on the source code, so we can ignore the tests and GUI for doc coverage
-# [docstr-coverage]
-# ignore = [
-#     "tests/",
-#     "src/pytribeam/GUI/",
-# ]
 
 # CLI Entry Points
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html
@@ -56,6 +51,7 @@ pytribeam="pytribeam.command_line:pytribeam"
 pytribeam_info ="pytribeam.command_line:module_info"
 pytribeam_gui="pytribeam.command_line:launch_gui"
 pytribeam_exp="pytribeam.command_line:run_experiment"
+pytribeam_setup="pytribeam.command_line:setup_env"
 
 [project.urls]
 documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"
