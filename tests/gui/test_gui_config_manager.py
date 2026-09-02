@@ -43,33 +43,42 @@ class TestAppConfigFromEnv:
     """Tests for the ``AppConfig.from_env`` class method."""
 
     @pytest.mark.parametrize(
-        "os_name, env_var, expected_subdir, path_cls",
+        "os_name, env_var, path_cls",
         [
-            ("nt", "LOCALAPPDATA", "AppData", PureWindowsPath),
-            ("posix", "XDG_DATA_HOME", ".local/share", PurePosixPath),
+            ("nt", "LOCALAPPDATA", PureWindowsPath),
+            ("posix", "XDG_DATA_HOME", PurePosixPath),
         ],
     )
     def test_respects_environment(
-        self, monkeypatch, tmp_path, os_name, env_var, expected_subdir, path_cls
+        self, monkeypatch, tmp_path, os_name, env_var, path_cls
     ):
         # Arrange – set environment to a known temporary location
         fake_base = tmp_path / "fake_base"
         fake_base.mkdir()
         monkeypatch.setenv(env_var, str(fake_base))
-        # monkeypatch os.name – it is read‑only, so we replace the attribute on the os module
-        monkeypatch.setattr(os, "name", os_name, raising=False)
-        # Use the OS-independent "Pure" path classes so the "nt" case is testable
-        # on any host: a real concrete WindowsPath can't be instantiated outside
-        # Windows (and vice versa for PosixPath), but PureWindowsPath/PurePosixPath
-        # do the same path-string logic without that OS restriction.
-        monkeypatch.setattr(config_manager, "Path", path_cls)
+
+        cfg = AppConfig.from_env(
+            app_name="myapp",
+            os_name=os_name,
+            path_cls=path_cls,
+        )
+
+        # # monkeypatch os.name – it is read‑only, so we replace the attribute on the os module
+        # monkeypatch.setattr(os, "name", os_name, raising=False)
+        # # Use the OS-independent "Pure" path classes so the "nt" case is testable
+        # # on any host: a real concrete WindowsPath can't be instantiated outside
+        # # Windows (and vice versa for PosixPath), but PureWindowsPath/PurePosixPath
+        # # do the same path-string logic without that OS restriction.
+        # monkeypatch.setattr(config_manager, "Path", path_cls)
 
         # Act
-        cfg = AppConfig.from_env(app_name="myapp")
+        # cfg = AppConfig.from_env(app_name="myapp")
+
+        expected_base = path_cls(str(fake_base))
 
         # Assert – the data_dir and log_dir should be sub‑directories of the fake base
-        assert cfg.data_dir == path_cls(fake_base) / "myapp" / "data"
-        assert cfg.log_dir == path_cls(fake_base) / "myapp" / "logs"
+        assert cfg.data_dir == expected_base / "myapp" / "data"
+        assert cfg.log_dir == expected_base / "myapp" / "logs"
 
     def test_default_values(self, monkeypatch, tmp_path):
         # Ensure defaults are set correctly when only the base paths are provided.

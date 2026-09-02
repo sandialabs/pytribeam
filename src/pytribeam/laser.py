@@ -1,78 +1,161 @@
 #!/usr/bin/python3
+"""Laser, EBSD, and EDS hardware-control utilities.
+
+This module provides utilities for configuring and operating the femtosecond
+laser system used by `pytribeam`. It includes helpers for checking Laser API
+connectivity, applying laser pulse and patterning settings, moving the laser
+objective, adjusting laser beam shift, controlling the laser shutter, executing
+laser patterning, and starting EBSD/EDS maps through the Laser API.
+
+Most workflow code should use `laser_operation` or `mill_region` rather than
+calling low-level hardware-control helpers directly. Lower-level functions are
+available for interactive use, GUI control, diagnostics, and specialized
+workflows.
+
+## External dependency
+
+Laser control is performed through Thermo Fisher's `Laser.PythonControl` API,
+imported as `tfs_laser`. The API must be installed and importable for laser,
+EBSD, and EDS operations to work.
+
+Use `laser_connected` to test whether the laser API can communicate with the
+laser:
+
+```python
+from pytribeam import laser
+
+if not laser.laser_connected():
+    raise RuntimeError("Laser is not connected.")
+```
+
+## Typical usage
+
+Run a laser milling operation from workflow settings:
+
+```python
+from pytribeam import laser
+
+laser.laser_operation(
+    step=step,
+    general_settings=general_settings,
+    slice_number=slice_number,
+)
+```
+
+Apply laser settings and mill a configured region directly:
+
+```python
+from pytribeam import laser
+
+laser.mill_region(settings=laser_settings)
+```
+
+Start EBSD or EDS mapping:
+
+```python
+from pytribeam import laser
+
+laser.map_ebsd()
+laser.map_eds()
+```
+
+## Main entry points
+
+- `laser_connected`: check whether the Laser API can communicate with the laser.
+- `laser_state_to_db`: flatten a `tbt.LaserState` for display or GUI use.
+- `apply_laser_settings`: apply pulse, objective, beam-shift, scan-rotation, and
+  pattern settings.
+- `mill_region`: configure the laser, execute patterning, and restore scan
+  rotation.
+- `laser_operation`: perform a full workflow laser operation, including pre- and
+  post-operation power logging.
+- `map_ebsd`: start an EBSD map and check that it ran for the expected minimum
+  duration.
+- `map_eds`: start an EDS map and check that it ran for the expected minimum
+  duration.
+
+## Laser configuration workflow
+
+`mill_region` performs the standard laser milling sequence:
+
+1. Verify that the laser is connected.
+2. Enable access to insertable devices.
+3. Record the active imaging beam and scan rotation.
+4. Apply the requested laser settings.
+5. Insert the laser shutter.
+6. Start laser patterning.
+7. Retract the laser shutter.
+8. Restore the original imaging scan rotation.
+
+`laser_operation` wraps this sequence with laser-power measurements before and
+after milling and records those values in the experiment log.
+
+## Pattern support
+
+`create_pattern` currently supports:
+
+| Geometry type | Laser API pattern |
+| --- | --- |
+| `tbt.LaserBoxPattern` | Box pattern |
+| `tbt.LaserLinePattern` | Line pattern |
+
+Unsupported laser pattern geometry types raise `ValueError`.
+
+## Units
+
+Laser settings use explicit field names to indicate units:
+
+| Quantity | Units |
+| --- | --- |
+| Wavelength | nanometers |
+| Frequency | kilohertz |
+| Pulse energy | microjoules |
+| Objective position | millimeters |
+| Beam shift | micrometers |
+| Pattern size and pitch | micrometers |
+| Pixel dwell | milliseconds |
+| Pattern rotation | degrees |
+| Laser power | watts |
+
+## EBSD and EDS mapping
+
+EBSD and EDS mapping are started through the Laser API. The mapping functions
+check that the operation takes at least `Constants.min_map_time_s`; shorter
+durations are treated as likely mapping-software failures.
+
+> **Warning**
+>
+> Functions in this module can move hardware, fire the laser, insert or retract
+> the laser shutter, and start EBSD/EDS acquisition. Confirm that the microscope,
+> stage, sample, detectors, laser objective, shutter state, and beam-line
+> conditions are safe before calling these functions.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Laser Module
-============
 
-This module contains functions for managing and controlling the laser in the microscope, including setting laser parameters, checking laser connections, and performing laser operations.
-
-Functions
----------
-laser_state_to_db(state: tbt.LaserState) -> dict
-    Convert a laser state object into a flattened dictionary.
-
-laser_connected() -> bool
-    Check if the laser is connected.
-
-_device_connections() -> tbt.DeviceStatus
-    Check the connection status of the laser and associated external devices.
-
-pattern_mode(mode: tbt.LaserPatternMode) -> bool
-    Set the laser pattern mode.
-
-pulse_energy_uj(energy_uj: float, energy_tol_uj: float = Constants.laser_energy_tol_uj, delay_s: float = 3.0) -> bool
-    Set the pulse energy on the laser.
-
-pulse_divider(divider: int, delay_s: float = Constants.laser_delay_s) -> bool
-    Set the pulse divider on the laser.
-
-set_wavelength(wavelength: tbt.LaserWavelength, frequency_khz: float = 60, timeout_s: int = 20, num_attempts: int = 2, delay_s: int = 5) -> bool
-    Set the wavelength and frequency of the laser.
-
-read_power(delay_s: float = Constants.laser_delay_s) -> float
-    Measure the laser power in watts.
-
-insert_shutter(microscope: tbt.Microscope) -> bool
-    Insert the laser shutter.
-
-retract_shutter(microscope: tbt.Microscope) -> bool
-    Retract the laser shutter.
-
-pulse_polarization(polarization: tbt.LaserPolarization, wavelength: tbt.LaserWavelength) -> bool
-    Configure the polarization of the laser light.
-
-pulse_settings(pulse: tbt.LaserPulse) -> bool
-    Apply the pulse settings to the laser.
-
-retract_laser_objective() -> bool
-    Retract the laser objective to a safe position.
-
-objective_position(position_mm: float, tolerance_mm=Constants.laser_objective_tolerance_mm) -> bool
-    Move the laser objective to the requested position.
-
-beam_shift(shift_um: tbt.Point, shift_tolerance_um: float = Constants.laser_beam_shift_tolerance_um) -> bool
-    Adjust the laser beam shift to the specified values.
-
-create_pattern(pattern: tbt.LaserPattern) -> bool
-    Create a laser pattern and check that it is set correctly.
-
-apply_laser_settings(image_beam: tbt.Beam, settings: tbt.LaserSettings) -> bool
-    Apply the laser settings to the current patterning.
-
-execute_patterning() -> bool
-    Execute the laser patterning.
-
-mill_region(settings: tbt.LaserSettings) -> bool
-    Perform laser milling on a specified region.
-
-laser_operation(step: tbt.Step, general_settings: tbt.GeneralSettings, slice_number: int) -> bool
-    Perform a laser operation based on the specified step and settings.
-
-map_ebsd() -> bool
-    Start an EBSD map and ensure it takes the minimum expected time.
-
-map_eds() -> bool
-    Start an EDS map and ensure it takes the minimum expected time.
-"""
+__all__ = [
+    "laser_state_to_db",
+    "laser_connected",
+    "pattern_mode",
+    "pulse_energy_uj",
+    "pulse_divider",
+    "set_wavelength",
+    "read_power",
+    "insert_shutter",
+    "retract_shutter",
+    "pulse_polarization",
+    "pulse_settings",
+    "retract_laser_objective",
+    "objective_position",
+    "beam_shift",
+    "create_pattern",
+    "apply_laser_settings",
+    "execute_patterning",
+    "mill_region",
+    "laser_operation",
+    "map_ebsd",
+    "map_eds",
+]
 
 # Default python modules
 import time
@@ -103,15 +186,13 @@ def laser_state_to_db(state: tbt.LaserState) -> dict:
     """
     This function converts a `LaserState` object into a flattened dictionary representation.
 
-    Parameters
-    ----------
-    state : tbt.LaserState
-        The laser state object to convert.
+    ## Parameters
 
-    Returns
-    -------
-    dict
-        A flattened dictionary representation of the laser state.
+    - `state` (`tbt.LaserState`): The laser state object to convert.
+
+    ## Returns
+
+    - `dict`: A flattened dictionary representation of the laser state.
     """
     db = {}
 
@@ -158,10 +239,11 @@ def laser_connected() -> bool:
 
     This function tests the connection to the laser and returns True if the connection is successful.
 
-    Returns
-    -------
+    ## Returns
+
     bool
         True if the laser is connected, False otherwise.
+
     """
     connect_msg = "Connection test successful.\n"
     laser_status = io.StringIO()
@@ -182,10 +264,11 @@ def _device_connections() -> tbt.DeviceStatus:
 
     This function checks the connection status of the laser, EBSD, and EDS devices. It is meant to be a quick tool for the GUI and does not provide additional information for troubleshooting.
 
-    Returns
-    -------
+    ## Returns
+
     tbt.DeviceStatus
         The connection status of the laser, EBSD, and EDS devices.
+
     """
     # laser must be connected to connect with other devices:
     if not laser_connected():
@@ -210,20 +293,17 @@ def pattern_mode(mode: tbt.LaserPatternMode) -> bool:
 
     This function sets the laser pattern mode and verifies that it has been set correctly.
 
-    Parameters
-    ----------
-    mode : tbt.LaserPatternMode
-        The laser pattern mode to set.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the pattern mode is set correctly.
+    - `mode` (`tbt.LaserPatternMode`): The laser pattern mode to set.
 
-    Raises
-    ------
-    SystemError
-        If the pattern mode cannot be set correctly.
+    ## Returns
+
+    - `bool`: True if the pattern mode is set correctly.
+
+    ## Raises
+
+    - `SystemError`: If the pattern mode cannot be set correctly.
     """
     tfs_laser.Patterning_Mode(mode.value)
     laser_state = factory.active_laser_state()
@@ -242,24 +322,19 @@ def pulse_energy_uj(
 
     This function sets the pulse energy on the laser and verifies that it has been set correctly. It should be done after setting the pulse divider.
 
-    Parameters
-    ----------
-    energy_uj : float
-        The pulse energy to set in microjoules.
-    energy_tol_uj : float, optional
-        The tolerance for the pulse energy in microjoules (default is Constants.laser_energy_tol_uj).
-    delay_s : float, optional
-        The delay in seconds after setting the pulse energy (default is 3.0 seconds).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the pulse energy is set correctly.
+    - `energy_uj` (`float`): The pulse energy to set in microjoules.
+    - `energy_tol_uj` (`float, optional`): The tolerance for the pulse energy in microjoules (default is Constants.laser_energy_tol_uj).
+    - `delay_s` (`float, optional`): The delay in seconds after setting the pulse energy (default is 3.0 seconds).
 
-    Raises
-    ------
-    ValueError
-        If the pulse energy cannot be set correctly.
+    ## Returns
+
+    - `bool`: True if the pulse energy is set correctly.
+
+    ## Raises
+
+    - `ValueError`: If the pulse energy cannot be set correctly.
     """
     tfs_laser.Laser_SetPulseEnergy_MicroJoules(energy_uj)
     time.sleep(delay_s)
@@ -288,22 +363,18 @@ def pulse_divider(
 
     This function sets the pulse divider on the laser and verifies that it has been set correctly.
 
-    Parameters
-    ----------
-    divider : int
-        The pulse divider to set.
-    delay_s : float, optional
-        The delay in seconds after setting the pulse divider (default is Constants.laser_delay_s).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the pulse divider is set correctly.
+    - `divider` (`int`): The pulse divider to set.
+    - `delay_s` (`float, optional`): The delay in seconds after setting the pulse divider (default is Constants.laser_delay_s).
 
-    Raises
-    ------
-    ValueError
-        If the pulse divider cannot be set correctly.
+    ## Returns
+
+    - `bool`: True if the pulse divider is set correctly.
+
+    ## Raises
+
+    - `ValueError`: If the pulse divider cannot be set correctly.
     """
     tfs_laser.Laser_PulseDivider(divider)
     time.sleep(delay_s)
@@ -328,23 +399,17 @@ def set_wavelength(
 
     This function sets the wavelength and frequency of the laser and verifies that they have been set correctly.
 
-    Parameters
-    ----------
-    wavelength : tbt.LaserWavelength
-        The wavelength to set.
-    frequency_khz : float, optional
-        The frequency to set in kHz (default is 60 kHz).
-    timeout_s : int, optional
-        The timeout in seconds for each attempt (default is 20 seconds).
-    num_attempts : int, optional
-        The number of attempts to set the wavelength and frequency (default is 2).
-    delay_s : int, optional
-        The delay in seconds between checks (default is 5 seconds).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the wavelength and frequency are set correctly, False otherwise.
+    - `wavelength` (`tbt.LaserWavelength`): The wavelength to set.
+    - `frequency_khz` (`float, optional`): The frequency to set in kHz (default is 60 kHz).
+    - `timeout_s` (`int, optional`): The timeout in seconds for each attempt (default is 20 seconds).
+    - `num_attempts` (`int, optional`): The number of attempts to set the wavelength and frequency (default is 2).
+    - `delay_s` (`int, optional`): The delay in seconds between checks (default is 5 seconds).
+
+    ## Returns
+
+    - `bool`: True if the wavelength and frequency are set correctly, False otherwise.
     """
 
     def correct_preset(laser_state: tbt.LaserState):
@@ -369,6 +434,9 @@ def set_wavelength(
             time.sleep(delay_s)
             time_remaining -= delay_s
 
+    # TODO: This does not verify that the wavelength was set and does not match the other functions here
+    # Perhaps this should be modified to raise an error if it does not set?
+    # Might be a lase API thing though?
     return False
 
 
@@ -378,16 +446,27 @@ def read_power(delay_s: float = Constants.laser_delay_s) -> float:
 
     This function measures the laser power using an external power meter.
 
-    Parameters
-    ----------
-    delay_s : float, optional
-        The delay in seconds before reading the power (default is Constants.laser_delay_s).
+    ## Parameters
 
-    Returns
-    -------
-    float
-        The measured laser power in watts.
+    - `delay_s` (`float, optional`): The delay in seconds before reading the power (default is Constants.laser_delay_s).
+
+    ## Returns
+
+    - `float`: The measured laser power in watts.
     """
+    # TODO: Perhaps a try/finally structure would be safer here?
+    # Unless the laser API ensures that emission is off if it fails?
+    # tfs_laser.Laser_ExternalPowerMeter_PowerMonitoringON()
+    # try:
+    #     tfs_laser.Laser_ExternalPowerMeter_SetZeroOffset()
+    #     tfs_laser.Laser_FireContinuously_Start()
+    #     try:
+    #         time.sleep(delay_s)
+    #         return tfs_laser.Laser_ExternalPowerMeter_ReadPower()
+    #     finally:
+    #         tfs_laser.Laser_FireContinuously_Stop()
+    # finally:
+    #     tfs_laser.Laser_ExternalPowerMeter_PowerMonitoringOFF()
     tfs_laser.Laser_ExternalPowerMeter_PowerMonitoringON()
     tfs_laser.Laser_ExternalPowerMeter_SetZeroOffset()
     tfs_laser.Laser_FireContinuously_Start()
@@ -404,20 +483,17 @@ def insert_shutter(microscope: tbt.Microscope) -> bool:
 
     This function inserts the laser shutter and verifies that it has been inserted correctly.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to insert the laser shutter.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser shutter is successfully inserted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to insert the laser shutter.
 
-    Raises
-    ------
-    SystemError
-        If the laser shutter cannot be inserted.
+    ## Returns
+
+    - `bool`: True if the laser shutter is successfully inserted.
+
+    ## Raises
+
+    - `SystemError`: If the laser shutter cannot be inserted.
     """
     devices.CCD_view(microscope=microscope)
     if tfs_laser.Shutter_GetState() != "Inserted":
@@ -437,20 +513,17 @@ def retract_shutter(microscope: tbt.Microscope) -> bool:
 
     This function retracts the laser shutter and verifies that it has been retracted correctly.
 
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        The microscope object for which to retract the laser shutter.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser shutter is successfully retracted.
+    - `microscope` (`tbt.Microscope`): The microscope object for which to retract the laser shutter.
 
-    Raises
-    ------
-    SystemError
-        If the laser shutter cannot be retracted.
+    ## Returns
+
+    - `bool`: True if the laser shutter is successfully retracted.
+
+    ## Raises
+
+    - `SystemError`: If the laser shutter cannot be retracted.
     """
     devices.CCD_view(microscope=microscope)
     if tfs_laser.Shutter_GetState() != "Retracted":
@@ -475,22 +548,18 @@ def pulse_polarization(
         - Waveplate_1030 switches to Horiz. (S)
         - Waveplate_515 switches to Horiz. (S)
 
-    Parameters
-    ----------
-    polarization : tbt.LaserPolarization
-        The desired polarization of the laser light.
-    wavelength : tbt.LaserWavelength
-        The wavelength of the laser light.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the polarization is set correctly.
+    - `polarization` (`tbt.LaserPolarization`): The desired polarization of the laser light.
+    - `wavelength` (`tbt.LaserWavelength`): The wavelength of the laser light.
 
-    Raises
-    ------
-    KeyError
-        If the laser wavelength or pulse polarization is invalid.
+    ## Returns
+
+    - `bool`: True if the polarization is set correctly.
+
+    ## Raises
+
+    - `KeyError`: If the laser wavelength or pulse polarization is invalid.
     """
     if polarization == tbt.LaserPolarization.VERTICAL:
         tfs_laser.FlipperConfiguration("Waveplate_None")
@@ -513,21 +582,19 @@ def pulse_polarization(
         )
 
 
-def pulse_settings(pulse: tbt.LaserPulse) -> True:
+def pulse_settings(pulse: tbt.LaserPulse) -> bool:
     """
     Apply the pulse settings to the laser.
 
     This function applies the specified pulse settings to the laser, including wavelength, pulse divider, pulse energy, and polarization.
 
-    Parameters
-    ----------
-    pulse : tbt.LaserPulse
-        The pulse settings to apply.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the pulse settings are applied correctly.
+    - `pulse` (`tbt.LaserPulse`): The pulse settings to apply.
+
+    ## Returns
+
+    - `bool`: True if the pulse settings are applied correctly.
     """
     active_state = factory.active_laser_state()
     if pulse.wavelength_nm != active_state.wavelength_nm:
@@ -545,10 +612,11 @@ def retract_laser_objective() -> bool:
 
     This function retracts the laser objective to a predefined safe position.
 
-    Returns
-    -------
+    ## Returns
+
     bool
         True if the laser objective is successfully retracted.
+
     """
     objective_position(position_mm=Constants.laser_objective_retracted_mm)
     return True
@@ -563,24 +631,19 @@ def objective_position(
 
     This function moves the laser objective to the specified position and verifies that it has been moved correctly.
 
-    Parameters
-    ----------
-    position_mm : float
-        The desired position of the laser objective in millimeters.
-    tolerance_mm : float, optional
-        The tolerance for the laser objective position in millimeters (default is Constants.laser_objective_tolerance_mm).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser objective is moved to the requested position correctly.
+    - `position_mm` (`float`): The desired position of the laser objective in millimeters.
+    - `tolerance_mm` (`float, optional`): The tolerance for the laser objective position in millimeters (default is Constants.laser_objective_tolerance_mm).
 
-    Raises
-    ------
-    ValueError
-        If the requested position is out of range.
-    SystemError
-        If the laser objective cannot be moved to the requested position.
+    ## Returns
+
+    - `bool`: True if the laser objective is moved to the requested position correctly.
+
+    ## Raises
+
+    - `ValueError`: If the requested position is out of range.
+    - `SystemError`: If the laser objective cannot be moved to the requested position.
     """
     tfs_laser.LIP_UnlockZ()
 
@@ -621,21 +684,16 @@ def _shift_axis(
 
     This function adjusts the beam shift for the specified axis to the target value within the given tolerance.
 
-    Parameters
-    ----------
-    target : float
-        The target value for the beam shift.
-    current : float
-        The current value of the beam shift.
-    tolerance : float
-        The tolerance for the beam shift.
-    axis : str
-        The axis to adjust ("X" or "Y").
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the beam shift is adjusted to the target value correctly, False otherwise.
+    - `target` (`float`): The target value for the beam shift.
+    - `current` (`float`): The current value of the beam shift.
+    - `tolerance` (`float`): The tolerance for the beam shift.
+    - `axis` (`str`): The axis to adjust ("X" or "Y").
+
+    ## Returns
+
+    - `bool`: True if the beam shift is adjusted to the target value correctly, False otherwise.
     """
     for _ in range(2):
         if ut.in_interval(
@@ -666,22 +724,18 @@ def beam_shift(
 
     This function adjusts the laser beam shift to the specified x and y values within the given tolerance.
 
-    Parameters
-    ----------
-    shift_um : tbt.Point
-        The target beam shift values in micrometers.
-    shift_tolerance_um : float, optional
-        The tolerance for the beam shift in micrometers (default is Constants.laser_beam_shift_tolerance_um).
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the beam shift is adjusted to the target values correctly.
+    - `shift_um` (`tbt.Point`): The target beam shift values in micrometers.
+    - `shift_tolerance_um` (`float, optional`): The tolerance for the beam shift in micrometers (default is Constants.laser_beam_shift_tolerance_um).
 
-    Raises
-    ------
-    ValueError
-        If the beam shift cannot be adjusted to the target values.
+    ## Returns
+
+    - `bool`: True if the beam shift is adjusted to the target values correctly.
+
+    ## Raises
+
+    - `ValueError`: If the beam shift cannot be adjusted to the target values.
     """
     current_shift_x = tfs_laser.BeamShift_Get_X()
     current_shift_y = tfs_laser.BeamShift_Get_Y()
@@ -706,28 +760,24 @@ def beam_shift(
     return True
 
 
-def create_pattern(pattern: tbt.LaserPattern):
+def create_pattern(pattern: tbt.LaserPattern) -> bool:
     """
     Create a laser pattern and check that it is set correctly.
 
     This function creates a laser pattern based on the specified pattern settings and verifies that it has been set correctly.
 
-    Parameters
-    ----------
-    pattern : tbt.LaserPattern
-        The laser pattern settings to create.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the pattern is created and set correctly.
+    - `pattern` (`tbt.LaserPattern`): The laser pattern settings to create.
 
-    Raises
-    ------
-    ValueError
-        If the pattern geometry type is unsupported.
-    SystemError
-        If the pattern cannot be set correctly.
+    ## Returns
+
+    - `bool`: True if the pattern is created and set correctly.
+
+    ## Raises
+
+    - `ValueError`: If the pattern geometry type is unsupported.
+    - `SystemError`: If the pattern cannot be set correctly.
     """
     pattern_mode(mode=pattern.mode)
 
@@ -773,17 +823,14 @@ def apply_laser_settings(image_beam: tbt.Beam, settings: tbt.LaserSettings) -> b
 
     This function applies the specified laser settings to the current patterning, including beam scan rotation, pulse settings, objective position, beam shift, and patterning settings.
 
-    Parameters
-    ----------
-    image_beam : tbt.Beam
-        The beam settings for the image.
-    settings : tbt.LaserSettings
-        The laser settings to apply.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser settings are applied correctly.
+    - `image_beam` (`tbt.Beam`): The beam settings for the image.
+    - `settings` (`tbt.LaserSettings`): The laser settings to apply.
+
+    ## Returns
+
+    - `bool`: True if the laser settings are applied correctly.
     """
     microscope = settings.microscope
 
@@ -814,10 +861,11 @@ def execute_patterning() -> bool:
 
     This function starts the laser patterning process.
 
-    Returns
-    -------
+    ## Returns
+
     bool
         True if the patterning process is started successfully.
+
     """
     tfs_laser.Patterning_Start()
 
@@ -835,20 +883,17 @@ def mill_region(
 
     This function performs laser milling on a specified region using the provided laser settings. It checks the laser connection, applies the laser settings, inserts the shutter, executes the patterning, retracts the shutter, and resets the scan rotation.
 
-    Parameters
-    ----------
-    settings : tbt.LaserSettings
-        The laser settings to use for milling.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the milling process is completed successfully.
+    - `settings` (`tbt.LaserSettings`): The laser settings to use for milling.
 
-    Raises
-    ------
-    SystemError
-        If the laser is not connected.
+    ## Returns
+
+    - `bool`: True if the milling process is completed successfully.
+
+    ## Raises
+
+    - `SystemError`: If the laser is not connected.
     """
     # check connection
     if not laser_connected():
@@ -884,6 +929,25 @@ def mill_region(
         rotation_deg=initial_scan_rotation_deg,
     )
 
+    # TODO: Current code is not very safe here
+    # Below makes sure that the scan reset happens regardless of what happens during milling
+    # try:
+    #     apply_laser_settings(
+    #         image_beam=active_beam,
+    #         settings=settings,
+    #     )
+    #     insert_shutter(microscope=microscope)
+    #     execute_patterning()
+    # finally:
+    #     try:
+    #         retract_shutter(microscope=microscope)
+    #     finally:
+    #         img.beam_scan_rotation(
+    #             beam=active_beam,
+    #             microscope=microscope,
+    #             rotation_deg=initial_scan_rotation_deg,
+    #         )
+
     return True
 
 
@@ -895,19 +959,15 @@ def laser_operation(
 
     This function performs a laser operation using the provided step and general settings. It logs the laser power before and after the operation, and performs the milling process.
 
-    Parameters
-    ----------
-    step : tbt.Step
-        The step object containing the operation settings.
-    general_settings : tbt.GeneralSettings
-        The general settings object.
-    slice_number : int
-        The slice number for the operation.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True if the laser operation is completed successfully.
+    - `step` (`tbt.Step`): The step object containing the operation settings.
+    - `general_settings` (`tbt.GeneralSettings`): The general settings object.
+    - `slice_number` (`int`): The slice number for the operation.
+
+    ## Returns
+
+    - `bool`: True if the laser operation is completed successfully.
     """
     # log laser power before
     laser_power_w = read_power()
@@ -942,15 +1002,14 @@ def map_ebsd() -> bool:
 
     This function starts an EBSD map and checks that the mapping process takes at least the minimum expected time. If the mapping process is too short, it raises an error.
 
-    Returns
-    -------
+    ## Returns
+
     bool
         True if the EBSD mapping is completed successfully.
 
-    Raises
-    ------
-    ValueError
-        If the mapping process does not take the minimum expected time.
+    ## Raises
+
+    - `ValueError`: If the mapping process does not take the minimum expected time.
     """
     start_time = time.time()
     tfs_laser.EBSD_StartMap()
@@ -971,15 +1030,14 @@ def map_eds() -> bool:
 
     This function starts an EDS map and checks that the mapping process takes at least the minimum expected time. If the mapping process is too short, it raises an error.
 
-    Returns
-    -------
+    ## Returns
+
     bool
         True if the EDS mapping is completed successfully.
 
-    Raises
-    ------
-    ValueError
-        If the mapping process does not take the minimum expected time.
+    ## Raises
+
+    - `ValueError`: If the mapping process does not take the minimum expected time.
     """
     start_time = time.time()
     tfs_laser.EDS_StartMap()
