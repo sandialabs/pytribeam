@@ -1,175 +1,83 @@
-import datetime
-import os
 import queue
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
-from typing import Any, List, Optional, Set, Tuple
-
-import autoscript_sdb_microscope_client.structures as as_structs
+from typing import Optional, Tuple
 
 from pytribeam import types as tbt
 from pytribeam import utilities
 from pytribeam.GUI import CustomTkinterWidgets as ctk
+from pytribeam.mcp.state.capture import build_provenance, capture_to_directory
 
 
-def _is_public_name(name: str) -> bool:
-    """Return ``True`` if *name* does not start with an underscore.
+# -----------------------------------------------------------------------------
+# Microscope connection
+# -----------------------------------------------------------------------------
+# The recorder holds one connection for the lifetime of the session rather than
+# reconnecting on every read. Only one capture runs at a time (guarded by
+# save_in_progress), so a single shared client is not contended. If a capture
+# fails, the client is dropped so the next attempt reconnects from scratch.
 
-    Hidden attributes, such as ``_private`` or ``__dunder__``, are filtered out.
-    """
-    return not name.startswith("_")
-
-
-def _collect(
-    obj: Any,
-    prefix: str,
-    visited: Set[int],
-) -> List[Tuple[str, Any]]:
-    """Recursive helper for :func:`collect_attribute_paths`.
-
-    Parameters
-    ----------
-    obj:
-        The current object being inspected.
-    prefix:
-        Dot-separated prefix representing the path to *obj*.
-    visited:
-        Set of ``id`` values already seen to prevent infinite loops.
-    """
-    # Guard against circular references.
-    obj_id = id(obj)
-    if obj_id in visited:
-        return []
-    visited.add(obj_id)
-
-    results: List[Tuple[str, Any]] = []
-
-    for name in dir(obj):
-        if not _is_public_name(name):
-            continue
-
-        try:
-            attr = getattr(obj, name)
-        except Exception:
-            # Some descriptors may raise; skip them.
-            continue
-
-        full_path = f"{prefix}.{name}" if prefix else name
-
-        if callable(attr):
-            continue
-
-        elif (
-            isinstance(attr, str)
-            or isinstance(attr, bool)
-            or isinstance(attr, int)
-            or isinstance(attr, float)
-            or isinstance(attr, list)
-            or isinstance(attr, tuple)
-            or isinstance(attr, dict)
-        ):
-            results.append((full_path, attr))
-
-        elif isinstance(attr, as_structs.StagePosition):
-            results.extend(
-                [
-                    (full_path + ".coordinate_system", attr.coordinate_system),
-                    (full_path + ".x", attr.x),
-                    (full_path + ".y", attr.y),
-                    (full_path + ".z", attr.z),
-                    (full_path + ".t", attr.t),
-                    (full_path + ".r", attr.r),
-                ]
-            )
-
-        else:
-            results.extend(_collect(attr, full_path, visited))
-
-    return results
+_microscope = None
+_microscope_key: Optional[Tuple[str, Optional[int]]] = None
+_microscope_lock = threading.Lock()
 
 
-def collect_attribute_paths(obj: Any, name: str = None) -> List[Tuple[str, Any]]:
-    """Return a list of dot-separated attribute paths and values for *obj*.
-
-    The function walks the public attribute tree of *obj* and records paths
-    to public non-callable values.
+def get_connected_microscope(host: str, port: Optional[int]) -> tbt.Microscope:
+    """Return a connected microscope, reusing the existing connection.
 
     Parameters
     ----------
-    obj:
-        The root Python object to introspect.
-    name:
-        Optional explicit name for the root object.
+    host : str
+        Microscope connection host.
+    port : int, optional
+        Microscope connection port, or None for the default.
 
     Returns
     -------
-    List[Tuple[str, Any]]
-        A list of ``(path, value)`` tuples.
+    tbt.Microscope
+        A connected microscope client.
     """
-    root_name = name or getattr(obj, "__name__", "")
-    prefix = root_name if root_name else ""
-    return _collect(obj, prefix, set())
+    global _microscope
+    global _microscope_key
 
+    key = (host, port)
 
-def get_microscope_state(host: str, port: Optional[int]) -> dict:
-    """Connect to the microscope and collect its current state.
+    with _microscope_lock:
+        if _microscope is not None and _microscope_key == key:
+            return _microscope
 
-    The active imaging view/quad is restored after checking each quad so the
-    operator is returned to the view they were using before the state read.
-    """
-    microscope = tbt.Microscope()
-
+    scope = tbt.Microscope()
     utilities.connect_microscope(
-        microscope,
+        scope,
         quiet_output=True,
         connection_host=host,
         connection_port=port,
     )
 
-    state = {}
+    with _microscope_lock:
+        _microscope = scope
+        _microscope_key = key
 
-    # remember the operator's currenyt active view so we can restore it later.
-    original_active_view = None
-    try:
-        original_active_view = microscope.imaging.get_active_view()
-    except Exception:
-        # if unavailable or fails, continue recorindg state
-        # active view will not be restored
-        original_active_view = None
-    try:
-        for s in [
-            "beams",
-            "detector",
-            "gas",
-            "patterning",
-            "specimen",
-            "state",
-            "vacuum",
-            "imaging",
-        ]:
-            state[s] = {
-                k: i
-                for (k, i) in collect_attribute_paths(
-                    getattr(microscope, s), "scope." + s
-                )
-            }
+    return scope
 
-        for q in [1, 2, 3, 4]:
-            microscope.imaging.set_active_view(q)
-            device = str(tbt.Device(microscope.imaging.get_active_device()))
-            state["imaging"][f"scope.imaging.quad{q}.active_device"] = device
 
-    finally:
-        # restore user's original active view, even if something above fails.
-        if original_active_view is not None:
-            try:
-                microscope.imaging.set_active_view(original_active_view)
-            except Exception:
-                pass
+def invalidate_microscope():
+    """Drop the cached connection, disconnecting it if possible."""
+    global _microscope
+    global _microscope_key
 
-    return state
+    with _microscope_lock:
+        scope = _microscope
+        _microscope = None
+        _microscope_key = None
+
+    if scope is not None:
+        try:
+            utilities.disconnect_microscope(scope, quiet_output=True)
+        except Exception:
+            pass
 
 
 def set_status(message: str):
@@ -183,22 +91,42 @@ def set_status(message: str):
         pass
 
 
-def ensure_file_exists():
-    """Make sure the YAML state file exists."""
-    path = Path(file_path.get())
+def ensure_directory_exists() -> Path:
+    """Make sure the output state directory exists and return it.
 
-    if path == Path() or str(path).strip() == "":
-        raise RuntimeError("No file path provided.")
+    States are written one file per record into a directory alongside an
+    index, rather than appended to a single growing YAML file. This keeps each
+    write constant-time, survives an interrupted write, and makes individual
+    states convenient to hand around as test fixtures.
 
-    # Keep .yml or .yaml. Otherwise add .yml.
-    if path.suffix.lower() not in [".yml", ".yaml"]:
-        path = path.with_suffix(".yml")
+    Returns
+    -------
+    Path
+        The state directory.
 
-    file_path.set(str(path))
+    Raises
+    ------
+    RuntimeError
+        If no path has been provided, or the path exists as a file.
+    """
+    raw = output_dir.get().strip()
 
-    if not os.path.exists(path):
-        db = dict(config_file_version=0.0, states={})
-        utilities.dict_to_yml(db, path)
+    if raw == "":
+        raise RuntimeError("No output directory provided.")
+
+    path = Path(raw)
+
+    # Tolerate an old-style path ending in .yml by using its stem as a folder.
+    if path.suffix.lower() in (".yml", ".yaml"):
+        path = path.with_suffix("")
+        output_dir.set(str(path))
+
+    if path.exists() and not path.is_dir():
+        raise RuntimeError(f"{path} exists and is not a directory.")
+
+    path.mkdir(parents=True, exist_ok=True)
+
+    return path
 
 
 def parse_port() -> Optional[int]:
@@ -227,10 +155,12 @@ def parse_interval_seconds() -> float:
 
 
 def record_state_worker(
-    path: Path,
+    directory: Path,
     host: str,
     port: Optional[int],
     description: str,
+    intended_action: Optional[str],
+    include_quads: bool,
 ):
     """Background-thread worker for recording microscope state.
 
@@ -240,36 +170,40 @@ def record_state_worker(
     ``result_queue``.
     """
     try:
-        microscope_state = get_microscope_state(host, port)
-        microscope_state["description"] = description
+        microscope = get_connected_microscope(host, port)
 
-        db = utilities.yml_to_dict(
-            yml_path_file=path,
-            version=0.0,
-            required_keys=("config_file_version", "states"),
+        record = capture_to_directory(
+            microscope,
+            directory,
+            description=description,
+            intended_action=intended_action,
+            include_quads=include_quads,
+            provenance=build_provenance(host=host, port=port),
         )
-
-        # Include milliseconds to avoid overwriting if states are saved quickly.
-        now = datetime.datetime.now()
-        timestamp = now.strftime("%b %d, %Y %I:%M:%S.%f")[:-3] + now.strftime(" %p")
-
-        db["states"][timestamp] = microscope_state
-
-        utilities.dict_to_yml(db=db, file_path=path)
 
         result_queue.put(
             {
                 "success": True,
-                "timestamp": timestamp,
+                "record_id": record.id,
+                "recorded_at": record.recorded_at,
+                "n_values": len(record.values),
+                "n_read_errors": len(record.read_errors),
                 "error": None,
             }
         )
 
     except Exception as e:
+        # The connection may be the thing that broke. Force a reconnect on the
+        # next attempt rather than reusing a client in an unknown state.
+        invalidate_microscope()
+
         result_queue.put(
             {
                 "success": False,
-                "timestamp": None,
+                "record_id": None,
+                "recorded_at": None,
+                "n_values": 0,
+                "n_read_errors": 0,
                 "error": e,
             }
         )
@@ -277,9 +211,6 @@ def record_state_worker(
 
 def record_state_once_threaded() -> bool:
     """Start one microscope-state recording in a background thread.
-
-    This duplicates the functionality of the original "Save current state"
-    button, but does the slow microscope read/YAML write in the background.
 
     Returns
     -------
@@ -297,15 +228,15 @@ def record_state_once_threaded() -> bool:
 
     try:
         # These GUI reads must happen on the Tkinter main thread.
-        ensure_file_exists()
+        directory = ensure_directory_exists()
 
-        path = Path(file_path.get())
         host = host_var.get().strip()
         port = parse_port()
+        include_quads = bool(include_quads_var.get())
 
-        # Consume only a previously queued note.
+        # Consume only previously queued annotations.
         # Do not touch the draft note box here, because the user may be typing.
-        description = pop_pending_note()
+        description, intended_action = pop_pending_annotations()
 
     except Exception as e:
         messagebox.showerror("Error preparing microscope state recording", str(e))
@@ -318,7 +249,7 @@ def record_state_once_threaded() -> bool:
 
     worker = threading.Thread(
         target=record_state_worker,
-        args=(path, host, port, description),
+        args=(directory, host, port, description, intended_action, include_quads),
         daemon=True,
     )
     worker.start()
@@ -343,8 +274,19 @@ def check_recording_result_queue():
             hide_recording_indicator()
 
             if result["success"]:
-                timestamp = result["timestamp"]
-                set_status(f"Last saved: {timestamp}")
+                message = (
+                    f"Saved {result['record_id']} "
+                    f"({result['n_values']} values"
+                )
+
+                # Surface read errors in the status line. Attributes that fail
+                # on a healthy microscope are exactly the ones worth knowing
+                # about, and they are invisible if only the count of values is
+                # reported.
+                if result["n_read_errors"]:
+                    message += f", {result['n_read_errors']} read errors"
+
+                set_status(message + ")")
 
                 if final_save_after_current:
                     final_save_after_current = False
@@ -417,53 +359,74 @@ def clear_note_placeholder_for_typing(event=None):
 
 
 def queue_note_for_next_save():
-    """Queue the current draft note for the next saved state."""
+    """Queue the current draft note and action for the next saved state."""
     queue_current_draft_note(silent=False)
 
 
-def pop_pending_note() -> str:
-    """Return and clear the queued note.
+def pop_pending_annotations() -> Tuple[str, Optional[str]]:
+    """Return and clear the queued note and intended action.
 
-    This intentionally does not touch the draft text box.
+    This intentionally does not touch the draft text box or action entry.
+
+    Returns
+    -------
+    tuple of (str, str or None)
+        The queued description and intended action.
     """
     global pending_note
+    global pending_action
 
     note = pending_note
+    action = pending_action or None
+
     pending_note = ""
+    pending_action = ""
 
     update_queue_note_button()
 
-    return note
+    return note, action
 
 
 def queue_current_draft_note(silent: bool = False) -> bool:
-    """Move current draft text into the pending-note slot.
+    """Move current draft note and action into the pending slots.
 
-    Returns True if a note was queued, False otherwise.
+    The intended action names the capability the operator believes they just
+    used, e.g. ``move_stage``. It is optional, but supplying it turns a
+    recorded pair into labelled ground truth: a diff tool can then be checked
+    on whether it groups several changed paths into the one operation that
+    actually caused them.
+
+    Returns
+    -------
+    bool
+        True if anything was queued, False otherwise.
     """
     global pending_note
+    global pending_action
     global note_placeholder_active
 
-    if note_placeholder_active:
+    note = "" if note_placeholder_active else text_box.get("1.0", "end-1c").strip()
+    action = action_var.get().strip()
+
+    if not note and not action:
         if not silent:
-            set_status("No draft note to queue.")
+            set_status("No draft note or action to queue.")
         return False
 
-    note = text_box.get("1.0", "end-1c").strip()
+    if note:
+        if pending_note:
+            pending_note = pending_note + "\n\n" + note
+        else:
+            pending_note = note
 
-    if not note:
-        if not silent:
-            set_status("No draft note to queue.")
-        return False
-
-    if pending_note:
-        pending_note = pending_note + "\n\n" + note
-    else:
-        pending_note = note
+    if action:
+        pending_action = action
 
     text_box.delete("1.0", tk.END)
     text_box.config(fg=theme.colors["terminal_fg"])
     note_placeholder_active = False
+
+    action_entry.delete(0, tk.END)
 
     if text_box.focus_get() != text_box:
         show_note_placeholder()
@@ -471,22 +434,22 @@ def queue_current_draft_note(silent: bool = False) -> bool:
     update_queue_note_button()
 
     if not silent:
-        set_status("Note queued for next saved state.")
+        set_status("Queued for next saved state.")
 
     return True
 
 
 def update_queue_note_button():
-    """Update the queue-note button text/color based on pending-note state."""
+    """Update the queue button text/color based on pending annotations."""
     try:
-        if pending_note:
+        if pending_note or pending_action:
             queue_note_button.config(
-                text="Queued notes pending — add another",
+                text="Queued annotations pending — add another",
                 **note_button_pending_kw,
             )
         else:
             queue_note_button.config(
-                text="Queue note for next saved state",
+                text="Queue note and action for next saved state",
                 **note_button_kw,
             )
     except NameError:
@@ -575,9 +538,9 @@ def on_show_recording_indicator_changed():
 def save_state():
     """Manual one-shot save.
 
-    If the draft note box contains text, queue it first so it is attached to
-    this manual save. This mirrors the stop button behavior, but only for a
-    single save.
+    If the draft note box or action entry contains text, queue it first so it
+    is attached to this manual save. This mirrors the stop button behavior,
+    but only for a single save.
     """
     queue_current_draft_note(silent=True)
     record_state_once_threaded()
@@ -675,7 +638,7 @@ def stop_recording(save_final: bool = False, queue_draft: bool = False):
     stop_button.config(state=tk.DISABLED)
 
     if save_in_progress:
-        if save_final and pending_note:
+        if save_final and (pending_note or pending_action):
             final_save_after_current = True
             set_status(
                 "Recording stopped. Current save will finish, then final state "
@@ -711,6 +674,8 @@ def on_close():
             root.after_cancel(recording_after_id)
         except tk.TclError:
             pass
+
+    invalidate_microscope()
 
     master.destroy()
 
@@ -776,6 +741,7 @@ if __name__ == "__main__":
 
     note_placeholder_active = False
     pending_note = ""
+    pending_action = ""
     final_save_after_current = False
 
     recording_indicator_window = None
@@ -796,17 +762,22 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     # Create vars
     # -------------------------------------------------------------------------
-    file_path = tk.StringVar()
-    file_path.set(str(Path.home() / "pytribeam_state_record.yml"))
+    output_dir = tk.StringVar()
+    output_dir.set(str(Path.home() / "pytribeam_state_record"))
 
     interval_var = tk.StringVar()
     interval_var.set("10")
+
+    action_var = tk.StringVar()
 
     status_var = tk.StringVar()
     status_var.set("Idle.")
 
     show_recording_indicator_var = tk.BooleanVar()
     show_recording_indicator_var.set(False)
+
+    include_quads_var = tk.BooleanVar()
+    include_quads_var.set(True)
 
     # -------------------------------------------------------------------------
     # Create widgets
@@ -837,6 +808,18 @@ if __name__ == "__main__":
         **entry_kw,
     )
 
+    include_quads_checkbox = tk.Checkbutton(
+        root,
+        text="Sweep imaging quadrants (records per-quad device, briefly changes view)",
+        variable=include_quads_var,
+        bg=theme.bg,
+        fg=theme.fg,
+        activebackground=theme.bg,
+        activeforeground=theme.fg,
+        selectcolor=theme.colors["bg_off"],
+        font=("Segoe UI", 11),
+    )
+
     operator_note_label = tk.Label(
         root,
         text=(
@@ -851,14 +834,14 @@ if __name__ == "__main__":
 
     l2 = tk.Label(
         root,
-        text="Path to save the states to",
+        text="Directory to save the states to",
         **header_kw,
     )
 
     pentry = ctk.PathEntry(
         root,
-        var=file_path,
-        directory=False,
+        var=output_dir,
+        directory=True,
         operation="save",
         **entry_kw,
     )
@@ -866,8 +849,8 @@ if __name__ == "__main__":
     l3 = tk.Label(
         root,
         text=(
-            "Draft note. Click 'Queue note for next saved state' when ready. "
-            "Queued notes are attached to the next manual or automatic save."
+            "Draft note. Click 'Queue note and action' when ready. "
+            "Queued annotations are attached to the next manual or automatic save."
         ),
         **header_kw,
     )
@@ -882,9 +865,28 @@ if __name__ == "__main__":
     text_box.bind("<FocusOut>", restore_note_placeholder_if_empty)
     text_box.bind("<KeyPress>", clear_note_placeholder_for_typing)
 
+    action_l = tk.Label(root, text="Intended action:", **label_kw)
+
+    action_entry = tk.Entry(
+        root,
+        textvariable=action_var,
+        **entry_kw,
+    )
+
+    action_hint = tk.Label(
+        root,
+        text=(
+            "Optional. Name the operation you just performed, e.g. move_stage, "
+            "set_hfw. Leave blank if the change was incidental or unknown."
+        ),
+        wraplength=600,
+        justify="left",
+        **label_kw,
+    )
+
     queue_note_button = tk.Button(
         root,
-        text="Queue note for next saved state",
+        text="Queue note and action for next saved state",
         command=queue_note_for_next_save,
         **note_button_kw,
     )
@@ -952,7 +954,7 @@ if __name__ == "__main__":
     interval_l.grid(row=5, column=0, sticky="nse", padx=6, pady=3)
     interval_entry.grid(row=5, column=1, sticky="nsw", padx=6, pady=3)
 
-    operator_note_label.grid(
+    include_quads_checkbox.grid(
         row=6,
         column=0,
         columnspan=2,
@@ -961,44 +963,31 @@ if __name__ == "__main__":
         pady=3,
     )
 
-    f2.grid(row=7, column=0, columnspan=2, sticky="nsew", pady=20)
+    operator_note_label.grid(
+        row=7,
+        column=0,
+        columnspan=2,
+        sticky="w",
+        padx=6,
+        pady=3,
+    )
 
-    l2.grid(row=8, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
-    pentry.grid(row=9, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
+    f2.grid(row=8, column=0, columnspan=2, sticky="nsew", pady=20)
 
-    f3.grid(row=10, column=0, columnspan=2, sticky="nsew", pady=20)
+    l2.grid(row=9, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
+    pentry.grid(row=10, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
 
-    l3.grid(row=11, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
-    text_box.grid(row=12, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
+    f3.grid(row=11, column=0, columnspan=2, sticky="nsew", pady=20)
+
+    l3.grid(row=12, column=0, columnspan=2, sticky="nsw", padx=6, pady=3)
+    text_box.grid(row=13, column=0, columnspan=2, sticky="nsew", padx=6, pady=3)
+
+    action_l.grid(row=14, column=0, sticky="nse", padx=6, pady=3)
+    action_entry.grid(row=14, column=1, sticky="nsew", padx=6, pady=3)
+
+    action_hint.grid(row=15, column=0, columnspan=2, sticky="w", padx=6, pady=3)
 
     queue_note_button.grid(
-        row=13,
-        column=0,
-        columnspan=2,
-        sticky="nsew",
-        padx=6,
-        pady=5,
-    )
-
-    save_once_button.grid(
-        row=14,
-        column=0,
-        columnspan=2,
-        sticky="nsew",
-        padx=6,
-        pady=5,
-    )
-
-    start_button.grid(
-        row=15,
-        column=0,
-        columnspan=2,
-        sticky="nsew",
-        padx=6,
-        pady=5,
-    )
-
-    stop_button.grid(
         row=16,
         column=0,
         columnspan=2,
@@ -1007,8 +996,35 @@ if __name__ == "__main__":
         pady=5,
     )
 
-    show_indicator_checkbox.grid(
+    save_once_button.grid(
         row=17,
+        column=0,
+        columnspan=2,
+        sticky="nsew",
+        padx=6,
+        pady=5,
+    )
+
+    start_button.grid(
+        row=18,
+        column=0,
+        columnspan=2,
+        sticky="nsew",
+        padx=6,
+        pady=5,
+    )
+
+    stop_button.grid(
+        row=19,
+        column=0,
+        columnspan=2,
+        sticky="nsew",
+        padx=6,
+        pady=5,
+    )
+
+    show_indicator_checkbox.grid(
+        row=20,
         column=0,
         columnspan=2,
         sticky="w",
@@ -1017,7 +1033,7 @@ if __name__ == "__main__":
     )
 
     status_label.grid(
-        row=18,
+        row=21,
         column=0,
         columnspan=2,
         sticky="nsew",
@@ -1029,8 +1045,7 @@ if __name__ == "__main__":
     # -------------------------------------------------------------------------
     host_var.insert(tk.END, "localhost")
     port_var.insert(tk.END, "None")
-    # text_box.insert(1.0, "Insert description...")
-    show_note_placeholder()  # replace the above line with this to show placeholder text
+    show_note_placeholder()
     update_queue_note_button()
 
     # -------------------------------------------------------------------------
@@ -1044,3 +1059,4 @@ if __name__ == "__main__":
     root.grab_set()
     root.update_idletasks()
     root.mainloop()
+    
