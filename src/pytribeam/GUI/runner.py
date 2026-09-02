@@ -106,6 +106,9 @@ class MainApplication(tk.Tk):
         # Add experiment controller
         self.experiment_controller = ExperimentController()
 
+        # Add state recording framework
+        self.state_recording_path = os.getcwd()
+
         # Register callbacks for UI updates
         self.experiment_controller.register_callback(
             "state_changed", self._on_experiment_state_changed
