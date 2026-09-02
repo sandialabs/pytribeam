@@ -274,10 +274,7 @@ def check_recording_result_queue():
             hide_recording_indicator()
 
             if result["success"]:
-                message = (
-                    f"Saved {result['record_id']} "
-                    f"({result['n_values']} values"
-                )
+                message = f"Saved {result['record_id']} ({result['n_values']} values"
 
                 # Surface read errors in the status line. Attributes that fail
                 # on a healthy microscope are exactly the ones worth knowing
@@ -1059,4 +1056,3 @@ if __name__ == "__main__":
     root.grab_set()
     root.update_idletasks()
     root.mainloop()
-    

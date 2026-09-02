@@ -143,7 +143,9 @@ def _collect(
     """
     if depth > MAX_DEPTH:
         errors.append(
-            ReadError(path=prefix, error=f"max depth {MAX_DEPTH} exceeded", kind="depth")
+            ReadError(
+                path=prefix, error=f"max depth {MAX_DEPTH} exceeded", kind="depth"
+            )
         )
         return
 

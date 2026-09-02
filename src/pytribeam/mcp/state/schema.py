@@ -239,9 +239,7 @@ class StateRecord:
             values=dict(db.get("values") or {}),
             description=db.get("description") or "",
             intended_action=db.get("intended_action"),
-            read_errors=[
-                ReadError.from_dict(e) for e in (db.get("read_errors") or [])
-            ],
+            read_errors=[ReadError.from_dict(e) for e in (db.get("read_errors") or [])],
             provenance=Provenance.from_dict(db.get("provenance")),
         )
 
