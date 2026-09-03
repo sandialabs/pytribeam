@@ -1,0 +1,21 @@
+before_id: s0001
+after_id: s0007
+before_recorded_at: '2026-09-03T10:09:14.553-07:00'
+after_recorded_at: '2026-09-03T10:12:14.394-07:00'
+provenance_mismatch: false
+intended_action:
+- move_stage
+- set_active_beam
+- set_detector_levels
+- set_resolution
+- set_dwell_time
+- set_hfw
+- set_detector_type
+differences: []
+operations: {}
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 215
+noise_count: 2

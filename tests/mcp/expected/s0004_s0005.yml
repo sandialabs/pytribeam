@@ -1,0 +1,32 @@
+before_id: s0004
+after_id: s0005
+before_recorded_at: '2026-09-03T10:10:49.380-07:00'
+after_recorded_at: '2026-09-03T10:11:12.036-07:00'
+provenance_mismatch: false
+intended_action:
+- move_stage
+- set_hfw
+differences:
+- path: beams.electron_beam.horizontal_field_width.value
+  classification: changed
+  before: 0.0009000000000000001
+  after: 0.0001
+  capability: set_hfw
+  scoped_by: null
+- path: specimen.stage.current_position.t
+  classification: changed
+  before: 0.0
+  after: 0.17453292519943275
+  capability: move_stage
+  scoped_by: null
+operations:
+  set_hfw:
+  - beams.electron_beam.horizontal_field_width.value
+  move_stage:
+  - specimen.stage.current_position.t
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 213
+noise_count: 2

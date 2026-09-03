@@ -1,0 +1,109 @@
+before_id: s0006
+after_id: s0007
+before_recorded_at: '2026-09-03T10:11:49.575-07:00'
+after_recorded_at: '2026-09-03T10:12:14.394-07:00'
+provenance_mismatch: false
+intended_action:
+- move_stage
+- set_active_beam
+- set_detector_levels
+- set_resolution
+- set_dwell_time
+- set_hfw
+- set_detector_type
+differences:
+- path: beams.electron_beam.horizontal_field_width.value
+  classification: changed
+  before: 0.0001
+  after: 0.0009000000000000001
+  capability: set_hfw
+  scoped_by: null
+- path: beams.electron_beam.scanning.dwell_time.value
+  classification: changed
+  before: 2.0e-06
+  after: 1.0e-06
+  capability: set_scan_parameters
+  scoped_by: null
+- path: beams.electron_beam.scanning.resolution.value
+  classification: changed
+  before: 2048x1768
+  after: 768x512
+  capability: set_scan_parameters
+  scoped_by: null
+- path: detector.brightness.value
+  classification: changed
+  before: 0.44
+  after: 0.5
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.contrast.value
+  classification: changed
+  before: 0.71
+  after: 0.5
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.mode.value
+  classification: changed
+  before: SecondaryElectrons
+  after: None
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.type.value
+  classification: changed
+  before: ETD
+  after: TLD2
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: imaging.active_view
+  classification: changed
+  before: 2
+  after: 1
+  capability: set_active_view
+  scoped_by: null
+- path: specimen.stage.current_position.r
+  classification: changed
+  before: 0.17453292519943275
+  after: 0.0
+  capability: move_stage
+  scoped_by: null
+- path: specimen.stage.current_position.t
+  classification: changed
+  before: 0.17453292519943275
+  after: 0.0
+  capability: move_stage
+  scoped_by: null
+- path: specimen.stage.current_position.x
+  classification: changed
+  before: 0.005
+  after: 0.0
+  capability: move_stage
+  scoped_by: null
+- path: specimen.stage.current_position.y
+  classification: changed
+  before: 0.004
+  after: 0.0
+  capability: move_stage
+  scoped_by: null
+operations:
+  set_hfw:
+  - beams.electron_beam.horizontal_field_width.value
+  set_scan_parameters:
+  - beams.electron_beam.scanning.dwell_time.value
+  - beams.electron_beam.scanning.resolution.value
+  set_active_view:
+  - detector.brightness.value
+  - detector.contrast.value
+  - detector.mode.value
+  - detector.type.value
+  - imaging.active_view
+  move_stage:
+  - specimen.stage.current_position.r
+  - specimen.stage.current_position.t
+  - specimen.stage.current_position.x
+  - specimen.stage.current_position.y
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 203
+noise_count: 2

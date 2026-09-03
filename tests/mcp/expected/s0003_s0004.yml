@@ -1,0 +1,39 @@
+before_id: s0003
+after_id: s0004
+before_recorded_at: '2026-09-03T10:10:24.740-07:00'
+after_recorded_at: '2026-09-03T10:10:49.380-07:00'
+provenance_mismatch: false
+intended_action:
+- set_detector_type
+- set_detector_levels
+differences:
+- path: beams.electron_beam.scanning.dwell_time.value
+  classification: changed
+  before: 1.0e-06
+  after: 2.0e-06
+  capability: set_scan_parameters
+  scoped_by: null
+- path: detector.brightness.value
+  classification: changed
+  before: 0.5
+  after: 0.3
+  capability: set_active_view
+  scoped_by: null
+- path: detector.contrast.value
+  classification: changed
+  before: 0.5
+  after: 0.65
+  capability: set_active_view
+  scoped_by: null
+operations:
+  set_scan_parameters:
+  - beams.electron_beam.scanning.dwell_time.value
+  set_active_view:
+  - detector.brightness.value
+  - detector.contrast.value
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 212
+noise_count: 2

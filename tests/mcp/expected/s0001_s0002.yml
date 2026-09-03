@@ -1,0 +1,37 @@
+before_id: s0001
+after_id: s0002
+before_recorded_at: '2026-09-03T10:09:14.553-07:00'
+after_recorded_at: '2026-09-03T10:10:06.865-07:00'
+provenance_mismatch: false
+intended_action:
+- move_stage
+differences:
+- path: specimen.stage.current_position.r
+  classification: changed
+  before: 0.0
+  after: 0.17453292519943275
+  capability: move_stage
+  scoped_by: null
+- path: specimen.stage.current_position.x
+  classification: changed
+  before: 0.0
+  after: 0.005
+  capability: move_stage
+  scoped_by: null
+- path: specimen.stage.current_position.y
+  classification: changed
+  before: 0.0
+  after: 0.004
+  capability: move_stage
+  scoped_by: null
+operations:
+  move_stage:
+  - specimen.stage.current_position.r
+  - specimen.stage.current_position.x
+  - specimen.stage.current_position.y
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 212
+noise_count: 2

@@ -14,11 +14,177 @@
 #   - `noise: true` and `capability` are mutually exclusive.
 #   - Units are SI base units as reported by the microscope: meters, radians,
 #     amperes, volts, seconds. `display` is what a human should see.
+#   - `scoped_by: <path>` marks a value whose meaning depends on another path
+#     (see below). The diff must not report a scoped change as an independent
+#     fact if its scope key also changed in the same pair — flag it, don't
+#     drop it. See "Coverage" below for why this exists.
 #
 # Tolerances come from the instrument team. If you do not know a value, ask
 # rather than estimating — a tolerance that is too loose silently hides real
 # changes.
+#
+# ---------------------------------------------------------------------------
+# Coverage
+# ---------------------------------------------------------------------------
+# This table is NOT exhaustive. A captured state has ~217 paths; most of them
+# (limit/available_values bookkeeping, install flags, etc.) never change and
+# have no entry here on purpose. `metadata.report_unmapped(record)` audits a
+# whole record against this table; the diff engine's own `unmapped` list is
+# narrower and only tracks paths that came out `changed` with no entry at
+# all — see `state/diff.py`'s docstring and `tests/mcp/test_diff.py` for the
+# exact contract. Both are deliberately exercised by the fixtures: see
+# `beams.electron_beam.is_on` (7->8) and `specimen.compustage.is_homed` (8->9)
+# below, which are left unmapped on purpose.
+#
+# ---------------------------------------------------------------------------
+# scoped_by — resolved finding, see mcp/README.md and issue draft
+# ---------------------------------------------------------------------------
+# `detector.*` is view-scoped: it reports whichever detector belongs to
+# `imaging.active_view`, not a fixed physical detector. Verified against the
+# fixture data: switching `imaging.active_view` 1->2 (s0005->s0006) flips
+# `detector.type.value` / `detector.mode.value` completely, and switching back
+# (s0006->s0007) flips them back. A diff that reports "detector changed"
+# without noting that `active_view` also changed would mislead an agent into
+# thinking a detector setting was reconfigured, when the operator may only
+# have looked at a different panel. Hence `scoped_by` here, and hence the
+# `capability` for all of it is `set_active_view` rather than a separate
+# `set_detector`, since the fixtures show the meaningful commanded action is
+# "switch what I'm looking at" — the detector fields simply come along.
 
-paths: {}
+paths:
+  # --- stage: translational axes -------------------------------------------
+  # tolerance derived from steps.yml: general.stage_translational_tol_um: 0.5
+  # -> 0.5um = 5.0e-7 m. Same value used on every job in this fixture session.
+  "specimen.stage.current_position.x":
+    units: m
+    display: mm
+    tolerance: 5.0e-7
+    capability: move_stage
+  "specimen.stage.current_position.y":
+    units: m
+    display: mm
+    tolerance: 5.0e-7
+    capability: move_stage
+  "specimen.stage.current_position.z":
+    units: m
+    display: mm
+    tolerance: 5.0e-7
+    capability: move_stage
 
-capabilities: {}
+  # --- stage: angular axes ---------------------------------------------------
+  # tolerance derived from steps.yml: general.stage_angular_tol_deg: 0.02
+  # -> 0.02 deg = 3.49e-4 rad.
+  "specimen.stage.current_position.r":
+    units: rad
+    display: deg
+    tolerance: 3.49e-4
+    capability: move_stage
+  "specimen.stage.current_position.t":
+    units: rad
+    display: deg
+    tolerance: 3.49e-4
+    capability: move_stage
+
+  # --- beam: high voltage / current -------------------------------------------
+  # Not exercised by any fixture pair (steps.yml holds voltage/current fixed
+  # at 5.0 kV / 6.4 nA throughout), but derived from steps.yml so the table
+  # carries them: beam.voltage_tol_kv: 0.25 -> 250 V, beam.current_tol_na:
+  # 0.32 -> 3.2e-10 A. No capability yet: nothing in WP4 sets these, and
+  # per R5 absence-of-capability keeps them read-only until one exists.
+  "beams.*.high_voltage.value":
+    units: V
+    display: kV
+    tolerance: 250
+  "beams.*.beam_current.value":
+    units: A
+    display: nA
+    tolerance: 3.2e-10
+
+  # --- beam: horizontal field width -------------------------------------------
+  # No vetted tolerance seed exists for HFW yet (only the four above came
+  # from steps.yml) -- ask the instrument team before adding one. Exact
+  # comparison in the meantime is safe: every HFW change in the fixtures is
+  # a full mm-scale zoom change, nowhere near jitter-sized.
+  "beams.*.horizontal_field_width.value":
+    units: m
+    display: um
+    capability: set_hfw
+
+  # --- scan parameters ---------------------------------------------------
+  "beams.*.scanning.resolution.value":
+    capability: set_scan_parameters
+  "beams.*.scanning.dwell_time.value":
+    units: s
+    display: us
+    # beam.dwell_ratio tolerance from pytribeam.constants.Constants.beam_dwell_tol_ratio
+    tolerance_ratio: 0.001
+    # Plus a small absolute floor: a pure ratio is too tight near zero dwell
+    # times. This floor is an engineering judgment call, not a vetted
+    # instrument spec -- revisit if it turns out to be wrong.
+    tolerance: 1.0e-8
+    capability: set_scan_parameters
+  "beams.*.scanning.rotation.value":
+    units: rad
+    display: deg
+    capability: set_scan_parameters
+
+  # --- detector / active view (see "scoped_by" note above) -------------------
+  "imaging.active_view":
+    capability: set_active_view
+  "detector.type.value":
+    scoped_by: imaging.active_view
+    capability: set_active_view
+  "detector.mode.value":
+    scoped_by: imaging.active_view
+    capability: set_active_view
+  "detector.brightness.value":
+    # pytribeam.constants.Constants.contrast_brightness_tolerance
+    tolerance: 1.0e-4
+    scoped_by: imaging.active_view
+    capability: set_active_view
+  "detector.contrast.value":
+    tolerance: 1.0e-4
+    scoped_by: imaging.active_view
+    capability: set_active_view
+
+  # --- noise -----------------------------------------------------------------
+  # Live analog readings. Zero jitter in this fixture session (it's
+  # simulator data -- see mcp/README.md "known data limitations"), but both
+  # are physically noisy on real hardware and should never surface as a
+  # reportable change on their own.
+  "state.specimen_current.value":
+    noise: true
+  "vacuum.chamber_pressure.value":
+    noise: true
+
+  # --- deliberately left unmapped ---------------------------------------------
+  # beams.electron_beam.is_on   (exercised by fixture 7->8)
+  # specimen.compustage.is_homed (exercised by fixture 8->9)
+  # Neither has an entry. Do not add one without a reason -- the fixtures use
+  # these specific paths to prove `unmapped` actually reports something.
+
+capabilities:
+  move_stage:
+    tier: 2
+    affects: ["specimen.stage.current_position.*"]
+    summary: "Move the stage to an absolute position"
+  set_hfw:
+    tier: 1
+    affects: ["beams.*.horizontal_field_width.value"]
+    summary: "Set the imaging field width"
+  set_scan_parameters:
+    tier: 1
+    affects:
+      - "beams.*.scanning.resolution.value"
+      - "beams.*.scanning.dwell_time.value"
+      - "beams.*.scanning.rotation.value"
+    summary: "Set scan resolution, dwell time, and rotation"
+  set_active_view:
+    tier: 1
+    affects:
+      - "imaging.active_view"
+      - "detector.type.value"
+      - "detector.mode.value"
+      - "detector.brightness.value"
+      - "detector.contrast.value"
+    summary: "Switch the active beam/view, and its detector configuration along with it"

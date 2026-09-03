@@ -1,0 +1,22 @@
+before_id: s0007
+after_id: s0008
+before_recorded_at: '2026-09-03T10:12:14.394-07:00'
+after_recorded_at: '2026-09-03T10:46:57.172-07:00'
+provenance_mismatch: false
+intended_action: null
+differences:
+- path: beams.electron_beam.is_on
+  classification: changed
+  before: true
+  after: false
+  capability: null
+  scoped_by: null
+operations: {}
+observed:
+- beams.electron_beam.is_on
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped:
+- beams.electron_beam.is_on
+unchanged_count: 214
+noise_count: 2

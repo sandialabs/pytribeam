@@ -1,0 +1,124 @@
+before_id: s0008
+after_id: s0009
+before_recorded_at: '2026-09-03T10:46:57.172-07:00'
+after_recorded_at: '2026-09-03T10:54:47.510-07:00'
+provenance_mismatch: false
+intended_action: null
+differences:
+- path: specimen.compustage.current_position.a
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.current_position.b
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.current_position.coordinate_system
+  classification: read_error_before
+  before: null
+  after: Specimen
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.current_position.x
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.current_position.y
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.current_position.z
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.is_homed
+  classification: changed
+  before: false
+  after: true
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.is_linked
+  classification: read_error_before
+  before: null
+  after: false
+  capability: null
+  scoped_by: null
+- path: specimen.compustage.neutral_mill_position.value
+  classification: read_error_before
+  before: null
+  after: 0.0
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.coordinate_system
+  classification: read_error_after
+  before: Specimen
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.r
+  classification: read_error_after
+  before: 0.0
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.t
+  classification: read_error_after
+  before: 0.0
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.x
+  classification: read_error_after
+  before: 0.0
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.y
+  classification: read_error_after
+  before: 0.0
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.current_position.z
+  classification: read_error_after
+  before: 0.0
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.is_homed
+  classification: read_error_after
+  before: true
+  after: null
+  capability: null
+  scoped_by: null
+- path: specimen.stage.is_linked
+  classification: read_error_after
+  before: true
+  after: null
+  capability: null
+  scoped_by: null
+operations: {}
+observed:
+- specimen.compustage.is_homed
+read_errors_resolved:
+- specimen.compustage.current_position
+- specimen.compustage.is_linked
+- specimen.compustage.neutral_mill_position.value
+read_errors_introduced:
+- specimen.stage.current_position
+- specimen.stage.is_homed
+- specimen.stage.is_linked
+unmapped:
+- specimen.compustage.is_homed
+unchanged_count: 206
+noise_count: 2

@@ -1,0 +1,54 @@
+before_id: s0005
+after_id: s0006
+before_recorded_at: '2026-09-03T10:11:12.036-07:00'
+after_recorded_at: '2026-09-03T10:11:49.575-07:00'
+provenance_mismatch: false
+intended_action:
+- set_active_beam
+- set_detector_levels
+- set_resolution
+- set_dwell_time
+differences:
+- path: detector.brightness.value
+  classification: changed
+  before: 0.3
+  after: 0.44
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.contrast.value
+  classification: changed
+  before: 0.65
+  after: 0.71
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.mode.value
+  classification: changed
+  before: None
+  after: SecondaryElectrons
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: detector.type.value
+  classification: changed
+  before: TLD2
+  after: ETD
+  capability: set_active_view
+  scoped_by: imaging.active_view
+- path: imaging.active_view
+  classification: changed
+  before: 1
+  after: 2
+  capability: set_active_view
+  scoped_by: null
+operations:
+  set_active_view:
+  - detector.brightness.value
+  - detector.contrast.value
+  - detector.mode.value
+  - detector.type.value
+  - imaging.active_view
+observed: []
+read_errors_resolved: []
+read_errors_introduced: []
+unmapped: []
+unchanged_count: 210
+noise_count: 2
