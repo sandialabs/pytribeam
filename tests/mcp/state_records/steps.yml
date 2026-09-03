@@ -1,0 +1,244 @@
+config_file_version: 1.0
+general:
+  slice_thickness_um: 1.0
+  max_slice_num: 1
+  pre_tilt_deg: 0.0
+  sectioning_axis: Z
+  stage_translational_tol_um: 0.5
+  stage_angular_tol_deg: 0.02
+  connection_host: localhost
+  connection_port: null
+  EBSD_OEM: null
+  EDS_OEM: null
+  exp_dir: E:/temp_dir/eds_data
+  h5_log_name: log
+  step_count: 6
+steps:
+  tld2_first:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 0.0
+          y_mm: 0.0
+          z_mm: 0.0
+          t_deg: 0.0
+          r_deg: 0.0
+      step_number: 1
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+    detector:
+      type: TLD2
+      mode: SecondaryElectrons
+      brightness: 0.5
+      contrast: 0.5
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: 768x512
+    bit_depth: 8
+  tld2_second:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 5.0
+          y_mm: 4.0
+          z_mm: 0.0
+          t_deg: 0.0
+          r_deg: 10.0
+      step_number: 2
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+    detector:
+      type: TLD2
+      mode: SecondaryElectrons
+      brightness: 0.5
+      contrast: 0.5
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: 768x512
+    bit_depth: 8
+  tld2_second_HR:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 5.0
+          y_mm: 4.0
+          z_mm: 0.0
+          t_deg: 0.0
+          r_deg: 10.0
+      step_number: 3
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+    detector:
+      type: TLD2
+      mode: SecondaryElectrons
+      brightness: 0.5
+      contrast: 0.5
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 1.0
+      resolution: 2048x1768
+    bit_depth: 8
+  etd_second_HR:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 5.0
+          y_mm: 4.0
+          z_mm: 0.0
+          t_deg: 0.0
+          r_deg: 10.0
+      step_number: 4
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.9
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.3
+      contrast: 0.65
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 2.0
+      resolution: 2048x1768
+    bit_depth: 8
+  etd_third_HR:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 5.0
+          y_mm: 4.0
+          z_mm: 0.0
+          t_deg: 10.0
+          r_deg: 10.0
+      step_number: 5
+    beam:
+      type: electron
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.1
+      working_dist_mm: 4.093
+      dynamic_focus: true
+      tilt_correction: false
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.3
+      contrast: 0.65
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 2.0
+      resolution: 2048x1768
+    bit_depth: 8
+  etd_third_ion:
+    step_general:
+      step_type: image
+      frequency: 1
+      stage:
+        rotation_side: fsl_mill
+        initial_position:
+          x_mm: 5.0
+          y_mm: 4.0
+          z_mm: 0.0
+          t_deg: 10.0
+          r_deg: 10.0
+      step_number: 6
+    beam:
+      type: ion
+      voltage_kv: 5.0
+      voltage_tol_kv: 0.25
+      current_na: 6.4
+      current_tol_na: 0.32
+      hfw_mm: 0.1
+      working_dist_mm: 4.093
+      dynamic_focus: false
+      tilt_correction: false
+    detector:
+      type: ETD
+      mode: SecondaryElectrons
+      brightness: 0.44
+      contrast: 0.71
+      auto_cb:
+        left: null
+        width: null
+        top: null
+        height: null
+    scan:
+      rotation_deg: 0.0
+      dwell_time_us: 0.5
+      resolution: 1536x1024
+    bit_depth: 8
