@@ -69,10 +69,11 @@ Two things that will bite you if you don't know them:
 
 You need a Python between 3.8.12 and 3.11.14 (see `pyproject.toml` --
 anything newer, including 3.11.15+, is rejected by the package metadata).
-Create a virtualenv or conda env in that range, then from the repo root:
+Create a virtualenv or conda env in that range, then from the repo root
+(we recommend using the package manager uv):
 
 ```
-pip install -e ".[dev]"
+uv sync --all-extras
 ```
 
 This installs pytribeam's real dependencies (numpy, pandas, PyYAML, Pillow,
