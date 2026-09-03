@@ -1,0 +1,24 @@
+# Path metadata for microscope state records.
+#
+# Supplies units, tolerances, noise flags, and capability mapping for the
+# dotted paths produced by state/capture.py. Consumed by state/metadata.py.
+#
+# Pattern resolution: when several patterns match one path, the winner is the
+# one with the fewest wildcards; ties break on longest literal character
+# count, then on first occurrence in this file.
+#
+# Rules:
+#   - An entry with no `capability` is read-only. So is a path with no entry.
+#   - `capability` names an id defined under `capabilities` below. It never
+#     names a Python function, module, or attribute.
+#   - `noise: true` and `capability` are mutually exclusive.
+#   - Units are SI base units as reported by the microscope: meters, radians,
+#     amperes, volts, seconds. `display` is what a human should see.
+#
+# Tolerances come from the instrument team. If you do not know a value, ask
+# rather than estimating — a tolerance that is too loose silently hides real
+# changes.
+
+paths: {}
+
+capabilities: {}
