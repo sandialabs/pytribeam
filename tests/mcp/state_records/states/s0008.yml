@@ -267,11 +267,11 @@ values:
   detector.brightness.limits.max: 1.0
   detector.brightness.limits.midpoint: 0.5
   detector.brightness.limits.min: 0.0
-  detector.brightness.value: 0.0
+  detector.brightness.value: 0.5
   detector.contrast.limits.max: 1.0
   detector.contrast.limits.midpoint: 0.5
   detector.contrast.limits.min: 0.0
-  detector.contrast.value: 0.0
+  detector.contrast.value: 0.5
   detector.custom_settings.md_shutter.is_needed: false
   detector.mode.available_values:
   - SecondaryElectrons
