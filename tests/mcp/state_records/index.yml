@@ -68,3 +68,9 @@ records:
   - set_detector_type
   n_values: 217
   n_read_errors: 19
+- id: s0008
+  recorded_at: '2026-09-03T10:46:57.172-07:00'
+  description: Turned off the electron beam
+  intended_action: null
+  n_values: 217
+  n_read_errors: 19
