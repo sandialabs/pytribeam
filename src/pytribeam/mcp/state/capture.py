@@ -26,7 +26,7 @@ from __future__ import annotations
 import platform
 import socket
 from enum import Enum
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import autoscript_sdb_microscope_client.structures as as_structs
 
@@ -118,7 +118,7 @@ def _coerce(value: Any) -> Tuple[bool, Any]:
 def _collect(
     obj: Any,
     prefix: str,
-    visited: Set[int],
+    visited: Dict[int],
     values: Dict[str, Any],
     errors: List[ReadError],
     depth: int = 0,
@@ -152,7 +152,7 @@ def _collect(
     obj_id = id(obj)
     if obj_id in visited:
         return
-    visited.add(obj_id)
+    visited[obj_id] = obj
 
     for name in dir(obj):
         if not _is_public(name):
@@ -243,7 +243,7 @@ def capture_values(
                 )
             )
             continue
-        _collect(root, subsystem, set(), values, errors)
+        _collect(root, subsystem, {}, values, errors)
 
     if include_quads:
         _capture_quads(microscope, values, errors)
@@ -264,6 +264,7 @@ def _capture_quads(
     """
     try:
         original_view = microscope.imaging.get_active_view()
+        values["imaging.active_view"] = original_view
     except Exception as error:
         original_view = None
         errors.append(
@@ -349,7 +350,7 @@ def capture_state(
     microscope: tbt.Microscope,
     record_id: str,
     description: str = "",
-    intended_action: Optional[str] = None,
+    intended_action: Optional[List[str]] = None,
     include_quads: bool = True,
     provenance: Optional[Provenance] = None,
 ) -> StateRecord:
@@ -399,7 +400,7 @@ def capture_to_directory(
     microscope: tbt.Microscope,
     directory,
     description: str = "",
-    intended_action: Optional[str] = None,
+    intended_action: Optional[List[str]] = None,
     include_quads: bool = True,
     provenance: Optional[Provenance] = None,
 ) -> StateRecord:

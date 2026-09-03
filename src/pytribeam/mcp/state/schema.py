@@ -208,7 +208,7 @@ class StateRecord:
     recorded_at: str
     values: Dict[str, Any] = dataclasses.field(default_factory=dict)
     description: str = ""
-    intended_action: Optional[str] = None
+    intended_action: Optional[List[str]] = None
     read_errors: List[ReadError] = dataclasses.field(default_factory=list)
     provenance: Provenance = dataclasses.field(default_factory=Provenance)
 

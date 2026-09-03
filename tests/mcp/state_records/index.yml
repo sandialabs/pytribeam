@@ -8,45 +8,63 @@ provenance:
   recorded_by: state_recorder
 records:
 - id: s0001
-  recorded_at: '2026-09-03T09:23:42.996-07:00'
-  description: Starting position
+  recorded_at: '2026-09-03T10:09:14.553-07:00'
+  description: Starting posiiton
   intended_action: null
-  n_values: 185
+  n_values: 217
   n_read_errors: 19
 - id: s0002
-  recorded_at: '2026-09-03T09:31:05.481-07:00'
-  description: Moved to a different spot on the sample and took an image
-  intended_action: move_stage
-  n_values: 187
+  recorded_at: '2026-09-03T10:10:06.865-07:00'
+  description: Move to a different spot on the sample
+  intended_action:
+  - move_stage
+  n_values: 217
   n_read_errors: 19
 - id: s0003
-  recorded_at: '2026-09-03T09:33:21.951-07:00'
-  description: Increase image resolution to view features better
-  intended_action: set_resolution
-  n_values: 184
+  recorded_at: '2026-09-03T10:10:24.740-07:00'
+  description: Increase image resolution
+  intended_action:
+  - set_resolution
+  n_values: 217
   n_read_errors: 19
 - id: s0004
-  recorded_at: '2026-09-03T09:34:26.340-07:00'
-  description: Change to ETD detector and update contrast/brightness
-  intended_action: set_detector_type, set_detector_levels
-  n_values: 189
+  recorded_at: '2026-09-03T10:10:49.380-07:00'
+  description: Change detectors and adjust contrast/brightness
+  intended_action:
+  - set_detector_type
+  - set_detector_levels
+  n_values: 217
   n_read_errors: 19
 - id: s0005
-  recorded_at: '2026-09-03T09:35:19.111-07:00'
+  recorded_at: '2026-09-03T10:11:12.036-07:00'
   description: Move to another spot on the sample and zoom in
-  intended_action: move_stage, set_hfw
-  n_values: 187
+  intended_action:
+  - move_stage
+  - set_hfw
+  n_values: 217
   n_read_errors: 19
 - id: s0006
-  recorded_at: '2026-09-03T09:36:47.107-07:00'
-  description: Switching to ion beam and updating imaging conditions
-  intended_action: set_active_beam, set_detector_levels, set_resolution, set_dwell_time
-  n_values: 187
+  recorded_at: '2026-09-03T10:11:49.575-07:00'
+  description: Switch to the ion beam, modify contrast/brightness, decrease resolution,
+    decrease dwell time
+  intended_action:
+  - set_active_beam
+  - set_detector_levels
+  - set_resolution
+  - set_dwell_time
+  n_values: 217
   n_read_errors: 19
 - id: s0007
-  recorded_at: '2026-09-03T09:38:32.453-07:00'
-  description: Moving back to starting position and reseting imaging conditions
-  intended_action: move_stage, set_active_beam, set_detector_levels, set_resolution,
-    set_dwell_time, set_hfw, set_detector_type
-  n_values: 196
+  recorded_at: '2026-09-03T10:12:14.394-07:00'
+  description: Move back to the starting position and go back to original imaging
+    settings
+  intended_action:
+  - move_stage
+  - set_active_beam
+  - set_detector_levels
+  - set_resolution
+  - set_dwell_time
+  - set_hfw
+  - set_detector_type
+  n_values: 217
   n_read_errors: 19

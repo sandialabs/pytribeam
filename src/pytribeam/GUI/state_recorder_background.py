@@ -3,7 +3,7 @@ import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 
 from pytribeam import types as tbt
 from pytribeam import utilities
@@ -159,7 +159,7 @@ def record_state_worker(
     host: str,
     port: Optional[int],
     description: str,
-    intended_action: Optional[str],
+    intended_action: Optional[List[str]],
     include_quads: bool,
 ):
     """Background-thread worker for recording microscope state.
@@ -246,6 +246,9 @@ def record_state_once_threaded() -> bool:
     save_in_progress = True
     set_status("Recording microscope state...")
     show_recording_indicator()
+
+    if intended_action is not None:
+        intended_action = [s.strip() for s in intended_action.split(",")]
 
     worker = threading.Thread(
         target=record_state_worker,

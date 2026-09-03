@@ -1,8 +1,13 @@
 schema_version: '1.0'
 id: s0006
-recorded_at: '2026-09-03T09:36:47.107-07:00'
-description: Switching to ion beam and updating imaging conditions
-intended_action: set_active_beam, set_detector_levels, set_resolution, set_dwell_time
+recorded_at: '2026-09-03T10:11:49.575-07:00'
+description: Switch to the ion beam, modify contrast/brightness, decrease resolution,
+  decrease dwell time
+intended_action:
+- set_active_beam
+- set_detector_levels
+- set_resolution
+- set_dwell_time
 provenance:
   pytribeam_version: 0.1.4
   autoscript_version: 4.8.1
@@ -167,17 +172,29 @@ values:
   - 4096x4096
   - 8192x8192
   beams.electron_beam.scanning.resolution.value: 2048x1768
+  beams.electron_beam.scanning.rotation.limits.max: 100000.0
+  beams.electron_beam.scanning.rotation.limits.midpoint: 0.0
+  beams.electron_beam.scanning.rotation.limits.min: -100000.0
   beams.electron_beam.scanning.rotation.value: 0.0
   beams.electron_beam.scanning.spot.limits.max: 100000.0
   beams.electron_beam.scanning.spot.limits.midpoint: 0.0
   beams.electron_beam.scanning.spot.limits.min: -100000.0
   beams.electron_beam.scanning.spot.value: 0.0
   beams.electron_beam.source.is_broken: false
+  beams.electron_beam.source_tilt.limits.limits_x.max: 1.0
+  beams.electron_beam.source_tilt.limits.limits_x.midpoint: 0.0
+  beams.electron_beam.source_tilt.limits.limits_x.min: -1.0
+  beams.electron_beam.source_tilt.limits.limits_y.max: 1.0
+  beams.electron_beam.source_tilt.limits.limits_y.midpoint: 0.0
+  beams.electron_beam.source_tilt.limits.limits_y.min: -1.0
   beams.electron_beam.source_tilt.value.x: 0.0
   beams.electron_beam.source_tilt.value.y: 0.0
   beams.electron_beam.stigmator.limits.limits_x.max: 1000000.0
   beams.electron_beam.stigmator.limits.limits_x.midpoint: 0.0
   beams.electron_beam.stigmator.limits.limits_x.min: -1000000.0
+  beams.electron_beam.stigmator.limits.limits_y.max: 1000000.0
+  beams.electron_beam.stigmator.limits.limits_y.midpoint: 0.0
+  beams.electron_beam.stigmator.limits.limits_y.min: -1000000.0
   beams.electron_beam.stigmator.value.x: 0.0
   beams.electron_beam.stigmator.value.y: 0.0
   beams.electron_beam.working_distance.limits.max: 100000.0
@@ -202,11 +219,19 @@ values:
   beams.ion_beam.beam_shift.limits.limits_x.max: 1.0
   beams.ion_beam.beam_shift.limits.limits_x.midpoint: 0.0
   beams.ion_beam.beam_shift.limits.limits_x.min: -1.0
+  beams.ion_beam.beam_shift.limits.limits_y.max: 1.0
+  beams.ion_beam.beam_shift.limits.limits_y.midpoint: 0.0
+  beams.ion_beam.beam_shift.limits.limits_y.min: -1.0
+  beams.ion_beam.beam_shift.value.x: 0.0
+  beams.ion_beam.beam_shift.value.y: 0.0
   beams.ion_beam.high_voltage.is_controllable: true
   beams.ion_beam.high_voltage.limits.max: 30000.0
   beams.ion_beam.high_voltage.limits.midpoint: 15000.0
   beams.ion_beam.high_voltage.limits.min: 0.0
   beams.ion_beam.high_voltage.value: 5000.0
+  beams.ion_beam.horizontal_field_width.limits.max: 0.001
+  beams.ion_beam.horizontal_field_width.limits.midpoint: 0.0005000000005
+  beams.ion_beam.horizontal_field_width.limits.min: 1.0e-12
   beams.ion_beam.horizontal_field_width.value: 0.0001
   beams.ion_beam.is_blanked: false
   beams.ion_beam.is_installed: true
@@ -227,8 +252,17 @@ values:
   - 2048x1768
   - 4096x3536
   beams.ion_beam.scanning.resolution.value: 1536x1024
+  beams.ion_beam.scanning.rotation.limits.max: 100000.0
+  beams.ion_beam.scanning.rotation.limits.midpoint: 0.0
+  beams.ion_beam.scanning.rotation.limits.min: -100000.0
   beams.ion_beam.scanning.rotation.value: 0.0
   beams.ion_beam.source.time_to_heat: 0.0
+  beams.ion_beam.stigmator.limits.limits_x.max: 1000000.0
+  beams.ion_beam.stigmator.limits.limits_x.midpoint: 0.0
+  beams.ion_beam.stigmator.limits.limits_x.min: -1000000.0
+  beams.ion_beam.stigmator.limits.limits_y.max: 1000000.0
+  beams.ion_beam.stigmator.limits.limits_y.midpoint: 0.0
+  beams.ion_beam.stigmator.limits.limits_y.min: -1000000.0
   beams.ion_beam.stigmator.value.x: 0.0
   beams.ion_beam.stigmator.value.y: 0.0
   beams.ion_beam.working_distance.limits.max: 100000.0
@@ -356,6 +390,7 @@ values:
   vacuum.pressure_limiting_aperture.value: Unknown
   imaging.scanning_filter.number_of_frames: 1
   imaging.scanning_filter.type: 1
+  imaging.active_view: 2
   imaging.quad1.active_device: ELECTRON_BEAM
   imaging.quad2.active_device: ION_BEAM
   imaging.quad3.active_device: NAV_CAM
