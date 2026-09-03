@@ -408,7 +408,7 @@ def capture_to_directory(
     Convenience wrapper that allocates the next record id, captures, and
     writes. Returns the record so the caller can report its id.
     """
-    from schema import write_record
+    from pytribeam.mcp.state.schema import write_record
 
     record = capture_state(
         microscope,
