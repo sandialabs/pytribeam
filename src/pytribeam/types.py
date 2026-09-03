@@ -1,291 +1,251 @@
 #!/usr/bin/python3
+"""Core data types, enums, settings objects, and API adapters for `pytribeam`.
+
+This module defines the shared type system used throughout `pytribeam`. It
+contains lightweight settings containers, enumerations, microscope API adapter
+classes, pattern definitions, workflow configuration objects, and YAML schema
+metadata.
+
+Most other modules import from `pytribeam.types` as `tbt` and use these classes
+to describe microscope state, experiment settings, hardware limits, imaging
+parameters, stage positions, FIB patterns, laser patterns, and workflow steps.
+
+The classes in this module are intentionally centralized so that validation,
+configuration parsing, logging, hardware control, and documentation all refer to
+the same data model.
+
+## Typical usage
+
+```python
+import pytribeam.types as tbt
+
+position = tbt.StagePositionUser(
+    x_mm=0.0,
+    y_mm=0.0,
+    z_mm=5.0,
+    r_deg=0.0,
+    t_deg=0.0,
+)
+
+pattern = tbt.FIBRectanglePattern(
+    center_um=tbt.Point(x=0.0, y=0.0),
+    width_um=10.0,
+    height_um=5.0,
+    depth_um=0.1,
+    scan_direction=tbt.FIBPatternScanDirection.TOP_TO_BOTTOM,
+    scan_type=tbt.FIBPatternScanType.RASTER,
+)
+```
+
+## Type categories
+
+The module is organized around several related groups of types:
+
+| Category | Examples | Purpose |
+| --- | --- | --- |
+| Microscope API adapters | `Microscope`, `AdornedImage`, `Point`, `StagePositionEncoder` | Wrap or re-export AutoScript-compatible objects |
+| Hardware enums | `Device`, `DetectorType`, `StageAxis`, `VacuumState` | Represent microscope hardware states and options |
+| Generic settings | `BeamSettings`, `Scan`, `Detector`, `ImageSettings` | Describe reusable microscope configuration blocks |
+| Stage settings | `StagePositionUser`, `StageLimits`, `StageTolerance`, `StageSettings` | Describe stage position, movement, limits, and tolerances |
+| FIB pattern settings | `FIBRectanglePattern`, `FIBRegularCrossSection`, `FIBStreamPattern`, `FIBSettings` | Describe FIB milling geometry and patterning behavior |
+| Laser settings | `LaserPulse`, `LaserBoxPattern`, `LaserLinePattern`, `LaserPattern`, `LaserSettings` | Describe laser pulse, geometry, and patterning behavior |
+| EBSD/EDS settings | `EBSDSettings`, `EDSSettings`, `MapStatus` | Describe external mapping operations and states |
+| Workflow settings | `Step`, `ExperimentSettings`, `GeneralSettings` | Represent parsed experiment workflow configuration |
+| YAML schema metadata | `YMLFormat`, `YMLFormatVersion` | Define supported configuration-file formats |
+| Utility types | `Limit`, `IntervalType`, `TimeStamp`, `DummyFile` | Support validation, logging, and utility functions |
+
+## API adapter classes
+
+Several classes in this module adapt types from Thermo Fisher AutoScript or
+related APIs. These adapter classes allow the rest of the package to depend on a
+stable `pytribeam` interface while still passing compatible objects to the
+underlying microscope API.
+
+Examples include:
+
+- `Microscope`
+- `AdornedImage`
+- `GrabFrameSettings`
+- `Point`
+- `StagePositionEncoder`
+- `StreamPatternDefinition`
+- `RectanglePattern`
+- `CleaningCrossSectionPattern`
+- `RegularCrossSectionPattern`
+- `StreamPattern`
+
+## Unit conventions
+
+User-facing settings use explicit field names to indicate units. For example:
+
+| Field suffix | Unit |
+| --- | --- |
+| `_mm` | millimeters |
+| `_um` | micrometers |
+| `_nm` | nanometers |
+| `_deg` | degrees |
+| `_rad` | radians |
+| `_s` | seconds |
+| `_ms` | milliseconds |
+| `_us` | microseconds |
+| `_khz` | kilohertz |
+| `_uj` | microjoules |
+| `_na` | nanoamperes |
+
+Stage positions are represented in two forms:
+
+| Type | Translation units | Angular units | Typical use |
+| --- | ---: | ---: | --- |
+| `StagePositionUser` | millimeters | degrees | User settings, YAML files, logs, and display |
+| `StagePositionEncoder` | meters | radians | Microscope API movement commands |
+
+Conversion between these representations is handled by utility functions in
+other modules using factors from `pytribeam.constants.Conversions`.
+
+## Pattern settings
+
+FIB and laser pattern settings are represented as structured Python objects
+rather than raw dictionaries. This makes pattern creation code easier to validate
+and document.
+
+FIB pattern types include rectangle, regular cross-section, cleaning
+cross-section, and stream-pattern definitions. Laser pattern types include box
+and line patterns, along with associated pulse and scan settings.
+
+## Workflow settings
+
+Workflow-level types such as `GeneralSettings`, `Step`, and
+`ExperimentSettings` represent validated experiment configuration data. These
+objects are typically created from YAML input and then passed to stage, imaging,
+FIB, laser, EBSD, EDS, logging, and workflow modules.
+
+## YAML format versions
+
+`YMLFormat` and `YMLFormatVersion` describe the supported experiment
+configuration-file schema. They define the expected top-level sections, required
+keys, step keys, and version identifiers used when parsing `.yml` experiment
+files.
+
+## Notes
+
+This module is intentionally broad because it defines the shared vocabulary used
+across the package. Individual modules should generally import these types rather
+than defining local equivalents.
+
+For example:
+
+```python
+import pytribeam.types as tbt
+```
+
+is preferred over importing many individual names when a module uses several
+types from this namespace.
+
+<hr style="height: 12px; background-color: #333; border: none;">
 """
-Types Module
-============
 
-This module contains classes for internal data types used in the microscope operations, including settings, patterns, and enums.
-
-Classes
--------
-AdornedImage(as_structs.AdornedImage)
-    Adapter class for autoscript AdornedImage.
-
-AngularCorrectionMode(as_enums.AngularCorrectionMode)
-    Adapter class for autoscript AngularCorrectionMode.
-
-Limit(NamedTuple)
-    Limit range for a value.
-
-BeamType(Enum)
-    Specific enumerated beam types.
-
-BeamSettings(NamedTuple)
-    Settings for generic Beam types.
-
-StreamDepth(IntEnum)
-    Bit depth of stream patterns.
-
-ColorDepth(IntEnum)
-    Bit depth of images.
-
-CoordinateReference(Enum)
-    Enum of coordinate reference frames used for laser milling operations.
-
-DetectorMode(Enum)
-    Enum adapter for autoscript DetectorMode enum.
-
-DetectorType(Enum)
-    Enum adapter for autoscript DetectorType enum.
-
-Device(IntEnum)
-    Enum adapter for autoscript ImagingDevice enum.
-
-DummyFile(object)
-    Dummy file to suppress excessive printing.
-
-ExternalDeviceOEM(Enum)
-    Specific EBSD and EDS OEMs supported for collection.
-
-FIBPatternType(Enum)
-    Enum for FIB pattern types.
-
-FIBPatternScanDirection(Enum)
-    Enum for FIB pattern scan directions.
-
-FIBPatternScanType(Enum)
-    Enum for FIB pattern scan types.
-
-FocusPlaneGrid(NamedTuple)
-    Settings for performing a focus grid to fit plane for image tiling.
-
-GrabFrameSettings(as_structs.GrabFrameSettings)
-    Class adapter for autoscript GrabFrameSettings.
-
-ImageFileFormat(Enum)
-    Enum adapter for autoscript ImageFileFormat.
-
-ImageTileSettings(NamedTuple)
-    Settings for image tiling operations.
-
-IntervalType(Enum)
-    Enumerated interval types for limit checking.
-
-LaserPatternMode(Enum)
-    Enum for laser pattern modes.
-
-LaserWavelength(IntEnum)
-    Enum for laser wavelengths.
-
-Point(as_structs.Point)
-    Adapter class for autoscript Point.
-
-ProtectiveShutterMode(as_enums.ProtectiveShutterMode)
-    Adapter class for autoscript ProtectiveShutterMode.
-
-MapStatus(Enum)
-    Map status for EBSD or EDS.
-
-Microscope(SdbMicroscopeClient)
-    Class adapter for autoscript SdbMicroscopeClient.
-
-MicroscopeConnection(NamedTuple)
-    Connection to initialize microscope object.
-
-PretiltAngleDegrees(NamedTuple)
-    Specimen pretilt as measured with regard to the electron beam normal direction.
-
-Resolution(NamedTuple)
-    Arbitrary scan resolution, with limits of (12 <= input <= 65536).
-
-RetractableDeviceState(Enum)
-    Enum adapter for autoscript RetractableDeviceState enum.
-
-DeviceStatus(NamedTuple)
-    Status of connected devices.
-
-RotationSide(Enum)
-    Enum for specific rotation sides.
-
-ScanArea(NamedTuple)
-    Reduced scan area box, coordinate range in [0,1] from top left corner.
-
-ScanMode(IntEnum)
-    Enum adapter for autoscript ScanningMode enum.
-
-SectioningAxis(Enum)
-    Specific sectioning directions supported for 3D collection.
-
-StageAxis(as_enums.StageAxis)
-    Class adapter for autoscript StageAxis enum.
-
-StageCoordinateSystem(Enum)
-    Adapter enum class for autoscript CoordinateSystem.
-
-StageMovementMode(Enum)
-    Movement mode of the stage.
-
-StagePositionEncoder(as_structs.StagePosition)
-    Class adapter for autoscript StagePosition.
-
-StagePositionUser(NamedTuple)
-    Stage object with axis positions in units of mm and degrees.
-
-StageLimits(NamedTuple)
-    Limits for stage positions as determined by autoscript.
-
-StageTolerance(NamedTuple)
-    Tolerance for stage positions.
-
-StepType(Enum)
-    Specific step types supported for data collection.
-
-StreamPatternDefinition(as_structs.StreamPatternDefinition)
-    Adapter class for autoscript StreamPatternDefinition.
-
-TimeStamp(NamedTuple)
-    Timestamp with human-readable and UNIX time formats.
-
-ViewQuad(IntEnum)
-    Quadrant in xTUI to select for viewing/imaging.
-
-VacuumState(Enum)
-    Enum adapter for autoscript VacuumState enum.
-
-EdaxMappingStatus(Enum)
-    Enum adapter for EDAX EDS mapping status.
-
-EdaxEbsdCameraStatus(Enum)
-    Enum adapter for EDAX EBSD camera status.
-
-EdaxEdsDetectorStatus(Enum)
-    Enum adapter for EDAX EDS detector status.
-
-EdaxEdsDetectorSlideStatus(Enum)
-    Enum adapter for EDAX EDS detector slide status.
-
-Beam(NamedTuple)
-    A generic Beam type, used as a template for concrete beam types.
-
-BeamLimits(NamedTuple)
-    Limits for beam settings as determined by autoscript.
-
-ElectronBeam(Beam)
-    The specific beam type 'electron'.
-
-EDAXConfig(NamedTuple)
-    EDAX configuration settings.
-
-GeneralSettings(NamedTuple)
-    General settings object.
-
-IonBeam(Beam)
-    The specific beam type 'ion'.
-
-Detector(NamedTuple)
-    Generic detector settings.
-
-PresetResolution(Resolution, Enum)
-    Enum adapter for autoscript ScanningResolution enum.
-
-Scan(NamedTuple)
-    Generic scan settings.
-
-ImageSettings(NamedTuple)
-    Image settings for the microscope.
-
-StageSettings(NamedTuple)
-    Settings for high-level stage movement operation.
-
-ScanLimits(NamedTuple)
-    Limits for beam scan settings as determined by autoscript.
-
-CustomSettings(NamedTuple)
-    Custom settings for running scripts.
-
-RectanglePattern(as_dynamics.RectanglePattern)
-    Adapter class for autoscript RectanglePattern.
-
-CleaningCrossSectionPattern(as_dynamics.CleaningCrossSectionPattern)
-    Adapter class for autoscript CleaningCrossSectionPattern.
-
-RegularCrossSectionPattern(as_dynamics.RegularCrossSectionPattern)
-    Adapter class for autoscript RegularCrossSectionPattern.
-
-StreamPattern(as_dynamics.StreamPattern)
-    Adapter class for autoscript StreamPattern.
-
-FIBBoxPattern(NamedTuple)
-    FIB box pattern settings.
-
-FIBRectanglePattern(FIBBoxPattern)
-    FIB rectangle pattern settings.
-
-FIBRegularCrossSection(FIBBoxPattern)
-    FIB regular cross-section pattern settings.
-
-FIBCleaningCrossSection(FIBBoxPattern)
-    FIB cleaning cross-section pattern settings.
-
-FIBStreamPattern(NamedTuple)
-    FIB stream pattern settings.
-
-FIBPattern(NamedTuple)
-    FIB pattern settings.
-
-FIBSettings(NamedTuple)
-    FIB settings for the microscope.
-
-EBSDGridType(IntEnum)
-    Enum for EBSD grid types.
-
-EBSDScanBox(NamedTuple)
-    EBSD scan box settings.
-
-EBSDSettings(NamedTuple)
-    EBSD settings for the microscope.
-
-EDSSettings(NamedTuple)
-    EDS settings for the microscope.
-
-LaserPolarization(Enum)
-    Enum for laser polarization.
-
-LaserPulse(NamedTuple)
-    Laser pulse settings.
-
-LaserScanType(Enum)
-    Enum for laser scan types.
-
-LaserPatternType(Enum)
-    Enum for laser pattern types.
-
-LaserBoxPattern(NamedTuple)
-    Laser box pattern settings.
-
-LaserLinePattern(NamedTuple)
-    Laser line pattern settings.
-
-LaserPattern(NamedTuple)
-    Laser pattern settings.
-
-LaserState(NamedTuple)
-    Settings for all readable values from TFS Laser Control.
-
-LaserSettings(NamedTuple)
-    Laser settings for the microscope.
-
-Step(NamedTuple)
-    Step settings for the experiment.
-
-ExperimentSettings(NamedTuple)
-    Experiment settings for the experiment.
-
-YMLFormat(NamedTuple)
-    YAML format settings.
-
-YMLFormatVersion(YMLFormat, Enum)
-    Enum for YAML format versions.
-"""
+__all__ = [
+    # Microscope/API adapters
+    "AdornedImage",
+    "AngularCorrectionMode",
+    "GrabFrameSettings",
+    "Microscope",
+    "Point",
+    "ProtectiveShutterMode",
+    "StageAxis",
+    "StagePositionEncoder",
+    "StreamPatternDefinition",
+    "RectanglePattern",
+    "CleaningCrossSectionPattern",
+    "RegularCrossSectionPattern",
+    "StreamPattern",
+    # Generic utility types
+    "Limit",
+    "IntervalType",
+    "TimeStamp",
+    "DummyFile",
+    # Hardware enums and states
+    "BeamType",
+    "ColorDepth",
+    "DetectorMode",
+    "DetectorType",
+    "Device",
+    "DeviceStatus",
+    "ExternalDeviceOEM",
+    "ImageFileFormat",
+    "MapStatus",
+    "RetractableDeviceState",
+    "ScanMode",
+    "StageCoordinateSystem",
+    "StageMovementMode",
+    "VacuumState",
+    "ViewQuad",
+    # EDAX stuff
+    "EdaxMappingStatus",
+    "EdaxEbsdCameraStatus",
+    "EdaxEdsDetectorStatus",
+    "EdaxEdsDetectorSlideStatus",
+    "EmailUpdateConfig",
+    # Beam, scan, detector, and image settings
+    "Beam",
+    "BeamLimits",
+    "BeamSettings",
+    "ElectronBeam",
+    "IonBeam",
+    "Detector",
+    "PresetResolution",
+    "Resolution",
+    "Scan",
+    "ScanArea",
+    "ScanLimits",
+    "ImageSettings",
+    "ImageTileSettings",
+    "FocusPlaneGrid",
+    # Stage settings
+    "PretiltAngleDegrees",
+    "RotationSide",
+    "SectioningAxis",
+    "StageLimits",
+    "StagePositionUser",
+    "StageSettings",
+    "StageTolerance",
+    # FIB settings
+    "FIBPatternType",
+    "FIBPatternScanDirection",
+    "FIBPatternScanType",
+    "StreamDepth",
+    "FIBBoxPattern",
+    "FIBRectanglePattern",
+    "FIBRegularCrossSection",
+    "FIBCleaningCrossSection",
+    "FIBStreamPattern",
+    "FIBPattern",
+    "FIBSettings",
+    # Laser settings
+    "CoordinateReference",
+    "LaserPatternMode",
+    "LaserWavelength",
+    "LaserPolarization",
+    "LaserPulse",
+    "LaserScanType",
+    "LaserPatternType",
+    "LaserBoxPattern",
+    "LaserLinePattern",
+    "LaserPattern",
+    "LaserState",
+    "LaserSettings",
+    # EBSD/EDS settings
+    "EBSDSettings",
+    "EDSSettings",
+    # Workflow and configuration settings
+    "CustomSettings",
+    "GeneralSettings",
+    "StepType",
+    "Step",
+    "ExperimentSettings",
+    "YMLFormat",
+    "YMLFormatVersion",
+]
 
 # Default python modules
 from typing import NamedTuple, List, Union
@@ -322,12 +282,10 @@ class Limit(NamedTuple):
     """
     Limit range for a value.
 
-    Attributes
-    ----------
-    min : float
-        The minimum value of the limit.
-    max : float
-        The maximum value of the limit.
+    ## Attributes
+
+    - `min` (`float`): The minimum value of the limit.
+    - `max` (`float`): The maximum value of the limit.
     """
 
     min: float  # | int
@@ -338,12 +296,10 @@ class BeamType(Enum):
     """
     Specific enumerated beam types.
 
-    Attributes
-    ----------
-    ELECTRON : str
-        Electron beam type.
-    ION : str
-        Ion beam type.
+    ## Attributes
+
+    - `ELECTRON` (`str`): Electron beam type.
+    - `ION` (`str`): Ion beam type.
     """
 
     ELECTRON: str = "electron"
@@ -354,24 +310,16 @@ class BeamSettings(NamedTuple):
     """
     Settings for generic Beam types.
 
-    Attributes
-    ----------
-    voltage_kv : float
-        The voltage in kV.
-    current_na : float
-        The current in nA.
-    hfw_mm : float
-        The horizontal field width in mm.
-    working_dist_mm : float
-        The working distance in mm.
-    voltage_tol_kv : float
-        The voltage tolerance in kV.
-    current_tol_na : float
-        The current tolerance in nA.
-    dynamic_focus : bool
-        Whether dynamic focus is enabled (ebeam only).
-    tilt_correction : bool
-        Whether tilt correction is enabled (ebeam only).
+    ## Attributes
+
+    - `voltage_kv` (`float`): The voltage in kV.
+    - `current_na` (`float`): The current in nA.
+    - `hfw_mm` (`float`): The horizontal field width in mm.
+    - `working_dist_mm` (`float`): The working distance in mm.
+    - `voltage_tol_kv` (`float`): The voltage tolerance in kV.
+    - `current_tol_na` (`float`): The current tolerance in nA.
+    - `dynamic_focus` (`bool`): Whether dynamic focus is enabled (ebeam only).
+    - `tilt_correction` (`bool`): Whether tilt correction is enabled (ebeam only).
     """
 
     # read from microscope:
@@ -391,10 +339,9 @@ class StreamDepth(IntEnum):
     """
     Bit depth of stream patterns.
 
-    Attributes
-    ----------
-    BITS_16 : int
-        16-bit depth.
+    ## Attributes
+
+    - `BITS_16` (`int`): 16-bit depth.
     """
 
     # BITS_12 = 12 #no longer supported by TFS
@@ -405,12 +352,10 @@ class ColorDepth(IntEnum):
     """
     Bit depth of images.
 
-    Attributes
-    ----------
-    BITS_8 : int
-        8-bit depth.
-    BITS_16 : int
-        16-bit depth.
+    ## Attributes
+
+    - `BITS_8` (`int`): 8-bit depth.
+    - `BITS_16` (`int`): 16-bit depth.
     """
 
     BITS_8 = 8
@@ -421,14 +366,11 @@ class CoordinateReference(Enum):
     """
     Enum of coordinate reference frames used for laser milling operations.
 
-    Attributes
-    ----------
-    CENTER : str
-        Center coordinate reference.
-    UPPER_CENTER : str
-        Upper center coordinate reference.
-    UPPER_LEFT : str
-        Upper left coordinate reference.
+    ## Attributes
+
+    - `CENTER` (`str`): Center coordinate reference.
+    - `UPPER_CENTER` (`str`): Upper center coordinate reference.
+    - `UPPER_LEFT` (`str`): Upper left coordinate reference.
     """
 
     CENTER: str = "center"
@@ -440,84 +382,46 @@ class DetectorMode(Enum):
     """
     Enum adapter for autoscript DetectorMode enum.
 
-    Attributes
-    ----------
-    ALL : str
-        All detector mode.
-    A_MINUS_B : str
-        A minus B detector mode.
-    ANGULAR : str
-        Angular detector mode.
-    ANGULAR_PARTIAL : str
-        Angular partial detector mode.
-    ANGULAR_PARTIAL_COMPLEMENT : str
-        Angular partial complement detector mode.
-    ANULAR_A : str
-        Anular A detector mode.
-    ANULAR_B : str
-        Anular B detector mode.
-    ANULAR_C : str
-        Anular C detector mode.
-    ANULAR_D : str
-        Anular D detector mode.
-    A_PLUS_B : str
-        A plus B detector mode.
-    BACKSCATTER_ELECTRONS : str
-        Backscatter electrons detector mode.
-    BEAM_DECELERATION : str
-        Beam deceleration detector mode.
-    BRIGHT_FIELD : str
-        Bright field detector mode.
-    CATHODO_LUMINESCENCE : str
-        Cathodo luminescence detector mode.
-    CHARGE_NEUTRALIZATION : str
-        Charge neutralization detector mode.
-    CUSTOM : str
-        Custom detector mode.
-    CUSTOM2 : str
-        Custom2 detector mode.
-    CUSTOM3 : str
-        Custom3 detector mode.
-    CUSTOM4 : str
-        Custom4 detector mode.
-    CUSTOM5 : str
-        Custom5 detector mode.
-    DARK_FIELD : str
-        Dark field detector mode.
-    DARK_FIELD1 : str
-        Dark field1 detector mode.
-    DARK_FIELD2 : str
-        Dark field2 detector mode.
-    DARK_FIELD3 : str
-        Dark field3 detector mode.
-    DARK_FIELD4 : str
-        Dark field4 detector mode.
-    DOWN_HOLE_VISIBILITY : str
-        Down hole visibility detector mode.
-    HIGH_ANGLE : str
-        High angle detector mode.
-    INNER_MINUS_OUTER : str
-        Inner minus outer detector mode.
-    LOW_ANGLE : str
-        Low angle detector mode.
-    MIX : str
-        Mix detector mode.
-    NONE : str
-        None detector mode.
-    SCINTILLATION : str
-        Scintillation detector mode.
-    SECONDARY_ELECTRONS : str
-        Secondary electrons detector mode.
-    SECONDARY_IONS : str
-        Secondary ions detector mode.
-    SEGMENT_A : str
-        Segment A detector mode.
-    SEGMENT_B : str
-        Segment B detector mode.
-    TOPOGRAPHY : str
-        Topography detector mode.
-    Z_CONTRAST : str
-        Z contrast detector mode.
+    ## Attributes
+
+    - `ALL` (`str`): All detector mode.
+    - `A_MINUS_B` (`str`): A minus B detector mode.
+    - `ANGULAR` (`str`): Angular detector mode.
+    - `ANGULAR_PARTIAL` (`str`): Angular partial detector mode.
+    - `ANGULAR_PARTIAL_COMPLEMENT` (`str`): Angular partial complement detector mode.
+    - `ANULAR_A` (`str`): Anular A detector mode.
+    - `ANULAR_B` (`str`): Anular B detector mode.
+    - `ANULAR_C` (`str`): Anular C detector mode.
+    - `ANULAR_D` (`str`): Anular D detector mode.
+    - `A_PLUS_B` (`str`): A plus B detector mode.
+    - `BACKSCATTER_ELECTRONS` (`str`): Backscatter electrons detector mode.
+    - `BEAM_DECELERATION` (`str`): Beam deceleration detector mode.
+    - `BRIGHT_FIELD` (`str`): Bright field detector mode.
+    - `CATHODO_LUMINESCENCE` (`str`): Cathodo luminescence detector mode.
+    - `CHARGE_NEUTRALIZATION` (`str`): Charge neutralization detector mode.
+    - `CUSTOM` (`str`): Custom detector mode.
+    - `CUSTOM2` (`str`): Custom2 detector mode.
+    - `CUSTOM3` (`str`): Custom3 detector mode.
+    - `CUSTOM4` (`str`): Custom4 detector mode.
+    - `CUSTOM5` (`str`): Custom5 detector mode.
+    - `DARK_FIELD` (`str`): Dark field detector mode.
+    - `DARK_FIELD1` (`str`): Dark field1 detector mode.
+    - `DARK_FIELD2` (`str`): Dark field2 detector mode.
+    - `DARK_FIELD3` (`str`): Dark field3 detector mode.
+    - `DARK_FIELD4` (`str`): Dark field4 detector mode.
+    - `DOWN_HOLE_VISIBILITY` (`str`): Down hole visibility detector mode.
+    - `HIGH_ANGLE` (`str`): High angle detector mode.
+    - `INNER_MINUS_OUTER` (`str`): Inner minus outer detector mode.
+    - `LOW_ANGLE` (`str`): Low angle detector mode.
+    - `MIX` (`str`): Mix detector mode.
+    - `NONE` (`str`): None detector mode.
+    - `SCINTILLATION` (`str`): Scintillation detector mode.
+    - `SECONDARY_ELECTRONS` (`str`): Secondary electrons detector mode.
+    - `SECONDARY_IONS` (`str`): Secondary ions detector mode.
+    - `SEGMENT_A` (`str`): Segment A detector mode.
+    - `SEGMENT_B` (`str`): Segment B detector mode.
+    - `TOPOGRAPHY` (`str`): Topography detector mode.
+    - `Z_CONTRAST` (`str`): Z contrast detector mode.
     """
 
     ALL: str = as_enums.DetectorMode.ALL
@@ -566,86 +470,47 @@ class DetectorType(Enum):
     """
     Enum adapter for autoscript DetectorType enum.
 
-    Attributes
-    ----------
-    ABS : str
-        ABS detector type.
-    BSD : str
-        BSD detector type.
-    CBS : str
-        CBS detector type.
-    CDEM : str
-        CDEM detector type.
-    CRD : str
-        CRD detector type.
-    DUAL_BSD : str
-        Dual BSD detector type.
-    EBSD : str
-        EBSD detector type.
-    EDS : str
-        EDS detector type.
-    ECD : str
-        ECD detector type.
-    ETD : str
-        ETD detector type.
-    EXTERNAL : str
-        External detector type.
-    GAS : str
-        GAD detector type.
-    GBSD : str
-        GBSD detector type.
-    GSED : str
-        GSED detector type.
-    HIRES_OPTICAL : str
-        HiRes Optical detector type.
-    HIRES_OPTICAL_LO_MAG : str
-        HiRes Optical Low Mag detector type.
-    ICE : str
-        ICE detector type.
-    IN_COLUMN_BSD : str
-        In Column BSD detector type.
-    IR : str
-        IR detector type.
-    IR2 : str
-        IR2 detector type.
-    IR_CAMERA : str
-        IR Camera detector type.
-    LFD : str
-        LFD detector type.
-    LVD : str
-        LVD detector type.
-    LVSED : str
-        LVSED detector type.
-    MD : str
-        MD detector type.
-    MIX : str
-        Mix detector type.
-    NONE : str
-        None detector type.
-    PMT : str
-        PMT detector type.
-    QUAD_BSD : str
-        Quad BSD detector type.
-    SED : str
-        SED detector type.
-    SINGLE_BSD : str
-        Single BSD detector type.
-    STEM3 : str
-        STEM3 detector type.
-    STEM3_PLUS : str
-        STEM3 Plus detector type.
-    STEM4 : str
-        STEM4 detector type.
-    T1 : str
-        T1 detector type.
-    T2 : str
-        T2 detector type.
-    T3 : str
-        T3 detector type.
-    TLD : str
-        TLD detector type.
-    TLD2 : str
-        TLD2 detector type.
+    ## Attributes
+
+    - `ABS` (`str`): ABS detector type.
+    - `BSD` (`str`): BSD detector type.
+    - `CBS` (`str`): CBS detector type.
+    - `CDEM` (`str`): CDEM detector type.
+    - `CRD` (`str`): CRD detector type.
+    - `DUAL_BSD` (`str`): Dual BSD detector type.
+    - `EBSD` (`str`): EBSD detector type.
+    - `EDS` (`str`): EDS detector type.
+    - `ECD` (`str`): ECD detector type.
+    - `ETD` (`str`): ETD detector type.
+    - `EXTERNAL` (`str`): External detector type.
+    - `GAS` (`str`): GAD detector type.
+    - `GBSD` (`str`): GBSD detector type.
+    - `GSED` (`str`): GSED detector type.
+    - `HIRES_OPTICAL` (`str`): HiRes Optical detector type.
+    - `HIRES_OPTICAL_LO_MAG` (`str`): HiRes Optical Low Mag detector type.
+    - `ICE` (`str`): ICE detector type.
+    - `IN_COLUMN_BSD` (`str`): In Column BSD detector type.
+    - `IR` (`str`): IR detector type.
+    - `IR2` (`str`): IR2 detector type.
+    - `IR_CAMERA` (`str`): IR Camera detector type.
+    - `LFD` (`str`): LFD detector type.
+    - `LVD` (`str`): LVD detector type.
+    - `LVSED` (`str`): LVSED detector type.
+    - `MD` (`str`): MD detector type.
+    - `MIX` (`str`): Mix detector type.
+    - `NONE` (`str`): None detector type.
+    - `PMT` (`str`): PMT detector type.
+    - `QUAD_BSD` (`str`): Quad BSD detector type.
+    - `SED` (`str`): SED detector type.
+    - `SINGLE_BSD` (`str`): Single BSD detector type.
+    - `STEM3` (`str`): STEM3 detector type.
+    - `STEM3_PLUS` (`str`): STEM3 Plus detector type.
+    - `STEM4` (`str`): STEM4 detector type.
+    - `T1` (`str`): T1 detector type.
+    - `T2` (`str`): T2 detector type.
+    - `T3` (`str`): T3 detector type.
+    - `TLD` (`str`): TLD detector type.
+    - `TLD2` (`str`): TLD2 detector type.
     """
 
     ABS: str = as_enums.DetectorType.ABS
@@ -693,22 +558,15 @@ class Device(IntEnum):
     """
     Enum adapter for autoscript ImagingDevice enum.
 
-    Attributes
-    ----------
-    ELECTRON_BEAM : int
-        Electron beam device.
-    ION_BEAM : int
-        Ion beam device.
-    CCD_CAMERA : int
-        CCD camera device.
-    IR_CAMERA : int
-        IR camera device.
-    NAV_CAM : int
-        Navigation camera device.
-    OPTICAL_MICROSCOPE : int
-        Optical microscope device.
-    VOLUMESCOPE_APPROACH_CAMERA : int
-        Volumescope approach camera device.
+    ## Attributes
+
+    - `ELECTRON_BEAM` (`int`): Electron beam device.
+    - `ION_BEAM` (`int`): Ion beam device.
+    - `CCD_CAMERA` (`int`): CCD camera device.
+    - `IR_CAMERA` (`int`): IR camera device.
+    - `NAV_CAM` (`int`): Navigation camera device.
+    - `OPTICAL_MICROSCOPE` (`int`): Optical microscope device.
+    - `VOLUMESCOPE_APPROACH_CAMERA` (`int`): Volumescope approach camera device.
     """
 
     ELECTRON_BEAM = as_enums.ImagingDevice.ELECTRON_BEAM
@@ -733,14 +591,11 @@ class ExternalDeviceOEM(Enum):
     """
     Specific EBSD and EDS OEMs supported for collection.
 
-    Attributes
-    ----------
-    OXFORD : str
-        Oxford OEM.
-    EDAX : str
-        EDAX OEM.
-    NONE : str
-        No OEM.
+    ## Attributes
+
+    - `OXFORD` (`str`): Oxford OEM.
+    - `EDAX` (`str`): EDAX OEM.
+    - `NONE` (`str`): No OEM.
     """
 
     OXFORD: str = "Oxford"
@@ -783,16 +638,12 @@ class FIBPatternType(Enum):
     """
     Enum for FIB pattern types.
 
-    Attributes
-    ----------
-    RECTANGLE : str
-        Rectangle pattern type.
-    REGULAR_CROSS_SECTION : str
-        Regular cross-section pattern type.
-    CLEANING_CROSS_SECTION : str
-        Cleaning cross-section pattern type.
-    SELECTED_AREA : str
-        Selected area pattern type.
+    ## Attributes
+
+    - `RECTANGLE` (`str`): Rectangle pattern type.
+    - `REGULAR_CROSS_SECTION` (`str`): Regular cross-section pattern type.
+    - `CLEANING_CROSS_SECTION` (`str`): Cleaning cross-section pattern type.
+    - `SELECTED_AREA` (`str`): Selected area pattern type.
     """
 
     RECTANGLE: str = "rectangle"
@@ -805,28 +656,18 @@ class FIBPatternScanDirection(Enum):
     """
     Enum for FIB pattern scan directions.
 
-    Attributes
-    ----------
-    BOTTOM_TO_TOP : str
-        Bottom to top scan direction.
-    DYNAMIC_ALL_DIRECTIONS : str
-        Dynamic all directions scan direction.
-    DYNAMIC_INNER_TO_OUTER : str
-        Dynamic inner to outer scan direction.
-    DYNAMIC_LEFT_TO_RIGHT : str
-        Dynamic left to right scan direction.
-    DYNAMIC_TOP_TO_BOTTOM : str
-        Dynamic top to bottom scan direction.
-    INNER_TO_OUTER : str
-        Inner to outer scan direction.
-    LEFT_TO_RIGHT : str
-        Left to right scan direction.
-    OUTER_TO_INNER : str
-        Outer to inner scan direction.
-    RIGHT_TO_LEFT : str
-        Right to left scan direction.
-    TOP_TO_BOTTOM : str
-        Top to bottom scan direction.
+    ## Attributes
+
+    - `BOTTOM_TO_TOP` (`str`): Bottom to top scan direction.
+    - `DYNAMIC_ALL_DIRECTIONS` (`str`): Dynamic all directions scan direction.
+    - `DYNAMIC_INNER_TO_OUTER` (`str`): Dynamic inner to outer scan direction.
+    - `DYNAMIC_LEFT_TO_RIGHT` (`str`): Dynamic left to right scan direction.
+    - `DYNAMIC_TOP_TO_BOTTOM` (`str`): Dynamic top to bottom scan direction.
+    - `INNER_TO_OUTER` (`str`): Inner to outer scan direction.
+    - `LEFT_TO_RIGHT` (`str`): Left to right scan direction.
+    - `OUTER_TO_INNER` (`str`): Outer to inner scan direction.
+    - `RIGHT_TO_LEFT` (`str`): Right to left scan direction.
+    - `TOP_TO_BOTTOM` (`str`): Top to bottom scan direction.
     """
 
     BOTTOM_TO_TOP: str = "BottomToTop"
@@ -845,14 +686,11 @@ class FIBPatternScanType(Enum):
     """
     Enum for FIB pattern scan types.
 
-    Attributes
-    ----------
-    RASTER : str
-        Raster scan type.
-    SERPENTINE : str
-        Serpentine scan type.
-    CIRCULAR : str
-        Circular scan type (not yet supported by pyTriBeam).
+    ## Attributes
+
+    - `RASTER` (`str`): Raster scan type.
+    - `SERPENTINE` (`str`): Serpentine scan type.
+    - `CIRCULAR` (`str`): Circular scan type (not yet supported by pyTriBeam).
     """
 
     RASTER: str = "Raster"
@@ -864,16 +702,12 @@ class FocusPlaneGrid(NamedTuple):
     """
     Settings for performing a focus grid to fit plane for image tiling.
 
-    Attributes
-    ----------
-    num_grid_points_x : int
-        Number of grid points in the x direction.
-    num_grid_points_y : int
-        Number of grid points in the y direction.
-    grid_dx_um : float
-        Grid spacing in the x direction in micrometers.
-    grid_dy_um : float
-        Grid spacing in the y direction in micrometers.
+    ## Attributes
+
+    - `num_grid_points_x` (`int`): Number of grid points in the x direction.
+    - `num_grid_points_y` (`int`): Number of grid points in the y direction.
+    - `grid_dx_um` (`float`): Grid spacing in the x direction in micrometers.
+    - `grid_dy_um` (`float`): Grid spacing in the y direction in micrometers.
     """
 
     num_grid_points_x: int
@@ -894,12 +728,10 @@ class ImageFileFormat(Enum):
     """
     Enum adapter for autoscript ImageFileFormat.
 
-    Attributes
-    ----------
-    RAW : str
-        RAW image file format.
-    TIFF : str
-        TIFF image file format.
+    ## Attributes
+
+    - `RAW` (`str`): RAW image file format.
+    - `TIFF` (`str`): TIFF image file format.
     """
 
     RAW: str = as_enums.ImageFileFormat.RAW
@@ -910,20 +742,14 @@ class ImageTileSettings(NamedTuple):
     """
     Settings for image tiling operations.
 
-    Attributes
-    ----------
-    tile_origin : CoordinateReference
-        The origin of the tile.
-    length_x_mm : float
-        The length of the tile in the x direction in millimeters.
-    length_y_mm : float
-        The length of the tile in the y direction in millimeters.
-    overlap_frac_x : float
-        The overlap fraction in the x direction.
-    overlap_frac_y : float
-        The overlap fraction in the y direction.
-    focus_plane_grid : FocusPlaneGrid
-        The focus plane grid settings.
+    ## Attributes
+
+    - `tile_origin` (`CoordinateReference`): The origin of the tile.
+    - `length_x_mm` (`float`): The length of the tile in the x direction in millimeters.
+    - `length_y_mm` (`float`): The length of the tile in the y direction in millimeters.
+    - `overlap_frac_x` (`float`): The overlap fraction in the x direction.
+    - `overlap_frac_y` (`float`): The overlap fraction in the y direction.
+    - `focus_plane_grid` (`FocusPlaneGrid`): The focus plane grid settings.
     """
 
     tile_origin: CoordinateReference
@@ -938,16 +764,12 @@ class IntervalType(Enum):
     """
     Enumerated interval types for limit checking.
 
-    Attributes
-    ----------
-    OPEN : str
-        Fully-open interval (a,b), does not include endpoints.
-    CLOSED : str
-        Fully-closed interval [a,b], includes both endpoints.
-    LEFT_OPEN : str
-        Half-open interval on left side (a,b], does not include 'a'.
-    RIGHT_OPEN : str
-        Half-open interval on right side [a,b), does not include 'b'.
+    ## Attributes
+
+    - `OPEN` (`str`): Fully-open interval (a,b), does not include endpoints.
+    - `CLOSED` (`str`): Fully-closed interval [a,b], includes both endpoints.
+    - `LEFT_OPEN` (`str`): Half-open interval on left side (a,b], does not include 'a'.
+    - `RIGHT_OPEN` (`str`): Half-open interval on right side [a,b), does not include 'b'.
     """
 
     OPEN: str = "open"
@@ -960,12 +782,10 @@ class LaserPatternMode(Enum):
     """
     Enum for laser pattern modes.
 
-    Attributes
-    ----------
-    COARSE : str
-        Coarse pattern mode.
-    FINE : str
-        Fine pattern mode.
+    ## Attributes
+
+    - `COARSE` (`str`): Coarse pattern mode.
+    - `FINE` (`str`): Fine pattern mode.
     """
 
     COARSE: str = "coarse"
@@ -976,12 +796,10 @@ class LaserWavelength(IntEnum):
     """
     Enum for laser wavelengths.
 
-    Attributes
-    ----------
-    NM_515 : int
-        515 nm wavelength.
-    NM_1030 : int
-        1030 nm wavelength.
+    ## Attributes
+
+    - `NM_515` (`int`): 515 nm wavelength.
+    - `NM_1030` (`int`): 1030 nm wavelength.
     """
 
     NM_515 = 515
@@ -1008,14 +826,11 @@ class MapStatus(Enum):
     """
     Map status for EBSD or EDS.
 
-    Attributes
-    ----------
-    ACTIVE : str
-        Active map status.
-    IDLE : str
-        Idle map status.
-    ERROR : str
-        Error map status.
+    ## Attributes
+
+    - `ACTIVE` (`str`): Active map status.
+    - `IDLE` (`str`): Idle map status.
+    - `ERROR` (`str`): Error map status.
     """
 
     ACTIVE = "Active"
@@ -1040,12 +855,10 @@ class MicroscopeConnection(NamedTuple):
     """
     Connection to initialize microscope object.
 
-    Attributes
-    ----------
-    host : str
-        The host for the microscope connection.
-    port : int, optional
-        The port for the microscope connection (default is None).
+    ## Attributes
+
+    - `host` (`str`): The host for the microscope connection.
+    - `port` (`int, optional`): The port for the microscope connection (default is None).
     """
 
     host: str
@@ -1056,10 +869,9 @@ class PretiltAngleDegrees(NamedTuple):
     """
     Specimen pretilt as measured with regard to the electron beam normal direction.
 
-    Attributes
-    ----------
-    value : float
-        The pretilt angle in degrees.
+    ## Attributes
+
+    - `value` (`float`): The pretilt angle in degrees.
     """
 
     value: float
@@ -1069,17 +881,14 @@ class Resolution(NamedTuple):
     """
     Arbitrary scan resolution, with limits of (12 <= input <= 65536).
 
-    Attributes
-    ----------
-    width : int
-        The width of the resolution.
-    height : int
-        The height of the resolution.
+    ## Attributes
 
-    Properties
-    ----------
-    value : str
-        The resolution as a string in the format "widthxheight".
+    - `width` (`int`): The width of the resolution.
+    - `height` (`int`): The height of the resolution.
+
+    ## Properties
+
+    - `value` (`str`): The resolution as a string in the format "widthxheight".
     """
 
     width: int
@@ -1094,22 +903,15 @@ class RetractableDeviceState(Enum):
     """
     Enum adapter for autoscript RetractableDeviceState enum.
 
-    Attributes
-    ----------
-    BUSY : str
-        Busy state.
-    ERROR : str
-        Error state.
-    INSERTED : str
-        Inserted state.
-    OTHER : str
-        Other state.
-    RETRACTED : str
-        Retracted state.
-    INDERTERMINATE : str
-        Indeterminate state (for Oxford EBSD and EDS detectors).
-    CONNECTED : str
-        Connected state (for laser status).
+    ## Attributes
+
+    - `BUSY` (`str`): Busy state.
+    - `ERROR` (`str`): Error state.
+    - `INSERTED` (`str`): Inserted state.
+    - `OTHER` (`str`): Other state.
+    - `RETRACTED` (`str`): Retracted state.
+    - `INDERTERMINATE` (`str`): Indeterminate state (for Oxford EBSD and EDS detectors).
+    - `CONNECTED` (`str`): Connected state (for laser status).
     """
 
     BUSY: str = as_enums.RetractableDeviceState.BUSY
@@ -1127,17 +929,14 @@ class DeviceStatus(NamedTuple):
     """
     Status of connected devices.
 
-    Attributes
-    ----------
-    laser : RetractableDeviceState
-        The status of the laser.
-    ebsd : RetractableDeviceState
-        The status of the EBSD detector.
-    eds : RetractableDeviceState
-        The status of the EDS detector.
+    ## Attributes
 
-    Methods
-    -------
+    - `laser` (`RetractableDeviceState`): The status of the laser.
+    - `ebsd` (`RetractableDeviceState`): The status of the EBSD detector.
+    - `eds` (`RetractableDeviceState`): The status of the EDS detector.
+
+    ## Methods
+
     __str__():
         Return a string representation of the device status.
     """
@@ -1154,14 +953,11 @@ class RotationSide(Enum):
     """
     Enum for specific rotation sides.
 
-    Attributes
-    ----------
-    FSL_MILL : str
-        FSL mill side.
-    FIB_MILL : str
-        FIB mill side.
-    EBEAM_NORMAL : str
-        E-beam normal side.
+    ## Attributes
+
+    - `FSL_MILL` (`str`): FSL mill side.
+    - `FIB_MILL` (`str`): FIB mill side.
+    - `EBEAM_NORMAL` (`str`): E-beam normal side.
     """
 
     FSL_MILL: str = "fsl_mill"
@@ -1173,16 +969,12 @@ class ScanArea(NamedTuple):
     """
     Reduced scan area box, coordinate range in [0,1] from top left corner.
 
-    Attributes
-    ----------
-    left : float
-        The left coordinate of the scan area.
-    top : float
-        The top coordinate of the scan area.
-    width : float
-        The width of the scan area.
-    height : float
-        The height of the scan area.
+    ## Attributes
+
+    - `left` (`float`): The left coordinate of the scan area.
+    - `top` (`float`): The top coordinate of the scan area.
+    - `width` (`float`): The width of the scan area.
+    - `height` (`float`): The height of the scan area.
     """
 
     left: float
@@ -1195,22 +987,15 @@ class ScanMode(IntEnum):
     """
     Enum adapter for autoscript ScanningMode enum.
 
-    Attributes
-    ----------
-    FULL_FRAME : int
-        Full frame scan mode.
-    LINE : int
-        Line scan mode.
-    SPOT : int
-        Spot scan mode.
-    REDUCED_AREA : int
-        Reduced area scan mode.
-    EXTERNAL : int
-        External scan mode.
-    CROSSOVER : int
-        Crossover scan mode.
-    OTHER : int
-        Other scan mode.
+    ## Attributes
+
+    - `FULL_FRAME` (`int`): Full frame scan mode.
+    - `LINE` (`int`): Line scan mode.
+    - `SPOT` (`int`): Spot scan mode.
+    - `REDUCED_AREA` (`int`): Reduced area scan mode.
+    - `EXTERNAL` (`int`): External scan mode.
+    - `CROSSOVER` (`int`): Crossover scan mode.
+    - `OTHER` (`int`): Other scan mode.
     """
 
     FULL_FRAME = as_enums.ScanningMode.FULL_FRAME
@@ -1226,18 +1011,13 @@ class SectioningAxis(Enum):
     """
     Specific sectioning directions supported for 3D collection.
 
-    Attributes
-    ----------
-    X_POS : str
-        Positive X direction.
-    X_NEG : str
-        Negative X direction.
-    Y_POS : str
-        Positive Y direction.
-    Y_NEG : str
-        Negative Y direction.
-    Z : str
-        Z direction.
+    ## Attributes
+
+    - `X_POS` (`str`): Positive X direction.
+    - `X_NEG` (`str`): Negative X direction.
+    - `Y_POS` (`str`): Positive Y direction.
+    - `Y_NEG` (`str`): Negative Y direction.
+    - `Z` (`str`): Z direction.
     """
 
     X_POS: str = "X+"
@@ -1259,12 +1039,10 @@ class StageCoordinateSystem(Enum):
     """
     Adapter enum class for autoscript CoordinateSystem.
 
-    Attributes
-    ----------
-    RAW : str
-        RAW coordinate system.
-    SPECIMEN : str
-        Specimen coordinate system.
+    ## Attributes
+
+    - `RAW` (`str`): RAW coordinate system.
+    - `SPECIMEN` (`str`): Specimen coordinate system.
     """
 
     RAW: str = as_enums.CoordinateSystem.RAW
@@ -1275,12 +1053,10 @@ class StageMovementMode(Enum):
     """
     Movement mode of the stage.
 
-    Attributes
-    ----------
-    IN_PLANE : str
-        In-plane movement mode (for tiling operations).
-    OUT_OF_PLANE : str
-        Out-of-plane movement mode (for sectioning operations).
+    ## Attributes
+
+    - `IN_PLANE` (`str`): In-plane movement mode (for tiling operations).
+    - `OUT_OF_PLANE` (`str`): Out-of-plane movement mode (for sectioning operations).
     """
 
     IN_PLANE: str = "in_plane"
@@ -1291,20 +1067,14 @@ class StagePositionEncoder(as_structs.StagePosition):
     """
     Class adapter for autoscript StagePosition.
 
-    Attributes
-    ----------
-    x : float
-        The x position in meters.
-    y : float
-        The y position in meters.
-    z : float
-        The z position in meters.
-    r : float
-        The r position in radians.
-    t : float
-        The t position in radians.
-    coordinate_system : str
-        The coordinate system.
+    ## Attributes
+
+    - `x` (`float`): The x position in meters.
+    - `y` (`float`): The y position in meters.
+    - `z` (`float`): The z position in meters.
+    - `r` (`float`): The r position in radians.
+    - `t` (`float`): The t position in radians.
+    - `coordinate_system` (`str`): The coordinate system.
     """
 
     pass
@@ -1314,20 +1084,14 @@ class StagePositionUser(NamedTuple):
     """
     Stage object with axis positions in units of mm and degrees.
 
-    Attributes
-    ----------
-    x_mm : float
-        The x position in millimeters.
-    y_mm : float
-        The y position in millimeters.
-    z_mm : float
-        The z position in millimeters.
-    r_deg : float
-        The r position in degrees.
-    t_deg : float
-        The t position in degrees.
-    coordinate_system : StageCoordinateSystem
-        The coordinate system (default is StageCoordinateSystem.RAW).
+    ## Attributes
+
+    - `x_mm` (`float`): The x position in millimeters.
+    - `y_mm` (`float`): The y position in millimeters.
+    - `z_mm` (`float`): The z position in millimeters.
+    - `r_deg` (`float`): The r position in degrees.
+    - `t_deg` (`float`): The t position in degrees.
+    - `coordinate_system` (`StageCoordinateSystem`): The coordinate system (default is StageCoordinateSystem.RAW).
     """
 
     x_mm: float
@@ -1342,18 +1106,13 @@ class StageLimits(NamedTuple):
     """
     Limits for stage positions as determined by autoscript.
 
-    Attributes
-    ----------
-    x_mm : Limit
-        The x position limit in millimeters.
-    y_mm : Limit
-        The y position limit in millimeters.
-    z_mm : Limit
-        The z position limit in millimeters.
-    r_deg : Limit
-        The r position limit in degrees.
-    t_deg : Limit
-        The t position limit in degrees.
+    ## Attributes
+
+    - `x_mm` (`Limit`): The x position limit in millimeters.
+    - `y_mm` (`Limit`): The y position limit in millimeters.
+    - `z_mm` (`Limit`): The z position limit in millimeters.
+    - `r_deg` (`Limit`): The r position limit in degrees.
+    - `t_deg` (`Limit`): The t position limit in degrees.
     """
 
     x_mm: Limit
@@ -1367,12 +1126,10 @@ class StageTolerance(NamedTuple):
     """
     Tolerance for stage positions.
 
-    Attributes
-    ----------
-    translational_um : float
-        The translational tolerance in micrometers.
-    angular_deg : float
-        The angular tolerance in degrees.
+    ## Attributes
+
+    - `translational_um` (`float`): The translational tolerance in micrometers.
+    - `angular_deg` (`float`): The angular tolerance in degrees.
     """
 
     translational_um: float
@@ -1383,20 +1140,14 @@ class StepType(Enum):
     """
     Specific step types supported for data collection.
 
-    Attributes
-    ----------
-    LASER : str
-        Laser step type.
-    IMAGE : str
-        Image step type.
-    FIB : str
-        FIB step type.
-    EDS : str
-        EDS step type.
-    EBSD : str
-        EBSD step type.
-    CUSTOM : str
-        Custom step type.
+    ## Attributes
+
+    - `LASER` (`str`): Laser step type.
+    - `IMAGE` (`str`): Image step type.
+    - `FIB` (`str`): FIB step type.
+    - `EDS` (`str`): EDS step type.
+    - `EBSD` (`str`): EBSD step type.
+    - `CUSTOM` (`str`): Custom step type.
     """
 
     LASER: str = "laser"
@@ -1420,12 +1171,10 @@ class TimeStamp(NamedTuple):
     """
     Timestamp with human-readable and UNIX time formats.
 
-    Attributes
-    ----------
-    human_readable : str
-        The human-readable timestamp.
-    unix : int
-        The UNIX timestamp.
+    ## Attributes
+
+    - `human_readable` (`str`): The human-readable timestamp.
+    - `unix` (`int`): The UNIX timestamp.
     """
 
     human_readable: str
@@ -1436,16 +1185,12 @@ class ViewQuad(IntEnum):
     """
     Quadrant in xTUI to select for viewing/imaging.
 
-    Attributes
-    ----------
-    UPPER_LEFT : int
-        Upper left quadrant.
-    UPPER_RIGHT : int
-        Upper right quadrant.
-    LOWER_LEFT : int
-        Lower left quadrant.
-    LOWER_RIGHT : int
-        Lower right quadrant.
+    ## Attributes
+
+    - `UPPER_LEFT` (`int`): Upper left quadrant.
+    - `UPPER_RIGHT` (`int`): Upper right quadrant.
+    - `LOWER_LEFT` (`int`): Lower left quadrant.
+    - `LOWER_RIGHT` (`int`): Lower right quadrant.
     """
 
     UPPER_LEFT = 1
@@ -1458,22 +1203,15 @@ class VacuumState(Enum):
     """
     Enum adapter for autoscript VacuumState enum.
 
-    Attributes
-    ----------
-    ERROR : str
-        Error state.
-    PUMPED : str
-        Pumped state.
-    PUMPED_FOR_WAFER_EXCHANGE : str
-        Pumped for wafer exchange state.
-    PUMPING : str
-        Pumping state.
-    UNKNOWN : str
-        Unknown state.
-    VENTED : str
-        Vented state.
-    VENTING : str
-        Venting state.
+    ## Attributes
+
+    - `ERROR` (`str`): Error state.
+    - `PUMPED` (`str`): Pumped state.
+    - `PUMPED_FOR_WAFER_EXCHANGE` (`str`): Pumped for wafer exchange state.
+    - `PUMPING` (`str`): Pumping state.
+    - `UNKNOWN` (`str`): Unknown state.
+    - `VENTED` (`str`): Vented state.
+    - `VENTING` (`str`): Venting state.
     """
 
     ERROR: str = as_enums.VacuumState.ERROR
@@ -1489,42 +1227,25 @@ class EdaxMappingStatus(Enum):
     """
     Enum adapter EDAX mapping status
 
-    Attributes
-    ----------
-    NOT_READY : str
-        Not ready state.
-    READY : str
-        Ready state.
-    SETUP_ACTIVE : str
-        Setup active state.
-    SETUP_COMPLETE : str
-        Setup complete state.
-    SETUP_PAUSED : str
-        Setup paused state.
-    SETUP_RESUMED : str
-        Setup resumed state.
-    SETUP_ABORTED : str
-        Setup aborted state.
-    SETUP_STOPPED : str
-        Setup stopped state.
-    SETUP_ERROR : str
-        Setup error state.
-    MAPPING_ACTIVE : str
-        Mapping active state.
-    MAPPING_COMPLETE : str
-        Mapping complete state.
-    MAPPING_PAUSED : str
-        Mapping paused state.
-    MAPPING_RESUMED : str
-        Mapping resumed state.
-    MAPPING_ABORTED : str
-        Mapping aborted state.
-    MAPPING_STOPPED : str
-        Mapping stopped state.
-    MAPPING_ERROR : str
-        Mapping error state.
-    UNKNOWN : str
-        Unknown state.
+    ## Attributes
+
+    - `NOT_READY` (`str`) : Not ready state.
+    - `READY` (`str`) : Ready state.
+    - `SETUP_ACTIVE` (`str`) : Setup active state.
+    - `SETUP_COMPLETE` (`str`) : Setup complete state.
+    - `SETUP_PAUSED` (`str`) : Setup paused state.
+    - `SETUP_RESUMED` (`str`) : Setup resumed state.
+    - `SETUP_ABORTED` (`str`) : Setup aborted state.
+    - `SETUP_STOPPED` (`str`) : Setup stopped state.
+    - `SETUP_ERROR` (`str`) : Setup error state.
+    - `MAPPING_ACTIVE` (`str`) : Mapping active state.
+    - `MAPPING_COMPLETE` (`str`) : Mapping complete state.
+    - `MAPPING_PAUSED` (`str`) : Mapping paused state.
+    - `MAPPING_RESUMED` (`str`) : Mapping resumed state.
+    - `MAPPING_ABORTED` (`str`) : Mapping aborted state.
+    - `MAPPING_STOPPED` (`str`) : Mapping stopped state.
+    - `MAPPING_ERROR` (`str`) : Mapping error state.
+    - `UNKNOWN` (`str`) : Unknown state.
     """
 
     NOT_READY: str = "notready"
@@ -1550,44 +1271,26 @@ class EdaxEbsdCameraStatus(Enum):
     """
     Enum adapter for EDAX EBSD camera status.
 
-    Attributes
-    ----------
-    SLIDE_OUT : str
-        Slide out state.
-    SLIDE_IN : str
-        Slide in state.
-    SLIDE_MOVING_OUT : str
-        Slide moving out state.
-    SLIDE_MOVING_IN : str
-        Slide moving in state.
-    SLIDE_HIGH_COUNT : str
-        Slide high count state.
-    SLIDE_NO_POWER : str
-        Slide no power state.
-    SLIDE_MID : str
-        Slide mid state.
-    SLIDE_STOPPED : str
-        Slide stopped state.
-    SLIDE_ERROR : str
-        Slide error state.
-    SLIDE_INIT : str
-        Slide init state.
-    SLIDE_MOVE_MID_IN : str
-        Slide move mid in state.
-    SLIDE_MOVE_MID_OUT : str
-        Slide move mid out state.
-    SLIDE_WATCHDOG : str
-        Slide watchdog state.
-    SLIDE_MOVE_WDOG : str
-        Slide move watchdog state.
-    SLIDE_DISABLED : str
-        Slide disabled state.
-    SLIDE_MOVE_TOUCH : str
-        Slide move touch state.
-    SLIDE_TOUCH_SENSE : str
-        Slide touch sense state.
-    UNKNOWN : str
-        Unknown state.
+    ## Attributes
+
+    - `SLIDE_OUT` (`str`) : Slide out state.
+    - `SLIDE_IN` (`str`) : Slide in state.
+    - `SLIDE_MOVING_OUT` (`str`) : Slide moving out state.
+    - `SLIDE_MOVING_IN` (`str`) : Slide moving in state.
+    - `SLIDE_HIGH_COUNT` (`str`) : Slide high count state.
+    - `SLIDE_NO_POWER` (`str`) : Slide no power state.
+    - `SLIDE_MID` (`str`) : Slide mid state.
+    - `SLIDE_STOPPED` (`str`) : Slide stopped state.
+    - `SLIDE_ERROR` (`str`) : Slide error state.
+    - `SLIDE_INIT` (`str`) : Slide init state.
+    - `SLIDE_MOVE_MID_IN` (`str`) : Slide move mid in state.
+    - `SLIDE_MOVE_MID_OUT` (`str`) : Slide move mid out state.
+    - `SLIDE_WATCHDOG` (`str`) : Slide watchdog state.
+    - `SLIDE_MOVE_WDOG` (`str`) : Slide move watchdog state.
+    - `SLIDE_DISABLED` (`str`) : Slide disabled state.
+    - `SLIDE_MOVE_TOUCH` (`str`) : Slide move touch state.
+    - `SLIDE_TOUCH_SENSE` (`str`) : Slide touch sense state.
+    - `UNKNOWN` (`str`) : Unknown state.
     """
 
     SLIDE_OUT: str = "slideout"
@@ -1614,12 +1317,10 @@ class EdaxEdsDetectorStatus(Enum):
     """
     Enum adapter for EDAX EDS detector status.
 
-    Attributes
-    ----------
-    NOT_READY : str
-        Not ready state.
-    READY : str
-        Ready state.
+    ## Attributes
+
+    - `NOT_READY` (`str`) : Not ready state.
+    - `READY (`str`) : Ready state.
     """
 
     NOT_READY: str = "notready"
@@ -1630,14 +1331,11 @@ class EdaxEdsDetectorSlideStatus(Enum):
     """
     Enum adapter for EDAX EDS detector slide status.
 
-    Attributes
-    ----------
-    SLIDE_OUT : str
-        Slide out state.
-    SLIDE_IN : str
-        Slide in state.
-    UNKNOWN : str
-        Unknown state.
+    ## Attributes
+
+    - `SLIDE_OUT` (`str`) : Slide out state.
+    - `SLIDE_IN` (`str`) : Slide in state.
+    - `UNKNOWN` (`str`) : Unknown state.
     """
 
     SLIDE_OUT: str = "slideout"
@@ -1646,7 +1344,22 @@ class EdaxEdsDetectorSlideStatus(Enum):
 
 
 class EmailUpdateConfig(NamedTuple):
-    """Email configuration for sending notifications"""
+    """
+    Email configuration for sending notifications
+    
+    ## Attributes
+    
+    - `ssh_host` (`str`) : The hostname of the machine with internet access that the email will be sent through.
+    - `ssh_port` (`int`) : The port of the machine with internet access.
+    - `ssh_user` (`str`) : The username of the machine with internet access.
+    - `ssh_key_path` (`str`) : The path to the ssh key that will be used for authentication with the internet machine.
+    - `smtp_server` (`str`) : The SMTP server to use for sending the email.
+    - `smtp_port` (`int`) : The SMTP port to use for sending the email.
+    - `sender` (`str`) : The email of the sender.
+    - `sender_password` (`str`) : The app password for accessing the sender email account.
+    - `recipients` (`List[str]`) : The recipients of the email.
+    - `update_frequency` (`int`) : How frequently to send update emails.
+    """
 
     ssh_host: str
     ssh_port: int
@@ -1667,16 +1380,12 @@ class Beam(NamedTuple):
     """
     A generic Beam type, used as a template for concrete beam types.
 
-    Attributes
-    ----------
-    settings : BeamSettings
-        The beam settings.
-    type : BeamType
-        The beam type.
-    default_view : ViewQuad
-        The default view quadrant.
-    device : Device
-        The beam device.
+    ## Attributes
+
+    - `settings` (`BeamSettings`): The beam settings.
+    - `type` (`BeamType`): The beam type.
+    - `default_view` (`ViewQuad`): The default view quadrant.
+    - `device` (`Device`): The beam device.
     """
 
     settings: BeamSettings
@@ -1689,16 +1398,12 @@ class BeamLimits(NamedTuple):
     """
     Limits for beam settings as determined by autoscript.
 
-    Attributes
-    ----------
-    voltage_kv : Limit
-        The voltage limit in kV.
-    current_na : Limit
-        The current limit in nA.
-    hfw_mm : Limit
-        The horizontal field width limit in mm.
-    working_distance_mm : Limit
-        The working distance limit in mm.
+    ## Attributes
+
+    - `voltage_kv` (`Limit`): The voltage limit in kV.
+    - `current_na` (`Limit`): The current limit in nA.
+    - `hfw_mm` (`Limit`): The horizontal field width limit in mm.
+    - `working_distance_mm` (`Limit`): The working distance limit in mm.
     """
 
     voltage_kv: Limit
@@ -1711,16 +1416,12 @@ class ElectronBeam(Beam):
     """
     The specific beam type 'electron'.
 
-    Attributes
-    ----------
-    settings : BeamSettings
-        The beam settings.
-    type : BeamType
-        The beam type (default is BeamType.ELECTRON).
-    default_view : ViewQuad
-        The default view quadrant (default is ViewQuad.UPPER_LEFT).
-    device : Device
-        The beam device (default is Device.ELECTRON_BEAM).
+    ## Attributes
+
+    - `settings` (`BeamSettings`): The beam settings.
+    - `type` (`BeamType`): The beam type (default is BeamType.ELECTRON).
+    - `default_view` (`ViewQuad`): The default view quadrant (default is ViewQuad.UPPER_LEFT).
+    - `device` (`Device`): The beam device (default is Device.ELECTRON_BEAM).
     """
 
     settings: BeamSettings
@@ -1741,37 +1442,24 @@ class GeneralSettings(NamedTuple):
     """
     General settings object.
 
-    Attributes
-    ----------
-    yml_version : float
-        The YAML version.
-    slice_thickness_um : float
-        The slice thickness in micrometers.
-    max_slice_number : int
-        The maximum slice number.
-    pre_tilt_deg : float
-        The pre-tilt angle in degrees.
-    sectioning_axis : SectioningAxis
-        The sectioning axis.
-    stage_tolerance : StageTolerance
-        The stage tolerance.
-    connection : MicroscopeConnection
-        The microscope connection settings.
-    EBSD_OEM : ExternalDeviceOEM
-        The EBSD OEM.
-    EDS_OEM : ExternalDeviceOEM
-        The EDS OEM.
-    exp_dir : Path
-        The experiment directory.
-    h5_log_name : str
-        The HDF5 log file name.
-    step_count : int
-        The step count.
+    ## Attributes
 
-    Properties
-    ----------
-    log_filepath : Path
-        The log file path.
+    - `yml_version` (`float`): The YAML version.
+    - `slice_thickness_um` (`float`): The slice thickness in micrometers.
+    - `max_slice_number` (`int`): The maximum slice number.
+    - `pre_tilt_deg` (`float`): The pre-tilt angle in degrees.
+    - `sectioning_axis` (`SectioningAxis`): The sectioning axis.
+    - `stage_tolerance` (`StageTolerance`): The stage tolerance.
+    - `connection` (`MicroscopeConnection`): The microscope connection settings.
+    - `EBSD_OEM` (`ExternalDeviceOEM`): The EBSD OEM.
+    - `EDS_OEM` (`ExternalDeviceOEM`): The EDS OEM.
+    - `exp_dir` (`Path`): The experiment directory.
+    - `h5_log_name` (`str`): The HDF5 log file name.
+    - `step_count` (`int`): The step count.
+
+    ## Properties
+
+    - `log_filepath` (`Path`): The log file path.
     """
 
     yml_version: float
@@ -1798,16 +1486,12 @@ class IonBeam(Beam):
     """
     The specific beam type 'ion'.
 
-    Attributes
-    ----------
-    settings : BeamSettings
-        The beam settings.
-    type : BeamType
-        The beam type (default is BeamType.ION).
-    default_view : ViewQuad
-        The default view quadrant (default is ViewQuad.UPPER_RIGHT).
-    device : Device
-        The beam device (default is Device.ION_BEAM).
+    ## Attributes
+
+    - `settings` (`BeamSettings`): The beam settings.
+    - `type` (`BeamType`): The beam type (default is BeamType.ION).
+    - `default_view` (`ViewQuad`): The default view quadrant (default is ViewQuad.UPPER_RIGHT).
+    - `device` (`Device`): The beam device (default is Device.ION_BEAM).
     """
 
     settings: BeamSettings
@@ -1820,20 +1504,14 @@ class Detector(NamedTuple):
     """
     Generic detector settings.
 
-    Attributes
-    ----------
-    type : DetectorType
-        The detector type.
-    mode : DetectorMode
-        The detector mode.
-    brightness : float
-        The brightness setting.
-    contrast : float
-        The contrast setting.
-    auto_cb_settings : ScanArea
-        The auto contrast/brightness settings.
-    custom_settings : dict
-        The custom settings.
+    ## Attributes
+
+    - `type` (`DetectorType`): The detector type.
+    - `mode` (`DetectorMode`): The detector mode.
+    - `brightness` (`float`): The brightness setting.
+    - `contrast` (`float`): The contrast setting.
+    - `auto_cb_settings` (`ScanArea`): The auto contrast/brightness settings.
+    - `custom_settings` (`dict`): The custom settings.
     """
 
     type: DetectorType = None  # error check with "available_values" call
@@ -1850,24 +1528,16 @@ class PresetResolution(Resolution, Enum):
     """
     Enum adapter for autoscript ScanningResolution enum.
 
-    Attributes
-    ----------
-    PRESET_512X442 : Resolution
-        512x442 resolution.
-    PRESET_768X512 : Resolution
-        768x512 resolution.
-    PRESET_1024X884 : Resolution
-        1024x884 resolution.
-    PRESET_1536X1024 : Resolution
-        1536x1024 resolution.
-    PRESET_2048X1768 : Resolution
-        2048x1768 resolution.
-    PRESET_3072X2048 : Resolution
-        3072x2048 resolution.
-    PRESET_4096X3536 : Resolution
-        4096x3536 resolution.
-    PRESET_6144X4096 : Resolution
-        6144x4096 resolution.
+    ## Attributes
+
+    - `PRESET_512X442` (`Resolution`): 512x442 resolution.
+    - `PRESET_768X512` (`Resolution`): 768x512 resolution.
+    - `PRESET_1024X884` (`Resolution`): 1024x884 resolution.
+    - `PRESET_1536X1024` (`Resolution`): 1536x1024 resolution.
+    - `PRESET_2048X1768` (`Resolution`): 2048x1768 resolution.
+    - `PRESET_3072X2048` (`Resolution`): 3072x2048 resolution.
+    - `PRESET_4096X3536` (`Resolution`): 4096x3536 resolution.
+    - `PRESET_6144X4096` (`Resolution`): 6144x4096 resolution.
     """
 
     # python 3.11 will support StrEnum like so: StandardResolution(StrEnum)
@@ -1885,14 +1555,11 @@ class Scan(NamedTuple):
     """
     Generic scan settings.
 
-    Attributes
-    ----------
-    rotation_deg : float
-        The scan rotation in degrees.
-    dwell_time_us : float
-        The dwell time in microseconds.
-    resolution : Resolution
-        The scan resolution.
+    ## Attributes
+
+    - `rotation_deg` (`float`): The scan rotation in degrees.
+    - `dwell_time_us` (`float`): The dwell time in microseconds.
+    - `resolution` (`Resolution`): The scan resolution.
     """
 
     rotation_deg: float = None  # enforce resolution limit (tolerance)
@@ -1907,18 +1574,13 @@ class ImageSettings(NamedTuple):
     """
     Image settings for the microscope.
 
-    Attributes
-    ----------
-    microscope : Microscope
-        The microscope object.
-    beam : Beam
-        The beam settings.
-    detector : Detector
-        The detector settings.
-    scan : Scan
-        The scan settings.
-    bit_depth : ColorDepth
-        The bit depth of the image.
+    ## Attributes
+
+    - `microscope` (`Microscope`): The microscope object.
+    - `beam` (`Beam`): The beam settings.
+    - `detector` (`Detector`): The detector settings.
+    - `scan` (`Scan`): The scan settings.
+    - `bit_depth` (`ColorDepth`): The bit depth of the image.
     """
 
     microscope: Microscope
@@ -1934,20 +1596,14 @@ class StageSettings(NamedTuple):
     """
     Settings for high-level stage movement operation.
 
-    Attributes
-    ----------
-    microscope : Microscope
-        The microscope object.
-    initial_position : StagePositionUser
-        The initial position of the stage.
-    pretilt_angle_deg : PretiltAngleDegrees
-        The pretilt angle in degrees.
-    sectioning_axis : SectioningAxis
-        The sectioning axis.
-    rotation_side : RotationSide
-        The rotation side.
-    movement_mode : StageMovementMode
-        The movement mode of the stage (default is StageMovementMode.OUT_OF_PLANE).
+    ## Attributes
+
+    - `microscope` (`Microscope`): The microscope object.
+    - `initial_position` (`StagePositionUser`): The initial position of the stage.
+    - `pretilt_angle_deg` (`PretiltAngleDegrees`): The pretilt angle in degrees.
+    - `sectioning_axis` (`SectioningAxis`): The sectioning axis.
+    - `rotation_side` (`RotationSide`): The rotation side.
+    - `movement_mode` (`StageMovementMode`): The movement mode of the stage (default is StageMovementMode.OUT_OF_PLANE).
     """
 
     microscope: Microscope
@@ -1962,12 +1618,10 @@ class ScanLimits(NamedTuple):
     """
     Limits for beam scan settings as determined by autoscript.
 
-    Attributes
-    ----------
-    rotation_deg : Limit
-        The rotation limit in degrees.
-    dwell_us : Limit
-        The dwell time limit in microseconds.
+    ## Attributes
+
+    - `rotation_deg` (`Limit`): The rotation limit in degrees.
+    - `dwell_us` (`Limit`): The dwell time limit in microseconds.
     """
 
     rotation_deg: Limit
@@ -1978,12 +1632,10 @@ class CustomSettings(NamedTuple):
     """
     Custom settings for running scripts.
 
-    Attributes
-    ----------
-    script_path : Path
-        The path to the script.
-    executable_path : Path
-        The path to the executable.
+    ## Attributes
+
+    - `script_path` (`Path`): The path to the script.
+    - `executable_path` (`Path`): The path to the executable.
     """
 
     script_path: Path
@@ -2026,20 +1678,14 @@ class FIBBoxPattern(NamedTuple):
     """
     FIB box pattern settings.
 
-    Attributes
-    ----------
-    center_um : Point
-        The center of the pattern in micrometers.
-    width_um : float
-        The width of the pattern in micrometers.
-    height_um : float
-        The height of the pattern in micrometers.
-    depth_um : float
-        The depth of the pattern in micrometers.
-    scan_direction : FIBPatternScanDirection
-        The scan direction of the pattern.
-    scan_type : FIBPatternScanType
-        The scan type of the pattern.
+    ## Attributes
+
+    - `center_um` (`Point`): The center of the pattern in micrometers.
+    - `width_um` (`float`): The width of the pattern in micrometers.
+    - `height_um` (`float`): The height of the pattern in micrometers.
+    - `depth_um` (`float`): The depth of the pattern in micrometers.
+    - `scan_direction` (`FIBPatternScanDirection`): The scan direction of the pattern.
+    - `scan_type` (`FIBPatternScanType`): The scan type of the pattern.
     """
 
     center_um: Point
@@ -2078,16 +1724,12 @@ class FIBStreamPattern(NamedTuple):
     """
     FIB stream pattern settings.
 
-    Attributes
-    ----------
-    dwell_us : float
-        The dwell time in microseconds (must be a multiple of 25 ns).
-    repeats : int
-        The number of repeats.
-    recipe_file : Path
-        The path to the recipe file.
-    mask_file : Path
-        The path to the mask file.
+    ## Attributes
+
+    - `dwell_us` (`float`): The dwell time in microseconds (must be a multiple of 25 ns).
+    - `repeats` (`int`): The number of repeats.
+    - `recipe_file` (`Path`): The path to the recipe file.
+    - `mask_file` (`Path`): The path to the mask file.
     """
 
     dwell_us: float  # must be multiple of 25 ns
@@ -2100,14 +1742,11 @@ class FIBPattern(NamedTuple):
     """
     FIB pattern settings.
 
-    Attributes
-    ----------
-    application : str
-        The application name.
-    type : FIBPatternType
-        The pattern type.
-    geometry : Union[FIBRectanglePattern, FIBRegularCrossSection, FIBCleaningCrossSection, FIBStreamPattern]
-        The pattern geometry.
+    ## Attributes
+
+    - `application` (`str`): The application name.
+    - `type` (`FIBPatternType`): The pattern type.
+    - `geometry` (`Union[FIBRectanglePattern, FIBRegularCrossSection, FIBCleaningCrossSection, FIBStreamPattern]`): The pattern geometry.
     """
 
     application: str
@@ -2124,16 +1763,12 @@ class FIBSettings(NamedTuple):
     """
     FIB settings for the microscope.
 
-    Attributes
-    ----------
-    microscope : Microscope
-        The microscope object.
-    image : ImageSettings
-        The image settings.
-    mill_beam : Beam
-        The milling beam settings.
-    pattern : FIBPattern
-        The FIB pattern settings.
+    ## Attributes
+
+    - `microscope` (`Microscope`): The microscope object.
+    - `image` (`ImageSettings`): The image settings.
+    - `mill_beam` (`Beam`): The milling beam settings.
+    - `pattern` (`FIBPattern`): The FIB pattern settings.
     """
 
     microscope: Microscope
@@ -2146,55 +1781,11 @@ class EBSDGridType(IntEnum):
     """
     Enum for EBSD grid types.
 
-    Attributes
-    ----------
-    SQUARE : int
-        Square grid type.
-    HEXAGONAL : int
-        Hexagonal grid type.
-    """
+    ## Attributes
 
-    SQUARE = 1
-    HEXAGONAL = 0
-
-
-class EBSDScanBox(NamedTuple):
-    """
-    EBSD scan box settings.
-
-    Attributes
-    ----------
-    x_start_um : float
-        The x-coordinate of the start position in micrometers.
-    y_start_um : float
-        The y-coordinate of the start position in micrometers.
-    x_size_um : float
-        The width of the scan box in micrometers.
-    y_size_um : float
-        The height of the scan box in micrometers.
-    step_size_um : float
-        The step size for the scan in micrometers.
-    """
-
-    x_start_um: float
-    y_start_um: float
-    x_size_um: float
-    y_size_um: float
-    step_size_um: float
-
-
-class EBSDSettings(NamedTuple):
-    """
-    EBSD settings for the microscope.
-
-    Attributes
-    ----------
-    image : ImageSettings
-        The image settings.
-    enable_eds : bool
-        Whether to enable EDS.
-    enable_ebsd : bool
-        Whether to enable EBSD (default is True).
+    - `image` (`ImageSettings`): The image settings.
+    - `enable_eds` (`bool`): Whether to enable EDS.
+    - `enable_ebsd` (`bool`): Whether to enable EBSD (default is True).
     """
 
     image: ImageSettings
@@ -2209,12 +1800,10 @@ class EDSSettings(NamedTuple):
     """
     EDS settings for the microscope.
 
-    Attributes
-    ----------
-    image : ImageSettings
-        The image settings.
-    enable_eds : bool
-        Whether to enable EDS (default is True).
+    ## Attributes
+
+    - `image` (`ImageSettings`): The image settings.
+    - `enable_eds` (`bool`): Whether to enable EDS (default is True).
     """
 
     image: ImageSettings
@@ -2225,12 +1814,10 @@ class LaserPolarization(Enum):
     """
     Enum for laser polarization.
 
-    Attributes
-    ----------
-    VERTICAL : str
-        Vertical polarization.
-    HORIZONTAL : str
-        Horizontal polarization.
+    ## Attributes
+
+    - `VERTICAL` (`str`): Vertical polarization.
+    - `HORIZONTAL` (`str`): Horizontal polarization.
     """
 
     VERTICAL: str = "vertical"
@@ -2241,16 +1828,12 @@ class LaserPulse(NamedTuple):
     """
     Laser pulse settings.
 
-    Attributes
-    ----------
-    wavelength_nm : LaserWavelength
-        The laser wavelength in nanometers.
-    divider : int
-        The pulse divider.
-    energy_uj : float
-        The pulse energy in microjoules.
-    polarization : LaserPolarization
-        The pulse polarization.
+    ## Attributes
+
+    - `wavelength_nm` (`LaserWavelength`): The laser wavelength in nanometers.
+    - `divider` (`int`): The pulse divider.
+    - `energy_uj` (`float`): The pulse energy in microjoules.
+    - `polarization` (`LaserPolarization`): The pulse polarization.
     """
 
     wavelength_nm: LaserWavelength
@@ -2263,16 +1846,12 @@ class LaserScanType(Enum):
     """
     Enum for laser scan types.
 
-    Attributes
-    ----------
-    SERPENTINE : str
-        Serpentine scan type.
-    RASTER : str
-        Raster scan type.
-    SINGLE : str
-        Single scan type.
-    LAP : str
-        Lap scan type.
+    ## Attributes
+
+    - `SERPENTINE` (`str`): Serpentine scan type.
+    - `RASTER` (`str`): Raster scan type.
+    - `SINGLE` (`str`): Single scan type.
+    - `LAP` (`str`): Lap scan type.
     """
 
     SERPENTINE: str = "serpentine"
@@ -2285,12 +1864,10 @@ class LaserPatternType(Enum):
     """
     Enum for laser pattern types.
 
-    Attributes
-    ----------
-    BOX : str
-        Box pattern type.
-    LINE : str
-        Line pattern type.
+    ## Attributes
+
+    - `BOX` (`str`): Box pattern type.
+    - `LINE` (`str`): Line pattern type.
     """
 
     BOX: str = "box"
@@ -2301,22 +1878,15 @@ class LaserBoxPattern(NamedTuple):
     """
     Laser box pattern settings.
 
-    Attributes
-    ----------
-    passes : int
-        The number of passes.
-    size_x_um : float
-        The size in the x direction in micrometers.
-    size_y_um : float
-        The size in the y direction in micrometers.
-    pitch_x_um : float
-        The pitch in the x direction in micrometers.
-    pitch_y_um : float
-        The pitch in the y direction in micrometers.
-    scan_type : LaserScanType
-        The scan type (Serpentine or Raster).
-    coordinate_ref : CoordinateReference
-        The coordinate reference (Center, UpperCenter, or UpperLeft).
+    ## Attributes
+
+    - `passes` (`int`): The number of passes.
+    - `size_x_um` (`float`): The size in the x direction in micrometers.
+    - `size_y_um` (`float`): The size in the y direction in micrometers.
+    - `pitch_x_um` (`float`): The pitch in the x direction in micrometers.
+    - `pitch_y_um` (`float`): The pitch in the y direction in micrometers.
+    - `scan_type` (`LaserScanType`): The scan type (Serpentine or Raster).
+    - `coordinate_ref` (`CoordinateReference`): The coordinate reference (Center, UpperCenter, or UpperLeft).
     """
 
     passes: int
@@ -2333,16 +1903,12 @@ class LaserLinePattern(NamedTuple):
     """
     Laser line pattern settings.
 
-    Attributes
-    ----------
-    passes : int
-        The number of passes.
-    size_um : float
-        The size in micrometers.
-    pitch_um : float
-        The pitch in micrometers.
-    scan_type : LaserScanType
-        The scan type (Single or Lap).
+    ## Attributes
+
+    - `passes` (`int`): The number of passes.
+    - `size_um` (`float`): The size in micrometers.
+    - `pitch_um` (`float`): The pitch in micrometers.
+    - `scan_type` (`LaserScanType`): The scan type (Single or Lap).
     """
 
     passes: int
@@ -2356,18 +1922,13 @@ class LaserPattern(NamedTuple):
     """
     Laser pattern settings.
 
-    Attributes
-    ----------
-    mode : LaserPatternMode
-        The laser pattern mode.
-    rotation_deg : float
-        The rotation in degrees.
-    geometry : Union[LaserBoxPattern, LaserLinePattern]
-        The pattern geometry.
-    pulses_per_pixel : int
-        The number of pulses per pixel.
-    pixel_dwell_ms : float
-        The pixel dwell time in milliseconds.
+    ## Attributes
+
+    - `mode` (`LaserPatternMode`): The laser pattern mode.
+    - `rotation_deg` (`float`): The rotation in degrees.
+    - `geometry` (`Union[LaserBoxPattern, LaserLinePattern]`): The pattern geometry.
+    - `pulses_per_pixel` (`int`): The number of pulses per pixel.
+    - `pixel_dwell_ms` (`float`): The pixel dwell time in milliseconds.
     """
 
     mode: LaserPatternMode
@@ -2381,24 +1942,16 @@ class LaserState(NamedTuple):
     """
     Settings for all readable values from TFS Laser Control.
 
-    Attributes
-    ----------
-    wavelength_nm : LaserWavelength
-        The laser wavelength in nanometers.
-    frequency_khz : float
-        The frequency in kilohertz.
-    pulse_divider : int
-        The pulse divider.
-    pulse_energy_uj : float
-        The pulse energy in microjoules.
-    objective_position_mm : float
-        The objective position in millimeters.
-    beam_shift_um : Point
-        The beam shift in micrometers.
-    pattern : LaserPattern
-        The laser pattern settings.
-    expected_pattern_duration_s : float
-        The expected pattern duration in seconds.
+    ## Attributes
+
+    - `wavelength_nm` (`LaserWavelength`): The laser wavelength in nanometers.
+    - `frequency_khz` (`float`): The frequency in kilohertz.
+    - `pulse_divider` (`int`): The pulse divider.
+    - `pulse_energy_uj` (`float`): The pulse energy in microjoules.
+    - `objective_position_mm` (`float`): The objective position in millimeters.
+    - `beam_shift_um` (`Point`): The beam shift in micrometers.
+    - `pattern` (`LaserPattern`): The laser pattern settings.
+    - `expected_pattern_duration_s` (`float`): The expected pattern duration in seconds.
     """
 
     wavelength_nm: LaserWavelength  # LaserPulse.wavelength_nm setting
@@ -2417,18 +1970,13 @@ class LaserSettings(NamedTuple):
     """
     Laser settings for the microscope.
 
-    Attributes
-    ----------
-    microscope : Microscope
-        The microscope object.
-    pulse : LaserPulse
-        The laser pulse settings.
-    objective_position_mm : float
-        The objective position in millimeters.
-    beam_shift_um : Point
-        The beam shift in micrometers.
-    pattern : LaserPattern
-        The laser pattern settings.
+    ## Attributes
+
+    - `microscope` (`Microscope`): The microscope object.
+    - `pulse` (`LaserPulse`): The laser pulse settings.
+    - `objective_position_mm` (`float`): The objective position in millimeters.
+    - `beam_shift_um` (`Point`): The beam shift in micrometers.
+    - `pattern` (`LaserPattern`): The laser pattern settings.
     """
 
     microscope: Microscope
@@ -2442,20 +1990,14 @@ class Step(NamedTuple):
     """
     Step settings for the experiment.
 
-    Attributes
-    ----------
-    type : StepType
-        The step type.
-    name : str
-        The step name.
-    number : int
-        The step number.
-    frequency : int
-        The step frequency.
-    stage : StageSettings
-        The stage settings.
-    operation_settings : Union[CustomSettings, EBSDSettings, EDSSettings, ImageSettings, FIBSettings, LaserSettings]
-        The operation settings for the step.
+    ## Attributes
+
+    - `type` (`StepType`): The step type.
+    - `name` (`str`): The step name.
+    - `number` (`int`): The step number.
+    - `frequency` (`int`): The step frequency.
+    - `stage` (`StageSettings`): The stage settings.
+    - `operation_settings` (`Union[CustomSettings, EBSDSettings, EDSSettings, ImageSettings, FIBSettings, LaserSettings]`): The operation settings for the step.
     """
 
     type: StepType
@@ -2477,18 +2019,13 @@ class ExperimentSettings(NamedTuple):
     """
     Experiment settings for the experiment.
 
-    Attributes
-    ----------
-    microscope : Microscope
-        The microscope object.
-    general_settings : GeneralSettings
-        The general settings for the experiment.
-    step_sequence : List[Step]
-        The sequence of steps for the experiment.
-    enable_EBSD : bool
-        Whether to enable EBSD.
-    enable_EDS : bool
-        Whether to enable EDS.
+    ## Attributes
+
+    - `microscope` (`Microscope`): The microscope object.
+    - `general_settings` (`GeneralSettings`): The general settings for the experiment.
+    - `step_sequence` (`List[Step]`): The sequence of steps for the experiment.
+    - `enable_EBSD` (`bool`): Whether to enable EBSD.
+    - `enable_EDS` (`bool`): Whether to enable EDS.
     """
 
     microscope: Microscope
@@ -2502,34 +2039,21 @@ class YMLFormat(NamedTuple):
     """
     YAML format settings.
 
-    Attributes
-    ----------
-    version : float
-        The version of the YAML format.
-    general_section_key : str
-        The key for the general section.
-    non_step_section_count : int
-        The number of non-step sections.
-    general_exp_settings : dict
-        The general experiment settings.
-    step_count_key : str
-        The key for the step count.
-    step_section_key : str
-        The key for the step section.
-    step_general_settings : dict
-        The general settings for the step.
-    step_general_key : str
-        The key for the general step settings.
-    step_number_key : str
-        The key for the step number.
-    step_frequency_key : str
-        The key for the step frequency.
-    step_type_key : str
-        The key for the step type.
-    step_stage_settings_key : str
-        The key for the step stage settings.
-    image_step_settings : dict
-        The settings for the image step.
+    ## Attributes
+
+    - `version` (`float`): The version of the YAML format.
+    - `general_section_key` (`str`): The key for the general section.
+    - `non_step_section_count` (`int`): The number of non-step sections.
+    - `general_exp_settings` (`dict`): The general experiment settings.
+    - `step_count_key` (`str`): The key for the step count.
+    - `step_section_key` (`str`): The key for the step section.
+    - `step_general_settings` (`dict`): The general settings for the step.
+    - `step_general_key` (`str`): The key for the general step settings.
+    - `step_number_key` (`str`): The key for the step number.
+    - `step_frequency_key` (`str`): The key for the step frequency.
+    - `step_type_key` (`str`): The key for the step type.
+    - `step_stage_settings_key` (`str`): The key for the step stage settings.
+    - `image_step_settings` (`dict`): The settings for the image step.
     """
 
     version: float
@@ -2553,10 +2077,9 @@ class YMLFormatVersion(YMLFormat, Enum):
     """
     Enum for YAML format versions.
 
-    Attributes
-    ----------
-    V_1_0 : YMLFormat
-        Version 1.0 of the YAML format.
+    ## Attributes
+
+    - `V_1_0` (`YMLFormat`): Version 1.0 of the YAML format.
     """
 
     V_1_0 = YMLFormat(

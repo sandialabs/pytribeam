@@ -1,3 +1,73 @@
+"""Email notification utilities using an SSH-forwarded SMTP connection.
+
+This module provides email-sending support for systems that cannot directly
+reach an SMTP server. It creates a local SSH tunnel to a network-accessible host
+and forwards SMTP traffic through that tunnel, allowing `pytribeam` workflows to
+send status updates, completion notices, or error notifications from restricted
+microscope environments.
+
+The main public entry point is `send_update_email`. The `SSHTunnelEmailSender`
+class handles the lower-level details of opening the SSH tunnel, constructing
+MIME email messages, attaching files, sending through SMTP, and cleaning up the
+tunnel process.
+
+## Typical usage
+
+```python
+from pytribeam.email import send_update_email
+
+success, message = send_update_email(
+    ssh_host="ssh-gateway.example.com",
+    ssh_port=1025,
+    ssh_user="username",
+    ssh_key_path="/path/to/id_rsa",
+    sender_email="sender@example.com",
+    sender_password="app-password",
+    recipients=["recipient@example.com"],
+    smtp_server="smtp.example.com",
+    smtp_port=587,
+    subject="pytribeam update",
+    body="The experiment has completed.",
+)
+```
+
+## Email workflow
+
+`send_update_email` performs the following steps:
+
+1. Create an `SSHTunnelEmailSender`.
+2. Establish an SSH tunnel from a local port to the configured SMTP server.
+3. Construct a multipart email message.
+4. Add optional CC, BCC, and file attachments.
+5. Start TLS with the SMTP server.
+6. Authenticate with the sender credentials.
+7. Send the message to all recipients.
+8. Clean up the SSH tunnel process when the sender exits.
+
+## Attachments
+
+Attachments are added using MIME types inferred from the file extension. Image
+files are attached as `MIMEImage`; other file types are attached as
+`MIMEApplication`.
+
+## Security notes
+
+Credentials and SSH keys are supplied by the caller. Avoid hard-coding email
+passwords, app passwords, private-key paths, or recipient lists in committed
+source code. Prefer secure configuration files, environment variables, or an
+approved secret-management mechanism.
+
+> **Warning**
+>
+> This module opens an SSH subprocess and sends authenticated email. Confirm that
+> the SSH host, SMTP server, credentials, and attachments are appropriate before
+> enabling automated notifications.
+"""
+
+__all__ = [
+    "send_update_email",
+]
+
 import subprocess
 import time
 import smtplib
@@ -15,7 +85,7 @@ import mimetypes
 import os
 
 
-class SSHTunnelEmailSender:
+class _SSHTunnelEmailSender:
     def __init__(
         self,
         ssh_host: str,
@@ -264,16 +334,36 @@ def send_update_email(
     ssh_key_path: str,
     sender_email: str,
     sender_password: str,
-    recipients: list,
+    recipients: List[str],
     smtp_server: str,
     smtp_port: int,
     subject: str,
     body: str,
-    cc: list = None,
-    bcc: list = None,
-    attachments: list = None,
-):
-    sender = SSHTunnelEmailSender(
+    cc: List[str] = None,
+    bcc: List[str] = None,
+    attachments: List[str] = None,
+) -> Tuple[bool, str]:
+    """
+    Send an update email.
+    
+    ## Parameters
+    
+    - `ssh_host` (`str`) : The hostname of the machine with internet access that the email will be sent through.
+    - `ssh_port` (`int`) : The port of the machine with internet access.
+    - `ssh_user` (`str`) : The username of the machine with internet access.
+    - `ssh_key_path` (`str`) : The path to the ssh key that will be used for authentication with the internet machine.
+    - `sender_email` (`str`) : The email of the sender.
+    - `sender_password` (`str`) : The app password for accessing the sender email account.
+    - `recipients` (`List[str]`) : The recipients of the email.
+    - `smtp_server` (`str`) : The SMTP server to use for sending the email.
+    - `smtp_port` (`int`) : The SMTP port to use for sending the email.
+    - `subject` (`str`) : The email subject text.
+    - `body` (`str`) : The email body text.
+    - `cc` (`List[str]`) : A list of email addresses to CC on the email.
+    - `bcc` (`List[str]`) : A list of email addresses to BCC on the email.
+    - `attachments` (`List[str]`) : A list of filepath strings of attachments to include in the email.
+    """
+    sender = _SSHTunnelEmailSender(
         ssh_host=ssh_host,
         ssh_user=ssh_user,
         ssh_key_path=ssh_key_path,
@@ -294,19 +384,3 @@ def send_update_email(
     )
 
     return success, message
-
-
-if __name__ == "__main__":
-    send_update_email(
-        ssh_host="192.168.0.3",
-        ssh_user="User",
-        ssh_key_path="C:/Users/User/.ssh/id_ed25519",
-        sender_email="tribeamexperiments@gmail.com",
-        sender_password="xoqs adfo maet dari",
-        recipients=["jlamb@ucsb.edu", "mechlin@ucsb.edu"],
-        subject="Test Email with Attachments",
-        body="This is a test email with multiple recipients and attachments.",
-        # cc=["cc1@example.com", "cc2@example.com"],
-        # bcc="bcc@example.com",
-        # attachments=["D:/James/pre_mill/CoNi67_ETD.tif"],
-    )
