@@ -1,0 +1,360 @@
+schema_version: '1.0'
+id: s0001
+recorded_at: '2026-09-03T09:23:42.996-07:00'
+description: Starting position
+intended_action: null
+provenance:
+  pytribeam_version: 0.1.4
+  autoscript_version: 4.8.1
+  host: localhost
+  port: null
+  hostname: S1125518
+  recorded_by: state_recorder
+read_errors:
+- path: beams.electron_beam.beam_mode.available_values
+  error: 'ApplicationServerException: Electron beam mode control is not supported
+    on this microscope.'
+  kind: access
+- path: beams.electron_beam.beam_mode.value
+  error: 'ApplicationServerException: Electron beam mode control is not supported
+    on this microscope.'
+  kind: access
+- path: beams.ion_beam.source.plasma_gas.available_values
+  error: 'ApplicationServerException: This microscope does not have a plasma FIB source
+    with selectable gases.'
+  kind: access
+- path: beams.ion_beam.source.plasma_gas.value
+  error: 'ApplicationServerException: This microscope does not have a plasma FIB source
+    with selectable gases.'
+  kind: access
+- path: detector.custom_settings.converter_voltage.value
+  error: 'ApplicationServerException: The active detector doesn''t have a converter
+    voltage parameter.'
+  kind: access
+- path: detector.custom_settings.grid_voltage.value
+  error: 'ApplicationServerException: The active detector doesn''t have a grid voltage
+    parameter.'
+  kind: access
+- path: detector.custom_settings.mirror_voltage.value
+  error: 'ApplicationServerException: The active detector doesn''t have a mirror voltage
+    parameter.'
+  kind: access
+- path: detector.custom_settings.scintillator_voltage.value
+  error: 'ApplicationServerException: The active detector doesn''t have a scintillator
+    voltage parameter.'
+  kind: access
+- path: detector.custom_settings.suction_tube_voltage.value
+  error: 'ApplicationServerException: The active detector doesn''t have a suction
+    tube voltage parameter.'
+  kind: access
+- path: detector.state
+  error: 'ApplicationServerException: Detector ''ETD'' is not retractable on this
+    microscope.'
+  kind: access
+- path: patterning.real_time_monitor.mode
+  error: 'ApplicationServerException: Real time monitor is not supported on this microscope.'
+  kind: access
+- path: specimen.compustage.current_position
+  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
+    first.'
+  kind: access
+- path: specimen.compustage.is_linked
+  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
+    first.'
+  kind: access
+- path: specimen.compustage.neutral_mill_position.value
+  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
+    first.'
+  kind: access
+- path: specimen.loadlock.state
+  error: 'ApplicationServerException: LoadLock is not available on this microscope.'
+  kind: access
+- path: specimen.sputter_coater.current.available_values
+  error: 'ApplicationServerException: AvailableValues property is not supported on
+    this microscope.'
+  kind: access
+- path: specimen.temperature_stage.humidity.is_on
+  error: 'ApplicationServerException: Humidity is not supported on the current temperature
+    stage.'
+  kind: access
+- path: specimen.temperature_stage.humidity.target_value
+  error: 'ApplicationServerException: Humidity is not supported on the current temperature
+    stage.'
+  kind: access
+- path: specimen.temperature_stage.humidity.value
+  error: 'ApplicationServerException: Humidity is not supported on the current temperature
+    stage.'
+  kind: access
+values:
+  beams.electron_beam.angular_correction.angle.limits.max: 6.283185307179586
+  beams.electron_beam.angular_correction.angle.limits.midpoint: 0.0
+  beams.electron_beam.angular_correction.angle.limits.min: -6.283185307179586
+  beams.electron_beam.angular_correction.angle.value: 0.0
+  beams.electron_beam.angular_correction.dynamic_focus.is_on: false
+  beams.electron_beam.angular_correction.mode: Automatic
+  beams.electron_beam.angular_correction.specimen_pretilt.limits.max: 100000.0
+  beams.electron_beam.angular_correction.specimen_pretilt.limits.midpoint: -450000.0
+  beams.electron_beam.angular_correction.specimen_pretilt.limits.min: -1000000.0
+  beams.electron_beam.angular_correction.specimen_pretilt.value: 0.0
+  beams.electron_beam.angular_correction.tilt_correction.is_on: false
+  beams.electron_beam.beam_current.limits.max: 10.0
+  beams.electron_beam.beam_current.limits.midpoint: 5.0
+  beams.electron_beam.beam_current.limits.min: 0.0
+  beams.electron_beam.beam_current.value: 6.399999999999999e-09
+  beams.electron_beam.beam_deceleration.is_on: false
+  beams.electron_beam.beam_deceleration.stage_bias.limits.max: 3000.0
+  beams.electron_beam.beam_deceleration.stage_bias.limits.midpoint: 1500.0
+  beams.electron_beam.beam_deceleration.stage_bias.limits.min: 0.0
+  beams.electron_beam.beam_deceleration.stage_bias.value: 0.0
+  beams.electron_beam.beam_shift.limits.limits_x.max: 1.0
+  beams.electron_beam.beam_shift.limits.limits_x.midpoint: 0.0
+  beams.electron_beam.beam_shift.limits.limits_x.min: -1.0
+  beams.electron_beam.beam_shift.limits.limits_y.max: 1.0
+  beams.electron_beam.beam_shift.limits.limits_y.midpoint: 0.0
+  beams.electron_beam.beam_shift.limits.limits_y.min: -1.0
+  beams.electron_beam.beam_shift.value.x: 0.0
+  beams.electron_beam.beam_shift.value.y: 0.0
+  beams.electron_beam.crossover_zoom.limits.max: 100000.0
+  beams.electron_beam.crossover_zoom.limits.midpoint: 0.0
+  beams.electron_beam.crossover_zoom.limits.min: -100000.0
+  beams.electron_beam.crossover_zoom.value: 0.0
+  beams.electron_beam.emission_current.value: 0.0
+  beams.electron_beam.high_voltage.is_controllable: true
+  beams.electron_beam.high_voltage.limits.max: 30000.0
+  beams.electron_beam.high_voltage.limits.midpoint: 15000.0
+  beams.electron_beam.high_voltage.limits.min: 0.0
+  beams.electron_beam.high_voltage.value: 5000.0
+  beams.electron_beam.horizontal_field_width.limits.max: 0.001
+  beams.electron_beam.horizontal_field_width.limits.midpoint: 0.0005000000005
+  beams.electron_beam.horizontal_field_width.limits.min: 1.0e-12
+  beams.electron_beam.horizontal_field_width.value: 0.0009000000000000001
+  beams.electron_beam.is_blanked: false
+  beams.electron_beam.is_installed: true
+  beams.electron_beam.is_on: true
+  beams.electron_beam.lens_alignment.limits.limits_x.max: 100000.0
+  beams.electron_beam.lens_alignment.limits.limits_x.midpoint: -450000.0
+  beams.electron_beam.lens_alignment.limits.limits_x.min: -1000000.0
+  beams.electron_beam.lens_alignment.limits.limits_y.max: 100000.0
+  beams.electron_beam.lens_alignment.limits.limits_y.midpoint: -450000.0
+  beams.electron_beam.lens_alignment.limits.limits_y.min: -1000000.0
+  beams.electron_beam.lens_alignment.value.x: 0.0
+  beams.electron_beam.lens_alignment.value.y: 0.0
+  beams.electron_beam.optical_mode.available_values:
+  - FieldFree
+  - Immersion
+  beams.electron_beam.optical_mode.value: FieldFree
+  beams.electron_beam.protective_shutter.is_installed: true
+  beams.electron_beam.protective_shutter.mode.available_values:
+  - 'Off'
+  - Automatic
+  beams.electron_beam.protective_shutter.mode.value: Automatic
+  beams.electron_beam.scanning.bit_depth: 8
+  beams.electron_beam.scanning.dwell_time.limits.max: 0.001
+  beams.electron_beam.scanning.dwell_time.limits.midpoint: 0.0005000000005
+  beams.electron_beam.scanning.dwell_time.limits.min: 1.0e-12
+  beams.electron_beam.scanning.dwell_time.value: 1.0e-06
+  beams.electron_beam.scanning.mode.value: 1
+  beams.electron_beam.scanning.resolution.available_values:
+  - 768x512
+  - 1536x1024
+  - 3072x2048
+  - 6144x4096
+  - 512x442
+  - 1024x884
+  - 2048x1768
+  - 3072x3072
+  - 4096x3536
+  - 4096x4096
+  - 8192x8192
+  beams.electron_beam.scanning.resolution.value: 768x512
+  beams.electron_beam.scanning.rotation.value: 0.0
+  beams.electron_beam.scanning.spot.value: 0.0
+  beams.electron_beam.source.is_broken: false
+  beams.electron_beam.stigmator.limits.limits_y.max: 1000000.0
+  beams.electron_beam.stigmator.limits.limits_y.midpoint: 0.0
+  beams.electron_beam.stigmator.limits.limits_y.min: -1000000.0
+  beams.electron_beam.stigmator.value.x: 0.0
+  beams.electron_beam.stigmator.value.y: 0.0
+  beams.electron_beam.working_distance.value: 0.004093
+  beams.ion_beam.beam_current.available_values:
+  - 1.6e-12
+  - 6.1e-12
+  - 1.37e-11
+  - 2.29e-11
+  - 4.04e-11
+  - 1.08e-10
+  - 1.83e-10
+  - 3.64e-10
+  - 8.32e-10
+  - 2.654e-09
+  - 5.403e-09
+  - 1.2e-08
+  - 2.15e-08
+  beams.ion_beam.beam_current.value: 1.5e-08
+  beams.ion_beam.beam_shift.limits.limits_x.max: 1.0
+  beams.ion_beam.beam_shift.limits.limits_x.midpoint: 0.0
+  beams.ion_beam.beam_shift.limits.limits_x.min: -1.0
+  beams.ion_beam.beam_shift.limits.limits_y.max: 1.0
+  beams.ion_beam.beam_shift.limits.limits_y.midpoint: 0.0
+  beams.ion_beam.beam_shift.limits.limits_y.min: -1.0
+  beams.ion_beam.high_voltage.is_controllable: true
+  beams.ion_beam.high_voltage.limits.max: 30000.0
+  beams.ion_beam.high_voltage.limits.midpoint: 15000.0
+  beams.ion_beam.high_voltage.limits.min: 0.0
+  beams.ion_beam.high_voltage.value: 10000.0
+  beams.ion_beam.horizontal_field_width.limits.max: 0.001
+  beams.ion_beam.horizontal_field_width.limits.midpoint: 0.0005000000005
+  beams.ion_beam.horizontal_field_width.limits.min: 1.0e-12
+  beams.ion_beam.horizontal_field_width.value: 0.000275
+  beams.ion_beam.is_blanked: false
+  beams.ion_beam.is_installed: true
+  beams.ion_beam.is_on: true
+  beams.ion_beam.scanning.bit_depth: 8
+  beams.ion_beam.scanning.dwell_time.limits.max: 0.001
+  beams.ion_beam.scanning.dwell_time.limits.midpoint: 0.0005000000005
+  beams.ion_beam.scanning.dwell_time.limits.min: 1.0e-12
+  beams.ion_beam.scanning.dwell_time.value: 2.02e-05
+  beams.ion_beam.scanning.mode.value: 1
+  beams.ion_beam.scanning.resolution.available_values:
+  - 768x512
+  - 1536x1024
+  - 3072x2048
+  - 6144x4096
+  - 512x442
+  - 1024x884
+  - 2048x1768
+  - 4096x3536
+  beams.ion_beam.scanning.resolution.value: 1536x1024
+  beams.ion_beam.scanning.rotation.value: 0.9267698328089891
+  beams.ion_beam.source.time_to_heat: 0.0
+  beams.ion_beam.stigmator.value.x: 0.0
+  beams.ion_beam.stigmator.value.y: 0.0
+  beams.ion_beam.working_distance.limits.max: 100000.0
+  beams.ion_beam.working_distance.limits.midpoint: 0.0
+  beams.ion_beam.working_distance.limits.min: -100000.0
+  beams.ion_beam.working_distance.value: 0.00535
+  detector.brightness.limits.max: 1.0
+  detector.brightness.limits.midpoint: 0.5
+  detector.brightness.limits.min: 0.0
+  detector.brightness.value: 0.0
+  detector.contrast.limits.max: 1.0
+  detector.contrast.limits.midpoint: 0.5
+  detector.contrast.limits.min: 0.0
+  detector.contrast.value: 0.0
+  detector.custom_settings.md_shutter.is_needed: false
+  detector.mode.available_values:
+  - SecondaryElectrons
+  detector.mode.value: None
+  detector.type.available_values:
+  - BSD
+  - CDEM
+  - CRD
+  - DualBSD
+  - ETD
+  - External
+  - GAD
+  - GBSD
+  - GSED
+  - HiResOptical
+  - HiResOpticalLowMag
+  - ICE
+  - InColumnBSD
+  - IR
+  - IR2
+  - IRCameraDetector
+  - LFD
+  - LVD
+  - LVSED
+  - Mix
+  - PMT
+  - QuadBSD
+  - SED
+  - SingleBSD
+  - TLD
+  - TLD2
+  detector.type.value: ETD
+  patterning.mode: Serial
+  patterning.state: Idle
+  specimen.cap_probe.is_installed: false
+  specimen.compustage.is_homed: false
+  specimen.compustage.is_installed: true
+  specimen.compustage.safety_settings.locked_axes: []
+  specimen.loadlock.is_installed: false
+  specimen.manipulator.current_position.coordinate_system: Stage
+  specimen.manipulator.current_position.r: 0.0
+  specimen.manipulator.current_position.x: 0.0
+  specimen.manipulator.current_position.y: 0.0
+  specimen.manipulator.current_position.z: 0.0
+  specimen.manipulator.is_installed: true
+  specimen.manipulator.state: Retracted
+  specimen.sample_cleaning.is_installed: false
+  specimen.sputter_coater.current.limits.max: 0.05
+  specimen.sputter_coater.current.limits.midpoint: 0.025
+  specimen.sputter_coater.current.limits.min: 0.0
+  specimen.sputter_coater.current.value: 0.0
+  specimen.sputter_coater.is_inserted: true
+  specimen.sputter_coater.is_installed: true
+  specimen.stage.current_position.coordinate_system: Specimen
+  specimen.stage.current_position.x: 0.0
+  specimen.stage.current_position.y: 0.0
+  specimen.stage.current_position.z: 0.0
+  specimen.stage.current_position.t: 0.0
+  specimen.stage.current_position.r: 0.0
+  specimen.stage.holder.available_values:
+  - UMB Holder
+  - HPF Carrier
+  - AutoGrid Shuttle 35deg
+  specimen.stage.holder.value: UMB Holder
+  specimen.stage.is_homed: true
+  specimen.stage.is_installed: true
+  specimen.stage.is_linked: true
+  specimen.stage.safety_settings.locked_axes: []
+  specimen.temperature_stage.is_installed: true
+  specimen.temperature_stage.is_on: false
+  specimen.temperature_stage.ramping_speed.limits.max: 50.0
+  specimen.temperature_stage.ramping_speed.limits.midpoint: 25.5
+  specimen.temperature_stage.ramping_speed.limits.min: 1.0
+  specimen.temperature_stage.ramping_speed.target_value: 10.0
+  specimen.temperature_stage.ramping_speed.value: 0.0
+  specimen.temperature_stage.temperature.limits.max: 1273.15
+  specimen.temperature_stage.temperature.limits.midpoint: 778.1500000000001
+  specimen.temperature_stage.temperature.limits.min: 283.15
+  specimen.temperature_stage.temperature.target_value: 313.15
+  specimen.temperature_stage.temperature.value: 293.15
+  specimen.temperature_stage.type: HeatingStage
+  state.specimen_current.is_valid: true
+  state.specimen_current.value: 0.0
+  vacuum.chamber_pressure.limits.max: 100000.0
+  vacuum.chamber_pressure.limits.midpoint: 0.0
+  vacuum.chamber_pressure.limits.min: -100000.0
+  vacuum.chamber_pressure.value: 0.0
+  vacuum.chamber_state: Pumped
+  vacuum.pressure_limiting_aperture.available_values:
+  - Unknown
+  - NoAccessory
+  - ESDCone
+  - XRayCone
+  - GAD
+  - HotCone
+  - Pla300
+  - Pla500
+  - Pla1000
+  - Pla800
+  - CRD
+  - LVD
+  - CRD2
+  - BSE
+  - GAD2
+  - VsGAD
+  - LmGAD
+  - LmGAD2
+  - FilterRing
+  - LmDBS
+  - LmDBS2
+  vacuum.pressure_limiting_aperture.value: Unknown
+  imaging.scanning_filter.number_of_frames: 1
+  imaging.scanning_filter.type: 1
+  imaging.quad1.active_device: ION_BEAM
+  imaging.quad2.active_device: ION_BEAM
+  imaging.quad3.active_device: NAV_CAM
+  imaging.quad4.active_device: CCD_CAMERA
