@@ -34,7 +34,12 @@ class AppConfig:
     max_recent_files: int = 10
 
     @classmethod
-    def from_env(cls, app_name: str = "pytribeam") -> "AppConfig":
+    def from_env(
+        cls,
+        app_name: str = "pytribeam",
+        os_name: Optional[str] = None,
+        path_cls=Path,
+    ) -> "AppConfig":
         """Create configuration from environment variables.
 
         Uses LOCALAPPDATA on Windows or ~/.local/share on Unix-like systems.
@@ -45,12 +50,14 @@ class AppConfig:
         Returns:
             AppConfig instance with paths set from environment
         """
-        if os.name == "nt":
+        os_name = os.name if os_name is None else os_name
+
+        if os_name == "nt":
             # Windows
-            base_dir = Path(os.getenv("LOCALAPPDATA", os.path.expanduser("~")))
+            base_dir = path_cls(os.getenv("LOCALAPPDATA", os.path.expanduser("~")))
         else:
             # Unix-like
-            base_dir = Path(
+            base_dir = path_cls(
                 os.getenv("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
             )
 
