@@ -1620,7 +1620,7 @@ def bruker_eds(
     if not (type(detector_index) == int and detector_index >= 0):
         raise ValueError("Bruker detector_index be a positive integer.")
 
-    if (map_settings is None or ut.none_value_dictionary(map_settings)):
+    if map_settings is None or ut.none_value_dictionary(map_settings):
         raise ValueError("Bruker map settings must be provided")
     else:
         validate_bruker_eds_map(map_settings, step_name)
@@ -1710,7 +1710,6 @@ def validate_bruker_eds_map(
         },
         ignore_extra_keys=True,
     )
-
 
     if not ut.none_value_dictionary(settings["roi"]):
         try:

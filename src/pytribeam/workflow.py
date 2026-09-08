@@ -480,14 +480,13 @@ def _(
         },
         "output": {
             "root_dir": step_settings.output_path,
-            "run_name": step.name ,
+            "run_name": step.name,
         },
         "detector": {
             "detector_index": step_settings.detector_index,
             "move_detector": False,
             "move_timeout_s": 60.0,
             "poll_interval_s ": 0.5,
-
         },
         "map": {
             "mode": "profile",
@@ -502,7 +501,13 @@ def _(
             "image_format": "bmp",
             "profile": {
                 "elements": [
-                    {"atomic_number": 6, "symbol": "C", "line": "KA", "energy_keV": 0.0, "width": 1.0,}
+                    {
+                        "atomic_number": 6,
+                        "symbol": "C",
+                        "line": "KA",
+                        "energy_keV": 0.0,
+                        "width": 1.0,
+                    }
                 ],
                 "image_filter": 0,
                 "map_filter": 0,
@@ -523,13 +528,14 @@ def _(
         },
     }
     if step_settings.map.roi is not None:
-        db["map"]["roi"] = {"x_start_px": step_settings.map.roi.x_start_px,
-                            "y_start_px": step_settings.map.roi.y_start_px,
-                            "width_px": step_settings.map.roi.width_px,
-                            "height_px": step_settings.map.roi.height_px}
+        db["map"]["roi"] = {
+            "x_start_px": step_settings.map.roi.x_start_px,
+            "y_start_px": step_settings.map.roi.y_start_px,
+            "width_px": step_settings.map.roi.width_px,
+            "height_px": step_settings.map.roi.height_px,
+        }
     bruker_config_path = general_settings.exp_dir.joinpath("bruker_settings.yml")
     ut.dict_to_yml(db, bruker_config_path)
-
 
     # take map
     # bruker_script_path = Path(__file__).parent.joinpath(
@@ -552,7 +558,10 @@ def _(
         "--config",
         str(bruker_config_path),
     ]
-    from pytribeam.external_oem.bruker.tools.run_bruker_eds_safe_workflow import main as map_eds
+    from pytribeam.external_oem.bruker.tools.run_bruker_eds_safe_workflow import (
+        main as map_eds,
+    )
+
     exit_code = map_eds(args)
 
     if exit_code != 0:

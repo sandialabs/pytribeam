@@ -2218,7 +2218,7 @@ class MapROI(NamedTuple):
     A bounding box for a map
 
     TODO: VERIFY COORDINATE SYSTEM
-    
+
     Attributes
     ----------
     x_start_px : int
@@ -2230,15 +2230,17 @@ class MapROI(NamedTuple):
     height_px : int
         The vertical span of the bounding box in pixels
     """
-    x_start_px : int
-    y_start_px : int
-    width_px : int
-    height_px : int
+
+    x_start_px: int
+    y_start_px: int
+    width_px: int
+    height_px: int
+
 
 class EDSMap(NamedTuple):
     """
     Parameters for an EDS map
-    
+
     Attributes
     ----------
     width_px : int
@@ -2248,6 +2250,7 @@ class EDSMap(NamedTuple):
     dwell_us : int
         The dwell time of the map
     """
+
     width_px: int
     height_px: int
     dwell_us: int
