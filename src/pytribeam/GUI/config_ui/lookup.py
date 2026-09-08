@@ -1397,7 +1397,7 @@ eds_lut["beam"]["type"] = LUTField(
 )
 bruker_eds_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
-    "eds",
+    "bruker_eds",
     ctk.Entry,
     {"state": "disabled", "dtype": str},
     "The step type.",
