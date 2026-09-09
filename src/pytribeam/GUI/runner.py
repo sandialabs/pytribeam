@@ -55,7 +55,7 @@ class MainApplication(tk.Tk):
 
         # Set the window size
         self.frame_w = int(1200)
-        self.frame_h = int(620)
+        self.frame_h = int(680)
         self.geometry(f"{self.frame_w}x{self.frame_h}")
         self.resizable(False, False)
 
