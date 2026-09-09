@@ -64,7 +64,7 @@ def run_bruker_eds_workflow(
     t0 = time.time()
 
     stamp = now_stamp()
-    paths = make_run_paths(settings.output, stamp)
+    paths = make_run_paths(settings.output, stamp, settings.map.name)
     errors = []
 
     # Save config copy for provenance

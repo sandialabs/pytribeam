@@ -47,7 +47,6 @@ run_experiment_cli(start_slice: int, start_step: int, yml_path: Path)
 # Default python modules
 # from functools import singledispatch
 import os
-import sys
 import subprocess
 from functools import singledispatch
 from pathlib import Path
@@ -490,7 +489,9 @@ def _(
         },
         "map": {
             "mode": "profile",
-            "name": f"{step.name}_{slice_number:05d}",
+            # TODO clean this up
+            # "name": f"{step.name}_{slice_number:05d}",
+            "name": f"{slice_number:04d}",
             "width_px": step_settings.map.width_px,
             "height_px": step_settings.map.height_px,
             "pixel_time_us": step_settings.map.dwell_us,
