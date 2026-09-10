@@ -538,7 +538,7 @@ def _perform_bruker_eds_operation(
     db = {
         "session": {
             "dll_dir": step_settings.dll_dir,
-            "mode": "local",
+            "mode": step_settings.mode,
             "server": "Lokaler Server",
             "user": "edx",
             "password": "edx",
@@ -559,8 +559,6 @@ def _perform_bruker_eds_operation(
         },
         "map": {
             "mode": "profile",
-            # TODO clean this up
-            # "name": f"{step.name}_{slice_number:05d}",
             "name": f"{slice_number:04d}",
             "width_px": step_settings.map.width_px,
             "height_px": step_settings.map.height_px,
