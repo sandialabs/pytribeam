@@ -13,6 +13,7 @@ import contextlib
 import traceback
 
 # pytribeam imports
+from pytribeam import __version__
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam.GUI.config_ui.App import Configurator
 from pytribeam import workflow, stage, utilities, log, laser, insertable_devices
@@ -34,7 +35,7 @@ class MainApplication(tk.Tk):
     def __init__(self, *args, **kwargs):
         # Create core
         tk.Tk.__init__(self, *args, **kwargs)
-        self.title("TriBeam Runner")
+        self.title("TriBeam Runner - v{}".format(__version__))
 
         # Initialize resources and config
         self.resources = AppResources.from_module_file(__file__)
@@ -54,7 +55,7 @@ class MainApplication(tk.Tk):
 
         # Set the window size
         self.frame_w = int(1200)
-        self.frame_h = int(620)
+        self.frame_h = int(680)
         self.geometry(f"{self.frame_w}x{self.frame_h}")
         self.resizable(False, False)
 
