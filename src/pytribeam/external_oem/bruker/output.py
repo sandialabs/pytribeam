@@ -28,7 +28,7 @@ File naming within a run directory:
 
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Optional
 
 from pytribeam.external_oem.bruker.types import BrukerEDSOutputSettings
 
@@ -71,7 +71,9 @@ def make_run_dir_name(output: BrukerEDSOutputSettings, stamp: str) -> str:
     return "_".join(parts)
 
 
-def make_run_paths(output: BrukerEDSOutputSettings, stamp: str) -> Dict[str, Path]:
+def make_run_paths(
+    output: BrukerEDSOutputSettings, stamp: str, slice_name: Optional[str] = None
+) -> Dict[str, Path]:
     """Create the full run directory structure and return path dictionary.
 
     Parameters
@@ -87,12 +89,19 @@ def make_run_paths(output: BrukerEDSOutputSettings, stamp: str) -> Dict[str, Pat
         Dictionary with keys: run_dir, bcf_path, bmp_path, log_path,
         config_copy_path, readback_dir, summary_json_path.
     """
+    # TODO clean this up
     dir_name = make_run_dir_name(output, stamp)
-    run_dir = Path(output.output_dir) / dir_name
+    # old method with timestamp
+    # run_dir = Path(output.output_dir) / dir_name
+    run_dir = Path(output.output_dir)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     # File prefix uses run_name + slice info (without timestamp for readability)
-    file_prefix = make_file_prefix(output)
+    # TODO clean this up
+    if slice_name is not None:
+        file_prefix = slice_name
+    else:
+        file_prefix = make_file_prefix(output)
 
     return {
         "run_dir": run_dir,

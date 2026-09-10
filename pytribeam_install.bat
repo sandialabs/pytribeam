@@ -111,46 +111,62 @@ echo.
 echo Cleaning environment...
 call %PIP% install "%WHEELHOUSE%\pip-24.0-py3-none-any.whl" --no-index || goto :FAIL
 call %PIP% install "%WHEELHOUSE%\setuptools-69.5.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% uninstall -y platformdirs typing_extensions vcs_versioning editables click contextlib2 schema tomli setuptools_scm trove_classifiers pluggy pathspec hatchling hatch_vcs iniconfig exceptiongroup pytest coverage pytest_cov ruff mypy_extensions black pygments markdown2 astunparse pdoc py tabulate interrogate anybadge astroid isort mccabe tomlkit dill pylint pylint_exit pytribeam || goto :FAIL
+call %PIP% uninstall -y platformdirs typing_extensions vcs_versioning editables click contextlib2 schema tomli setuptools_scm trove_classifiers pluggy pathspec hatchling hatch_vcs iniconfig exceptiongroup pytest coverage pytest_cov ruff mypy_extensions black pygments markdown2 astunparse pdoc py tabulate interrogate anybadge astroid isort mccabe tomlkit dill pylint pylint_exit importlib_resources pytribeam || goto :FAIL
 
 echo.
+REM echo Installing pyTriBeam dependencies...
+REM call %PIP% install "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\packaging-26.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\tomli-2.0.1-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\click-8.1.7-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\contextlib2-21.6.0-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\schema-0.7.5-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\setuptools_scm-6.4.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\trove_classifiers-2026.1.14.14-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pluggy-1.5.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pathspec-0.12.1-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\hatchling-1.26.3-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\hatch_vcs-0.4.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\iniconfig-2.0.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\exceptiongroup-1.2.1-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pytest-7.4.3-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\coverage-7.5.1-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pytest_cov-4.1.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\ruff-0.15.11-py3-none-win_amd64.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\markdown2-2.5.1-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pygments-2.19.2-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\astunparse-1.6.3-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pdoc-14.7.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\py-1.11.0-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\tabulate-0.9.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\interrogate-1.7.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\anybadge-1.16.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\astroid-3.2.4-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\isort-5.13.2-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\mccabe-0.7.0-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\tomlkit-0.13.3-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\dill-0.4.0-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" --no-index || goto :FAIL
+REM call %PIP% install "%WHEELHOUSE%\importlib_resources-7.1.0-py3-none-any.whl" --no-index || goto :FAIL
+
 echo Installing pyTriBeam dependencies...
-call %PIP% install "%WHEELHOUSE%\colorama-0.4.6-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\packaging-26.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\tomli-2.0.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\click-8.1.7-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\contextlib2-21.6.0-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\schema-0.7.5-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\setuptools_scm-6.4.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\trove_classifiers-2026.1.14.14-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pluggy-1.5.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pathspec-0.12.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\hatchling-1.26.3-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\hatch_vcs-0.4.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\iniconfig-2.0.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\exceptiongroup-1.2.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pytest-7.4.3-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\coverage-7.5.1-cp38-cp38-win_amd64.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pytest_cov-4.1.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\ruff-0.15.11-py3-none-win_amd64.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\markdown2-2.5.1-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pygments-2.19.2-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\astunparse-1.6.3-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pdoc-14.7.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\py-1.11.0-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\tabulate-0.9.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\interrogate-1.7.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\anybadge-1.16.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\typing_extensions-4.11.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\astroid-3.2.4-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\isort-5.13.2-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\mccabe-0.7.0-py2.py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\tomlkit-0.13.3-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\dill-0.4.0-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\platformdirs-4.2.1-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" --no-index || goto :FAIL
-call %PIP% install "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" --no-index || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\hatchling-1.26.3-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\hatch_vcs-0.4.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\editables-0.5-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+
+echo Installing pyTriBeam developer dependencies...
+call %PIP% install "%WHEELHOUSE%\pytest-7.4.3-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\pytest_cov-4.1.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\pdoc-14.7.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\interrogate-1.7.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+call %PIP% install "%WHEELHOUSE%\anybadge-1.16.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
+
 
 REM Install pyTriBeam from the current folder
 echo Installing pyTriBeam...

@@ -69,8 +69,9 @@ class TextLogger:
     def __call__(self, msg: str) -> None:
         line = f"[{datetime.now().isoformat(timespec='seconds')}] {msg}"
         print(line)
-        with open(self.log_path, "a", encoding="utf-8") as f:
-            f.write(line + "\n")
+        # TODO make this optional
+        # with open(self.log_path, "a", encoding="utf-8") as f:
+        #     f.write(line + "\n")
 
 
 def _default_log_path(config_path: Path) -> Path:
