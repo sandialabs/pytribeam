@@ -1599,6 +1599,7 @@ def bruker_eds(
 
     bruker_settings = step_settings["bruker_settings"]
     dll_dir = bruker_settings.get("dll_dir", None)
+    connection_mode = bruker_settings.get("connection_mode", None)
     host = bruker_settings.get("host", None)
     port = bruker_settings.get("host", None)
     detector_index = bruker_settings.get("detector_index", None)
@@ -1610,6 +1611,11 @@ def bruker_eds(
         )
     if not Path(dll_dir).is_dir():
         raise ValueError(f"Invalid DLL directory.")
+    
+    try:
+        connection_mode = tbt.BrukerConnectionMode[connection_mode]
+    except ValueError:
+        raise ValueError("Connection mode must be one of 'local' or 'remote'.")
 
     if host is not None and type(host) != str:
         raise ValueError("Bruker connection host must be a string.")
@@ -1643,6 +1649,7 @@ def bruker_eds(
     eds_settings = tbt.BrukerEDSSettings(
         image=image_settings,
         dll_dir=bruker_settings["dll_dir"],
+        connection_mode=connection_mode,
         output_path=bruker_settings["output_path"],
         map=map_settings,
         host=bruker_settings["host"],

@@ -2213,11 +2213,24 @@ class EDSSettings(NamedTuple):
     enable_eds: bool = True
 
 
+class BrukerConnectionMode(Enum):
+    """
+    Connection mode for the Bruker connection
+
+    Attributes
+    ----------
+    LOCAL : str
+        Local connection
+    REMOTE : str
+        Remote connection
+    """
+    LOCAL = "local"
+    REMOTE = "tcp"
+
+
 class MapROI(NamedTuple):
     """
     A bounding box for a map
-
-    TODO: VERIFY COORDINATE SYSTEM
 
     Attributes
     ----------
@@ -2281,6 +2294,7 @@ class BrukerEDSSettings(NamedTuple):
 
     image: ImageSettings
     dll_dir: Path
+    mode: BrukerConnectionMode
     output_path: Path
     map: EDSMap
     host: str = None

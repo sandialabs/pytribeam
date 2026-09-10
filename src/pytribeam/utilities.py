@@ -99,7 +99,6 @@ from pathlib import Path
 from typing import Dict, Tuple, Any, List
 from enum import Enum
 import platform
-import pytest
 from functools import singledispatch
 import shutil
 

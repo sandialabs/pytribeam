@@ -23,6 +23,7 @@ fib_scan_dirs = [i.value for i in tbt.FIBPatternScanDirection]
 fib_scan_types = [i.value for i in tbt.FIBPatternScanType]
 bit_depths = [i.value for i in tbt.ColorDepth]
 rotation_sides = [i.value for i in tbt.RotationSide]
+bruker_connection_modes = [i.name for i in tbt.BrukerConnectionMode]
 ebsd_grid_types = [
     i.name for i in tbt.EBSDGridType
 ]  # Use names for better readability, requires tbt.EBSDGridType[selection] instead of tbt.EBSDGridType(selection)
@@ -930,6 +931,15 @@ eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 
 
 ### EDS ###
+bruker_connection_mode = LUTField(
+    "Connection Mode",
+    "tcp",
+    ctk.MenuButton,
+    {"options": bruker_connection_modes, "dtype": str},
+    "The connection type to the computer running the Bruker collection software.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
 bruker_dll_dir = LUTField(
     "DLL Directory",
     "./",
@@ -1050,6 +1060,7 @@ bruker_map.add_entry("dwell_us", bruker_map_dwell_us)
 bruker_map.add_entry("roi", bruker_map_roi)
 bruker_eds_settings_lut = LUT("bruker_settings")
 bruker_eds_settings_lut.add_entry("dll_dir", deepcopy(bruker_dll_dir))
+bruker_eds_settings_lut.add_entry("connection_mode", deepcopy(bruker_connection_mode))
 bruker_eds_settings_lut.add_entry("output_path", deepcopy(bruker_output_path))
 bruker_eds_settings_lut.add_entry("map", deepcopy(bruker_map))
 bruker_eds_settings_lut.add_entry("host", deepcopy(bruker_connection_host))
