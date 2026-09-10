@@ -1514,7 +1514,7 @@ def bruker_eds(
     dll_dir = bruker_settings.get("dll_dir", None)
     connection_mode = bruker_settings.get("connection_mode", None)
     host = bruker_settings.get("host", None)
-    port = bruker_settings.get("host", None)
+    port = bruker_settings.get("port", None)
     detector_index = bruker_settings.get("detector_index", None)
     map_settings = bruker_settings.get("map", None)
 
@@ -1533,7 +1533,7 @@ def bruker_eds(
     if host is not None and type(host) != str:
         raise ValueError("Bruker connection host must be a string.")
 
-    if port is not None and type(host) != int:
+    if port is not None and type(port) != int:
         raise ValueError("Bruker connection port must be an integer.")
 
     if not (type(detector_index) == int and detector_index >= 0):
@@ -1562,13 +1562,14 @@ def bruker_eds(
     eds_settings = tbt.BrukerEDSSettings(
         image=image_settings,
         dll_dir=bruker_settings["dll_dir"],
-        connection_mode=connection_mode,
+        mode=connection_mode,
         output_path=bruker_settings["output_path"],
         map=map_settings,
         host=bruker_settings["host"],
         port=bruker_settings["port"],
         detector_index=bruker_settings["detector_index"],
     )
+    print(eds_settings)
     return eds_settings
 
 

@@ -23,6 +23,7 @@ fib_scan_dirs = [i.value for i in tbt.FIBPatternScanDirection]
 fib_scan_types = [i.value for i in tbt.FIBPatternScanType]
 bit_depths = [i.value for i in tbt.ColorDepth]
 rotation_sides = [i.value for i in tbt.RotationSide]
+# bruker_connection_modes = [i.value for i in tbt.BrukerConnectionMode]
 bruker_connection_modes = [i.name for i in tbt.BrukerConnectionMode]
 ebsd_grid_types = [
     i.name for i in tbt.EBSDGridType
@@ -933,7 +934,7 @@ eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 ### EDS ###
 bruker_connection_mode = LUTField(
     "Connection Mode",
-    "tcp",
+    bruker_connection_modes[-1],
     ctk.MenuButton,
     {"options": bruker_connection_modes, "dtype": str},
     "The connection type to the computer running the Bruker collection software.",
