@@ -2673,51 +2673,51 @@ class YMLFormatVersion(YMLFormat, Enum):
         #     "executable_path": Path,
         # }
     )
-    V_1_1 = YMLFormat(
-        version=1.1,
-        # general settings
-        general_section_key="general",
-        non_step_section_count=2,
-        step_number_key="step_number",
-        general_exp_settings={
-            "slice_thickness_um": float,
-            "max_slice_num": int,
-            "pre_tilt_deg": float,
-            "sectioning_axis": SectioningAxis,
-            "stage_translational_tol_um": float,
-            "stage_angular_tol_deg": float,
-            "connection_host": str,
-            "connection_port": int,
-            "EBSD_OEM": ExternalDeviceOEM,
-            "EDS_OEM": ExternalDeviceOEM,
-            "exp_dir": Path,
-            "h5_log_name": str,
-            "step_count": int,
-            "EDAX_settings": EDAXConfig,
-        },
-        step_count_key="step_count",
-        # step settings
-        step_section_key="steps",
-        step_general_key="step_general",
-        step_type_key="step_type",
-        step_frequency_key="frequency",
-        step_stage_settings_key="stage",
-        step_general_settings={
-            "step_number": int,
-            "step_type": StepType,
-            "frequency": int,
-            "stage": StagePositionUser,
-        },
-        image_step_settings={
-            "beam_type": BeamType,
-            "beam_settings": BeamSettings,
-            "detector": Detector,
-            "scan": Scan,
-            "bit_depth": ColorDepth,
-            "tiling_settings": ImageTileSettings,
-        },
-        # custom_step_settings={
-        #     "script_path": Path,
-        #     "executable_path": Path,
-        # }
-    )
+    # V_1_1 = YMLFormat(
+    #     version=1.1,
+    #     # general settings
+    #     general_section_key="general",
+    #     non_step_section_count=2,
+    #     step_number_key="step_number",
+    #     general_exp_settings={
+    #         "slice_thickness_um": float,
+    #         "max_slice_num": int,
+    #         "pre_tilt_deg": float,
+    #         "sectioning_axis": SectioningAxis,
+    #         "stage_translational_tol_um": float,
+    #         "stage_angular_tol_deg": float,
+    #         "connection_host": str,
+    #         "connection_port": int,
+    #         "EBSD_OEM": ExternalDeviceOEM,
+    #         "EDS_OEM": ExternalDeviceOEM,
+    #         "exp_dir": Path,
+    #         "h5_log_name": str,
+    #         "step_count": int,
+    #         "EDAX_settings": EDAXConfig,
+    #     },
+    #     step_count_key="step_count",
+    #     # step settings
+    #     step_section_key="steps",
+    #     step_general_key="step_general",
+    #     step_type_key="step_type",
+    #     step_frequency_key="frequency",
+    #     step_stage_settings_key="stage",
+    #     step_general_settings={
+    #         "step_number": int,
+    #         "step_type": StepType,
+    #         "frequency": int,
+    #         "stage": StagePositionUser,
+    #     },
+    #     image_step_settings={
+    #         "beam_type": BeamType,
+    #         "beam_settings": BeamSettings,
+    #         "detector": Detector,
+    #         "scan": Scan,
+    #         "bit_depth": ColorDepth,
+    #         "tiling_settings": ImageTileSettings,
+    #     },
+    #     # custom_step_settings={
+    #     #     "script_path": Path,
+    #     #     "executable_path": Path,
+    #     # }
+    # )
