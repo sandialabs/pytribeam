@@ -1881,6 +1881,7 @@ class BrukerConnectionMode(Enum):
     REMOTE : str
         Remote connection
     """
+
     LOCAL = "local"
     REMOTE = "tcp"
 

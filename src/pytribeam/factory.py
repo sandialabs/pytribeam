@@ -1524,7 +1524,7 @@ def bruker_eds(
         )
     if not Path(dll_dir).is_dir():
         raise ValueError(f"Invalid DLL directory.")
-    
+
     try:
         connection_mode = tbt.BrukerConnectionMode[connection_mode]
     except ValueError:
