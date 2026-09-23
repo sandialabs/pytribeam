@@ -248,7 +248,7 @@ __all__ = [
 ]
 
 # Default python modules
-from typing import NamedTuple, List, Union
+from typing import NamedTuple, List, Union, Optional
 from enum import Enum, IntEnum
 from pathlib import Path
 
@@ -1025,6 +1025,7 @@ class SectioningAxis(Enum):
     Y_POS: str = "Y+"
     Y_NEG: str = "Y-"
     Z: str = "Z"
+    FIB_SS: str = "FIB_SS"
 
 
 class StageAxis(as_enums.StageAxis):
@@ -1346,9 +1347,9 @@ class EdaxEdsDetectorSlideStatus(Enum):
 class EmailUpdateConfig(NamedTuple):
     """
     Email configuration for sending notifications
-    
+
     ## Attributes
-    
+
     - `ssh_host` (`str`) : The hostname of the machine with internet access that the email will be sent through.
     - `ssh_port` (`int`) : The port of the machine with internet access.
     - `ssh_user` (`str`) : The username of the machine with internet access.
@@ -2057,6 +2058,7 @@ class Step(NamedTuple):
         FIBSettings,
         LaserSettings,
     ]
+    template_matching: Optional[bool] = None
 
 
 class ExperimentSettings(NamedTuple):
