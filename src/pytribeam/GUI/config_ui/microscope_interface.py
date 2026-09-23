@@ -199,7 +199,7 @@ class MicroscopeInterface:
         except Exception as e:
             raise MicroscopeConnectionError("Failed to get imaging settings") from e
     
-    def collect_image(self, save_path: Path) -> None:
+    def collect_image(self, save_path: Path, image_settings: tbt.ImageSettings) -> None:
         """Collect an image from the microscope using the current imaging settings.
 
         Returns:
@@ -211,8 +211,7 @@ class MicroscopeInterface:
         self.ensure_connected()
 
         try:
-            active_image_settings = self.get_imaging_settings()
-            image.collect_single_image(save_path, active_image_settings)
+            image.collect_single_image(save_path, image_settings)
         except Exception as e:
             traceback.print_exc()
             raise MicroscopeConnectionError("Failed to collect an image") from e

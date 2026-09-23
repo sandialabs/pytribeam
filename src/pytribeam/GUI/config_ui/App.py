@@ -492,7 +492,7 @@ class Configurator:
         )
         microscope_menu.add_separator()
         microscope_menu.add_command(
-            label="Take FIB alignment images",
+            label="Take FIB alignment image",
             command=self.take_fib_alignment_images,
             font=ctk.MENU_FONT,
         )
@@ -1100,10 +1100,14 @@ class Configurator:
     def take_fib_alignment_images(self):
         # Take image at current position with the current image settings
         # Make sure the step is an imaging step
-        step_name = self.controller.get_current_step().name
+        general = self.controller.pipeline.general
+        current_step = self.controller.get_current_step()
+
+        # Get step name
+        step_name = current_step.name
 
         # Create the location for the template
-        exp_dir = self.controller.pipeline.general.get_param("exp_dir")
+        exp_dir = general.get_param("exp_dir")
         if exp_dir is None:
             messagebox.showerror(
                 parent=self.toplevel,
@@ -1118,20 +1122,50 @@ class Configurator:
         full_save_path = template_dir.joinpath(f"{step_name}_template_full.tif")
         patch_save_path = template_dir.joinpath(f"{step_name}_template_patch.tif")
 
-        # Try and grab the an image
+        # Get the imaging settings for the current step
+        params_db = current_step.get_all_params(flat=False)
+        if current_step.step_type != "image":
+            params_db = {
+                "step_general": params_db["step_general"],
+                "beam": params_db["image"]["beam"],
+                "detector": params_db["image"]["detector"],
+                "scan": params_db["image"]["scan"],
+                "bit_depth": params_db["image"]["bit_depth"]
+            }
+
         interface = self._create_microscope_connection()
+
+        # Try and create the image settings object
         try:
-            interface.collect_image(full_save_path)
+            image_settings = factory.image(
+                microscope=interface._microscope,
+                step_settings=params_db,
+                step_name=f"{step_name}_template",
+                yml_format=ut.yml_format(self.controller.get_version()),
+            )
         except Exception as e:
             messagebox.showerror(
                 parent=self.toplevel,
                 title="Error",
-                message=f"Error getting laser state: {e}",
+                message=f"The current step has invalid image settings: {e}",
             )
+            interface.disconnect()
             return
-        finally:
-            if interface:
-                interface.disconnect()
+
+        # Try and grab the an image
+        try:
+            interface.collect_image(full_save_path, image_settings)
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Unable to collect the alignment image: {e}",
+            )
+            interface.disconnect()
+            return
+
+        # Disconnect if everything has succeeded
+        interface.disconnect()
 
         # Read the image that was created
         template_full = io.imread(full_save_path)
@@ -1144,6 +1178,7 @@ class Configurator:
                 title="Error",
                 message=f"An ROI was not selected.",
             )
+            return
         else:
             x0, x1 = selector.roi[0]
             y0, y1 = selector.roi[1]
