@@ -127,7 +127,7 @@ __all__ = [
 from pathlib import Path
 import time
 import warnings
-from typing import List
+from typing import List, Optional
 import math
 
 # Local scripts
@@ -135,6 +135,8 @@ import pytribeam.constants as cs
 import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
+
+# from pytribeam.workflow_fib_ss import ShiftDistanceM
 
 
 def beam_angular_correction(
@@ -387,6 +389,49 @@ def beam_hfw(
             {selected_beam.horizontal_field_width.value * cs.Conversions.M_TO_MM} millimeters"""
         )
 
+    return True
+
+
+def read_beam_shift(
+    beam: tbt.Beam,
+    microscope: tbt.Microscope,
+) -> tbt.Point:
+    selected_beam = ut.beam_type(beam, microscope)
+    return selected_beam.beam_shift.value
+
+
+def set_beam_shift(
+    beam: tbt.Beam,
+    microscope: tbt.Microscope,
+    shift: tbt.Point,
+    delay_s: float = 0.1,
+    shift_tol_m: float = 0.01e-6,  # 10 nm of tolerance
+) -> bool:
+    selected_beam = ut.beam_type(beam, microscope)
+    selected_beam.beam_shift.value = shift
+    time.sleep(delay_s)
+    if not math.isclose(
+        selected_beam.beam_shift.value.x, shift.x, abs_tol=shift_tol_m
+    ) or not math.isclose(
+        selected_beam.beam_shift.value.y, shift.y, abs_tol=shift_tol_m
+    ):
+        raise ValueError(
+            f"""Could not correctly adjust beam shift,
+            requested {shift}, current shift is
+            {selected_beam.beam_shift.value}"""
+        )
+
+
+def apply_beam_shift_delta(
+    beam: tbt.Beam,
+    microscope: tbt.Microscope,
+    delta,  # TODO get the right type ShiftDistanceM
+) -> bool:
+    """offset the found shift from template matching"""
+    selected_beam = ut.beam_type(beam, microscope)
+    current_shift = read_beam_shift(beam=beam, microscope=microscope)
+    new_shift = tbt.Point(x=current_shift.x - delta.dx, y=current_shift.y + delta.dy)
+    set_beam_shift(beam=beam, microscope=microscope, shift=new_shift)
     return True
 
 
@@ -1310,7 +1355,8 @@ def prepare_imaging(img_settings: tbt.ImageSettings) -> bool:
 
     ## Returns
 
-    - `bool`: True if the imaging settings are prepared successfully, False otherwise."""
+    - `bool`: True if the imaging settings are prepared successfully, False otherwise.
+    """
     imaging_device(microscope=img_settings.microscope, beam=img_settings.beam)
     imaging_scan(img_settings=img_settings)
     imaging_detector(img_settings=img_settings)
@@ -1507,6 +1553,7 @@ def image_operation(
     image_settings: tbt.ImageSettings,
     general_settings: tbt.GeneralSettings,
     slice_number: int,
+    suffix: Optional[int] = None,
 ) -> bool:
     """
     Performs an image operation based on the specified settings.
@@ -1533,7 +1580,10 @@ def image_operation(
     # collect_multiple_images()
 
     # single image process:
-    save_path = image_directory.joinpath(f"{slice_number:04}.tif")
+    if suffix is None:
+        save_path = image_directory.joinpath(f"{slice_number:04}.tif")
+    else:
+        save_path = image_directory.joinpath(f"{slice_number:04}_{suffix:02}.tif")
     collect_single_image(save_path=save_path, img_settings=image_settings)
     print(f"\tImage saved to {save_path}")
 
