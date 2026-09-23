@@ -1100,13 +1100,7 @@ class Configurator:
     def take_fib_alignment_images(self):
         # Take image at current position with the current image settings
         # Make sure the step is an imaging step
-        if self.STEP != "image":
-            messagebox.showinfo(
-                parent=self.toplevel,
-                title="Error",
-                message="Active step is not an imaging step.",
-            )
-            return
+        step_name = self.controller.get_current_step().name
 
         # Create the location for the template
         exp_dir = self.controller.pipeline.general.get_param("exp_dir")
@@ -1119,8 +1113,10 @@ class Configurator:
         exp_dir = Path(exp_dir)
 
         # Create the save paths
-        full_save_path = exp_dir.joinpath("template_full.tiff")
-        patch_save_path = exp_dir.joinpath("template_patch.tiff")
+        template_dir = exp_dir.joinpath("templates")
+        template_dir.mkdir(parents=True, exist_ok=True)
+        full_save_path = template_dir.joinpath(f"{step_name}_template_full.tiff")
+        patch_save_path = template_dir.joinpath(f"{step_name}_template_patch.tiff")
 
         # Try and grab the an image
         interface = self._create_microscope_connection()
