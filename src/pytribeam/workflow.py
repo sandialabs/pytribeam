@@ -304,10 +304,20 @@ def _perform_custom_operation(
     db = {"exp_dir": str(general_settings.exp_dir), "slice_number": slice_number}
     ut.dict_to_yml(db=db, file_path=slice_info_path)
 
+    # output = subprocess.run(
+    #     [step_settings.executable_path, step_settings.script_path],
+    #     capture_output=True,
+    # )
+
     output = subprocess.run(
-        [step_settings.executable_path, step_settings.script_path],
+        [
+            step_settings.executable_path,
+            step_settings.script_path,
+            str(slice_info_path),
+        ],
         capture_output=True,
     )
+
     stdout, stderr = output.stdout.decode("utf-8"), output.stderr.decode("utf-8")
     if stdout:
         print(f"\nCustom script output: {stdout}\n")
