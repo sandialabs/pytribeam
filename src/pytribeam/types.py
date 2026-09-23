@@ -1781,11 +1781,55 @@ class EBSDGridType(IntEnum):
     """
     Enum for EBSD grid types.
 
-    ## Attributes
+    Attributes
+    ----------
+    SQUARE : int
+        Square grid type.
+    HEXAGONAL : int
+        Hexagonal grid type.
+    """
 
-    - `image` (`ImageSettings`): The image settings.
-    - `enable_eds` (`bool`): Whether to enable EDS.
-    - `enable_ebsd` (`bool`): Whether to enable EBSD (default is True).
+    SQUARE = 1
+    HEXAGONAL = 0
+
+
+class EBSDScanBox(NamedTuple):
+    """
+    EBSD scan box settings.
+
+    Attributes
+    ----------
+    x_start_um : float
+        The x-coordinate of the start position in micrometers.
+    y_start_um : float
+        The y-coordinate of the start position in micrometers.
+    x_size_um : float
+        The width of the scan box in micrometers.
+    y_size_um : float
+        The height of the scan box in micrometers.
+    step_size_um : float
+        The step size for the scan in micrometers.
+    """
+
+    x_start_um: float
+    y_start_um: float
+    x_size_um: float
+    y_size_um: float
+    step_size_um: float
+
+
+class EBSDSettings(NamedTuple):
+    """
+    EBSD settings for the microscope.
+
+    Attributes
+    ----------
+    image : ImageSettings
+        The image settings.
+    enable_eds : bool
+        Whether to enable EDS.
+    enable_ebsd : bool
+        Whether to enable EBSD (default is True).
     """
 
     image: ImageSettings
