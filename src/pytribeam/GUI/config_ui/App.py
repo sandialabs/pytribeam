@@ -1,9 +1,11 @@
+import traceback
 from pathlib import Path
 from copy import deepcopy
 import tkinter as tk
 from tkinter import messagebox
 
 from skimage import io
+
 
 import pytribeam.utilities as ut
 import pytribeam.types as tbt
@@ -23,8 +25,13 @@ from pytribeam.GUI.config_ui.editor_controller import EditorController
 from pytribeam.GUI.config_ui.parameter_tracker import ParameterTracker
 
 
+import tkinter as tk
+import numpy as np
+from PIL import Image, ImageTk
+
+
 class RoiSelector:
-    def __init__(self, image_path: Path, master=None, title="ROI Selector"):
+    def __init__(self, image: np.ndarray, master=None, title="ROI Selector"):
         if master is None:
             master = tk._get_default_root()
 
@@ -43,10 +50,10 @@ class RoiSelector:
         self._start_y = None
         self._rect_id = None
 
-        image_path = Path(image_path)
+        self._image_array = np.asarray(image)
+        self._orig_h, self._orig_w = self._image_array.shape[:2]
 
-        self._image = Image.open(image_path)
-        self._orig_w, self._orig_h = self._image.size
+        pil_image = self._numpy_to_pil(self._image_array)
 
         screen_w = self.root.winfo_screenwidth()
         screen_h = self.root.winfo_screenheight()
@@ -64,12 +71,12 @@ class RoiSelector:
         self._disp_h = int(self._orig_h * self._scale)
 
         if self._scale != 1.0:
-            display_image = self._image.resize(
+            display_image = pil_image.resize(
                 (self._disp_w, self._disp_h),
                 Image.Resampling.LANCZOS,
             )
         else:
-            display_image = self._image
+            display_image = pil_image
 
         self._photo = ImageTk.PhotoImage(display_image)
 
@@ -135,6 +142,60 @@ class RoiSelector:
 
         self.root.grab_set()
         self.root.wait_window()
+
+    def _numpy_to_pil(self, image: np.ndarray) -> Image.Image:
+        """
+        Convert a NumPy image array to a PIL image suitable for display.
+
+        Supports:
+            - 2D grayscale
+            - 3D RGB/RGBA
+            - uint8, uint16, int, float
+        """
+        arr = np.asarray(image)
+
+        if arr.ndim not in (2, 3):
+            raise ValueError(
+                "Image array must be either 2D grayscale or 3D RGB/RGBA."
+            )
+
+        if arr.ndim == 3 and arr.shape[2] not in (3, 4):
+            raise ValueError(
+                "3D image array must have 3 channels RGB or 4 channels RGBA."
+            )
+
+        if arr.dtype == np.uint8:
+            display_arr = arr
+
+        elif np.issubdtype(arr.dtype, np.floating):
+            display_arr = np.nan_to_num(arr, nan=0.0, posinf=1.0, neginf=0.0)
+
+            min_val = display_arr.min()
+            max_val = display_arr.max()
+
+            if min_val >= 0.0 and max_val <= 1.0:
+                display_arr = display_arr * 255.0
+            elif max_val > min_val:
+                display_arr = 255.0 * (display_arr - min_val) / (max_val - min_val)
+            else:
+                display_arr = np.zeros_like(display_arr)
+
+            display_arr = np.clip(display_arr, 0, 255).astype(np.uint8)
+
+        else:
+            display_arr = arr.astype(np.float32)
+
+            min_val = display_arr.min()
+            max_val = display_arr.max()
+
+            if max_val > min_val:
+                display_arr = 255.0 * (display_arr - min_val) / (max_val - min_val)
+            else:
+                display_arr = np.zeros_like(display_arr)
+
+            display_arr = np.clip(display_arr, 0, 255).astype(np.uint8)
+
+        return Image.fromarray(display_arr)
 
     def _on_mouse_down(self, event):
         self._start_x, self._start_y = self._clamp_canvas_xy(event.x, event.y)
@@ -429,6 +490,7 @@ class Configurator:
             command=self.update_laser_from_scope,
             font=ctk.MENU_FONT,
         )
+        microscope_menu.add_separator()
         microscope_menu.add_command(
             label="Take FIB alignment images",
             command=self.take_fib_alignment_images,
@@ -852,11 +914,11 @@ class Configurator:
             if "mill" not in pkey:
                 self.controller.update_parameter(
                     f"{pkey}detector/type",
-                    imaging_settings.detector.type,
+                    imaging_settings.detector.type.value,
                 )
                 self.controller.update_parameter(
                     f"{pkey}detector/mode",
-                    imaging_settings.detector.mode,
+                    imaging_settings.detector.mode.value,
                 )
                 self.controller.update_parameter(
                     f"{pkey}detector/brightness",
@@ -1054,6 +1116,7 @@ class Configurator:
                 title="Error",
                 message=f"Please set the experiment directory before collecting alignment images.",
             )
+        exp_dir = Path(exp_dir)
 
         # Create the save paths
         full_save_path = exp_dir.joinpath("template_full.tiff")
@@ -1073,9 +1136,12 @@ class Configurator:
         finally:
             if interface:
                 interface.disconnect()
-        
+
+        # Read the image that was created
+        template_full = io.imread(full_save_path)
+
         # Open up a popup to have the user select the ROI for the patch
-        selector = RoiSelector(full_save_path, master=self.toplevel)
+        selector = RoiSelector(template_full, master=self.toplevel)
         if selector.roi is None:
             messagebox.showerror(
                 parent=self.toplevel,
@@ -1083,12 +1149,11 @@ class Configurator:
                 message=f"An ROI was not selected.",
             )
         else:
-            roi = selector.roi
-
+            x0, x1 = selector.roi[0]
+            y0, y1 = selector.roi[1]
 
         # Crop the full image and save it as the patch
-        template_full = io.imread(full_save_path)
-        template_patch = template_full[roi[1, 0]:roi[1, 1], roi[0, 0]:roi[0, 1]]
+        template_patch = template_full[y0:y1, x0:x1]
         io.imsave(patch_save_path, template_patch)
 
 

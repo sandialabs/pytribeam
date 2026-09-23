@@ -4,6 +4,7 @@ This module provides an abstraction layer for microscope communication,
 separating hardware interaction from UI code.
 """
 
+import traceback
 from pathlib import Path
 from typing import Optional, Dict, Tuple
 
@@ -13,6 +14,7 @@ import pytribeam.types as tbt
 import pytribeam.utilities as ut
 from pytribeam.GUI.common.errors import MicroscopeConnectionError
 from pytribeam.constants import Conversions
+import pytribeam.image as image
 
 
 class MicroscopeInterface:
@@ -212,6 +214,7 @@ class MicroscopeInterface:
             active_image_settings = self.get_imaging_settings()
             image.collect_single_image(save_path, active_image_settings)
         except Exception as e:
+            traceback.print_exc()
             raise MicroscopeConnectionError("Failed to collect an image") from e
 
     def get_laser_state(self) -> Dict:
