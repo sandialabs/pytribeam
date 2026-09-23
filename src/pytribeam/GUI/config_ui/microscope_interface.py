@@ -197,7 +197,7 @@ class MicroscopeInterface:
         except Exception as e:
             raise MicroscopeConnectionError("Failed to get imaging settings") from e
     
-    def collect_image(self, save_path: Path) -> np.ndarray:
+    def collect_image(self, save_path: Path) -> None:
         """Collect an image from the microscope using the current imaging settings.
 
         Returns:
