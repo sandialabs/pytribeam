@@ -1115,8 +1115,8 @@ class Configurator:
         # Create the save paths
         template_dir = exp_dir.joinpath("templates")
         template_dir.mkdir(parents=True, exist_ok=True)
-        full_save_path = template_dir.joinpath(f"{step_name}_template_full.tiff")
-        patch_save_path = template_dir.joinpath(f"{step_name}_template_patch.tiff")
+        full_save_path = template_dir.joinpath(f"{step_name}_template_full.tif")
+        patch_save_path = template_dir.joinpath(f"{step_name}_template_patch.tif")
 
         # Try and grab the an image
         interface = self._create_microscope_connection()

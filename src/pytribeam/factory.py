@@ -259,8 +259,8 @@ def active_detector_settings(
     custom_settings = None
 
     active_detector = tbt.Detector(
-        type=tbt.DetectorType(detector_type),
-        mode=tbt.DetectorMode(detector_mode),
+        type=detector_type,
+        mode=detector_mode,
         brightness=brightness,
         contrast=contrast,
         auto_cb_settings=auto_cb_settings,
@@ -355,16 +355,15 @@ def active_scan_settings(
 
     rotation_deg = beam.scanning.rotation.value * Conversions.RAD_TO_DEG
     dwell_time_us = beam.scanning.dwell_time.value * Conversions.S_TO_US
-    scan_res = beam.scanning.resolution.value
-
-    scan_res = string_to_res(scan_res)
-    if ut.valid_enum_entry(obj=scan_res, check_type=tbt.PresetResolution):
-        scan_res = tbt.PresetResolution(scan_res)
+    current_res = beam.scanning.resolution.value
+    res = string_to_res(current_res)
+    resolution = tbt.PresetResolution(res)
 
     active_scan = tbt.Scan(
         rotation_deg=rotation_deg,
         dwell_time_us=dwell_time_us,
-        resolution=scan_res,
+        resolution=resolution,
+        # mode=mode,
     )
 
     return active_scan
