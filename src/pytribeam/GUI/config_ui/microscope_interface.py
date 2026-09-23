@@ -4,6 +4,7 @@ This module provides an abstraction layer for microscope communication,
 separating hardware interaction from UI code.
 """
 
+from pathlib import Path
 from typing import Optional, Dict, Tuple
 
 import pytribeam.factory as factory
@@ -195,6 +196,23 @@ class MicroscopeInterface:
             return factory.active_image_settings(self._microscope)
         except Exception as e:
             raise MicroscopeConnectionError("Failed to get imaging settings") from e
+    
+    def collect_image(self, save_path: Path) -> np.ndarray:
+        """Collect an image from the microscope using the current imaging settings.
+
+        Returns:
+            Current image as a numpy array
+
+        Raises:
+            MicroscopeConnectionError: If not connected or operation fails
+        """
+        self.ensure_connected()
+
+        try:
+            active_image_settings = self.get_imaging_settings()
+            image.collect_single_image(save_path, active_image_settings)
+        except Exception as e:
+            raise MicroscopeConnectionError("Failed to collect an image") from e
 
     def get_laser_state(self) -> Dict:
         """Get current laser settings.

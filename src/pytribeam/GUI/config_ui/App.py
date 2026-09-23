@@ -3,6 +3,8 @@ from copy import deepcopy
 import tkinter as tk
 from tkinter import messagebox
 
+from skimage import io
+
 import pytribeam.utilities as ut
 import pytribeam.types as tbt
 import pytribeam.factory as factory
@@ -10,8 +12,6 @@ import pytribeam.laser as laser
 from pytribeam.constants import Conversions
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 import pytribeam.GUI.config_ui.lookup as lut
-
-# Import refactored modules
 from pytribeam.GUI.common import AppResources
 from pytribeam.GUI.config_ui.pipeline_model import flatten_dict, unflatten_dict
 from pytribeam.GUI.config_ui.microscope_interface import (
@@ -22,7 +22,210 @@ from pytribeam.GUI.config_ui.validator import ConfigValidator
 from pytribeam.GUI.config_ui.editor_controller import EditorController
 from pytribeam.GUI.config_ui.parameter_tracker import ParameterTracker
 
-# TODO: Test all functionality on an actual microscope
+
+class RoiSelector:
+    def __init__(self, image_path: Path, master=None, title="ROI Selector"):
+        if master is None:
+            master = tk._get_default_root()
+
+        bg = master.cget("bg")
+        fg = ctk.calc_font_color(bg)
+
+        self.root = tk.Toplevel(master)
+        self.root.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.root.title(title)
+        self.root.update_idletasks()
+        self.root.config(bg=bg)
+
+        self.roi = None
+
+        self._start_x = None
+        self._start_y = None
+        self._rect_id = None
+
+        image_path = Path(image_path)
+
+        self._image = Image.open(image_path)
+        self._orig_w, self._orig_h = self._image.size
+
+        screen_w = self.root.winfo_screenwidth()
+        screen_h = self.root.winfo_screenheight()
+
+        max_w = int(screen_w * 0.85)
+        max_h = int(screen_h * 0.75)
+
+        self._scale = min(
+            1.0,
+            max_w / self._orig_w,
+            max_h / self._orig_h,
+        )
+
+        self._disp_w = int(self._orig_w * self._scale)
+        self._disp_h = int(self._orig_h * self._scale)
+
+        if self._scale != 1.0:
+            display_image = self._image.resize(
+                (self._disp_w, self._disp_h),
+                Image.Resampling.LANCZOS,
+            )
+        else:
+            display_image = self._image
+
+        self._photo = ImageTk.PhotoImage(display_image)
+
+        instructions = tk.Label(
+            self.root,
+            text="Click and drag on the image to select a region of interest.",
+            bg=bg,
+            fg=fg,
+        )
+        instructions.pack(padx=8, pady=(8, 4))
+
+        self.canvas = tk.Canvas(
+            self.root,
+            width=self._disp_w,
+            height=self._disp_h,
+            bg="black",
+            highlightthickness=0,
+            cursor="crosshair",
+        )
+        self.canvas.pack(padx=8, pady=4)
+
+        self.canvas.create_image(0, 0, anchor="nw", image=self._photo)
+
+        self.canvas.bind("<ButtonPress-1>", self._on_mouse_down)
+        self.canvas.bind("<B1-Motion>", self._on_mouse_drag)
+        self.canvas.bind("<ButtonRelease-1>", self._on_mouse_up)
+
+        button_frame = tk.Frame(self.root, bg=bg)
+        button_frame.pack(fill="x", padx=8, pady=(4, 8))
+
+        self.status_label = tk.Label(
+            button_frame,
+            text="ROI: None",
+            bg=bg,
+            fg=fg,
+            anchor="w",
+        )
+        self.status_label.pack(side="left", fill="x", expand=True)
+
+        reset_button = tk.Button(
+            button_frame,
+            text="Reset",
+            command=self._reset_roi,
+        )
+        reset_button.pack(side="right", padx=(4, 0))
+
+        cancel_button = tk.Button(
+            button_frame,
+            text="Cancel",
+            command=self.destroy,
+        )
+        cancel_button.pack(side="right", padx=(4, 0))
+
+        finish_button = tk.Button(
+            button_frame,
+            text="Finish",
+            command=self._finish,
+        )
+        finish_button.pack(side="right", padx=(4, 0))
+
+        self.root.bind("<Escape>", lambda event: self.destroy())
+        self.root.bind("<Return>", lambda event: self._finish())
+
+        self.root.grab_set()
+        self.root.wait_window()
+
+    def _on_mouse_down(self, event):
+        self._start_x, self._start_y = self._clamp_canvas_xy(event.x, event.y)
+
+        if self._rect_id is not None:
+            self.canvas.delete(self._rect_id)
+
+        self._rect_id = self.canvas.create_rectangle(
+            self._start_x,
+            self._start_y,
+            self._start_x,
+            self._start_y,
+            outline="red",
+            width=2,
+        )
+
+    def _on_mouse_drag(self, event):
+        if self._rect_id is None:
+            return
+
+        x, y = self._clamp_canvas_xy(event.x, event.y)
+
+        self.canvas.coords(
+            self._rect_id,
+            self._start_x,
+            self._start_y,
+            x,
+            y,
+        )
+
+        self._update_roi_from_canvas_coords(self._start_x, self._start_y, x, y)
+
+    def _on_mouse_up(self, event):
+        if self._rect_id is None:
+            return
+
+        x, y = self._clamp_canvas_xy(event.x, event.y)
+
+        self.canvas.coords(
+            self._rect_id,
+            self._start_x,
+            self._start_y,
+            x,
+            y,
+        )
+
+        self._update_roi_from_canvas_coords(self._start_x, self._start_y, x, y)
+
+    def _clamp_canvas_xy(self, x, y):
+        x = max(0, min(x, self._disp_w))
+        y = max(0, min(y, self._disp_h))
+        return x, y
+
+    def _update_roi_from_canvas_coords(self, x0, y0, x1, y1):
+        x0, x1 = sorted((x0, x1))
+        y0, y1 = sorted((y0, y1))
+
+        img_x0 = int(round(x0 / self._scale))
+        img_x1 = int(round(x1 / self._scale))
+        img_y0 = int(round(y0 / self._scale))
+        img_y1 = int(round(y1 / self._scale))
+
+        img_x0 = max(0, min(img_x0, self._orig_w))
+        img_x1 = max(0, min(img_x1, self._orig_w))
+        img_y0 = max(0, min(img_y0, self._orig_h))
+        img_y1 = max(0, min(img_y1, self._orig_h))
+
+        if img_x1 <= img_x0 or img_y1 <= img_y0:
+            self.roi = None
+            self.status_label.config(text="ROI: None")
+            return
+
+        self.roi = [[img_x0, img_x1], [img_y0, img_y1]]
+        self.status_label.config(text=f"ROI: {self.roi}")
+
+    def _reset_roi(self):
+        self.roi = None
+        self.status_label.config(text="ROI: None")
+
+        if self._rect_id is not None:
+            self.canvas.delete(self._rect_id)
+            self._rect_id = None
+
+    def _finish(self):
+        self.root.quit()
+        self.root.destroy()
+
+    def destroy(self):
+        self.roi = None
+        self.root.quit()
+        self.root.destroy()
 
 
 class Popup:
@@ -224,6 +427,11 @@ class Configurator:
         microscope_menu.add_command(
             label="Import laser settings...",
             command=self.update_laser_from_scope,
+            font=ctk.MENU_FONT,
+        )
+        microscope_menu.add_command(
+            label="Take FIB alignment images",
+            command=self.take_fib_alignment_images,
             font=ctk.MENU_FONT,
         )
         self.menu.add_cascade(
@@ -826,6 +1034,63 @@ class Configurator:
 
         # Update the editor
         self._update_editor()
+
+    def take_fib_alignment_images(self):
+        # Take image at current position with the current image settings
+        # Make sure the step is an imaging step
+        if self.STEP != "image":
+            messagebox.showinfo(
+                parent=self.toplevel,
+                title="Error",
+                message="Active step is not an imaging step.",
+            )
+            return
+
+        # Create the location for the template
+        exp_dir = self.controller.pipeline.general.get_param("exp_dir")
+        if exp_dir is None:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Please set the experiment directory before collecting alignment images.",
+            )
+
+        # Create the save paths
+        full_save_path = exp_dir.joinpath("template_full.tiff")
+        patch_save_path = exp_dir.joinpath("template_patch.tiff")
+
+        # Try and grab the an image
+        interface = self._create_microscope_connection()
+        try:
+            interface.collect_image(full_save_path)
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Error getting laser state: {e}",
+            )
+            return
+        finally:
+            if interface:
+                interface.disconnect()
+        
+        # Open up a popup to have the user select the ROI for the patch
+        selector = RoiSelector(full_save_path, master=self.toplevel)
+        if selector.roi is None:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"An ROI was not selected.",
+            )
+        else:
+            roi = selector.roi
+
+
+        # Crop the full image and save it as the patch
+        template_full = io.imread(full_save_path)
+        template_patch = template_full[roi[1, 0]:roi[1, 1], roi[0, 0]:roi[0, 1]]
+        io.imsave(patch_save_path, template_patch)
+
 
     # -------- Configuration File Operations -------- #
 
