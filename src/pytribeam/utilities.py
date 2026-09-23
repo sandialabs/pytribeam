@@ -1031,3 +1031,13 @@ def application_files(microscope: tbt.Microscope) -> List[str]:
     apps.sort(key=str.casefold)
 
     return apps
+
+
+def has_nested_attr(obj, path: str) -> bool:
+    """Safely checks if a dot-separated path exists in an object"""
+    parts = path.split(".")
+    for part in parts:
+        if not hasattr(obj, part):
+            return False
+        obj = getattr(obj, part)
+    return True
