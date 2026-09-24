@@ -262,7 +262,7 @@ class MainApplication(tk.Tk):
             utilities.connect_microscope(
                 microscope=microscope,
                 connection_host=connection.host,
-                connection_port=connection.port
+                connection_port=connection.port,
             )
             status = laser._device_connections(microscope=microscope)
             utilities.disconnect_microscope(microscope=microscope)
