@@ -13,6 +13,7 @@ from typing import Callable, Optional, Dict, Any, Tuple, List
 
 import pytribeam.types as tbt
 from pytribeam import workflow, stage, insertable_devices, utilities
+from pytribeam import workflow_fib_ss
 from pytribeam.GUI.common import AppConfig, StoppableThread
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
 from pytribeam.email import send_update_email
@@ -341,7 +342,10 @@ class ExperimentController:
             True if step succeeded, False if error occurred
         """
         try:
-            workflow.perform_step(slice_number, step_index, experiment_settings)
+            if experiment_settings.general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS:
+                workflow_fib_ss.perform_fibss_step(slice_number, step_index, experiment_settings)
+            else:
+                workflow.perform_step(slice_number, step_index, experiment_settings)
             return True
         except KeyboardInterrupt:
             self._try_stop_stage(experiment_settings.microscope)
