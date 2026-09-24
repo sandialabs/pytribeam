@@ -135,6 +135,7 @@ import pytribeam.constants as cs
 import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
+from pytribeam.auto_functions import AutoFocusSettings, run_autofocus
 
 # from pytribeam.workflow_fib_ss import ShiftDistanceM
 
@@ -1584,6 +1585,70 @@ def image_operation(
         save_path = image_directory.joinpath(f"{slice_number:04}.tif")
     else:
         save_path = image_directory.joinpath(f"{slice_number:04}_{suffix:02}.tif")
+
+    # autofocus for FIBSS only #TODO fix this
+    if (
+        image_settings.beam.settings.run_autofocus
+        and general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS
+    ):
+        beam = image_settings.beam
+        microscope = image_settings.microscope
+        set_view(microscope=microscope, quad=beam.default_view)
+        prepare_imaging(img_settings=image_settings)
+
+        ## run autofocus
+
+        # get a starting guess
+        starting_wd_mm = image_settings.beam.settings.working_dist_mm
+        # WD should increase here
+        expected_wd_mm = (
+            starting_wd_mm
+            + slice_number
+            * general_settings.slice_thickness_um
+            * cs.Conversions.UM_TO_MM
+        )
+        defocus_range_mm = 0.2
+        # creating the AutoFocusSettings object
+        af_bounds = (
+            (expected_wd_mm - defocus_range_mm) * cs.Conversions.MM_TO_M,
+            (expected_wd_mm + defocus_range_mm) * cs.Conversions.MM_TO_M,
+        )  # meters
+        if image_settings.beam.type == tbt.BeamType.ELECTRON:
+            af_beam = "electron"
+        elif image_settings.beam.type == tbt.BeamType.ION:
+            af_beam = "ion"
+        af_res = 768  # pixel width
+        af_hfw_large = 50.0e-6  # meters
+        af_dwell = 3e-6  # seconds
+        af_tolerance = 1e-6  # convergence tolerance (m)
+        af_testing = False
+        af_gaussian_fit = False
+
+        #
+        af_settings = AutoFocusSettings(
+            bounds=af_bounds,
+            beam=af_beam,
+            res=af_res,
+            hfw_large=af_hfw_large,
+            dwell=af_dwell,
+            tolerance=af_tolerance,
+            testing=af_testing,
+            gaussian_fit=af_gaussian_fit,
+        )
+
+        autofocus_wd_m = run_autofocus(
+            settings=af_settings,
+            microscope=microscope,
+            guess_wd_m=expected_wd_mm * cs.Conversions.MM_TO_M,
+        )
+
+        ## update working distance in image settings
+        updated_settings = image_settings.beam.settings._replace(
+            working_dist_mm=autofocus_wd_m * cs.Conversions.M_TO_MM
+        )
+        updated_beam = image_settings.beam._replace(settings=updated_settings)
+        image_settings = image_settings._replace(beam=updated_beam)
+
     collect_single_image(save_path=save_path, img_settings=image_settings)
     print(f"\tImage saved to {save_path}")
 
