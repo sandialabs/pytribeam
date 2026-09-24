@@ -583,51 +583,12 @@ def WaitCursor(root):
         root.config(cursor="")
 
 
-def step_call_wrapper(out_dict, slice_number, step_index, experiment_settings):
-    """
-    A wrapper function to call the step function in a thread while also being able to catch a KeyboardInterrupt.
-    If the exception is raised, the thread is stopped and the experiment is halted.
-    """
-    try:
-        workflow.perform_step(slice_number, step_index, experiment_settings)
-    except KeyboardInterrupt:
-        try:
-            stage.stop(experiment_settings.microscope)
-            print("-----> Stage stop unsuccessful")
-        except SystemError:
-            print("-----> Stage stop successful")
-        out_dict["error"] = True
-        return False
-    except Exception as e:
-        print(
-            f"Unexpected error in step {step_index} of slice {slice_number}: {e.__class__} {e}"
-        )
-        app_config = AppConfig.from_env()
-        app_config.ensure_directories()
-        err_path = app_config.get_error_log_path()
-        with open(err_path, "w") as f:
-            f.write(f"Exception: {type(e).__name__} - {e}\n")
-            traceback.print_exc(file=f)
-        try:
-            stage.stop(experiment_settings.microscope)
-            print("-----> Stage stop unsuccessful")
-        except SystemError:
-            print("-----> Stage stop successful")
-        out_dict["error"] = True
-        return False
-    out_dict["error"] = False
-    return True
-
-
 def wrapper_for_output(func, out_dict, *args, **kwargs):
     try:
         out_dict["result"] = func(*args, **kwargs)
     except Exception as e:
         out_dict["error"] = e
     return out_dict
-
-
-# Note: ThreadWithExc, TextRedirector, and generate_escape_keypress are now imported from common.threading_utils
 
 
 if __name__ == "__main__":
