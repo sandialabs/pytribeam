@@ -1,7 +1,8 @@
 from pathlib import Path
 from copy import deepcopy
+import threading
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 
 import pytribeam.utilities as ut
 import pytribeam.types as tbt
@@ -13,6 +14,7 @@ import pytribeam.GUI.config_ui.lookup as lut
 
 # Import refactored modules
 from pytribeam.GUI.common import AppResources
+from pytribeam.GUI.common.errors import MicroscopeConnectionError
 from pytribeam.GUI.config_ui.pipeline_model import flatten_dict, unflatten_dict
 from pytribeam.GUI.config_ui.microscope_interface import (
     MicroscopeInterface,
@@ -74,6 +76,54 @@ class Popup:
     def destroy(self):
         self.root.quit()
         self.root.destroy()
+
+
+class BusyDialog:
+    """Modal window with an animated progress bar and busy cursor, shown while a background task runs.
+    It cannot be closed by the user, since a microscope call cannot be safely cancelled."""
+
+    def __init__(self, master, message, theme):
+        self.master = master
+        self.root = tk.Toplevel(master, bg=theme.bg, cursor="watch")
+        self.root.title("Please wait")
+        self.root.resizable(False, False)
+        self.root.transient(master)
+        self.root.protocol("WM_DELETE_WINDOW", lambda: None)
+
+        label = tk.Label(
+            self.root,
+            text=message,
+            bg=theme.bg,
+            fg=theme.fg,
+            font=ctk.FONT,
+            padx=20,
+            pady=10,
+        )
+        label.pack()
+        self.bar = ttk.Progressbar(self.root, mode="indeterminate", length=250)
+        self.bar.pack(padx=20, pady=(0, 15))
+        self.bar.start(15)
+
+        # Center over the master window
+        self.root.update_idletasks()
+        x = master.winfo_rootx() + (master.winfo_width() - self.root.winfo_width()) // 2
+        y = master.winfo_rooty() + (master.winfo_height() - self.root.winfo_height()) // 2
+        self.root.geometry(f"+{x}+{y}")
+
+        self.master.config(cursor="watch")
+        try:
+            self.root.grab_set()
+        except tk.TclError:
+            pass  # Window not viewable yet on some platforms, the dialog still shows
+
+    def destroy(self):
+        try:
+            self.bar.stop()
+            self.master.config(cursor="")
+            self.root.grab_release()
+            self.root.destroy()
+        except tk.TclError:
+            pass  # Already destroyed with the master
 
 
 class Configurator:
@@ -140,6 +190,8 @@ class Configurator:
         self.detector_options = None
         # Detector type/mode menus in the editor, keyed by parameter path
         self._detector_menus = {}
+        # True while a background microscope task is running
+        self._microscope_busy = False
 
         # Start the app
         if self.YAML_PATH is not None:
@@ -496,13 +548,13 @@ class Configurator:
 
     # -------- Microscope Connection -------- #
 
-    def _create_microscope_connection(self):
-        """Create microscope interface with connection settings from config."""
-        # Get general settings for connection
-        general_db = self.controller.pipeline.general.parameters
-        host = general_db.get("connection_host", "localhost")
-        port = general_db.get("connection_port", "")
-        port = int(port) if port != "" else None
+    def _connect_microscope(self, host, port):
+        """Connect to the microscope, trying the configured host/port and then the defaults.
+        Does not touch the GUI, so it is safe to call from a background thread.
+
+        Raises:
+            MicroscopeConnectionError: If every connection attempt fails
+        """
         interface = MicroscopeInterface(host=host, port=port)
 
         # Try to connect using both the default and custom host/port
@@ -518,41 +570,81 @@ class Configurator:
                 try:
                     interface.connect()
                     return interface
-                except ConnectionError:
+                except MicroscopeConnectionError:
                     continue
 
         # If we reach here, all connection attempts failed
-        messagebox.showerror(
-            parent=self.toplevel,
-            title="ConnectionError",
-            message=f"Failed to connect to microscope. Tried {','.join(tries)}.",
+        raise MicroscopeConnectionError(
+            f"Failed to connect to microscope. Tried {', '.join(tries)}."
         )
-        return None
+
+    def _run_with_microscope(self, message, task, on_success):
+        """Run task(interface) with a microscope connection on a background thread.
+
+        Microscope calls can be slow, so connecting, the task, and disconnecting happen
+        off the main thread while a busy dialog keeps the GUI responsive.
+        The task must not touch the GUI. on_success(result) runs on the main thread
+        once the task finishes, and any error is shown in a message box instead."""
+        if self._microscope_busy:
+            return
+        self._microscope_busy = True
+
+        # Get general settings for connection
+        general_db = self.controller.pipeline.general.parameters
+        host = general_db.get("connection_host", "localhost")
+        port = general_db.get("connection_port", "")
+        port = int(port) if port != "" else None
+        outcome = {}
+
+        def work():
+            try:
+                interface = self._connect_microscope(host, port)
+                try:
+                    outcome["result"] = task(interface)
+                finally:
+                    interface.disconnect()
+            except Exception as e:
+                outcome["error"] = e
+
+        busy = BusyDialog(self.toplevel, message, self.theme)
+        thread = threading.Thread(target=work, daemon=True)
+        thread.start()
+        self._finish_when_done(thread, busy, outcome, on_success)
+
+    def _finish_when_done(self, thread, busy, outcome, on_success):
+        """Poll the background thread, then close the busy dialog and handle the outcome."""
+        if not self.toplevel.winfo_exists():
+            return  # Configurator was closed, drop the result
+        if thread.is_alive():
+            self.toplevel.after(
+                100, self._finish_when_done, thread, busy, outcome, on_success
+            )
+            return
+
+        busy.destroy()
+        self._microscope_busy = False
+        if "error" in outcome:
+            error = outcome["error"]
+            cause = f": {error.__cause__}" if error.__cause__ else ""
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Microscope error",
+                message=f"{error}{cause}",
+            )
+        else:
+            on_success(outcome["result"])
 
     def show_stage_position(self):
         """Display current stage position and working distances."""
-        interface = self._create_microscope_connection()
-        if interface is None:
-            return
-
-        try:
-            stage_info = interface.get_stage_info()
-            message = format_stage_info(stage_info)
-        except Exception as e:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Error",
-                message=f"Failed to get stage position: {e}",
-            )
-            return
-        finally:
-            interface.disconnect()
-
         # Present it as a popup
-        Popup(
-            master=self.toplevel,
-            title="Current stage position",
-            message=message,
+        self._run_with_microscope(
+            "Reading stage position...",
+            lambda interface: format_stage_info(interface.get_stage_info()),
+            lambda message: Popup(
+                master=self.toplevel,
+                title="Current stage position",
+                message=message,
+            ),
         )
 
     def update_step_imaging_from_scope(self):
@@ -565,22 +657,14 @@ class Configurator:
             )
             return
 
-        interface = self._create_microscope_connection()
-        if interface is None:
-            return
+        self._run_with_microscope(
+            "Importing imaging conditions...",
+            lambda interface: interface.get_imaging_settings(),
+            self._apply_imaging_settings,
+        )
 
-        try:
-            # Get the settings
-            imaging_settings = interface.get_imaging_settings()
-        except Exception as e:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Error",
-                message=f"Failed to get imaging settings: {e}",
-            )
-            return
-        finally:
-            interface.disconnect()
+    def _apply_imaging_settings(self, imaging_settings):
+        """Put imaging settings read from the microscope into the current step."""
         # First set the beam type (special case)
         beam_type = imaging_settings.beam.__getattribute__("type").value
         # For FIB / EBSD / EDS steps, the beam must be ion / electron / electron, otherwise raise an error
@@ -700,21 +784,14 @@ class Configurator:
             )
             return
 
-        interface = self._create_microscope_connection()
-        if interface is None:
-            return
+        self._run_with_microscope(
+            "Importing stage position...",
+            lambda interface: interface.get_stage_position(),
+            self._apply_stage_position,
+        )
 
-        try:
-            current_position = interface.get_stage_position()
-        except Exception as e:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Error",
-                message=f"Failed to get stage position: {e}",
-            )
-            return
-        finally:
-            interface.disconnect()
+    def _apply_stage_position(self, current_position):
+        """Put a stage position read from the microscope into the current step."""
         # Put the current position in the step
         self.controller.update_parameter(
             "step_general/stage/initial_position/x_mm",
@@ -751,20 +828,14 @@ class Configurator:
             return
 
         # Try and grab the laser settings, stopping if errors show up.
-        interface = self._create_microscope_connection()
-        try:
-            laser_state = interface.get_laser_state()
-        except Exception as e:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Error",
-                message=f"Error getting laser state: {e}",
-            )
-            return
-        finally:
-            if interface:
-                interface.disconnect()
+        self._run_with_microscope(
+            "Importing laser settings...",
+            lambda interface: interface.get_laser_state(),
+            self._apply_laser_state,
+        )
 
+    def _apply_laser_state(self, laser_state):
+        """Put laser settings read from the microscope into the current step."""
         # Make any NoneType values into empty strings
         for key in laser_state.keys():
             if laser_state[key] is None:
@@ -839,22 +910,14 @@ class Configurator:
 
     def sync_detectors_from_scope(self):
         """Limit the detector type and mode options to those available on the microscope."""
-        interface = self._create_microscope_connection()
-        if interface is None:
-            return
+        self._run_with_microscope(
+            "Syncing available detectors...",
+            lambda interface: interface.get_detector_options(),
+            self._apply_detector_options,
+        )
 
-        try:
-            detector_options = interface.get_detector_options()
-        except Exception as e:
-            messagebox.showerror(
-                parent=self.toplevel,
-                title="Error",
-                message=f"Failed to get available detectors: {e}",
-            )
-            return
-        finally:
-            interface.disconnect()
-
+    def _apply_detector_options(self, detector_options):
+        """Store the detectors read from the microscope and refresh the editor menus."""
         self.detector_options = detector_options
         summary = "\n".join(
             f"{beam} beam: {', '.join(detectors) or 'none'}"
@@ -1382,26 +1445,25 @@ class Configurator:
             self.validate_general()
             return
 
-        # Get microscope connection
-        microscope = self._create_microscope_connection()
-        if microscope is None:
-            return False
+        # Validation runs on a background thread, so the controller must not
+        # notify the GUI from there. The status is updated once it finishes.
+        self._run_with_microscope(
+            "Validating step...",
+            lambda interface: self.controller.validate_step(
+                step_index, interface.microscope, notify=False
+            ),
+            lambda result: self._show_step_validation(step_index, *result),
+        )
 
-        try:
-            # Validate step
-            success, message = self.controller.validate_step(
-                step_index, microscope._microscope
-            )
-
-            pre = "" if success else "un"
-            messagebox.showinfo(
-                parent=self.toplevel,
-                title=f"Schema check completed {pre}successfully",
-                message=message,
-            )
-            return success
-        finally:
-            microscope.disconnect()
+    def _show_step_validation(self, index, success, message):
+        """Update the status label and report the result of a step validation."""
+        self._on_step_validation_complete(index, success, message)
+        pre = "" if success else "un"
+        messagebox.showinfo(
+            parent=self.toplevel,
+            title=f"Schema check completed {pre}successfully",
+            message=message,
+        )
 
     def validate_general(self):
         """Validate the general step to make sure it is correct."""
