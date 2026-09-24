@@ -105,12 +105,6 @@ class FIBSSControlSettings(NamedTuple):
         Maximum number of acquire-match-correct iterations.
     max_pixel_shift
         Residual pixel magnitude considered converged.
-    update_sem_wd_from_slice_thickness
-        Reserved for later SEM integration. In ASV-like operation, SEM WD/focus
-        can track expected cut-face recession while FIB WD remains fixed.
-    restore_working_position_each_slice
-        Reserved for later stage-state management. Usually false; the stage
-        should normally start each slice where the previous slice left it.
     reference_image_path
         Optional experiment-level reference image path. If absent, defaults to
         ``exp_dir/templates/fib_image.tif``.
@@ -125,8 +119,6 @@ class FIBSSControlSettings(NamedTuple):
     template_match_threshold: float = 0.85
     max_alignment_iterations: int = 3
     max_pixel_shift: float = 2.0
-    update_sem_wd_from_slice_thickness: bool = True
-    restore_working_position_each_slice: bool = False
     reference_image_path: Optional[Path] = None
     reference_patch_path: Optional[Path] = None
     save_debug_images: bool = True
@@ -1014,7 +1006,6 @@ def perform_fibss_step(
     slice_number: int,
     step_number: int,
     experiment_settings: tbt.ExperimentSettings,
-    control: FIBSSControlSettings,
 ) -> None:
     """Perform one workflow step with optional alignment first."""
 
@@ -1027,6 +1018,17 @@ def perform_fibss_step(
 
     # get operation (step) settings, execute operation.
     step = step_sequence[step_number - 1]  # l;ist is 0-indexed
+    control_settings = step.alignment_settings
+
+    control = FIBSSControlSettings(
+        stage_move_threshold_um=control_settings.stage_move_threshold_um,
+        template_match_threshold=control_settings.match_threshold,
+        max_alignment_iterations=control_settings.max_iterations,
+        max_pixel_shift=control_settings.max_pixel_shift,
+        reference_image_path=control_settings.reference_image_path,
+        reference_patch_path=control_settings.reference_patch_path,
+        save_debug_images=control_settings.save_debug_images,
+    )
 
     print(
         f"Slice {slice_number}, Step {step_number} of {general_settings.step_count}, '{step.name}', a {step.type.value} type step."
@@ -1139,11 +1141,6 @@ def run_fib_ss_experiment_cli(
     general_settings = experiment_settings.general_settings
     microscope = experiment_settings.microscope
 
-    control = FIBSSControlSettings(
-        stage_move_threshold_um=50.0,
-        template_match_threshold=0.8,
-    )
-
     num_steps = len(experiment_settings.step_sequence)
     if start_step < 1 or start_step > num_steps:
         raise ValueError(
@@ -1178,7 +1175,6 @@ def run_fib_ss_experiment_cli(
                 slice_number=slice_number,
                 step_number=step_number,
                 experiment_settings=experiment_settings,
-                control=control,
             )
 
     ut.disconnect_microscope(microscope=microscope, quiet_output=True)

@@ -17,6 +17,7 @@ from pytribeam import __version__
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam.GUI.config_ui.App import Configurator
 from pytribeam import workflow, stage, utilities, log, laser, insertable_devices
+from pytribeam import workflow_fib_ss
 import pytribeam.types as tbt
 
 # Import refactored common utilities
@@ -583,13 +584,16 @@ def WaitCursor(root):
         root.config(cursor="")
 
 
-def step_call_wrapper(out_dict, slice_number, step_index, experiment_settings):
+def step_call_wrapper(out_dict: dict, slice_number: int, step_index: int, experiment_settings: tbt.ExperimentSettings):
     """
     A wrapper function to call the step function in a thread while also being able to catch a KeyboardInterrupt.
     If the exception is raised, the thread is stopped and the experiment is halted.
     """
     try:
-        workflow.perform_step(slice_number, step_index, experiment_settings)
+        if experiment_settings.general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS:
+            workflow_fib_ss.perform_fibss_step(slice_number, step_index, experiment_settings)
+        else:
+            workflow.perform_step(slice_number, step_index, experiment_settings)
     except KeyboardInterrupt:
         try:
             stage.stop(experiment_settings.microscope)
