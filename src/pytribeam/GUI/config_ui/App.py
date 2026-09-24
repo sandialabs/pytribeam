@@ -644,11 +644,11 @@ class Configurator:
             if "mill" not in pkey:
                 self.controller.update_parameter(
                     f"{pkey}detector/type",
-                    imaging_settings.detector.type,
+                    imaging_settings.detector.type.value,
                 )
                 self.controller.update_parameter(
                     f"{pkey}detector/mode",
-                    imaging_settings.detector.mode,
+                    imaging_settings.detector.mode.value,
                 )
                 self.controller.update_parameter(
                     f"{pkey}detector/brightness",

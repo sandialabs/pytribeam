@@ -147,6 +147,7 @@ __all__ = [
 # from functools import singledispatch
 import time
 import warnings
+from typing import List
 
 # 3rd party module
 
@@ -155,11 +156,12 @@ import pytribeam.constants as cs
 from pytribeam.constants import Constants
 import pytribeam.image as img
 
-try:
-    from pytribeam.laser import tfs_laser as external
-except:
-    pass
 import pytribeam.types as tbt
+from pytribeam.laser import tfs_laser as external
+# try:
+#     from pytribeam.laser import tfs_laser as external
+# except:
+#     pass
 
 
 def detector_insertable(
@@ -523,10 +525,11 @@ def retract_all_devices(
             )
 
     # EBSD/EDS detectors:
-    try:
-        external
-    except NameError:
-        pass
+    if external is None:
+        # try:
+        #     external
+        # except NameError:
+        #     pass
         print("\t\tLaser API not imported, EBSD and EDS detectors are unavailable")
     else:
         if enable_EBSD:

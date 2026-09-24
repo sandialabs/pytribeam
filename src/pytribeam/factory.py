@@ -355,15 +355,15 @@ def active_scan_settings(
 
     rotation_deg = beam.scanning.rotation.value * Conversions.RAD_TO_DEG
     dwell_time_us = beam.scanning.dwell_time.value * Conversions.S_TO_US
-    current_res = beam.scanning.resolution.value
-    res = string_to_res(current_res)
-    resolution = tbt.PresetResolution(res)
+    scan_res = beam.scanning.resolution.value
+    scan_res = string_to_res(scan_res)
+    if ut.valid_enum_entry(obj=scan_res, check_type=tbt.PresetResolution):
+        scan_res = tbt.PresetResolution(scan_res)
 
     active_scan = tbt.Scan(
         rotation_deg=rotation_deg,
         dwell_time_us=dwell_time_us,
-        resolution=resolution,
-        # mode=mode,
+        resolution=scan_res,
     )
 
     return active_scan
