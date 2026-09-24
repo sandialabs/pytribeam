@@ -17,6 +17,7 @@ from pytribeam import workflow_fib_ss
 from pytribeam.GUI.common import AppConfig, StoppableThread
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
 from pytribeam.email import send_update_email
+from pytribeam.log import experiment_settings as log_experiment_settings
 
 
 @dataclass
@@ -205,6 +206,13 @@ class ExperimentController:
         # Check EBSD/EDS detector status and warn user if needed
         self._check_detector_warning(experiment_settings)
 
+        log_experiment_settings(
+            slice_number=starting_slice,
+            step_number=starting_step_idx + 1,  # steps are 0-indexed internally
+            log_filepath=experiment_settings.general_settings.log_filepath,
+            yml_path=self.config_path,
+        )
+
         # Notify experiment start
         self._notify(
             "experiment_started", experiment_settings, starting_slice, starting_step_idx
@@ -342,8 +350,13 @@ class ExperimentController:
             True if step succeeded, False if error occurred
         """
         try:
-            if experiment_settings.general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS:
-                workflow_fib_ss.perform_fibss_step(slice_number, step_index, experiment_settings)
+            if (
+                experiment_settings.general_settings.sectioning_axis
+                == tbt.SectioningAxis.FIB_SS
+            ):
+                workflow_fib_ss.perform_fibss_step(
+                    slice_number, step_index, experiment_settings
+                )
             else:
                 workflow.perform_step(slice_number, step_index, experiment_settings)
             return True
@@ -406,7 +419,9 @@ class ExperimentController:
         self._notify("state_changed", self.state)
         if self._send_emails:
             end_of_slice = step_num == total_steps
-            update_frequency = self.experiment_settings.general_settings.email_update_settings.update_frequency
+            update_frequency = (
+                self.experiment_settings.general_settings.email_update_settings.update_frequency
+            )
             if end_of_slice and (slice_num % update_frequency == 0):
                 message = (
                     f"Experiment update:\n"
@@ -537,14 +552,24 @@ class ExperimentController:
             ssh_user = (
                 self.experiment_settings.general_settings.email_update_settings.ssh_user
             )
-            ssh_key_path = self.experiment_settings.general_settings.email_update_settings.ssh_key_path
+            ssh_key_path = (
+                self.experiment_settings.general_settings.email_update_settings.ssh_key_path
+            )
             sender_email = (
                 self.experiment_settings.general_settings.email_update_settings.sender
             )
-            sender_password = self.experiment_settings.general_settings.email_update_settings.sender_password
-            recipients = self.experiment_settings.general_settings.email_update_settings.recipients
-            smtp_server = self.experiment_settings.general_settings.email_update_settings.smtp_server
-            smtp_port = self.experiment_settings.general_settings.email_update_settings.smtp_port
+            sender_password = (
+                self.experiment_settings.general_settings.email_update_settings.sender_password
+            )
+            recipients = (
+                self.experiment_settings.general_settings.email_update_settings.recipients
+            )
+            smtp_server = (
+                self.experiment_settings.general_settings.email_update_settings.smtp_server
+            )
+            smtp_port = (
+                self.experiment_settings.general_settings.email_update_settings.smtp_port
+            )
 
             success, response = send_update_email(
                 ssh_host=ssh_host,

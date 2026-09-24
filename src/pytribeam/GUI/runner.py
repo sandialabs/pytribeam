@@ -55,8 +55,8 @@ class MainApplication(tk.Tk):
             self.iconbitmap(self.resources.icon_path)
 
         # Set the window size
-        self.frame_w = int(1200)
-        self.frame_h = int(620)
+        self.frame_w = int(1250)
+        self.frame_h = int(700)
         self.geometry(f"{self.frame_w}x{self.frame_h}")
         self.resizable(False, False)
 
@@ -584,14 +584,24 @@ def WaitCursor(root):
         root.config(cursor="")
 
 
-def step_call_wrapper(out_dict: dict, slice_number: int, step_index: int, experiment_settings: tbt.ExperimentSettings):
+def step_call_wrapper(
+    out_dict: dict,
+    slice_number: int,
+    step_index: int,
+    experiment_settings: tbt.ExperimentSettings,
+):
     """
     A wrapper function to call the step function in a thread while also being able to catch a KeyboardInterrupt.
     If the exception is raised, the thread is stopped and the experiment is halted.
     """
     try:
-        if experiment_settings.general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS:
-            workflow_fib_ss.perform_fibss_step(slice_number, step_index, experiment_settings)
+        if (
+            experiment_settings.general_settings.sectioning_axis
+            == tbt.SectioningAxis.FIB_SS
+        ):
+            workflow_fib_ss.perform_fibss_step(
+                slice_number, step_index, experiment_settings
+            )
         else:
             workflow.perform_step(slice_number, step_index, experiment_settings)
     except KeyboardInterrupt:
