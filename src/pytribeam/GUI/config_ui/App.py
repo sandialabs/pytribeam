@@ -1370,7 +1370,8 @@ class Configurator:
 
     def _refresh_detector_menus(self, prefix, reset_invalid):
         """Update the detector type and mode menus under the prefix from the synced detectors.
-        If reset_invalid is True, selections that are no longer available are cleared."""
+        If reset_invalid is True, a detector type that is no longer available is cleared,
+        and an unavailable or empty mode defaults to the first mode of the detector."""
         if self.detector_options is None:
             return
         beam_detectors = self._beam_detector_options(
@@ -1382,7 +1383,9 @@ class Configurator:
         mode_menu = self._detector_menus.get(f"{prefix}detector/mode")
         if mode_menu is not None:
             modes = beam_detectors.get(self._editor_value(f"{prefix}detector/type"), [])
-            self._set_menu_options(mode_menu, modes, reset_invalid)
+            self._set_menu_options(
+                mode_menu, modes, reset_invalid, default_first=True
+            )
 
     def _beam_detector_options(self, beam_type):
         """Return {detector_type: [modes]} for the beam type.
@@ -1405,11 +1408,18 @@ class Configurator:
         return self.controller.get_parameter(path, "")
 
     @staticmethod
-    def _set_menu_options(menu, options, reset_invalid):
-        """Set the options of a menu (plus the empty option), optionally clearing an unavailable selection."""
-        options = options + [""]
-        menu.set_options(options)
-        if reset_invalid and menu.var.get() not in options:
+    def _set_menu_options(menu, options, reset_invalid, default_first=False):
+        """Set the options of a menu (plus the empty option).
+        If reset_invalid is True, an unavailable selection is cleared, or with default_first,
+        an unavailable or empty selection is replaced by the first option."""
+        choices = options + [""]
+        menu.set_options(choices)
+        if not reset_invalid:
+            return
+        current = menu.var.get()
+        if default_first and current not in options:
+            menu.var.set(options[0] if options else "")
+        elif current not in choices:
             menu.var.set("")
 
     # -------- Validation Operations -------- #
