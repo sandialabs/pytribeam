@@ -59,7 +59,7 @@
             <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">138<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">107<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">0<span class="text"> excluded</span></button>
-            <button type="button" class="par run show_par button_toggle_par" value="par" data-shortcut="p" title="Toggle lines partially run">29<span class="text"> partial</span></button>
+            <button type="button" class="par run show_par button_toggle_par" value="par" data-shortcut="p" title="Toggle lines partially run">31<span class="text"> partial</span></button>
         </h2>
         <p class="text">
             <a id="prevFileLink" class="nav" href="z_3dbda4a2c8320a3e_image_py.html">&#xab; prev</a> &nbsp; &nbsp;
@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_3dbda4a2c8320a3e_laser_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2026-09-24 17:54 +0000
+            created at 2026-09-24 18:06 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -286,9 +286,9 @@
     <p class="run"><span class="n"><a id="t202" href="#t202">202</a></span><span class="t">    <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t203" href="#t203">203</a></span><span class="t">        <span class="nam">state</span> <span class="op">=</span> <span class="nam">microscope</span><span class="op">.</span><span class="nam">detector</span><span class="op">.</span><span class="nam">state</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t204" href="#t204">204</a></span><span class="t">        <span class="key">if</span> <span class="nam">state</span> <span class="op">==</span> <span class="nam">tbt</span><span class="op">.</span><span class="nam">RetractableDeviceState</span><span class="op">.</span><span class="nam">STATIONARY</span><span class="op">.</span><span class="nam">value</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t205" href="#t205">205</a></span><span class="t">            <span class="key">return</span> <span class="key">False</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t205" href="#t205">205</a></span><span class="t">            <span class="key">return</span> <span class="key">False</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t206" href="#t206">206</a></span><span class="t">        <span class="key">return</span> <span class="key">True</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t207" href="#t207">207</a></span><span class="t">    <span class="key">except</span> <span class="nam">Exception</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t207" href="#t207">207</a></span><span class="t">    <span class="key">except</span> <span class="nam">Exception</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t208" href="#t208">208</a></span><span class="t">        <span class="key">return</span> <span class="key">False</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t209" href="#t209">209</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t210" href="#t210">210</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
@@ -609,7 +609,7 @@
     <p class="pln"><span class="n"><a id="t525" href="#t525">525</a></span><span class="t">            <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t526" href="#t526">526</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t527" href="#t527">527</a></span><span class="t">    <span class="com"># EBSD/EDS detectors:</span>&nbsp;</span><span class="r"></span></p>
-    <p class="mis show_mis"><span class="n"><a id="t528" href="#t528">528</a></span><span class="t">    <span class="key">if</span> <span class="nam">external</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="par run show_par"><span class="n"><a id="t528" href="#t528">528</a></span><span class="t">    <span class="key">if</span> <span class="nam">external</span> <span class="key">is</span> <span class="key">None</span><span class="op">:</span>&nbsp;</span><span class="r"><span class="annotate short">528&#x202F;&#x219B;&#x202F;533,&nbsp;&nbsp; 528&#x202F;&#x219B;&#x202F;535</span><span class="annotate long">2 missed branches: 1) line 528 didn't jump to line 533 because the condition on line 528 was never true, 2) line 528 didn't jump to line 535 because the condition on line 528 was always true</span></span></p>
     <p class="pln"><span class="n"><a id="t529" href="#t529">529</a></span><span class="t">        <span class="com"># try:</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t530" href="#t530">530</a></span><span class="t">        <span class="com">#     external</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t531" href="#t531">531</a></span><span class="t">        <span class="com"># except NameError:</span>&nbsp;</span><span class="r"></span></p>
@@ -848,7 +848,7 @@
     <p class="run"><span class="n"><a id="t764" href="#t764">764</a></span><span class="t">    <span class="nam">img</span><span class="op">.</span><span class="nam">set_view</span><span class="op">(</span><span class="nam">microscope</span><span class="op">=</span><span class="nam">microscope</span><span class="op">,</span> <span class="nam">quad</span><span class="op">=</span><span class="nam">quad</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t765" href="#t765">765</a></span><span class="t">    <span class="key">try</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t766" href="#t766">766</a></span><span class="t">        <span class="nam">img</span><span class="op">.</span><span class="nam">set_beam_device</span><span class="op">(</span><span class="nam">microscope</span><span class="op">=</span><span class="nam">microscope</span><span class="op">,</span> <span class="nam">device</span><span class="op">=</span><span class="nam">tbt</span><span class="op">.</span><span class="nam">Device</span><span class="op">.</span><span class="nam">CCD_CAMERA</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t767" href="#t767">767</a></span><span class="t">    <span class="key">except</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="mis show_mis"><span class="n"><a id="t767" href="#t767">767</a></span><span class="t">    <span class="key">except</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="mis show_mis"><span class="n"><a id="t768" href="#t768">768</a></span><span class="t">        <span class="nam">warnings</span><span class="op">.</span><span class="nam">warn</span><span class="op">(</span><span class="str">"CCD camera is not installed on this microscope."</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t769" href="#t769">769</a></span><span class="t">    <span class="key">else</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t770" href="#t770">770</a></span><span class="t">        <span class="nam">microscope</span><span class="op">.</span><span class="nam">imaging</span><span class="op">.</span><span class="nam">stop_acquisition</span><span class="op">(</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
@@ -972,7 +972,7 @@
             <a class="nav" href="z_3dbda4a2c8320a3e_laser_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2026-09-24 17:54 +0000
+            created at 2026-09-24 18:06 +0000
         </p>
     </div>
 </footer>
