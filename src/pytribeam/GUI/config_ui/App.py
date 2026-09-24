@@ -188,6 +188,8 @@ class Configurator:
         # Detectors synced from the microscope as {beam_type: {detector_type: [modes]}}
         # None until synced, in which case all enum values are offered
         self.detector_options = None
+        # FIB application files synced from the microscope, None until synced
+        self.fib_applications = None
         # Detector type/mode menus in the editor, keyed by parameter path
         self._detector_menus = {}
         # True while a background microscope task is running
@@ -284,8 +286,8 @@ class Configurator:
             font=ctk.MENU_FONT,
         )
         microscope_menu.add_command(
-            label="Sync available detectors",
-            command=self.sync_detectors_from_scope,
+            label="Sync options from microscope",
+            command=self.sync_options_from_scope,
             font=ctk.MENU_FONT,
         )
         self.menu.add_cascade(
@@ -908,25 +910,31 @@ class Configurator:
         # Update the editor
         self._update_editor()
 
-    def sync_detectors_from_scope(self):
-        """Limit the detector type and mode options to those available on the microscope."""
+    def sync_options_from_scope(self):
+        """Read the parameter options that depend on the microscope (detectors and
+        FIB application files) so the editor only offers what is available."""
         self._run_with_microscope(
-            "Syncing available detectors...",
-            lambda interface: interface.get_detector_options(),
-            self._apply_detector_options,
+            "Syncing options from microscope...",
+            lambda interface: (
+                interface.get_detector_options(),
+                interface.get_fib_applications(),
+            ),
+            lambda result: self._apply_microscope_options(*result),
         )
 
-    def _apply_detector_options(self, detector_options):
-        """Store the detectors read from the microscope and refresh the editor menus."""
+    def _apply_microscope_options(self, detector_options, fib_applications):
+        """Store the options read from the microscope and refresh the editor menus."""
         self.detector_options = detector_options
+        self.fib_applications = fib_applications
         summary = "\n".join(
             f"{beam} beam: {', '.join(detectors) or 'none'}"
             for beam, detectors in detector_options.items()
         )
         messagebox.showinfo(
             parent=self.toplevel,
-            title="Detectors synced",
-            message=f"Available detectors:\n{summary}",
+            title="Options synced",
+            message=f"Available detectors:\n{summary}\n\n"
+            f"FIB application files: {len(fib_applications)} found",
         )
 
         # Update the editor
@@ -1337,6 +1345,9 @@ class Configurator:
         # Limit detector menus to what the synced microscope supports
         if path.endswith(("beam/type", "detector/type", "detector/mode")):
             self._link_detector_menu(path, var, widget)
+        # Offer the synced application files, typed names still work without a sync
+        if path.endswith("application_file") and self.fib_applications is not None:
+            widget.configure(values=self.fib_applications)
 
     def _clear_editor(self, row):
         """Clear the editor by removing all widgets and traces.

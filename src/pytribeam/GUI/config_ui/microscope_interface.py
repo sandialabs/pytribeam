@@ -261,6 +261,24 @@ class MicroscopeInterface:
 
         return options
 
+    def get_fib_applications(self) -> List[str]:
+        """Get the FIB patterning application files available on the microscope.
+
+        Returns:
+            List of application file names
+
+        Raises:
+            MicroscopeConnectionError: If not connected or operation fails
+        """
+        self.ensure_connected()
+
+        try:
+            return list(factory.active_fib_applications(self._microscope))
+        except Exception as e:
+            raise MicroscopeConnectionError(
+                "Failed to get FIB application files"
+            ) from e
+
     def get_laser_state(self) -> Dict:
         """Get current laser settings.
 

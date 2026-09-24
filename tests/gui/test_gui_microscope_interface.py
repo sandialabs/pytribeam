@@ -456,6 +456,32 @@ class TestGetDetectorOptions:
 
 
 # ----------------------------------------------------------------------
+# get_fib_applications
+# ----------------------------------------------------------------------
+class TestGetFibApplications:
+    def test_raises_when_not_connected(self, iface):
+        with pytest.raises(MicroscopeConnectionError):
+            iface.get_fib_applications()
+
+    def test_returns_applications(self, connected_iface, monkeypatch):
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.microscope_interface.factory.active_fib_applications",
+            lambda m: ("Si", "Si-multipass"),
+        )
+        assert connected_iface.get_fib_applications() == ["Si", "Si-multipass"]
+
+    def test_wraps_exception(self, connected_iface, monkeypatch):
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.microscope_interface.factory.active_fib_applications",
+            lambda m: (_ for _ in ()).throw(RuntimeError("patterning error")),
+        )
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get FIB application files"
+        ):
+            connected_iface.get_fib_applications()
+
+
+# ----------------------------------------------------------------------
 # get_laser_state
 # ----------------------------------------------------------------------
 class TestGetLaserState:
