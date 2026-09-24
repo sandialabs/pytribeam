@@ -55,8 +55,8 @@
             </div>
         </aside>
         <h2>
-            <span class="text">677 statements &nbsp;</span>
-            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">572<span class="text"> run</span></button>
+            <span class="text">678 statements &nbsp;</span>
+            <button type="button" class="run button_toggle_run" value="run" data-shortcut="r" title="Toggle lines run">573<span class="text"> run</span></button>
             <button type="button" class="mis show_mis button_toggle_mis" value="mis" data-shortcut="m" title="Toggle lines missing">105<span class="text"> missing</span></button>
             <button type="button" class="exc show_exc button_toggle_exc" value="exc" data-shortcut="x" title="Toggle lines excluded">21<span class="text"> excluded</span></button>
             <button type="button" class="par run show_par button_toggle_par" value="par" data-shortcut="p" title="Toggle lines partially run">81<span class="text"> partial</span></button>
@@ -67,7 +67,7 @@
             <a id="nextFileLink" class="nav" href="z_3dbda4a2c8320a3e_fib_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2026-09-03 19:02 +0000
+            created at 2026-09-24 16:10 +0000
         </p>
         <aside class="hidden">
             <button type="button" class="button_next_chunk" data-shortcut="j"></button>
@@ -439,15 +439,15 @@
     <p class="pln"><span class="n"><a id="t355" href="#t355">355</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t356" href="#t356">356</a></span><span class="t">    <span class="nam">rotation_deg</span> <span class="op">=</span> <span class="nam">beam</span><span class="op">.</span><span class="nam">scanning</span><span class="op">.</span><span class="nam">rotation</span><span class="op">.</span><span class="nam">value</span> <span class="op">*</span> <span class="nam">Conversions</span><span class="op">.</span><span class="nam">RAD_TO_DEG</span>&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t357" href="#t357">357</a></span><span class="t">    <span class="nam">dwell_time_us</span> <span class="op">=</span> <span class="nam">beam</span><span class="op">.</span><span class="nam">scanning</span><span class="op">.</span><span class="nam">dwell_time</span><span class="op">.</span><span class="nam">value</span> <span class="op">*</span> <span class="nam">Conversions</span><span class="op">.</span><span class="nam">S_TO_US</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t358" href="#t358">358</a></span><span class="t">    <span class="nam">current_res</span> <span class="op">=</span> <span class="nam">beam</span><span class="op">.</span><span class="nam">scanning</span><span class="op">.</span><span class="nam">resolution</span><span class="op">.</span><span class="nam">value</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t359" href="#t359">359</a></span><span class="t">    <span class="nam">res</span> <span class="op">=</span> <span class="nam">string_to_res</span><span class="op">(</span><span class="nam">current_res</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t360" href="#t360">360</a></span><span class="t">    <span class="nam">resolution</span> <span class="op">=</span> <span class="nam">tbt</span><span class="op">.</span><span class="nam">PresetResolution</span><span class="op">(</span><span class="nam">res</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t361" href="#t361">361</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
-    <p class="run"><span class="n"><a id="t362" href="#t362">362</a></span><span class="t">    <span class="nam">active_scan</span> <span class="op">=</span> <span class="nam">tbt</span><span class="op">.</span><span class="nam">Scan</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t363" href="#t363">363</a></span><span class="t">        <span class="nam">rotation_deg</span><span class="op">=</span><span class="nam">rotation_deg</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t364" href="#t364">364</a></span><span class="t">        <span class="nam">dwell_time_us</span><span class="op">=</span><span class="nam">dwell_time_us</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t365" href="#t365">365</a></span><span class="t">        <span class="nam">resolution</span><span class="op">=</span><span class="nam">resolution</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
-    <p class="pln"><span class="n"><a id="t366" href="#t366">366</a></span><span class="t">        <span class="com"># mode=mode,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t358" href="#t358">358</a></span><span class="t">    <span class="nam">scan_res</span> <span class="op">=</span> <span class="nam">beam</span><span class="op">.</span><span class="nam">scanning</span><span class="op">.</span><span class="nam">resolution</span><span class="op">.</span><span class="nam">value</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t359" href="#t359">359</a></span><span class="t">    <span class="nam">scan_res</span> <span class="op">=</span> <span class="nam">string_to_res</span><span class="op">(</span><span class="nam">scan_res</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t360" href="#t360">360</a></span><span class="t">    <span class="key">if</span> <span class="nam">ut</span><span class="op">.</span><span class="nam">valid_enum_entry</span><span class="op">(</span><span class="nam">obj</span><span class="op">=</span><span class="nam">scan_res</span><span class="op">,</span> <span class="nam">check_type</span><span class="op">=</span><span class="nam">tbt</span><span class="op">.</span><span class="nam">PresetResolution</span><span class="op">)</span><span class="op">:</span>&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t361" href="#t361">361</a></span><span class="t">        <span class="nam">scan_res</span> <span class="op">=</span> <span class="nam">tbt</span><span class="op">.</span><span class="nam">PresetResolution</span><span class="op">(</span><span class="nam">scan_res</span><span class="op">)</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t362" href="#t362">362</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
+    <p class="run"><span class="n"><a id="t363" href="#t363">363</a></span><span class="t">    <span class="nam">active_scan</span> <span class="op">=</span> <span class="nam">tbt</span><span class="op">.</span><span class="nam">Scan</span><span class="op">(</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t364" href="#t364">364</a></span><span class="t">        <span class="nam">rotation_deg</span><span class="op">=</span><span class="nam">rotation_deg</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t365" href="#t365">365</a></span><span class="t">        <span class="nam">dwell_time_us</span><span class="op">=</span><span class="nam">dwell_time_us</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
+    <p class="pln"><span class="n"><a id="t366" href="#t366">366</a></span><span class="t">        <span class="nam">resolution</span><span class="op">=</span><span class="nam">scan_res</span><span class="op">,</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t367" href="#t367">367</a></span><span class="t">    <span class="op">)</span>&nbsp;</span><span class="r"></span></p>
     <p class="pln"><span class="n"><a id="t368" href="#t368">368</a></span><span class="t">&nbsp;</span><span class="r"></span></p>
     <p class="run"><span class="n"><a id="t369" href="#t369">369</a></span><span class="t">    <span class="key">return</span> <span class="nam">active_scan</span>&nbsp;</span><span class="r"></span></p>
@@ -3450,7 +3450,7 @@
             <a class="nav" href="z_3dbda4a2c8320a3e_fib_py.html">&#xbb; next</a>
             &nbsp; &nbsp; &nbsp;
             <a class="nav" href="https://coverage.readthedocs.io/en/7.6.1">coverage.py v7.6.1</a>,
-            created at 2026-09-03 19:02 +0000
+            created at 2026-09-24 16:10 +0000
         </p>
     </div>
 </footer>
