@@ -28,7 +28,11 @@ from pytribeam.GUI.common import (
 )
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
 from pytribeam.GUI.runner_util import ExperimentController, ExperimentState
-from pytribeam.GUI.runner_util.ui_components import ControlPanel, StatusPanel
+from pytribeam.GUI.runner_util.ui_components import (
+    ControlPanel,
+    MoveStageDialog,
+    StatusPanel,
+)
 
 
 class MainApplication(tk.Tk):
@@ -66,6 +70,7 @@ class MainApplication(tk.Tk):
 
         # Create variables
         self.config_path = None
+        self.config_info = None
         self.stop_after_slice = tk.BooleanVar()
         self.stop_after_slice.set(False)
         self.stop_after_step = tk.BooleanVar()
@@ -160,6 +165,7 @@ class MainApplication(tk.Tk):
         self.control_panel.on_stop_step = self.stop_step
         self.control_panel.on_stop_slice = self.stop_slice
         self.control_panel.on_stop_now = self.stop_hard
+        self.control_panel.on_move_stage = self.move_stage
 
     def _create_display_frame(self):
         self.display_frame = tk.Frame(self, bg=self.theme.bg)
@@ -231,10 +237,13 @@ class MainApplication(tk.Tk):
         self.configure(bg=self.theme.bg)
 
         # Update the control and status panels
+        was_valid = self.control_panel.is_config_valid
         self.control_panel.destroy()
         self.status_panel.destroy()
         self._create_control_frame()
         self._create_status_frame()
+        if was_valid:
+            self.control_panel.set_validation_status(True)
 
         # Update the terminal
         self.terminal.config(bg=self.theme.terminal, fg=self.theme.terminal_fg)
@@ -407,6 +416,7 @@ class MainApplication(tk.Tk):
             "exp_dir": str(exp_dir),
             "step_names": step_names,
         }
+        self.config_info = config_info
         self.control_panel.update_experiment_info(config_info)
 
     def _update_slice_info(self, slice_number):
@@ -464,6 +474,8 @@ class MainApplication(tk.Tk):
         self.control_panel.stop_step_btn.config(**step_kwargs[step])
         self.control_panel.stop_slice_btn.config(**slice_kwargs[slice])
         self.control_panel.stop_now_btn.config(**hard_kwargs[hard])
+        # Stage moves are only allowed when an experiment could be started
+        self.control_panel.set_move_stage_enabled(start == "normal")
         # Note: Config buttons are not exposed by ControlPanel,
         # so we'll skip updating them for now
         self.update_idletasks()
@@ -571,6 +583,124 @@ class MainApplication(tk.Tk):
         self._update_exp_control_buttons(
             start="disabled", step="disabled", slice="disabled", hard="disabled"
         )
+
+    # -------- Stage move functions -------- #
+
+    def move_stage(self):
+        """Ask for a slice and step, then move the stage to that step's starting position.
+
+        The move is planned on a background thread (connect, calculate the target),
+        confirmed by the user, then performed on a background thread. Hard stop
+        halts the stage while it moves.
+        """
+        controller = self.experiment_controller
+        if self.config_path is None or self.config_info is None:
+            return
+        if controller.state.is_running or controller.is_moving:
+            return
+
+        # Default to the current (starting) slice and step
+        try:
+            current_slice = self.control_panel.starting_slice_var.get()
+        except tk.TclError:
+            current_slice = 1  # Spinbox holds something that isn't a number
+        dialog = MoveStageDialog(
+            self,
+            theme=self.theme,
+            step_names=self.config_info["step_names"],
+            max_slice=self.config_info["total_slices"],
+            slice_number=current_slice,
+            step_name=self.control_panel.starting_step_var.get(),
+        )
+        if dialog.result is None:
+            return
+        slice_number, step_name = dialog.result
+
+        print(f"Preparing stage move to step '{step_name}' of slice {slice_number}...")
+        controller.set_config_path(self.config_path)
+        self._update_exp_control_buttons(
+            start="disabled", step="disabled", slice="disabled", hard="normal"
+        )
+        self.config(cursor="watch")
+        thread = controller.plan_stage_move(slice_number, step_name)
+        self._when_thread_done(thread, self._on_stage_move_planned)
+
+    def _when_thread_done(self, thread, callback):
+        """Call callback(thread.result) on the main thread once the thread finishes."""
+        if thread.is_alive():
+            self.after(100, self._when_thread_done, thread, callback)
+        else:
+            callback(thread.result)
+
+    def _on_stage_move_planned(self, result):
+        """Confirm the planned move with the user, then start it."""
+        controller = self.experiment_controller
+        self.config(cursor="")
+        if result["error"] is not None:
+            controller.end_stage_move()
+            self._update_exp_control_buttons()
+            if result["stopped"]:
+                print("-----> Stage move cancelled <-----")
+            else:
+                messagebox.showerror(
+                    "Stage move failed",
+                    f"Could not prepare the stage move:\n{result['error']}",
+                )
+            return
+
+        plan = result["value"]
+        if not messagebox.askyesno(
+            "Confirm stage move", self._stage_move_message(plan), icon="warning"
+        ):
+            controller.end_stage_move(plan)
+            self._update_exp_control_buttons()
+            print("-----> Stage move cancelled <-----")
+            return
+
+        self.config(cursor="watch")
+        thread = controller.move_stage_to_step(plan)
+        self._when_thread_done(
+            thread, lambda result: self._on_stage_move_finished(plan, result)
+        )
+
+    def _on_stage_move_finished(self, plan, result):
+        """Release the microscope and report the outcome of a stage move."""
+        self.experiment_controller.end_stage_move(plan)
+        self.config(cursor="")
+        self._update_exp_control_buttons()
+        if result["error"] is not None and not result["stopped"]:
+            messagebox.showerror(
+                "Stage move failed",
+                f"The stage move did not complete:\n{result['error']}",
+            )
+
+    @staticmethod
+    def _stage_move_message(plan):
+        """Describe a planned stage move for the confirmation dialog."""
+        current, target = plan.current_position, plan.target_position
+        rows = [
+            ("X", current.x_mm, target.x_mm, "mm", 4),
+            ("Y", current.y_mm, target.y_mm, "mm", 4),
+            ("Z", current.z_mm, target.z_mm, "mm", 4),
+            ("R", current.r_deg, target.r_deg, "deg", 3),
+            ("T", current.t_deg, target.t_deg, "deg", 3),
+        ]
+        lines = [
+            f"Move the stage to step '{plan.step_name}' of slice {plan.slice_number}?",
+            "",
+            "Current -> target:",
+        ]
+        lines += [
+            f"    {axis}: {cur:.{dp}f} -> {tgt:.{dp}f} {unit}"
+            for axis, cur, tgt, unit, dp in rows
+        ]
+        lines += ["", "All insertable devices will be retracted before moving."]
+        if not plan.step_runs_on_slice:
+            lines.append(
+                f"Note: step '{plan.step_name}' does not run on slice {plan.slice_number} "
+                "because of its frequency, but its position is still calculated for it."
+            )
+        return "\n".join(lines)
 
 
 @contextlib.contextmanager

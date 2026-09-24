@@ -22,6 +22,7 @@ class ControlPanel(tk.Frame):
     - Experiment info (slices, steps, thickness)
     - Config file management buttons
     - Starting slice/step selectors
+    - Move stage button
     - Experiment control buttons (start, stop)
 
     Attributes:
@@ -33,6 +34,8 @@ class ControlPanel(tk.Frame):
         on_stop_step: Callback for stopping after step
         on_stop_slice: Callback for stopping after slice
         on_stop_now: Callback for immediate stop
+        on_move_stage: Callback for moving the stage to a step
+        is_config_valid: Whether the loaded configuration has been validated
     """
 
     def __init__(self, parent, theme, resources: AppResources, **kwargs):
@@ -57,6 +60,8 @@ class ControlPanel(tk.Frame):
         self.on_stop_step = None
         self.on_stop_slice = None
         self.on_stop_now = None
+        self.on_move_stage = None
+        self.is_config_valid = False
 
         # Grid configuration
         self.columnconfigure([0, 1, 2, 3], weight=1)
@@ -280,6 +285,23 @@ class ControlPanel(tk.Frame):
 
     def _create_control_buttons(self):
         """Create experiment control buttons."""
+        self.move_stage_btn = tk.Button(
+            self,
+            text="Move stage to step...",
+            font=ctk.FONT,
+            command=lambda: self.on_move_stage() if self.on_move_stage else None,
+            bg=self.theme.bg_off,
+            fg=self.theme.fg,
+            state="disabled",
+        )
+        self.move_stage_btn.grid(
+            row=3, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
+        )
+        ctk.tooltip(
+            self.move_stage_btn,
+            "Move the stage to the starting position of a step for a given slice (requires a valid configuration)",
+        )
+
         self.start_btn = tk.Button(
             self,
             text="Start experiment",
@@ -291,7 +313,7 @@ class ControlPanel(tk.Frame):
             fg=self.theme.fg,
         )
         self.start_btn.grid(
-            row=3, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
+            row=4, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
         ctk.tooltip(
             self.start_btn,
@@ -307,7 +329,7 @@ class ControlPanel(tk.Frame):
             fg=self.theme.fg,
         )
         self.stop_step_btn.grid(
-            row=4, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
+            row=5, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
         ctk.tooltip(self.stop_step_btn, "Stop after current step (Ctrl+Shift+X)")
 
@@ -320,13 +342,13 @@ class ControlPanel(tk.Frame):
             fg=self.theme.fg,
         )
         self.stop_slice_btn.grid(
-            row=5, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
+            row=6, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
         ctk.tooltip(self.stop_slice_btn, "Stop after current slice (Ctrl+X)")
 
         # Separator
         sep = tk.Frame(self, bg=self.theme.bg, height=5, relief="flat")
-        sep.grid(row=6, column=0, columnspan=4, sticky="nsew", pady=10)
+        sep.grid(row=7, column=0, columnspan=4, sticky="nsew", pady=10)
 
         self.stop_now_btn = tk.Button(
             self,
@@ -337,7 +359,7 @@ class ControlPanel(tk.Frame):
             fg=self.theme.fg,
         )
         self.stop_now_btn.grid(
-            row=7, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
+            row=8, column=0, columnspan=4, sticky="nsew", pady=3, padx=5
         )
         ctk.tooltip(self.stop_now_btn, "Stop immediately (Ctrl+C)")
 
@@ -388,6 +410,19 @@ class ControlPanel(tk.Frame):
             self.valid_status_label.config(
                 text=message or "Configuration file is invalid", fg=self.theme.red
             )
+        self.is_config_valid = is_valid
+        self.set_move_stage_enabled(True)
+
+    def set_move_stage_enabled(self, enabled: bool):
+        """Enable/disable the move stage button.
+
+        The button is only enabled when the configuration is valid.
+
+        Args:
+            enabled: Whether moving is allowed (e.g. no experiment is running)
+        """
+        state = "normal" if enabled and self.is_config_valid else "disabled"
+        self.move_stage_btn.config(state=state)
 
     def set_buttons_enabled(self, start: bool = True, stop_controls: bool = False):
         """Enable/disable control buttons.
@@ -401,6 +436,126 @@ class ControlPanel(tk.Frame):
         self.stop_step_btn.config(state=stop_state)
         self.stop_slice_btn.config(state=stop_state)
         self.stop_now_btn.config(state=stop_state)
+
+
+class MoveStageDialog:
+    """Modal dialog asking which slice and step to move the stage to.
+
+    Blocks until closed. Afterwards, `result` is (slice_number, step_name),
+    or None if the dialog was cancelled.
+    """
+
+    def __init__(
+        self,
+        parent,
+        theme,
+        step_names: list,
+        max_slice: int,
+        slice_number: int,
+        step_name: str,
+    ):
+        """Create and show the dialog.
+
+        Args:
+            parent: Parent window
+            theme: Theme object
+            step_names: Steps that can be chosen
+            max_slice: Highest slice number that can be chosen
+            slice_number: Initially selected slice
+            step_name: Initially selected step
+        """
+        self.result = None
+        self.max_slice = max_slice
+
+        self.top = tk.Toplevel(parent, bg=theme.bg, padx=10, pady=10)
+        self.top.title("Move stage to step")
+        self.top.resizable(False, False)
+        self.top.transient(parent)
+        self.top.protocol("WM_DELETE_WINDOW", self._cancel)
+        self.top.columnconfigure([0, 1], weight=1)
+
+        tk.Label(
+            self.top,
+            text="Move the stage to the starting position of a step.",
+            font=ctk.FONT,
+            bg=theme.bg,
+            fg=theme.fg,
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+
+        tk.Label(
+            self.top, text="Slice", font=ctk.FONT, bg=theme.bg, fg=theme.fg, anchor="e"
+        ).grid(row=1, column=0, sticky="nsew", pady=5, padx=5)
+        self.slice_var = tk.StringVar(self.top, value=str(slice_number))
+        tk.Spinbox(
+            self.top,
+            font=ctk.FONT,
+            width=6,
+            from_=1,
+            to=max_slice,
+            bg=theme.bg_off,
+            buttonbackground=theme.bg_off,
+            fg=theme.fg,
+            insertbackground=theme.fg,
+            textvariable=self.slice_var,
+        ).grid(row=1, column=1, sticky="nsew", pady=5, padx=5)
+
+        tk.Label(
+            self.top, text="Step", font=ctk.FONT, bg=theme.bg, fg=theme.fg, anchor="e"
+        ).grid(row=2, column=0, sticky="nsew", pady=5, padx=5)
+        default_step = step_name if step_name in step_names else step_names[0]
+        self.step_var = tk.StringVar(self.top, value=default_step)
+        ctk.MenuButton(
+            self.top,
+            font=ctk.FONT,
+            options=step_names,
+            var=self.step_var,
+            bg=theme.bg_off,
+            fg=theme.fg,
+            h_bg=theme.accent1,
+            h_fg=theme.accent1_fg,
+        ).grid(row=2, column=1, sticky="nsew", pady=5, padx=5)
+
+        buttons = tk.Frame(self.top, bg=theme.bg)
+        buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))
+        for text, command in (("OK", self._ok), ("Cancel", self._cancel)):
+            tk.Button(
+                buttons,
+                text=text,
+                width=8,
+                font=ctk.FONT,
+                command=command,
+                bg=theme.bg_off,
+                fg=theme.fg,
+            ).pack(side="left", padx=5)
+        self.top.bind("<Return>", lambda e: self._ok())
+        self.top.bind("<Escape>", lambda e: self._cancel())
+
+        self.top.focus_set()
+        try:
+            self.top.grab_set()
+        except tk.TclError:
+            pass  # Window not viewable yet on some platforms, the dialog still works
+        parent.wait_window(self.top)
+
+    def _ok(self):
+        """Accept the selection if the slice is valid."""
+        try:
+            slice_number = int(self.slice_var.get())
+        except ValueError:
+            slice_number = None
+        if slice_number is None or not 1 <= slice_number <= self.max_slice:
+            messagebox.showerror(
+                "Invalid slice",
+                f"The slice must be a whole number from 1 to {self.max_slice}.",
+                parent=self.top,
+            )
+            return
+        self.result = (slice_number, self.step_var.get())
+        self.top.destroy()
+
+    def _cancel(self):
+        """Close without a selection."""
+        self.top.destroy()
 
 
 class StatusPanel(tk.Frame):
