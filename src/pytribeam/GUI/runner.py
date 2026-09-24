@@ -54,8 +54,8 @@ class MainApplication(tk.Tk):
             self.iconbitmap(self.resources.icon_path)
 
         # Set the window size
-        self.frame_w = int(1250)
-        self.frame_h = int(700)
+        self.frame_w = int(1200)
+        self.frame_h = int(680)
         self.geometry(f"{self.frame_w}x{self.frame_h}")
 
         # Set the grid structure
