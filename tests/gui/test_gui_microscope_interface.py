@@ -12,6 +12,7 @@ from pytribeam.GUI.config_ui.microscope_interface import (
     check_device_connections,
 )
 from pytribeam.GUI.common.errors import MicroscopeConnectionError
+import pytribeam.types as tbt
 
 
 # ----------------------------------------------------------------------
@@ -346,6 +347,112 @@ class TestGetImagingSettings:
             MicroscopeConnectionError, match="Failed to get imaging settings"
         ):
             connected_iface.get_imaging_settings()
+
+
+# ----------------------------------------------------------------------
+# get_detector_options
+# ----------------------------------------------------------------------
+ETD = tbt.DetectorType.ETD.value
+CBS = tbt.DetectorType.CBS.value
+ICE = tbt.DetectorType.ICE.value
+SE = tbt.DetectorMode.SECONDARY_ELECTRONS.value
+BSE = tbt.DetectorMode.BACKSCATTER_ELECTRONS.value
+SI = tbt.DetectorMode.SECONDARY_IONS.value
+
+
+@pytest.fixture
+def scope_detectors(connected_iface, monkeypatch):
+    """Simulate a microscope whose detectors depend on the active beam and
+    whose modes depend on the active detector. Returns the hardware state."""
+    hardware = {
+        tbt.Device.ELECTRON_BEAM: {
+            ETD: [SE, BSE],
+            CBS: [BSE, "UnsupportedMode"],
+            "UnsupportedDetector": [SE],
+        },
+        tbt.Device.ION_BEAM: {ETD: [SE, SI], ICE: [SI]},
+    }
+    state = {"device": None, "detector": None, "device_history": []}
+
+    def set_beam_device(microscope, device):
+        state["device"] = device
+        state["device_history"].append(device)
+
+    def detector_type(microscope, detector):
+        # Selecting a detector also changes the active mode on the microscope
+        state["detector"] = detector.value
+        microscope.detector.type.value = detector.value
+        microscope.detector.mode.value = hardware[state["device"]][detector.value][0]
+
+    state["select_detector"] = detector_type
+    module = "pytribeam.GUI.config_ui.microscope_interface"
+    monkeypatch.setattr(f"{module}.img.set_beam_device", set_beam_device)
+    monkeypatch.setattr(f"{module}.img.detector_type", detector_type)
+    monkeypatch.setattr(
+        f"{module}.factory.available_detector_types",
+        lambda m: list(hardware[state["device"]]),
+    )
+    monkeypatch.setattr(
+        f"{module}.factory.available_detector_modes",
+        lambda m: hardware[state["device"]][state["detector"]],
+    )
+
+    microscope = connected_iface._microscope
+    # Start on a state the sync does not end on, so restoring is observable
+    microscope.imaging.get_active_device.return_value = tbt.Device.ELECTRON_BEAM.value
+    microscope.detector.type.value = CBS
+    microscope.detector.mode.value = BSE
+    return state
+
+
+class TestGetDetectorOptions:
+    def test_raises_when_not_connected(self, iface):
+        with pytest.raises(MicroscopeConnectionError):
+            iface.get_detector_options()
+
+    def test_returns_detectors_and_modes_per_beam(
+        self, connected_iface, scope_detectors
+    ):
+        result = connected_iface.get_detector_options()
+        assert result == {
+            tbt.BeamType.ELECTRON.value: {ETD: [SE, BSE], CBS: [BSE]},
+            tbt.BeamType.ION.value: {ETD: [SE, SI], ICE: [SI]},
+        }
+
+    def test_restores_initial_state(self, connected_iface, scope_detectors):
+        connected_iface.get_detector_options()
+        microscope = connected_iface._microscope
+        assert scope_detectors["device_history"][-1] == tbt.Device.ELECTRON_BEAM
+        assert microscope.detector.type.value == CBS
+        assert microscope.detector.mode.value == BSE
+
+    def test_skips_unselectable_detector(
+        self, connected_iface, scope_detectors, monkeypatch
+    ):
+        def detector_type(microscope, detector):
+            if detector.value == CBS:
+                raise ValueError("Could not correctly set detector type")
+            scope_detectors["select_detector"](microscope, detector)
+
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.microscope_interface.img.detector_type",
+            detector_type,
+        )
+        result = connected_iface.get_detector_options()
+        assert CBS not in result[tbt.BeamType.ELECTRON.value]
+
+    def test_wraps_exception_and_restores(
+        self, connected_iface, scope_detectors, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "pytribeam.GUI.config_ui.microscope_interface.factory.available_detector_types",
+            lambda m: (_ for _ in ()).throw(RuntimeError("detector error")),
+        )
+        with pytest.raises(
+            MicroscopeConnectionError, match="Failed to get detector options"
+        ):
+            connected_iface.get_detector_options()
+        assert scope_detectors["device_history"][-1] == tbt.Device.ELECTRON_BEAM
 
 
 # ----------------------------------------------------------------------

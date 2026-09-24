@@ -135,6 +135,11 @@ class Configurator:
         self.clean_exit = False
         self.frames_dict = {}
         self.pipeline_buttons = {}
+        # Detectors synced from the microscope as {beam_type: {detector_type: [modes]}}
+        # None until synced, in which case all enum values are offered
+        self.detector_options = None
+        # Detector type/mode menus in the editor, keyed by parameter path
+        self._detector_menus = {}
 
         # Start the app
         if self.YAML_PATH is not None:
@@ -224,6 +229,11 @@ class Configurator:
         microscope_menu.add_command(
             label="Import laser settings...",
             command=self.update_laser_from_scope,
+            font=ctk.MENU_FONT,
+        )
+        microscope_menu.add_command(
+            label="Sync available detectors",
+            command=self.sync_detectors_from_scope,
             font=ctk.MENU_FONT,
         )
         self.menu.add_cascade(
@@ -827,6 +837,38 @@ class Configurator:
         # Update the editor
         self._update_editor()
 
+    def sync_detectors_from_scope(self):
+        """Limit the detector type and mode options to those available on the microscope."""
+        interface = self._create_microscope_connection()
+        if interface is None:
+            return
+
+        try:
+            detector_options = interface.get_detector_options()
+        except Exception as e:
+            messagebox.showerror(
+                parent=self.toplevel,
+                title="Error",
+                message=f"Failed to get available detectors: {e}",
+            )
+            return
+        finally:
+            interface.disconnect()
+
+        self.detector_options = detector_options
+        summary = "\n".join(
+            f"{beam} beam: {', '.join(detectors) or 'none'}"
+            for beam, detectors in detector_options.items()
+        )
+        messagebox.showinfo(
+            parent=self.toplevel,
+            title="Detectors synced",
+            message=f"Available detectors:\n{summary}",
+        )
+
+        # Update the editor
+        self._update_editor()
+
     # -------- Configuration File Operations -------- #
 
     def new_config(self, ask_save=True):
@@ -1229,16 +1271,83 @@ class Configurator:
         label.tp = ctk.tooltip(label, value.help_text, font=ctk.TIP_FONT)
         row += 1
 
+        # Limit detector menus to what the synced microscope supports
+        if path.endswith(("beam/type", "detector/type", "detector/mode")):
+            self._link_detector_menu(path, var, widget)
+
     def _clear_editor(self, row):
         """Clear the editor by removing all widgets and traces.
         This is useful when switching between steps."""
         # Clear all tracked variables and their traces
         self.param_tracker.clear()
+        self._detector_menus.clear()
 
         # Remove the old widgets
         for i in range(2, row + 1):
             for widget in self.editor.grid_slaves(row=i - 1):
                 widget.destroy()
+
+    # -------- Detector Options -------- #
+
+    def _link_detector_menu(self, path, var, widget):
+        """Register a beam type, detector type, or detector mode menu so that
+        the detector menus only offer options available for the selected beam and detector.
+        Menus are grouped by their parent path (e.g. 'image/' for FIB steps)."""
+        prefix = "".join(f"{p}/" for p in path.split("/")[:-2])
+        if not path.endswith("beam/type"):
+            self._detector_menus[path] = widget
+        # Changing the beam or detector type changes the options below it
+        if not path.endswith("detector/mode"):
+            var.trace_add(
+                "write",
+                lambda *args: self._refresh_detector_menus(prefix, reset_invalid=True),
+            )
+        # Don't clear values from a loaded config, validation will flag them
+        self._refresh_detector_menus(prefix, reset_invalid=False)
+
+    def _refresh_detector_menus(self, prefix, reset_invalid):
+        """Update the detector type and mode menus under the prefix from the synced detectors.
+        If reset_invalid is True, selections that are no longer available are cleared."""
+        if self.detector_options is None:
+            return
+        beam_detectors = self._beam_detector_options(
+            self._editor_value(f"{prefix}beam/type")
+        )
+        type_menu = self._detector_menus.get(f"{prefix}detector/type")
+        if type_menu is not None:
+            self._set_menu_options(type_menu, list(beam_detectors), reset_invalid)
+        mode_menu = self._detector_menus.get(f"{prefix}detector/mode")
+        if mode_menu is not None:
+            modes = beam_detectors.get(self._editor_value(f"{prefix}detector/type"), [])
+            self._set_menu_options(mode_menu, modes, reset_invalid)
+
+    def _beam_detector_options(self, beam_type):
+        """Return {detector_type: [modes]} for the beam type.
+        If the beam type is not set, the detectors of all beams are combined."""
+        if beam_type in self.detector_options:
+            return self.detector_options[beam_type]
+        combined = {}
+        for detectors in self.detector_options.values():
+            for detector, modes in detectors.items():
+                combined_modes = combined.setdefault(detector, [])
+                combined_modes.extend(m for m in modes if m not in combined_modes)
+        return combined
+
+    def _editor_value(self, path):
+        """Return the value of a parameter in the editor, falling back to the controller.
+        Menu traces fire before the controller is updated, so the editor value is used first."""
+        var = self.param_tracker.get_variable(path)
+        if var is not None:
+            return var.get()
+        return self.controller.get_parameter(path, "")
+
+    @staticmethod
+    def _set_menu_options(menu, options, reset_invalid):
+        """Set the options of a menu (plus the empty option), optionally clearing an unavailable selection."""
+        options = options + [""]
+        menu.set_options(options)
+        if reset_invalid and menu.var.get() not in options:
+            menu.var.set("")
 
     # -------- Validation Operations -------- #
 
