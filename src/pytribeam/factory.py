@@ -259,8 +259,8 @@ def active_detector_settings(
     custom_settings = None
 
     active_detector = tbt.Detector(
-        type=detector_type,
-        mode=detector_mode,
+        type=tbt.DetectorType(detector_type),
+        mode=tbt.DetectorMode(detector_mode),
         brightness=brightness,
         contrast=contrast,
         auto_cb_settings=auto_cb_settings,
