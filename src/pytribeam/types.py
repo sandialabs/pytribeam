@@ -238,6 +238,7 @@ __all__ = [
     "EBSDSettings",
     "EDSSettings",
     # Workflow and configuration settings
+    "StepAlignmentSettings",
     "CustomSettings",
     "GeneralSettings",
     "StepType",
@@ -248,16 +249,16 @@ __all__ = [
 ]
 
 # Default python modules
-from typing import NamedTuple, List, Union, Optional
 from enum import Enum, IntEnum
 from pathlib import Path
+from typing import List, NamedTuple, Union
+
+import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
+import autoscript_sdb_microscope_client.enumerations as as_enums
+import autoscript_sdb_microscope_client.structures as as_structs
 
 # Autoscript modules
 from autoscript_sdb_microscope_client import SdbMicroscopeClient
-import autoscript_sdb_microscope_client.enumerations as as_enums
-import autoscript_sdb_microscope_client.structures as as_structs
-import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
-
 
 ### BASE CLASSES
 
@@ -333,6 +334,7 @@ class BeamSettings(NamedTuple):
     # ebeam only:
     dynamic_focus: bool = None
     tilt_correction: bool = None
+    run_autofocus: bool = None
 
 
 class StreamDepth(IntEnum):
@@ -1137,6 +1139,30 @@ class StageTolerance(NamedTuple):
     angular_deg: float
 
 
+class StepAlignmentSettings(NamedTuple):
+    """Optional fiducial/template-matching settings attached to a workflow step.
+
+    ``enabled`` is the single flag the workflow should check before performing
+    alignment. Other fields can be set per step or left as ``None`` to fall back
+    to experiment-level FIB-SS defaults.
+    """
+
+    enabled: bool = False
+    reference_image_path: Path = None
+    reference_patch_path: Path = None
+    match_threshold: float = None
+    max_pixel_shift: float = None
+    max_iterations: int = None
+    stage_move_threshold_um: float = None
+    max_beam_shift_um: float = None
+    max_residual_for_pattern_shift_um: float = None
+    use_beam_shift: bool = True
+    use_stage_recenter: bool = True
+    use_pattern_shift: bool = True
+    save_debug_images: bool = True
+    debug_dir: Path = None
+
+
 class StepType(Enum):
     """
     Specific step types supported for data collection.
@@ -1823,14 +1849,11 @@ class EBSDSettings(NamedTuple):
     """
     EBSD settings for the microscope.
 
-    Attributes
-    ----------
-    image : ImageSettings
-        The image settings.
-    enable_eds : bool
-        Whether to enable EDS.
-    enable_ebsd : bool
-        Whether to enable EBSD (default is True).
+    ## Attributes
+
+    - `image` (`ImageSettings`): The image settings.
+    - `enable_eds` (`bool`): Whether to enable EDS.
+    - `enable_ebsd` (`bool`): Whether to enable EBSD (default is True).
     """
 
     image: ImageSettings
@@ -2043,6 +2066,7 @@ class Step(NamedTuple):
     - `frequency` (`int`): The step frequency.
     - `stage` (`StageSettings`): The stage settings.
     - `operation_settings` (`Union[CustomSettings, EBSDSettings, EDSSettings, ImageSettings, FIBSettings, LaserSettings]`): The operation settings for the step.
+    - `alignment_settings` (`StepAlignmentSettings`): Optional template-matching/fiducial alignment settings for this step.
     """
 
     type: StepType
@@ -2058,7 +2082,7 @@ class Step(NamedTuple):
         FIBSettings,
         LaserSettings,
     ]
-    template_matching: Optional[bool] = None
+    alignment_settings: StepAlignmentSettings = None
 
 
 class ExperimentSettings(NamedTuple):

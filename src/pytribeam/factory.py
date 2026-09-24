@@ -129,28 +129,32 @@ __all__ = [
     "ebsd",
     "eds",
     "custom",
+    "alignment_settings",
+    "validate_alignment_settings",
+    "operation_has_image_settings",
+    "validate_alignment_step_compatibility",
     "step",
     "string_to_res",
     "valid_string_resolution",
 ]
 
 ## python standard libraries
-from pathlib import Path
-from typing import List, Union
+import math
 import warnings
 from functools import singledispatch
-import math
-
+from pathlib import Path
+from typing import List, Union
 
 # 3rd party libraries
 from schema import And, Or, Schema
 
+import pytribeam.image as img
+
 # Local
 import pytribeam.insertable_devices as devices
-import pytribeam.image as img
-import pytribeam.utilities as ut
 import pytribeam.stage as stage
-from pytribeam.constants import Conversions, Constants
+import pytribeam.utilities as ut
+from pytribeam.constants import Constants, Conversions
 from pytribeam.utilities import application_files
 
 try:
@@ -259,8 +263,8 @@ def active_detector_settings(
     custom_settings = None
 
     active_detector = tbt.Detector(
-        type=detector_type,
-        mode=detector_mode,
+        type=tbt.DetectorType(detector_type),
+        mode=tbt.DetectorMode(detector_mode),
         brightness=brightness,
         contrast=contrast,
         auto_cb_settings=auto_cb_settings,
@@ -739,7 +743,7 @@ def general(
     - `NotImplementedError`: If the provided yml format is unsupported.
     """
 
-    if not yml_format in tbt.YMLFormatVersion:
+    if yml_format not in tbt.YMLFormatVersion:
         raise NotImplementedError(
             """Due to the complexity and number of variables,
         image objects should only be constructed using a yml file."""
@@ -1066,6 +1070,9 @@ def image(
         yml_format=yml_format,
         step_name=step_name,
     )
+    # TODO better incorporation needed
+    run_autofocus = beam_set_db.setdefault("run_autofocus", False)
+
     beam_settings = tbt.BeamSettings(
         voltage_kv=beam_set_db["voltage_kv"],
         voltage_tol_kv=beam_set_db["voltage_tol_kv"],
@@ -1075,6 +1082,7 @@ def image(
         working_dist_mm=beam_set_db["working_dist_mm"],
         dynamic_focus=beam_set_db["dynamic_focus"],
         tilt_correction=beam_set_db["tilt_correction"],
+        run_autofocus=beam_set_db["run_autofocus"],
     )
 
     validate_auto_cb_settings(
@@ -3429,6 +3437,208 @@ def validate_fib_selected_area_settings(
     return True
 
 
+def operation_has_image_settings(operation_settings) -> bool:
+    """Return whether an operation settings object can provide an image for alignment.
+
+    Alignment is step-wise and beam-agnostic, but every enabled alignment step
+    must be able to acquire an image. IMAGE steps are already ImageSettings;
+    FIB, EBSD, EDS, and similar operation settings expose an `.image` field.
+    """
+
+    if isinstance(operation_settings, tbt.ImageSettings):
+        return True
+    return isinstance(getattr(operation_settings, "image", None), tbt.ImageSettings)
+
+
+def validate_alignment_settings(
+    settings: dict,
+    general_settings: tbt.GeneralSettings,
+    step_name: str,
+    yml_format: tbt.YMLFormatVersion,
+) -> bool:
+    """Validate optional template-matching alignment settings for a step."""
+
+    _ = general_settings
+    if settings is None or ut.none_value_dictionary(settings):
+        return True
+
+    enabled = settings.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise ValueError(
+            f"In step '{step_name}', alignment.enabled must be boolean, "
+            f"but {enabled!r} of type {type(enabled)} was provided."
+        )
+    if not enabled:
+        return True
+
+    # If paths are omitted, alignment_settings() below will use conventional
+    # experiment-local defaults under exp_dir/templates. Validate those resolved
+    # paths there so error messages include the actual final paths.
+    schema = Schema(
+        {
+            "enabled": bool,
+            "reference_image_path": Or(None, str, Path),
+            "reference_patch_path": Or(None, str, Path),
+            "match_threshold": Or(
+                None,
+                And(
+                    Or(int, float),
+                    lambda x: 0.0 <= x <= 1.0,
+                    error=f"In step '{step_name}', alignment.match_threshold must be between 0 and 1.",
+                ),
+            ),
+            "max_pixel_shift": Or(
+                None,
+                And(
+                    Or(int, float),
+                    lambda x: x >= 0,
+                    error=f"In step '{step_name}', alignment.max_pixel_shift must be non-negative.",
+                ),
+            ),
+            "max_iterations": Or(
+                None,
+                And(
+                    int,
+                    lambda x: x > 0,
+                    error=f"In step '{step_name}', alignment.max_iterations must be positive.",
+                ),
+            ),
+            "stage_move_threshold_um": Or(
+                None,
+                And(
+                    Or(int, float),
+                    lambda x: x > 0,
+                    error=f"In step '{step_name}', alignment.stage_move_threshold_um must be positive.",
+                ),
+            ),
+            "max_beam_shift_um": Or(None, And(Or(int, float), lambda x: x > 0)),
+            "max_residual_for_pattern_shift_um": Or(
+                None, And(Or(int, float), lambda x: x >= 0)
+            ),
+            "use_beam_shift": Or(None, bool),
+            "use_stage_recenter": Or(None, bool),
+            "use_pattern_shift": Or(None, bool),
+            "save_debug_images": Or(None, bool),
+            "debug_dir": Or(None, str, Path),
+        },
+        ignore_extra_keys=True,
+    )
+
+    try:
+        schema.validate(settings)
+    except UnboundLocalError:
+        raise ValueError(
+            f"Error. Unsupported yml version {yml_format.version} provided."
+        )
+    return True
+
+
+def alignment_settings(
+    settings: dict,
+    general_settings: tbt.GeneralSettings,
+    step_name: str,
+    yml_format: tbt.YMLFormatVersion,
+) -> tbt.StepAlignmentSettings:
+    """Convert an optional alignment dictionary to StepAlignmentSettings."""
+
+    if settings is None or ut.none_value_dictionary(settings):
+        return tbt.StepAlignmentSettings(enabled=False)
+
+    validate_alignment_settings(
+        settings=settings,
+        general_settings=general_settings,
+        step_name=step_name,
+        yml_format=yml_format,
+    )
+
+    enabled = settings.get("enabled", False)
+    if not enabled:
+        return tbt.StepAlignmentSettings(enabled=False)
+
+    exp_dir = Path(general_settings.exp_dir)
+    reference_image_path = Path(
+        settings.get(
+            "reference_image_path"
+        )  # or exp_dir / "templates" / "fib_image.tif"
+    )
+    reference_patch_path = Path(
+        settings.get("reference_patch_path")
+        # or exp_dir / "templates" / "fib_template.tif"
+    )
+    if not reference_image_path.is_file():
+        raise ValueError(
+            f"In step '{step_name}', alignment reference image does not exist: "
+            f"{reference_image_path}"
+        )
+    if not reference_patch_path.is_file():
+        raise ValueError(
+            f"In step '{step_name}', alignment reference patch does not exist: "
+            f"{reference_patch_path}"
+        )
+
+    debug_dir = settings.get("debug_dir")
+    debug_dir = (
+        Path(debug_dir)
+        if debug_dir is not None
+        else exp_dir / "alignment_debug" / step_name
+    )
+
+    return tbt.StepAlignmentSettings(
+        enabled=enabled,
+        reference_image_path=reference_image_path,
+        reference_patch_path=reference_patch_path,
+        match_threshold=settings.get("match_threshold"),
+        max_pixel_shift=settings.get("max_pixel_shift"),
+        max_iterations=settings.get("max_iterations"),
+        stage_move_threshold_um=settings.get("stage_move_threshold_um"),
+        max_beam_shift_um=settings.get("max_beam_shift_um"),
+        max_residual_for_pattern_shift_um=settings.get(
+            "max_residual_for_pattern_shift_um"
+        ),
+        use_beam_shift=_bool_alignment_settings(settings, "use_beam_shift", True),
+        use_stage_recenter=_bool_alignment_settings(
+            settings, "use_stage_recenter", True
+        ),
+        use_pattern_shift=_bool_alignment_settings(settings, "use_pattern_shift", True),
+        save_debug_images=_bool_alignment_settings(settings, "save_debug_images", True),
+        debug_dir=debug_dir,
+    )
+
+
+def _bool_alignment_settings(settings: dict, name: str, default: bool) -> bool:
+    value = settings.get(name, default)
+    return default if value is None else bool(value)
+
+
+def validate_alignment_step_compatibility(
+    alignment: tbt.StepAlignmentSettings,
+    operation_settings,
+    step_name: str,
+) -> bool:
+    """Validate that enabled alignment is compatible with operation settings."""
+
+    if alignment is None or not alignment.enabled:
+        return True
+
+    if not operation_has_image_settings(operation_settings):
+        raise ValueError(
+            f"Step '{step_name}' has alignment enabled but does not expose image settings."
+        )
+
+    if (
+        alignment.use_pattern_shift
+        and not alignment.use_beam_shift
+        and not alignment.use_stage_recenter
+        and not isinstance(operation_settings, tbt.FIBSettings)
+    ):
+        raise ValueError(
+            f"Step '{step_name}' requested pattern_shift alignment, "
+            "but pattern shifting is only valid for FIB steps. Enable "
+            "use_beam_shift or user_stage_recenter, or disable use_pattern_shift."
+        )
+    return True
+
+
 def step(
     microscope: tbt.Microscope,
     # slice_number: str,
@@ -3461,30 +3671,35 @@ def step(
     """
 
     # parsing settings
-    step_type_value = step_settings[yml_format.step_general_key][
-        yml_format.step_type_key
-    ]
+    step_general_db = step_settings[yml_format.step_general_key]
+    step_type_value = step_general_db[yml_format.step_type_key]
     if not ut.valid_enum_entry(step_type_value, tbt.StepType):
         raise NotImplementedError(
             f"Unsupported step type of '{step_type_value}', for step name '{step_name}' supported types are: {[i.value for i in tbt.StepType]}."
         )
     step_type = tbt.StepType(step_type_value)
 
-    step_number = step_settings[yml_format.step_general_key][yml_format.step_number_key]
+    step_number = step_general_db[yml_format.step_number_key]
     if not isinstance(step_number, int) or (step_number < 1):
         raise KeyError(
             f"Invalid step number of '{step_number}', for step name '{step_name}'. Must be a positive integer greater than 0."
         )
-    step_frequency = step_settings[yml_format.step_general_key][
-        yml_format.step_frequency_key
-    ]
+    step_frequency = step_general_db[yml_format.step_frequency_key]
     if not isinstance(step_frequency, int) or (step_frequency < 1):
         raise KeyError(
             f"Invalid step frequency of '{step_frequency}', for step name '{step_name}'. Must be a positive integer greater than 0."
         )
-    stage_db = step_settings[yml_format.step_general_key][
-        yml_format.step_stage_settings_key
-    ]
+    stage_db = step_general_db[yml_format.step_stage_settings_key]
+
+    alignment_db = step_general_db.get("alignment")
+    if alignment_db is None:
+        alignment_db = step_general_db.get("alignment_settings")
+    parsed_alignment_settings = alignment_settings(
+        settings=alignment_db,
+        general_settings=general_settings,
+        step_name=step_name,
+        yml_format=yml_format,
+    )
 
     # check and validate stage
     stage_settings = stage_position_settings(
@@ -3540,6 +3755,12 @@ def step(
             yml_format=yml_format,
         )
 
+    validate_alignment_step_compatibility(
+        alignment=parsed_alignment_settings,
+        operation_settings=operation_settings,
+        step_name=step_name,
+    )
+
     step_object = tbt.Step(
         type=step_type,
         name=step_name,
@@ -3547,6 +3768,7 @@ def step(
         frequency=step_frequency,
         stage=stage_settings,
         operation_settings=operation_settings,
+        alignment_settings=parsed_alignment_settings,
     )
 
     return step_object

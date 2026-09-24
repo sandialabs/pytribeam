@@ -391,6 +391,9 @@ def target_position(
         target_y_m = rotation_side_adjustment(
             rotation_side, initial_pos_encoder.y, delta_y_m
         )
+    elif sectioning_axis == tbt.SectioningAxis.FIB_SS:
+        # do not update initial positions
+        pass
 
     # TODO
     elif sectioning_axis == tbt.SectioningAxis.X_POS:
@@ -419,6 +422,7 @@ def target_position(
         coordinate_system=tbt.StageCoordinateSystem.RAW.value,
     )
     target_pos_user = encoder_to_user_position(target_pos_encoder)
+
     return target_pos_user
 
 
