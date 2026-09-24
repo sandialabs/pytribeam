@@ -147,7 +147,6 @@ __all__ = [
 # from functools import singledispatch
 import time
 import warnings
-from typing import List
 
 # 3rd party module
 
