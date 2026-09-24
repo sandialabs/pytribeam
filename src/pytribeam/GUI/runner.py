@@ -256,18 +256,19 @@ class MainApplication(tk.Tk):
 
     def test_connections(self):
         """Test the connections to the EDS/EBSD and the laser."""
-        with WaitCursor(self):
-            out_dict = {"result": None}
-            self.thread_obj = StoppableThread(
-                target=wrapper_for_output, args=(laser._device_connections, out_dict)
+        if self.experiment_controller.experiment_settings is not None:
+            connection = self.experiment_controller.experiment_settings.general_settings.connection
+            microscope = tbt.Microscope()
+            utilities.connect_microscope(
+                microscope=microscope,
+                connection_host=connection.host,
+                connection_port=connection.port
             )
-            self.thread_obj.start()
-            while self.thread_obj.is_alive():
-                try:
-                    self.update()
-                except tk.TclError:
-                    return
-        status = out_dict["result"]
+            status = laser._device_connections(microscope=microscope)
+            utilities.disconnect_microscope(microscope=microscope)
+        else:
+            status = laser._device_connections()
+
         messagebox.showinfo("Connection status", str(status))
 
     def clear_terminal(self):

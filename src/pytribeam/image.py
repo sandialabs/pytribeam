@@ -93,6 +93,10 @@ API.
 """
 
 __all__ = [
+    "get_available_detector_types",
+    "get_available_detector_modes",
+    "get_available_insertable_detector_states",
+    "get_available_insertable_detectors",
     "beam_angular_correction",
     "beam_current",
     "beam_dwell_time",
@@ -127,7 +131,7 @@ __all__ = [
 from pathlib import Path
 import time
 import warnings
-from typing import List
+from typing import List, Optional
 import math
 
 # Local scripts
@@ -135,6 +139,193 @@ import pytribeam.constants as cs
 import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
+
+
+def get_available_detector_types(
+    microscope: tbt.Microscope, device: Optional[tbt.Device] = None
+) -> List[tbt.DetectorType]:
+    """
+    Get the list of available detector types for a given device
+
+    ## Parameters
+
+    - `microscope` (`Microscope`): The microscope object from which to retrieve the application files.
+    - `device` (`Device`): The device to check.
+
+    ## Returns
+
+    - `List[DetectorType]`: A sorted list of detector types available on the microscope.
+    """
+    # Get the original device
+    original_device = tbt.Device(microscope.imaging.get_active_device())
+
+    # Parse device
+    if device is None:
+        device = original_device
+
+    # Set device
+    set_beam_device(microscope, device)
+
+    # Get the original detector type and mode for the target device
+    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
+    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
+
+    # Loop over the modes that autoscript provides and make sure they can actually be set (it lies)
+    available_types = []
+    for dt in microscope.detector.type.available_values:
+        dt = tbt.DetectorType(dt)
+        try:
+            # make requested detector the active detector
+            detector_type(microscope, dt)
+        except:
+            pass
+        else:
+            available_types.append(dt)
+
+    # Clean up
+    detector_type(microscope, original_detector_type)
+    detector_mode(microscope, original_detector_mode)
+    set_beam_device(microscope, original_device)
+
+    return available_types
+
+
+def get_available_detector_modes(
+    microscope: tbt.Microscope,
+    device: Optional[tbt.Device] = None,
+    detector: Optional[tbt.DetectorType] = None,
+):
+    """
+    Get the list of available detector modes for a given detector type
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
+    - `device` (`Device`): The device to check.
+    - `detector_type` (`tbt.DetectorType`): The detector type to check modes for. If None, returns the modes for the current device
+
+    ## Returns
+
+    - `List[str]`: A sorted list of detector types available on the microscope.
+    """
+    # Get the original device
+    original_device = tbt.Device(microscope.imaging.get_active_device())
+
+    # Parse device
+    if device is None:
+        device = original_device
+
+    # Set device
+    set_beam_device(microscope, device)
+
+    # Get the original detector type and mode for the target device
+    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
+    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
+
+    # Parse the detector type
+    if detector is None:
+        detector = original_detector_type
+
+    # Set the detector to the requested value
+    if original_detector_type != detector:
+        try:
+            # make requested detector the active detector
+            detector_type(microscope, detector)
+        except:
+            warnings.warn(
+                f"""Warning. Invalid detector type of "{detector_type}" for currently selected device
+                of "{tbt.Device(microscope.imaging.get_active_device()).value}" or detector not found on this system.
+                Detector will be assumed to not be insertable."""
+            )
+            return
+
+    # Get the available values of detector mode for this type
+    available_modes = [
+        tbt.DetectorMode(dm) for dm in microscope.detector.mode.available_values
+    ]
+
+    # Clean up
+    detector_type(microscope, original_detector_type)
+    detector_mode(microscope, original_detector_mode)
+    set_beam_device(microscope, original_device)
+
+    return available_modes
+
+
+def get_available_insertable_detector_states(
+    microscope: tbt.Microscope,
+) -> List[tbt.DetectorType]:
+    """
+    Get the state of all insertable detectors available on the microscope
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
+
+    ## Returns
+
+    - `List[DetectorType]`: A sorted list of insertable detector types available on the microscope.
+    """
+    # Get the original device
+    original_device = tbt.Device(microscope.imaging.get_active_device())
+    device = tbt.Device.ELECTRON_BEAM
+    set_beam_device(microscope, device)
+
+    # Get the original detector type and mode for the target device
+    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
+    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
+
+    insertable_detector_states = []
+    for dt in get_available_detector_types(microscope, device):
+        if devices.detector_insertable(microscope=microscope, detector=dt):
+            state = devices.detector_state(microscope=microscope, detector=dt)
+            insertable_detector_states.append((dt, state))
+
+    # Clean up
+    detector_type(microscope, original_detector_type)
+    detector_mode(microscope, original_detector_mode)
+    set_beam_device(microscope, original_device)
+
+    return insertable_detector_states
+
+
+def get_available_insertable_detectors(
+    microscope: tbt.Microscope,
+) -> List[tbt.DetectorType]:
+    """
+    Get the list of available detector types that are insertable
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the application files.
+
+    ## Returns
+
+    - `List[DetectorType]`: A sorted list of insertable detector types available on the microscope.
+    """
+    # Get the original device
+    original_device = tbt.Device(microscope.imaging.get_active_device())
+    device = tbt.Device.ELECTRON_BEAM
+    set_beam_device(microscope, device)
+
+    # Get the original detector type and mode for the target device
+    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
+    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
+
+    insertable_detectors = []
+    for dt in get_available_detector_types(microscope, device):
+        if devices.detector_insertable(microscope=microscope, detector=dt):
+            insertable_detectors.append(detector_type)
+
+    # Clean up
+    detector_type(microscope, original_detector_type)
+    detector_mode(microscope, original_detector_mode)
+    set_beam_device(microscope, original_device)
+
+    return insertable_detectors
+
+
+######################
 
 
 def beam_angular_correction(
