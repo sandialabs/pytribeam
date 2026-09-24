@@ -341,7 +341,12 @@ class ExperimentController:
         except Exception as e:
             message = f"Unexpected error in step {step_index} of slice {slice_number}: {e.__class__.__name__}: {e}"
             print(message)
-            self._log_error(e, slice_number, step_index)
+            self._log_error(
+                e,
+                slice_number,
+                step_index,
+                exp_dir=experiment_settings.general_settings.exp_dir,
+            )
             self._try_stop_stage(experiment_settings.microscope)
             return False
 
@@ -357,24 +362,43 @@ class ExperimentController:
         except SystemError:
             print("-----> Stage stop successful")
 
-    def _log_error(self, error: Exception, slice_number: int, step_index: int):
-        """Log error to file.
+    def _log_error(
+        self,
+        error: Exception,
+        slice_number: int,
+        step_index: int,
+        exp_dir: Optional[Path] = None,
+    ):
+        """Log error traceback to file.
+
+        The traceback is saved in the experiment's "errors" folder. If that
+        can't be written (or no experiment directory is given), it is saved
+        in the application log folder instead so it is not lost.
 
         Args:
             error: Exception that occurred
             slice_number: Slice where error occurred
             step_index: Step where error occurred
+            exp_dir: Experiment directory
         """
         app_config = AppConfig.from_env()
-        app_config.ensure_directories()
-        err_path = app_config.get_error_log_path()
+        directories = [app_config.log_dir]
+        if exp_dir is not None:
+            directories.insert(0, Path(exp_dir) / "errors")
 
-        with open(err_path, "w") as f:
-            f.write(f"Error in slice {slice_number}, step {step_index}\n")
-            f.write(f"Exception: {type(error).__name__} - {error}\n\n")
-            traceback.print_exc(file=f)
-
-        print(f"Error details saved to: {err_path}")
+        for directory in directories:
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                err_path = app_config.get_error_log_path(directory)
+                with open(err_path, "w") as f:
+                    f.write(f"Error in slice {slice_number}, step {step_index}\n")
+                    f.write(f"Exception: {type(error).__name__} - {error}\n\n")
+                    traceback.print_exc(file=f)
+            except OSError as e:
+                print(f"Warning: Could not save error details to {directory}: {e}")
+                continue
+            print(f"Error details saved to: {err_path}")
+            return
 
     def _update_progress(
         self, slice_num: int, step_num: int, total_slices: int, total_steps: int

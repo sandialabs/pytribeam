@@ -479,6 +479,64 @@ class TestLogError:
         assert "step 3" in content
         assert "ValueError" in content
 
+    @pytest.fixture
+    def fake_app_config(self, monkeypatch, tmp_path):
+        from pytribeam.GUI.common.config_manager import AppConfig
+
+        fake_cfg = AppConfig(data_dir=tmp_path / "data", log_dir=tmp_path / "logs")
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.AppConfig.from_env",
+            lambda: fake_cfg,
+        )
+        return fake_cfg
+
+    def test_saves_to_experiment_errors_folder(self, fake_app_config, tmp_path):
+        exp_dir = tmp_path / "experiment"
+        ctrl = ExperimentController()
+        ctrl._log_error(ValueError("test error"), 2, 3, exp_dir=exp_dir)
+
+        log_files = list((exp_dir / "errors").glob("*_error_traceback.txt"))
+        assert len(log_files) == 1
+        assert "ValueError" in log_files[0].read_text()
+        assert not fake_app_config.log_dir.exists()
+
+    def test_falls_back_to_app_log_dir(self, fake_app_config, tmp_path):
+        # A file where the experiment directory should be makes "errors" unwritable
+        exp_dir = tmp_path / "experiment"
+        exp_dir.write_text("not a directory")
+        ctrl = ExperimentController()
+        ctrl._log_error(ValueError("test error"), 2, 3, exp_dir=exp_dir)
+
+        log_files = list(fake_app_config.log_dir.glob("*_error_traceback.txt"))
+        assert len(log_files) == 1
+        assert "ValueError" in log_files[0].read_text()
+
+    def test_execute_step_saves_traceback_in_experiment(
+        self, fake_app_config, monkeypatch, tmp_path
+    ):
+        def failing_step(slice_number, step_index, settings):
+            raise RuntimeError("step failed")
+
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.workflow.perform_step",
+            failing_step,
+        )
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.stage.stop",
+            lambda m: None,
+        )
+        settings = MagicMock()
+        settings.general_settings.exp_dir = tmp_path / "experiment"
+
+        ctrl = ExperimentController()
+        assert ctrl._execute_step(4, 1, settings) is False
+
+        log_files = list((tmp_path / "experiment" / "errors").glob("*.txt"))
+        assert len(log_files) == 1
+        content = log_files[0].read_text()
+        assert "slice 4, step 1" in content
+        assert "RuntimeError: step failed" in content
+
 
 # ----------------------------------------------------------------------
 # _try_stop_stage
