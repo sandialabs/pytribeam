@@ -157,10 +157,6 @@ import pytribeam.image as img
 
 import pytribeam.types as tbt
 from pytribeam.laser import tfs_laser as external
-# try:
-#     from pytribeam.laser import tfs_laser as external
-# except:
-#     pass
 
 
 def detector_insertable(
