@@ -1555,6 +1555,7 @@ def image_operation(
     general_settings: tbt.GeneralSettings,
     slice_number: int,
     suffix: Optional[int] = None,
+    perform_autofocus: Optional[bool] = True,  # TODO make this better
 ) -> bool:
     """
     Performs an image operation based on the specified settings.
@@ -1590,6 +1591,7 @@ def image_operation(
     if (
         image_settings.beam.settings.run_autofocus
         and general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS
+        and perform_autofocus
     ):
         beam = image_settings.beam
         microscope = image_settings.microscope
@@ -1618,7 +1620,7 @@ def image_operation(
         elif image_settings.beam.type == tbt.BeamType.ION:
             af_beam = "ion"
         af_res = 768  # pixel width
-        af_hfw_large = 50.0e-6  # meters
+        af_hfw_large = 20.0e-6  # meters
         af_dwell = 3e-6  # seconds
         af_tolerance = 1e-6  # convergence tolerance (m)
         af_testing = False

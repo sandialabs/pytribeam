@@ -351,6 +351,7 @@ def acquire_alignment_image(
             general_settings=general_settings,
             slice_number=slice_number,
             suffix=iteration,
+            perform_autofocus=False,
         )
         return Path(general_settings.exp_dir).joinpath(
             image_step.name, f"{slice_number:04}_{iteration:02}.tif"
@@ -365,6 +366,7 @@ def acquire_alignment_image(
             image_settings=image_settings,
             general_settings=general_settings,
             slice_number=slice_number,
+            perform_autofocus=False,
         )
         return Path(general_settings.exp_dir).joinpath(
             iter_step.name, f"{slice_number:04}.tif"

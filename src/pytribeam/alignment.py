@@ -54,6 +54,8 @@ from typing import NamedTuple, Optional, Tuple
 import numpy as np
 from PIL import Image, ImageDraw
 from skimage.feature import match_template
+from skimage.registration import phase_cross_correlation
+from scipy.signal import windows
 
 import pytribeam.constants as cs
 
@@ -188,6 +190,238 @@ def template_match(
     ij = np.unravel_index(np.argmax(result), result.shape)
     x, y = ij[::-1]
     return ShiftPx(dx=float(x), dy=float(y)), max_score
+
+
+def center_pad_template(template: np.ndarray, reference_shape: tuple) -> tuple:
+    """
+    Center-pad a template to match the reference image shape.
+
+    Parameters
+    ----------
+    template : np.ndarray
+        The template / moving image (smaller than reference).
+    reference_shape : tuple
+        (rows, cols) shape of the reference image.
+
+    Returns
+    -------
+    padded_template : np.ndarray
+        The template centered in a zero-padded array of size reference_shape.
+    pad_offsets : tuple of (int, int)
+        (pad_top, pad_left) — the offset of the template's top-left corner
+        within the padded array.
+    """
+    t_rows, t_cols = template.shape[:2]
+    r_rows, r_cols = reference_shape[:2]
+
+    if t_rows > r_rows or t_cols > r_cols:
+        raise ValueError(
+            f"Template shape {template.shape[:2]} must be smaller than or equal to "
+            f"reference shape {reference_shape[:2]} in both dimensions."
+        )
+
+    pad_top = (r_rows - t_rows) // 2
+    pad_bottom = r_rows - t_rows - pad_top
+    pad_left = (r_cols - t_cols) // 2
+    pad_right = r_cols - t_cols - pad_left
+
+    # Handle both 2D and multichannel images
+    if template.ndim == 2:
+        pad_width = ((pad_top, pad_bottom), (pad_left, pad_right))
+    else:
+        pad_width = ((pad_top, pad_bottom), (pad_left, pad_right), (0, 0))
+
+    padded_template = np.pad(template, pad_width, mode="constant", constant_values=0)
+
+    return padded_template, (pad_top, pad_left)
+
+
+def phase_correlate_subpixel(
+    reference: np.ndarray,
+    template: np.ndarray,
+    upsample_factor: int = 100,
+) -> tuple:
+    """
+    Run phase cross-correlation between the reference and a center-padded template.
+
+    Parameters
+    ----------
+    reference : np.ndarray
+        The reference / fixed image.
+    template : np.ndarray
+        The template / moving image (smaller than reference). Will be
+        center-padded internally to match the reference size.
+    upsample_factor : int
+        Upsampling factor for subpixel precision. 100 gives 1/100th pixel
+        accuracy.
+
+    Returns
+    -------
+    shift : np.ndarray
+        Raw (row, col) shift returned by phase_cross_correlation. This is
+        the shift to move the *padded* template onto the reference.
+    error : float
+        Translation invariant normalized RMS error.
+    phasediff : float
+        Global phase difference.
+    pad_offsets : tuple of (int, int)
+        (pad_top, pad_left) used for padding, needed for coordinate transform.
+    """
+
+    # preprocess the patch to avoid dissconitunity errors
+    # zero-centering:
+    template_normalized = template - np.mean(template)
+    # Hann windowing
+    h_y = windows.hann(template.shape[0])
+    h_x = windows.hann(template.shape[1])
+    window_2d = np.outer(h_y, h_x)
+    template_windowed = template_normalized * window_2d
+    # center padding
+    padded_template, pad_offsets = center_pad_template(
+        template_windowed, reference.shape
+    )
+
+    import matplotlib.pyplot as plt
+
+    plt.imshow(padded_template)
+    plt.show()
+
+    shift, error, phasediff = phase_cross_correlation(
+        reference_image=reference,
+        moving_image=padded_template,
+        upsample_factor=upsample_factor,
+    )
+
+    print("here")
+
+    return shift, error, phasediff, pad_offsets
+
+
+def shift_to_template_match_coords(
+    shift: np.ndarray,
+    pad_offsets: tuple,
+) -> np.ndarray:
+    """
+    Convert the raw phase-correlation shift into template-matching coordinates.
+
+    Phase correlation returns the shift that aligns the *padded* template to
+    the reference. In the padded template the actual content sits at
+    (pad_top, pad_left). We need the position of the template's top-left
+    corner in the reference image — the same thing template matching reports.
+
+    Derivation
+    ----------
+    Let the template content start at position ``pad_offsets`` inside the
+    padded array. Phase correlation says "move the padded array by ``shift``
+    to align it with the reference." After that shift, the template content
+    lands at::
+
+        position_in_reference = pad_offsets + shift
+
+    This is exactly the (row, col) of the template's top-left corner in the
+    reference — the template-matching convention.
+
+    Parameters
+    ----------
+    shift : array-like, shape (2,)
+        Raw (row_shift, col_shift) from phase_cross_correlation.
+    pad_offsets : tuple of (int, int)
+        (pad_top, pad_left) from center_pad_template.
+
+    Returns
+    -------
+    position : np.ndarray, shape (2,)
+        (row, col) of the template's top-left corner in the reference image,
+        with subpixel precision.
+    """
+    shift = np.asarray(shift, dtype=float)
+    pad_offsets = np.asarray(pad_offsets, dtype=float)
+    return pad_offsets + shift
+
+
+def find_template_subpixel(
+    reference: np.ndarray,
+    template: np.ndarray,
+    upsample_factor: int = 100,
+) -> dict:
+    """
+    Locate a template in a reference image with subpixel accuracy via phase
+    correlation, returning results in the template-matching coordinate system
+    (top-left corner origin).
+
+    This is the main entry point that combines center-padding, phase
+    correlation, and coordinate transformation.
+
+    Parameters
+    ----------
+    reference : np.ndarray
+        The reference / fixed image (2-D grayscale).
+    template : np.ndarray
+        The template / moving image, must be smaller than the reference in
+        both dimensions.
+    upsample_factor : int
+        Upsampling factor for subpixel precision (default 100 → 0.01 px).
+
+    Returns
+    -------
+    result : dict
+        'position'   : np.ndarray (2,) — (row, col) of the template's
+                        top-left corner in the reference, subpixel.
+        'error'      : float — normalised RMS error from phase correlation.
+        'phasediff'  : float — global phase difference.
+        'raw_shift'  : np.ndarray (2,) — raw shift from phase correlation.
+        'pad_offsets' : tuple (pad_top, pad_left).
+
+    Example
+    -------
+    >>> import numpy as np
+    >>> from phase_correlation_template_match import find_template_subpixel
+    >>> reference = np.random.rand(512, 512)
+    >>> template = reference[100:200, 150:250].copy()
+    >>> result = find_template_subpixel(reference, template, upsample_factor=100)
+    >>> print(result['position'])  # should be close to [100.0, 150.0]
+    """
+    shift, error, phasediff, pad_offsets = phase_correlate_subpixel(
+        reference, template, upsample_factor=upsample_factor
+    )
+
+    position = shift_to_template_match_coords(shift, pad_offsets)
+
+    return {
+        "position": position,
+        "error": error,
+        "phasediff": phasediff,
+        "raw_shift": shift,
+        "pad_offsets": pad_offsets,
+    }
+
+
+def template_match_subpixel(
+    input_image: Path,
+    reference_patch: Path,
+    upsample_factor: float = 100,
+) -> Tuple[ShiftPx, float]:
+    """
+    Locate a template in a reference image with subpixel accuracy via phase
+    correlation, returning results in the template-matching coordinate system
+    (top-left corner origin).
+
+    This is the main entry point that combines center-padding, phase
+    correlation, and coordinate transformation.
+    """
+    image_array = Image.open(input_image)
+    image_array = np.array(image_array)
+
+    patch_array = Image.open(reference_patch)
+    patch_array = np.array(patch_array)
+
+    shift, error, phasediff, pad_offsets = phase_correlate_subpixel(
+        reference=image_array, template=patch_array, upsample_factor=upsample_factor
+    )
+
+    position = shift_to_template_match_coords(shift, pad_offsets)
+
+    return ShiftPx(dx=float(position[1]), dy=float(position[0])), error
 
 
 def relative_shift_px(
