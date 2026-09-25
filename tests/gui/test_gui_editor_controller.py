@@ -513,9 +513,7 @@ class TestValidation:
         monkeypatch.setattr(
             controller_with_pipeline.validator,
             "validate_step",
-            lambda m, name, db, general: ValidationResult(
-                success=True, step_name=name
-            ),
+            lambda m, name, db, general: ValidationResult(success=True, step_name=name),
         )
         controller_with_pipeline.add_step("image")
         success, _ = controller_with_pipeline.validate_step(1, notify=notify)

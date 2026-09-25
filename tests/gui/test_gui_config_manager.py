@@ -188,4 +188,7 @@ class TestAppConfigLogPaths:
         monkeypatch.setattr(time, "strftime", lambda fmt: "20230101-123000")
         cfg = AppConfig(data_dir=tmp_path, log_dir=tmp_path / "logs")
         err_path = cfg.get_error_log_path(tmp_path / "exp" / "errors")
-        assert err_path == tmp_path / "exp" / "errors" / "20230101-123000_error_traceback.txt"
+        assert (
+            err_path
+            == tmp_path / "exp" / "errors" / "20230101-123000_error_traceback.txt"
+        )

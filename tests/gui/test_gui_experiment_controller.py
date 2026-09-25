@@ -583,9 +583,7 @@ class TestStageMove:
             f"{MODULE}.stage.step_start_position",
             lambda **kw: calls.append(("move", kw)),
         )
-        monkeypatch.setattr(
-            f"{MODULE}.stage.stop", lambda m: calls.append(("stop", m))
-        )
+        monkeypatch.setattr(f"{MODULE}.stage.stop", lambda m: calls.append(("stop", m)))
         return calls
 
     @pytest.fixture
@@ -615,7 +613,9 @@ class TestStageMove:
         assert scope == [("target", settings.step_sequence[1].stage, 100, 1.5)]
         assert ctrl.is_moving is True
 
-    @pytest.mark.parametrize("slice_number, runs", [(1, True), (100, False), (101, True)])
+    @pytest.mark.parametrize(
+        "slice_number, runs", [(1, True), (100, False), (101, True)]
+    )
     def test_plan_notes_step_frequency(self, ctrl, scope, slice_number, runs):
         plan = self._plan(ctrl, slice_number, "image_bse")["value"]
         assert plan.step_runs_on_slice is runs

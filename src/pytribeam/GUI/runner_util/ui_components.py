@@ -523,7 +523,11 @@ class MoveStageDialog:
         )
         self.slice_spinbox.grid(row=1, column=1, sticky="nsew", pady=4)
         tk.Label(
-            target, text=f"of {max_slice}", font=ctk.FONT_ITALIC, bg=theme.bg, fg=theme.fg
+            target,
+            text=f"of {max_slice}",
+            font=ctk.FONT_ITALIC,
+            bg=theme.bg,
+            fg=theme.fg,
         ).grid(row=1, column=2, sticky="w", pady=4, padx=(8, 0))
 
         # Say what happens next, so the confirmation isn't a surprise
@@ -557,7 +561,10 @@ class MoveStageDialog:
         # Center over the parent window
         self.top.update_idletasks()
         x = parent.winfo_rootx() + (parent.winfo_width() - self.top.winfo_width()) // 2
-        y = parent.winfo_rooty() + (parent.winfo_height() - self.top.winfo_height()) // 3
+        y = (
+            parent.winfo_rooty()
+            + (parent.winfo_height() - self.top.winfo_height()) // 3
+        )
         self.top.geometry(f"+{max(x, 0)}+{max(y, 0)}")
 
         # Ready to type a slice number straight away

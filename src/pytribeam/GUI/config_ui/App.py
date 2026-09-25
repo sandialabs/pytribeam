@@ -107,7 +107,10 @@ class BusyDialog:
         # Center over the master window
         self.root.update_idletasks()
         x = master.winfo_rootx() + (master.winfo_width() - self.root.winfo_width()) // 2
-        y = master.winfo_rooty() + (master.winfo_height() - self.root.winfo_height()) // 2
+        y = (
+            master.winfo_rooty()
+            + (master.winfo_height() - self.root.winfo_height()) // 2
+        )
         self.root.geometry(f"+{x}+{y}")
 
         self.master.config(cursor="watch")
@@ -1394,9 +1397,7 @@ class Configurator:
         mode_menu = self._detector_menus.get(f"{prefix}detector/mode")
         if mode_menu is not None:
             modes = beam_detectors.get(self._editor_value(f"{prefix}detector/type"), [])
-            self._set_menu_options(
-                mode_menu, modes, reset_invalid, default_first=True
-            )
+            self._set_menu_options(mode_menu, modes, reset_invalid, default_first=True)
 
     def _beam_detector_options(self, beam_type):
         """Return {detector_type: [modes]} for the beam type.
