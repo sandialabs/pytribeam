@@ -253,8 +253,14 @@ def _template_match_response(
         image when ``pad_input=False``, which is the default.
     """
 
-    image_array = _load_grayscale_array(input_image)
-    patch_array = _load_grayscale_array(reference_patch)
+    image_array = Image.open(input_image)
+    image_array = np.array(image_array)
+
+    patch_array = Image.open(reference_patch)
+    patch_array = np.array(patch_array)
+
+    # image_array = _load_grayscale_array(input_image)
+    # patch_array = _load_grayscale_array(reference_patch)
     _validate_template_size(image_array=image_array, patch_array=patch_array)
 
     response = match_template(
