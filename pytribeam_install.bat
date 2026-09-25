@@ -5,77 +5,134 @@ REM ============================================================
 REM Persistent PowerShell wrapper and argument parsing
 REM ============================================================
 
-REM Internal flag used when this batch file relaunches itself inside PowerShell.
-set "PS_WRAPPED=0"
-if /I "%~1"=="--ps-wrapped" (
-  set "PS_WRAPPED=1"
-  shift /1
-)
-
-REM Default install mode is standard/non-editable.
 set "DEV_INSTALL=0"
 
-REM If the user double-clicked the .bat from Explorer, relaunch in a persistent
-REM PowerShell window. If they ran it from an existing cmd/PowerShell/Terminal,
-REM do not relaunch.
-if "%PS_WRAPPED%"=="0" (
-  set "PARENT_PROCESS_NAME="
-  call :GET_CMD_PARENT_NAME PARENT_PROCESS_NAME
+call :MAYBE_RELAUNCH_IN_POWERSHELL %*
+if errorlevel 2 exit /b 0
+if errorlevel 1 exit /b 1
 
-  echo(%CMDCMDLINE% | findstr /I /C:"/c" >nul && (
-    echo(%CMDCMDLINE% | findstr /I /C:"%~nx0" >nul && (
-      if /I "!PARENT_PROCESS_NAME!"=="explorer.exe" (
-        set "PYTRIBEAM_INSTALLER=%~f0"
-        powershell.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command "& $env:PYTRIBEAM_INSTALLER --ps-wrapped %*"
-        exit /b
-      )
+call :PARSE_ARGS %*
+if errorlevel 1 exit /b 1
+
+goto :AFTER_STARTUP_HELPERS
+
+
+REM ============================================================
+REM Helper: relaunch in persistent PowerShell only when double-clicked
+REM ============================================================
+:MAYBE_RELAUNCH_IN_POWERSHELL
+setlocal EnableDelayedExpansion
+
+REM Do not relaunch if this is already the PowerShell-wrapped invocation.
+if /I "%~1"=="--ps-wrapped" (
+  endlocal & exit /b 0
+)
+
+set "PARENT_PROCESS_NAME="
+call :GET_CMD_PARENT_NAME PARENT_PROCESS_NAME
+
+set "NEED_PS=0"
+
+REM Double-clicked .bat files usually run as:
+REM   cmd.exe /c ""path\script.bat" ..."
+REM and the cmd.exe parent is explorer.exe.
+if /I "!PARENT_PROCESS_NAME!"=="explorer.exe" (
+  set "CMDLINE=!CMDCMDLINE!"
+
+  REM Check for /c and this batch filename in the cmd command line.
+  if /I not "!CMDLINE:/c=!"=="!CMDLINE!" (
+    if /I not "!CMDLINE:%~nx0=!"=="!CMDLINE!" (
+      set "NEED_PS=1"
     )
   )
 )
 
-:PARSE_ARGS
-if "%~1"=="" goto :ARGS_DONE
-
-if /I "%~1"=="-d" (
-  set "DEV_INSTALL=1"
-  shift /1
-  goto :PARSE_ARGS
+if "!NEED_PS!"=="1" (
+  set "PYTRIBEAM_INSTALLER=%~f0"
+  powershell.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command "& $env:PYTRIBEAM_INSTALLER --ps-wrapped %*"
+  endlocal & exit /b 2
 )
 
-if /I "%~1"=="--developer" (
-  set "DEV_INSTALL=1"
-  shift /1
-  goto :PARSE_ARGS
-)
-
-if /I "%~1"=="--dev" (
-  set "DEV_INSTALL=1"
-  shift /1
-  goto :PARSE_ARGS
-)
-
-if /I "%~1"=="-h" goto :USAGE
-if /I "%~1"=="--help" goto :USAGE
-
-echo [ERROR] Unknown option: "%~1"
-goto :USAGE
-
-:ARGS_DONE
+endlocal & exit /b 0
 
 
 REM ============================================================
-REM Helper: get parent process name of the current cmd.exe
+REM Helper: parse installer arguments
+REM ============================================================
+:PARSE_ARGS
+setlocal
+set "DEV=0"
+
+:PARSE_ARGS_LOOP
+if "%~1"=="" (
+  endlocal & set "DEV_INSTALL=%DEV%" & exit /b 0
+)
+
+REM Internal flag inserted by the PowerShell wrapper.
+if /I "%~1"=="--ps-wrapped" (
+  shift /1
+  goto :PARSE_ARGS_LOOP
+)
+
+if /I "%~1"=="-d" (
+  set "DEV=1"
+  shift /1
+  goto :PARSE_ARGS_LOOP
+)
+
+if /I "%~1"=="--developer" (
+  set "DEV=1"
+  shift /1
+  goto :PARSE_ARGS_LOOP
+)
+
+if /I "%~1"=="--dev" (
+  set "DEV=1"
+  shift /1
+  goto :PARSE_ARGS_LOOP
+)
+
+if /I "%~1"=="-h" (
+  endlocal
+  call :USAGE
+  exit /b 1
+)
+
+if /I "%~1"=="--help" (
+  endlocal
+  call :USAGE
+  exit /b 1
+)
+
+echo [ERROR] Unknown option: "%~1"
+endlocal
+call :USAGE
+exit /b 1
+
+
+REM ============================================================
+REM Helper: get parent process name of this cmd.exe
 REM ============================================================
 :GET_CMD_PARENT_NAME
 setlocal
 set "NAME="
 
-for /f "usebackq delims=" %%A in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ps=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID); $cmd=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $ps.ParentProcessId); $parent=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $cmd.ParentProcessId); if ($parent) { $parent.Name }" 2^>nul`) do (
-  set "NAME=%%A"
-)
+for /f "usebackq delims=" %%A in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$f='ProcessId=' + $PID; $ps=Get-CimInstance Win32_Process -Filter $f; $f='ProcessId=' + $ps.ParentProcessId; $cmd=Get-CimInstance Win32_Process -Filter $f; $f='ProcessId=' + $cmd.ParentProcessId; $parent=Get-CimInstance Win32_Process -Filter $f; $parent.Name" 2^>nul`) do set "NAME=%%A"
 
 endlocal & set "%~1=%NAME%" & exit /b 0
 
+
+:USAGE
+echo.
+echo Usage:
+echo   %~nx0              Standard non-editable install
+echo   %~nx0 -d           Developer/editable install
+echo   %~nx0 --developer  Developer/editable install
+echo.
+exit /b 1
+
+
+:AFTER_STARTUP_HELPERS
 
 :USAGE
 echo.
@@ -281,16 +338,11 @@ echo.
 echo [INFO] Install completed successfully.
 
 echo.
-echo To see available commands, please run `pytribeam.exe` in your terminal.
-if %errorlevel% equ 0(
-  goto :end_of_loop
-)
+echo To see available commands, please run pytribeam.exe in your terminal.
+exit /b 0
+
 
 :FAIL
+echo.
 echo [ERROR] Install failed.
-if %errorlevel% equ 0(
-  goto :end_of_loop
-)
-
-:end_of_loop
-exit /b 0
+exit /b 1
