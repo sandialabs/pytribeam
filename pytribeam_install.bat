@@ -2,6 +2,93 @@
 setlocal EnableExtensions EnableDelayedExpansion
 
 REM ============================================================
+REM Persistent PowerShell wrapper and argument parsing
+REM ============================================================
+
+REM Internal flag used when this batch file relaunches itself inside PowerShell.
+set "PS_WRAPPED=0"
+if /I "%~1"=="--ps-wrapped" (
+  set "PS_WRAPPED=1"
+  shift /1
+)
+
+REM Default install mode is standard/non-editable.
+set "DEV_INSTALL=0"
+
+REM If the user double-clicked the .bat from Explorer, relaunch in a persistent
+REM PowerShell window. If they ran it from an existing cmd/PowerShell/Terminal,
+REM do not relaunch.
+if "%PS_WRAPPED%"=="0" (
+  set "PARENT_PROCESS_NAME="
+  call :GET_CMD_PARENT_NAME PARENT_PROCESS_NAME
+
+  echo(%CMDCMDLINE% | findstr /I /C:"/c" >nul && (
+    echo(%CMDCMDLINE% | findstr /I /C:"%~nx0" >nul && (
+      if /I "!PARENT_PROCESS_NAME!"=="explorer.exe" (
+        set "PYTRIBEAM_INSTALLER=%~f0"
+        powershell.exe -NoProfile -NoExit -ExecutionPolicy Bypass -Command "& $env:PYTRIBEAM_INSTALLER --ps-wrapped %*"
+        exit /b
+      )
+    )
+  )
+)
+
+:PARSE_ARGS
+if "%~1"=="" goto :ARGS_DONE
+
+if /I "%~1"=="-d" (
+  set "DEV_INSTALL=1"
+  shift /1
+  goto :PARSE_ARGS
+)
+
+if /I "%~1"=="--developer" (
+  set "DEV_INSTALL=1"
+  shift /1
+  goto :PARSE_ARGS
+)
+
+if /I "%~1"=="--dev" (
+  set "DEV_INSTALL=1"
+  shift /1
+  goto :PARSE_ARGS
+)
+
+if /I "%~1"=="-h" goto :USAGE
+if /I "%~1"=="--help" goto :USAGE
+
+echo [ERROR] Unknown option: "%~1"
+goto :USAGE
+
+:ARGS_DONE
+
+
+REM ============================================================
+REM Helper: get parent process name of the current cmd.exe
+REM ============================================================
+:GET_CMD_PARENT_NAME
+setlocal
+set "NAME="
+
+for /f "usebackq delims=" %%A in (`powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "$ps=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $PID); $cmd=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $ps.ParentProcessId); $parent=Get-CimInstance Win32_Process -Filter ('ProcessId=' + $cmd.ParentProcessId); if ($parent) { $parent.Name }" 2^>nul`) do (
+  set "NAME=%%A"
+)
+
+endlocal & set "%~1=%NAME%" & exit /b 0
+
+
+:USAGE
+echo.
+echo Usage:
+echo   %~nx0              Standard non-editable install
+echo   %~nx0 -d           Developer/editable install
+echo   %~nx0 --developer  Developer/editable install
+echo.
+exit /b 1
+
+
+
+REM ============================================================
 REM Configuration
 REM ============================================================
 set "PYTHON=C:\Program Files\Enthought\Python\envs\Autoscript\python.exe"
@@ -12,6 +99,11 @@ echo ===========================================================
 echo Install pyTriBeam - %DATE% %TIME%                          
 echo Script: %~f0                                               
 echo Wheelhouse: "%WHEELHOUSE%"                                 
+if "%DEV_INSTALL%"=="1" (
+  echo Install mode: Developer/editable
+) else (
+  echo Install mode: Standard/non-editable
+)
 echo ===========================================================
 
 
@@ -167,11 +259,16 @@ call %PIP% install "%WHEELHOUSE%\pylint-3.2.7-py3-none-any.whl" --no-index --fin
 call %PIP% install "%WHEELHOUSE%\pylint_exit-1.2.0-py2.py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
 call %PIP% install "%WHEELHOUSE%\anybadge-1.16.0-py3-none-any.whl" --no-index --find-links "%WHEELHOUSE%" || goto :FAIL
 
-
 REM Install pyTriBeam from the current folder
-echo Installing pyTriBeam...
-call %PIP% install -e . --no-index --no-build-isolation --find-links "%WHEELHOUSE%" || goto :FAIL
-
+if "%DEV_INSTALL%"=="1" (
+  echo .
+  echo Installing pyTriBeam in editable/developer mode...
+  call %PIP% install -e . --no-index --no-build-isolation --find-links "%WHEELHOUSE%" || goto :FAIL
+) else (
+  echo .
+  echo Installing pyTriBeam...
+  call %PIP% install . --no-index --no-build-isolation --find-links "%WHEELHOUSE%" || goto :FAIL
+)
 
 REM ============================================================
 REM Verification / reporting
