@@ -132,8 +132,10 @@ echo.
 echo Updating pip, setuptools, and the build backend...
 %PIP_INSTALL% pip setuptools %BUILD_DEPS% || goto :FAIL
 
-REM Resolve everything against the wheelhouse before removing anything, so a
-REM missing wheel fails here and leaves the environment untouched.
+REM Resolve the full install before removing anything, so an unsatisfiable
+REM dependency fails here and leaves the environment untouched. Packages that
+REM are already installed at an acceptable version count as satisfied, so this
+REM does not prove the wheelhouse is complete.
 echo.
 echo Checking that all dependencies are available offline...
 %PIP_INSTALL% --no-build-isolation --dry-run %EDITABLE% "%TARGET%" || goto :FAIL
