@@ -170,40 +170,36 @@ class EntryMenuButton(ttk.Combobox):
             ],
         )
 
-        # Set the style to use the correct background and foreground colors
-        # Note: On Windows, ttk.Combobox fieldbackground cannot be reliably styled
-        # The entry field will remain white, so we use dark text for visibility
+        # Set the style to use the correct background and foreground colors,
+        # matching the other entry widgets (e.g. white text on a dark field in dark mode)
         self.bg = bg or DEFAULT_COLOR
         self.fg = fg or calc_font_color(self.bg)
-        # Force dark text on white background for readability in the entry field
-        entry_fg = calc_font_color(
-            "#FFFFFF"
-        )  # Calculate text color for white background
 
         custom_style = f"EMB_{len(EntryMenuButton.style)}.TCombobox"
         EntryMenuButton.style.append(custom_style)
         style.configure(
             custom_style,
             padding=(1, 1, 1, 1),
-            fieldbackground="white",  # Explicitly set to white since we can't override it
+            fieldbackground=self.bg,
             background=self.bg,
-            foreground=entry_fg,  # Dark text for white background
+            foreground=self.fg,
+            insertcolor=self.fg,
             selectbackground="#0078D7",  # Standard blue selection
             selectforeground="white",
-            arrowcolor=entry_fg,
+            arrowcolor=self.fg,
         )
         style.map(
             custom_style,
             fieldbackground=[
-                ("readonly", "white"),
-                ("disabled", "#F0F0F0"),
-                ("", "white"),
+                ("readonly", self.bg),
+                ("disabled", self.bg),
+                ("", self.bg),
             ],
             background=[("readonly", self.bg), ("disabled", self.bg), ("", self.bg)],
             foreground=[
-                ("readonly", entry_fg),
+                ("readonly", self.fg),
                 ("disabled", "#808080"),
-                ("", entry_fg),
+                ("", self.fg),
             ],
             selectbackground=[("", "#0078D7")],
             selectforeground=[("", "white")],
