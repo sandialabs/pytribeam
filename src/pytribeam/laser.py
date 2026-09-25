@@ -1457,8 +1457,9 @@ def map_ebsd(
         )
         time.sleep(1.0)
 
+        # retraction handled separately from map function
         # Retract the EBSD camera
-        edax_retract_camera(connection=connection)
+        # edax_retract_camera(connection=connection)
 
         # Disconnect socket to EDAX IPAPI
         disconnect_EDAX(connection=connection)
