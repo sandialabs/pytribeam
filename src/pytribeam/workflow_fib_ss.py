@@ -78,6 +78,7 @@ from pytribeam.alignment import (
     TemplateMatchSettings,
     measure_template_offset,
     template_match,
+    template_match_subpixel,
 )
 from pytribeam.image import read_beam_shift, set_beam_shift
 from pytribeam.workflow import perform_operation, setup_experiment
@@ -861,7 +862,7 @@ def perform_step_alignment(
             f"Step '{step.name}' has alignment enabled but no reference image path."
         )
 
-    baseline_match_px, baseline_score = template_match(
+    baseline_match_px, baseline_score = template_match_subpixel(
         input_image=alignment_settings.reference_image_path,
         reference_patch=alignment_settings.reference_patch_path,
     )
