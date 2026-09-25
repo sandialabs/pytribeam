@@ -432,12 +432,16 @@ zipp==3.7.0
 <pre><code class="language-bat">./pytribeam_install.bat
 </code></pre>
 <p>This install script will uninstall any exisiting version of <code>pytribeam</code> before installing the current version. Wheels of various open-source dependencies with the package will be installed. Wheels are provided in order to eliminate the need for internet connectivity on the microscope, and a full list of the current provided wheels can be found here: <a href="https://github.com/sandialabs/pytribeam/tree/main/wheelhouse">wheelhouse</a></p>
+<p>Before removing anything, the script checks that every dependency is either already installed or available in the wheelhouse, so a failed install leaves the existing installation untouched. A detailed log of each run is appended to <code>pytribeam_install.log</code> next to the script; include this file when reporting an installation problem.</p>
 <div class="mdbook-alerts mdbook-alerts-note">
 <p class="mdbook-alerts-title">
   <span class="mdbook-alerts-icon"></span>
   note
 </p>
-<p><code>pytribeam</code> currently defaults to install in developer (editable) mode, which provides the user with the ability to modify and expand the source code, such as adjusting default values in the <code>constants</code> module. Such editing would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the <code>constants</code> module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: <a href="https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html">test-coverage</a>.</p>
+<p><code>pytribeam</code> installs in standard (non-editable) mode by default. To install in developer (editable) mode, pass <code>-d</code> (or <code>--dev</code>):</p>
+<pre><code class="language-bat">./pytribeam_install.bat -d
+</code></pre>
+<p>Developer mode lets you modify and expand the source code, such as adjusting default values in the <code>constants</code> module, and also installs the testing, linting, and documentation tools (<code>pytest</code>, <code>pylint</code>, <code>ruff</code>, <code>pdoc</code>, etc.). Such editing would be needed to run unit tests included in the package, as running of tests are tied to specific machine names provided in the <code>constants</code> module. Compiled unit test coverage for the package can be found for the latest release without installing as a developer here: <a href="https://sandialabs.github.io/pytribeam/coverage_reports/combined/htmlcov/index.html">test-coverage</a>.</p>
 </div>
 <h2 id="verification"><a class="header" href="#verification">Verification</a></h2>
 <p>After running the <code>install.bat</code> script, confirm the package installation by opening a new terminal and run the following to list the available package commands:</p>
@@ -477,7 +481,7 @@ Example:
 <pre><code class="language-sh">pytribeam_info
 </code></pre>
 <p>API docs were last built in an environment with the following info:</p>
-<pre><code class="language-text">pytribeam module version: v0.1.7.dev33
+<pre><code class="language-text">pytribeam module version: v0.1.7.dev34
   Maximum supported .yml schema version: v1.0
   Supported Thermo Fisher AutoScript versions: v4.8.1, v4.10.0, v4.11.0
   Supported Laser API versions: v2.2.1
