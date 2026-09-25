@@ -467,27 +467,50 @@ class MoveStageDialog:
         self.result = None
         self.max_slice = max_slice
 
-        self.top = tk.Toplevel(parent, bg=theme.bg, padx=10, pady=10)
+        self.top = tk.Toplevel(parent, bg=theme.bg, padx=12, pady=12)
         self.top.title("Move stage to step")
         self.top.resizable(False, False)
         self.top.transient(parent)
         self.top.protocol("WM_DELETE_WINDOW", self._cancel)
-        self.top.columnconfigure([0, 1], weight=1)
+        self.top.columnconfigure(0, weight=1)
 
-        tk.Label(
+        # Step and slice choices, styled like the control panel's info frame
+        target = tk.LabelFrame(
             self.top,
-            text="Move the stage to the starting position of a step.",
-            font=ctk.FONT,
+            text="Target",
+            font=ctk.SUBHEADER_FONT,
             bg=theme.bg,
             fg=theme.fg,
-        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(0, 10))
+            padx=8,
+            pady=6,
+        )
+        target.grid(row=0, column=0, sticky="nsew")
+        target.columnconfigure(1, weight=1)
+        label_kw = dict(font=ctk.FONT, bg=theme.bg, fg=theme.fg, anchor="w")
 
-        tk.Label(
-            self.top, text="Slice", font=ctk.FONT, bg=theme.bg, fg=theme.fg, anchor="e"
-        ).grid(row=1, column=0, sticky="nsew", pady=5, padx=5)
+        tk.Label(target, text="Step", **label_kw).grid(
+            row=0, column=0, sticky="nsew", pady=4, padx=(0, 10)
+        )
+        default_step = step_name if step_name in step_names else step_names[0]
+        self.step_var = tk.StringVar(self.top, value=default_step)
+        ctk.MenuButton(
+            target,
+            font=ctk.FONT,
+            options=step_names,
+            var=self.step_var,
+            width=16,
+            bg=theme.bg_off,
+            fg=theme.fg,
+            h_bg=theme.accent1,
+            h_fg=theme.accent1_fg,
+        ).grid(row=0, column=1, columnspan=2, sticky="nsew", pady=4)
+
+        tk.Label(target, text="Slice", **label_kw).grid(
+            row=1, column=0, sticky="nsew", pady=4, padx=(0, 10)
+        )
         self.slice_var = tk.StringVar(self.top, value=str(slice_number))
-        tk.Spinbox(
-            self.top,
+        self.slice_spinbox = tk.Spinbox(
+            target,
             font=ctk.FONT,
             width=6,
             from_=1,
@@ -497,40 +520,49 @@ class MoveStageDialog:
             fg=theme.fg,
             insertbackground=theme.fg,
             textvariable=self.slice_var,
-        ).grid(row=1, column=1, sticky="nsew", pady=5, padx=5)
-
+        )
+        self.slice_spinbox.grid(row=1, column=1, sticky="nsew", pady=4)
         tk.Label(
-            self.top, text="Step", font=ctk.FONT, bg=theme.bg, fg=theme.fg, anchor="e"
-        ).grid(row=2, column=0, sticky="nsew", pady=5, padx=5)
-        default_step = step_name if step_name in step_names else step_names[0]
-        self.step_var = tk.StringVar(self.top, value=default_step)
-        ctk.MenuButton(
+            target, text=f"of {max_slice}", font=ctk.FONT_ITALIC, bg=theme.bg, fg=theme.fg
+        ).grid(row=1, column=2, sticky="w", pady=4, padx=(8, 0))
+
+        # Say what happens next, so the confirmation isn't a surprise
+        tk.Label(
             self.top,
-            font=ctk.FONT,
-            options=step_names,
-            var=self.step_var,
-            bg=theme.bg_off,
+            text="Devices are retracted before moving. You'll see the target "
+            "coordinates and confirm before the stage moves.",
+            font=ctk.MENU_FONT,
+            bg=theme.bg,
             fg=theme.fg,
-            h_bg=theme.accent1,
-            h_fg=theme.accent1_fg,
-        ).grid(row=2, column=1, sticky="nsew", pady=5, padx=5)
+            justify="left",
+            anchor="w",
+            wraplength=300,
+        ).grid(row=1, column=0, sticky="nsew", pady=(10, 0))
 
         buttons = tk.Frame(self.top, bg=theme.bg)
-        buttons.grid(row=3, column=0, columnspan=2, sticky="e", pady=(10, 0))
-        for text, command in (("OK", self._ok), ("Cancel", self._cancel)):
+        buttons.grid(row=2, column=0, sticky="e", pady=(12, 0))
+        for text, command in (("Cancel", self._cancel), ("Continue", self._ok)):
             tk.Button(
                 buttons,
                 text=text,
-                width=8,
+                width=10,
                 font=ctk.FONT,
                 command=command,
                 bg=theme.bg_off,
                 fg=theme.fg,
-            ).pack(side="left", padx=5)
+            ).pack(side="left", padx=(8, 0))
         self.top.bind("<Return>", lambda e: self._ok())
         self.top.bind("<Escape>", lambda e: self._cancel())
 
-        self.top.focus_set()
+        # Center over the parent window
+        self.top.update_idletasks()
+        x = parent.winfo_rootx() + (parent.winfo_width() - self.top.winfo_width()) // 2
+        y = parent.winfo_rooty() + (parent.winfo_height() - self.top.winfo_height()) // 3
+        self.top.geometry(f"+{max(x, 0)}+{max(y, 0)}")
+
+        # Ready to type a slice number straight away
+        self.slice_spinbox.focus_set()
+        self.slice_spinbox.selection_range(0, "end")
         try:
             self.top.grab_set()
         except tk.TclError:
