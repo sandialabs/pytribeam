@@ -138,7 +138,9 @@ class TestDeviceMovement:
     @pytest.mark.simulated
     def test_stationary_detector_insertable(self, microscope):
         devices.device_access(microscope=microscope)
-        valid_detectors = img.get_available_detector_types(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        valid_detectors = img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
         for detector in valid_detectors:
             detector = tbt.DetectorType(detector)  # overwrite
             img.detector_type(
@@ -178,7 +180,9 @@ class TestDeviceMovement:
     @pytest.mark.hardware
     def test_retractable_detector_insertable(self, microscope):
         devices.device_access(microscope=microscope)
-        valid_detectors = img.get_available_detector_types(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        valid_detectors = img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
         for detector in valid_detectors:
             detector = tbt.DetectorType(detector)  # overwrite
             img.detector_type(
@@ -341,7 +345,7 @@ class TestPreventCollisions:
         assert err.type == SystemError
         assert (
             err.value.args[0]
-            == 'Error. Cannot insert EDS while CBS not in "Retracted" state. \n            CBS detector currently in "Inserted" state.'
+            == 'Error. Cannot insert EDS while CBS not in "Retracted" state.\n            CBS detector currently in "Inserted" state.'
         )
         devices.retract_device(
             microscope=safe_microscope,
