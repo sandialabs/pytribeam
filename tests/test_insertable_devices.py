@@ -178,7 +178,8 @@ class TestDeviceMovement:
     @pytest.mark.hardware
     def test_retractable_detector_insertable(self, microscope):
         devices.device_access(microscope=microscope)
-        valid_detectors = microscope.detector.type.available_values
+        # valid_detectors = microscope.detector.type.available_values
+        valid_detectors = img.get_available_detector_types(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
         for detector in valid_detectors:
             detector = tbt.DetectorType(detector)  # overwrite
             img.detector_type(
