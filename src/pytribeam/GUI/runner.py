@@ -263,21 +263,45 @@ class MainApplication(tk.Tk):
         self.control_panel.starting_step_var.set(starting_step)
 
     def test_connections(self):
-        """Test the connections to the EDS/EBSD and the laser."""
-        if self.experiment_controller.experiment_settings is not None:
-            connection = self.experiment_controller.experiment_settings.general_settings.connection
-            microscope = tbt.Microscope()
-            utilities.connect_microscope(
-                microscope=microscope,
-                connection_host=connection.host,
-                connection_port=connection.port,
-            )
-            status = laser._device_connections(microscope=microscope)
-            utilities.disconnect_microscope(microscope=microscope)
-        else:
-            status = laser._device_connections()
+        """Test the connections to the EDS/EBSD, the laser, and the insertable devices.
+
+        The microscope is reached with the connection settings of the loaded
+        configuration file, or the default settings if no file is loaded. If the
+        microscope can't be reached, only the laser and EDS/EBSD are tested.
+        """
+        with WaitCursor(self):
+            try:
+                connection = self._microscope_connection()
+                microscope = tbt.Microscope()
+                utilities.connect_microscope(
+                    microscope=microscope,
+                    connection_host=connection.host,
+                    connection_port=connection.port,
+                )
+                try:
+                    status = laser._device_connections(microscope=microscope)
+                finally:
+                    utilities.disconnect_microscope(microscope=microscope)
+            except Exception as e:
+                print(f"Could not check insertable devices on the microscope: {e}")
+                status = laser._device_connections()
 
         messagebox.showinfo("Connection status", str(status))
+
+    def _microscope_connection(self):
+        """Microscope connection settings from the loaded config file, or the defaults."""
+        if self.config_path is None:
+            return tbt.MicroscopeConnection(host="localhost")
+        db = utilities.yml_to_dict(
+            yml_path_file=self.config_path,
+            version=utilities.yml_version(self.config_path),
+            required_keys=("general",),
+        )
+        port = db["general"].get("connection_port")
+        return tbt.MicroscopeConnection(
+            host=db["general"].get("connection_host", "localhost"),
+            port=None if port in (None, "") else int(port),
+        )
 
     def clear_terminal(self):
         self.terminal.config(state=tk.NORMAL)
