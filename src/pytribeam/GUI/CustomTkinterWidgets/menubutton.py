@@ -6,9 +6,10 @@ from .images import *
 
 
 class MenuButton(tk.Menubutton):
-    """A tk MenuButton that shows a dropdown arrow after its current value."""
+    """A tk MenuButton showing its value on the left and a dropdown arrow on the right."""
 
     ARROW = "▼"
+    ARROW_GAP = "  "  # minimum space between the value and the arrow
 
     def __init__(
         self,
@@ -46,8 +47,13 @@ class MenuButton(tk.Menubutton):
         # while self.var keeps holding just the value
         self._display_var = tk.StringVar(parent)
         self._trace_id = self.var.trace_add("write", self._update_display)
+        # The arrow is pushed to the right edge by padding the text to the widget's
+        # width, so a text-sized request would grow with every resize. Without an
+        # explicit width, size the widget to its values instead.
+        self._auto_width = not kw.get("width")
 
         relief = kw.get("relief", "raised")
+        kw.setdefault("anchor", "w")
         kw.update(
             dict(
                 textvariable=self._display_var,
@@ -73,13 +79,42 @@ class MenuButton(tk.Menubutton):
         self["menu"] = self.menu
         self.options = options
         self.set_options(options, command)
-        self._update_display()
+        self.bind("<Configure>", self._update_display, add="+")
 
     def _update_display(self, *args):
-        """Show the current value followed by the dropdown arrow."""
+        """Show the current value with the dropdown arrow at the right edge."""
         # Read the raw Tcl value so a non-numeric value in an IntVar/DoubleVar can't raise
-        value = self.getvar(str(self.var))
-        self._display_var.set(f"{value}  {self.ARROW}")
+        value = str(self.getvar(str(self.var)))
+        if self._auto_width:
+            longest = max([len(str(opt)) for opt in self.options] + [len(value)])
+            width = longest + len(self.ARROW_GAP) + 2
+            if int(self.cget("width")) != width:
+                self.configure(width=width)
+        self._display_var.set(self._fit_to_width(value))
+
+    def _fit_to_width(self, value):
+        """Pad (or shorten) the value so the arrow ends at the right edge of the text area."""
+        font = self.cget("font")
+
+        def measure(text):
+            return int(self.tk.call("font", "measure", font, text))
+
+        arrow = self.ARROW_GAP + self.ARROW
+        inset = sum(
+            self.winfo_fpixels(self.cget(opt))
+            for opt in ("borderwidth", "highlightthickness", "padx")
+        )
+        available = self.winfo_width() - 2 * inset
+        if available <= 0:
+            return value + arrow  # not laid out yet, <Configure> will refit it
+
+        # Shorten values that don't fit so the arrow stays visible
+        if measure(value + arrow) > available:
+            while value and measure(value + "…" + arrow) > available:
+                value = value[:-1]
+            value += "…"
+        spaces = int((available - measure(value + arrow)) // max(measure(" "), 1))
+        return value + " " * max(spaces, 0) + arrow
 
     def destroy(self):
         """Stop mirroring the variable, which may outlive this widget."""
@@ -101,6 +136,7 @@ class MenuButton(tk.Menubutton):
                     value=opt,
                     command=lambda: command(self.var.get()),
                 )
+        self._update_display()
 
 
 class EntryMenuButton(ttk.Combobox):
