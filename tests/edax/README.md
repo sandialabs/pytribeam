@@ -19,10 +19,32 @@ The IPAPI is a TCP service and is independent of TFS AutoScript, so these run
 from the **EDAX workstation itself or any machine on the same network**, not
 only from the microscope PC.
 
+Production runs on Windows, so **PowerShell** is the expected shell:
+
+```powershell
+cd C:\path\to\pytribeam
+# activate whatever environment holds the pytribeam dev dependencies, e.g.
+# conda activate pytribeam      or      .\.venv\Scripts\Activate.ps1
+
+$env:PYTRIBEAM_EDAX_HOST = "localhost"    # "localhost" on the EDAX PC itself
+$env:PYTRIBEAM_RUN_EDAX_IPAPI = "1"
+
+python -m pytest tests/edax/hardware -v
 ```
-set PYTRIBEAM_EDAX_HOST=<ipapi host>
+
+Equivalents in the other shells, since the variable syntax differs:
+
+```bat
+:: Command Prompt (cmd.exe)
+set PYTRIBEAM_EDAX_HOST=localhost
 set PYTRIBEAM_RUN_EDAX_IPAPI=1
-pytest tests/edax/hardware -v
+python -m pytest tests/edax/hardware -v
+```
+
+```bash
+# bash / zsh -- these scope to the single command
+PYTRIBEAM_EDAX_HOST=localhost PYTRIBEAM_RUN_EDAX_IPAPI=1 \
+  python -m pytest tests/edax/hardware -v
 ```
 
 Everything is read-only and nothing starts a map.
@@ -37,6 +59,41 @@ Everything is read-only and nothing starts a map.
 
 The full sweep issues roughly 150 commands, so it takes about half a minute at
 the default pause. Drop `PYTRIBEAM_EDAX_PAUSE_S` to `0.01` when iterating.
+
+### PowerShell notes
+
+Confirm the service is reachable before blaming the tests:
+
+```powershell
+Test-NetConnection -ComputerName localhost -Port 8301
+```
+
+`$env:` variables last for the life of that PowerShell window. Inspect or clear
+them with:
+
+```powershell
+Get-ChildItem Env:PYTRIBEAM*
+Remove-Item Env:\PYTRIBEAM_EDAX_HOST
+```
+
+PowerShell has no `VAR=value command` prefix form, so set the variables on their
+own lines rather than inline.
+
+If every test reports `SKIPPED ... requires a reachable EDAX IPAPI service`, the
+variables did not reach pytest. Run the diagnostic from the same terminal:
+
+```powershell
+python tests/edax/diagnose.py
+```
+
+It prints both variables as the Python process sees them, plus every
+`PYTRIBEAM_*` and `*EDAX*` variable in the environment, so a mis-typed or
+unprefixed name shows up immediately next to the one that is missing. Skip
+reasons print automatically in pytest because `-rs` is in the project
+`addopts`.
+
+Use `python -m pytest` rather than a bare `pytest`, so the run uses the
+interpreter of the activated environment.
 
 ### What the sweep is for
 
