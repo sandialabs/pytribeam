@@ -6,7 +6,9 @@ from .images import *
 
 
 class MenuButton(tk.Menubutton):
-    """A tk  MenuButton."""
+    """A tk MenuButton that shows a dropdown arrow after its current value."""
+
+    ARROW = "▼"
 
     def __init__(
         self,
@@ -40,10 +42,15 @@ class MenuButton(tk.Menubutton):
         else:
             self.var = var
 
+        # Display the value with an arrow so the button reads as a dropdown,
+        # while self.var keeps holding just the value
+        self._display_var = tk.StringVar(parent)
+        self._trace_id = self.var.trace_add("write", self._update_display)
+
         relief = kw.get("relief", "raised")
         kw.update(
             dict(
-                textvariable=self.var,
+                textvariable=self._display_var,
                 bg=bg,
                 fg=fg,
                 highlightbackground=bg,
@@ -66,6 +73,18 @@ class MenuButton(tk.Menubutton):
         self["menu"] = self.menu
         self.options = options
         self.set_options(options, command)
+        self._update_display()
+
+    def _update_display(self, *args):
+        """Show the current value followed by the dropdown arrow."""
+        # Read the raw Tcl value so a non-numeric value in an IntVar/DoubleVar can't raise
+        value = self.getvar(str(self.var))
+        self._display_var.set(f"{value}  {self.ARROW}")
+
+    def destroy(self):
+        """Stop mirroring the variable, which may outlive this widget."""
+        self.var.trace_remove("write", self._trace_id)
+        tk.Menubutton.destroy(self)
 
     def set_options(self, options, command=None):
         """Set the options for the menubutton."""
