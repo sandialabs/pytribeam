@@ -154,6 +154,62 @@ BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
 RUN_EDAX_IPAPI_ENV_VAR = "PYTRIBEAM_RUN_EDAX_IPAPI"
 EDAX_HOST_ENV_VAR = "PYTRIBEAM_EDAX_HOST"
 
+#: Optional per-machine settings file at the repository root, holding the
+#: opt-in variables for hardware runs. It is deliberately git-ignored, because
+#: it names a specific instrument host.
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def load_env_file(path: Path = None) -> dict:
+    """
+    Load ``KEY=value`` pairs from the repository .env file, if it exists.
+
+    Test runners launched from an editor do not inherit the shell environment,
+    so variables exported in a terminal never reach them. VS Code's Python
+    extension reads ``${workspaceFolder}/.env`` natively; loading the same file
+    here means the CLI, the VS Code test explorer, and any other runner all
+    agree, with one place to edit.
+
+    Variables already present in the environment always win, so an explicit
+    ``$env:NAME`` or a CI variable is never overridden by a stale file.
+
+    Parameters
+    ----------
+    path : Path, optional
+        The file to read. Defaults to the repository-root ``.env``.
+
+    Returns
+    -------
+    dict
+        The variables this call actually set, empty when there were none.
+    """
+    path = ENV_FILE if path is None else path
+    if not path.is_file():
+        return {}
+
+    applied = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#") or "=" not in entry:
+            continue
+        if entry.lower().startswith("export "):
+            entry = entry[len("export ") :].lstrip()
+
+        name, _, value = entry.partition("=")
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if not name or name in os.environ:
+            continue
+
+        os.environ[name] = value
+        applied[name] = value
+
+    return applied
+
+
+#: Variables picked up from the .env file during collection, for diagnostics.
+ENV_FILE_APPLIED = load_env_file()
+
 
 def _env_flag_enabled(name: str) -> bool:
     """Return True when an environment variable is an explicit truthy opt-in."""

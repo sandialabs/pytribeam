@@ -60,6 +60,41 @@ Everything is read-only and nothing starts a map.
 The full sweep issues roughly 150 commands, so it takes about half a minute at
 the default pause. Drop `PYTRIBEAM_EDAX_PAUSE_S` to `0.01` when iterating.
 
+### Running from VS Code, or any editor test runner
+
+An editor test runner starts its own process and does **not** inherit variables
+exported in an interactive terminal, so `$env:` settings reach a CLI run but not
+the VS Code test explorer. Put them in a `.env` file at the repository root
+instead:
+
+```ini
+# .env  -- git-ignored, per-machine
+PYTRIBEAM_EDAX_HOST=localhost
+PYTRIBEAM_RUN_EDAX_IPAPI=1
+```
+
+That file is read two ways, so every runner agrees:
+
+- VS Code's Python extension loads it natively; `python.envFile` already
+  defaults to `${workspaceFolder}/.env`, so no settings change is needed.
+- `tests/conftest.py` loads it during collection, which covers the plain CLI,
+  PyCharm, and anything else.
+
+Variables already set in the environment always win, so an explicit `$env:` value
+or a CI variable is never overridden by a stale `.env`. `diagnose.py` reports
+which variables came from the file.
+
+Note that `$global:NAME = "value"` in PowerShell creates a PowerShell *variable*,
+not an environment variable, and is never inherited by a child process. The
+persistent equivalent is:
+
+```powershell
+[Environment]::SetEnvironmentVariable("PYTRIBEAM_EDAX_HOST", "localhost", "User")
+```
+
+which applies to processes started afterwards, so VS Code must be restarted to
+pick it up. The `.env` file is usually the easier option.
+
 ### PowerShell notes
 
 Confirm the service is reachable before blaming the tests:

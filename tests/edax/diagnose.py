@@ -43,6 +43,17 @@ def main() -> int:
     print(f"working directory: {Path.cwd()}")
     print(f"interpreter:       {sys.executable}\n")
 
+    if conftest.ENV_FILE.is_file():
+        print(f"env file:          {conftest.ENV_FILE}")
+        if conftest.ENV_FILE_APPLIED:
+            names = ", ".join(sorted(conftest.ENV_FILE_APPLIED))
+            print(f"  supplied from it:  {names}")
+        else:
+            print("  supplied from it:  nothing (all already set in the shell)")
+    else:
+        print(f"env file:          none at {conftest.ENV_FILE}")
+    print()
+
     print("Required variables, as this Python process sees them:")
     host = _show(conftest.EDAX_HOST_ENV_VAR)
     flag = _show(conftest.RUN_EDAX_IPAPI_ENV_VAR)
