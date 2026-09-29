@@ -108,7 +108,7 @@ PROJECT_NAME = "pytribeam_hardware_test"
 #: second of dwell. The resolution is selected through the points value alone;
 #: see EdaxEdsResolution.
 TEST_EDS_MAP = EdaxEdsMapParams(
-    resolution=EdaxEdsResolution.PRESET_64X50, num_frames=2, preset_dwell_us=100.0
+    resolution=EdaxEdsResolution.PRESET_64X50, num_frames=2, preset_dwell_us=50.0
 )
 
 # Statuses meaning EDAX is busy and a test map must not be started.

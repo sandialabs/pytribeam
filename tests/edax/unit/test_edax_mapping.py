@@ -584,7 +584,7 @@ def _eds_plan(**overrides) -> mapping.EdsMapPlan:
         status_timeout_s=0.5,
         min_timeout_s=5.0,
         max_duration_s=5.0,
-        event_grace_s=0.2,
+        start_timeout_s=0.3,
     )
     values.update(overrides)
     return mapping.EdsMapPlan(**values)
@@ -828,13 +828,13 @@ def test_eds_map_event_trailing_ready_is_accepted(make_client, no_sleep):
     )
 
     mapping.run_eds_map(
-        EdaxEdsController(client), _eds_plan(event_grace_s=2.0), quiet=True
+        EdaxEdsController(client), _eds_plan(start_timeout_s=2.0), quiet=True
     )
 
 
-def test_eds_map_never_seen_running_is_rejected(make_client, no_sleep):
-    """Ready with no activity and no event may be a map that never started.
-    The error names what EDAX reported."""
+def test_eds_map_never_seen_starting_is_rejected(make_client, no_sleep):
+    """Ready throughout, with no event, is a map that never started; the
+    error says so, and why APEX may simply be slow."""
     client, _ = make_client(
         payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "Ready"})
     )
@@ -843,9 +843,34 @@ def test_eds_map_never_seen_running_is_rejected(make_client, no_sleep):
         mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
     message = str(error.value)
-    assert "never seen running" in message
-    assert "on status 'ready'" in message
-    assert "Statuses polled: 'ready' at" in message
+    assert "not seen starting" in message
+    assert "last status 'ready'" in message
+    assert "identifying elements" in message
+
+
+def test_eds_element_identification_is_waited_out(make_client, no_sleep):
+    """Seen on hardware: APEX reports Ready for minutes while it identifies
+    elements, then maps. That Ready must not end the wait, and the duration
+    budget, far shorter than the identification here, runs from the start of
+    mapping, not of collection."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{
+                EdaxCommand.EDS_GET_MAP_STATUS: ["Ready"] * 5
+                + ["MappingActive", "Ready"]
+            }
+        ),
+        delays={EdaxCommand.EDS_GET_MAP_STATUS: [0.1] * 5 + [0.0, 0.0]},
+    )
+
+    result = mapping.run_eds_map(
+        EdaxEdsController(client),
+        _eds_plan(min_timeout_s=0.2, start_timeout_s=5.0, status_timeout_s=1.0),
+        quiet=True,
+    )
+
+    assert result.status is EdaxMappingStatus.READY
+    assert result.duration_s > 0.4  # the identification was waited out
 
 
 def test_eds_map_outlasting_its_prediction_is_waited_for(make_client, no_sleep):

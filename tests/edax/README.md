@@ -210,6 +210,16 @@ never updates, so EDS maps are timed from the preset instead
 preset, the size is unknown: APEX's figure then sizes the budget only, and the
 map is waited for while APEX reports it in progress.
 
+### EDS maps start slowly
+
+After `do_map_collection_start`, APEX identifies elements before it scans,
+which can take minutes, and reports `Ready` meanwhile: the same status as a
+finished map. So until an EDS map has been seen mapping (`MappingActive`),
+`Ready` means "not started yet". The wait allows
+`Constants.edax_eds_map_start_timeout_s` (10 minutes) for the scan to begin,
+and the duration budget runs from then. A map not seen starting in that time
+fails with an error saying so. EBSD maps start at once and keep the old rule.
+
 ### Rehearsing without hardware
 
 The protocol is simple enough to stand up a local stub, which is how the

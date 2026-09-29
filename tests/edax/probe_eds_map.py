@@ -90,6 +90,12 @@ def _arguments():
     parser.add_argument("--frames", type=int, default=1)
     parser.add_argument("--dwell-us", type=float, default=60.0)
     parser.add_argument(
+        "--start-s",
+        type=float,
+        default=600.0,
+        help="allowance for APEX's element identification before the scan",
+    )
+    parser.add_argument(
         "--after-s",
         type=float,
         default=20.0,
@@ -210,11 +216,13 @@ def main() -> int:
             log("preflight done: NoWait access, folder, project, detector ready")
             eds.apply_map_parameters(params)
             log(f"applied; APEX reads back {eds.map_parameters()}")
-            predicted_s = eds.map_duration_s()
-            log(f"APEX predicts {predicted_s:.1f} s")
+            predicted_s = eds.dwell_duration_s() or eds.map_duration_s()
+            log(
+                f"predicted {predicted_s:.1f} s of dwell (APEX says {eds.map_duration_s():.1f} s)"
+            )
             log(f"events so far: {[e.raw for e in client.drain_events()] or 'none'}")
 
-            deadline_s = max(3 * predicted_s, predicted_s + 120.0)
+            deadline_s = args.start_s + max(3 * predicted_s, predicted_s + 120.0)
             log.start = time.time()
             reply = client.send(EdaxCommand.EDS_COLLECTION_START, tag)
             log(f"do_map_collection_start acknowledged with {reply.payload!r}")

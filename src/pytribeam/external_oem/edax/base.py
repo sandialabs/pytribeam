@@ -36,6 +36,16 @@ from pytribeam.external_oem.edax.types import (
 # The IPAPI reports durations in .NET ticks, which are 100 ns each.
 TICKS_PER_SECOND = 1.0e7
 
+# Statuses that show a map is actually scanning, as opposed to being set up or
+# prepared. Only these end the start phase of a wait.
+_MAPPING_UNDER_WAY = frozenset(
+    {
+        EdaxMappingStatus.MAPPING_ACTIVE,
+        EdaxMappingStatus.MAPPING_PAUSED,
+        EdaxMappingStatus.MAPPING_RESUMED,
+    }
+)
+
 
 class EdaxMappingController:
     """
@@ -301,6 +311,7 @@ class EdaxMappingController:
         status_timeout_s: float = 120.0,
         progress_fn: Optional[Callable[[EdaxMappingStatus, float], None]] = None,
         max_timeout_s: Optional[float] = None,
+        start_timeout_s: Optional[float] = None,
     ) -> EdaxMappingStatus:
         """
         Poll until map collection finishes, fails, or the timeout expires.
@@ -349,6 +360,15 @@ class EdaxMappingController:
             answered status says the map is still in progress, which includes
             the finalization stall that follows it, up to this many seconds in
             total. None, the default, makes ``timeout_s`` a hard limit.
+        start_timeout_s : float, optional
+            For maps that do not start at once. Until the map has been seen
+            mapping (``MappingActive``, ``MappingPaused``, ``MappingResumed``),
+            ``Ready`` means "not started yet" rather than "finished", and the
+            wait allows this long for the map to start; ``timeout_s`` and
+            ``max_timeout_s`` then run from the moment it is seen mapping.
+            APEX needs this for EDS: it identifies elements before scanning,
+            which can take minutes, and reports ``Ready`` meanwhile. None, the
+            default, treats ``Ready`` as finished from the first poll.
 
         Returns
         -------
@@ -358,26 +378,53 @@ class EdaxMappingController:
         Raises
         ------
         EdaxStateError
-            If the map reports an error status.
+            If the map reports an error status, or is not seen starting within
+            ``start_timeout_s``.
         EdaxTimeoutError
             If no terminal status is reached before the overall timeout.
         """
         start_time = time.time()
-        deadline = start_time + timeout_s
-        hard_deadline = (
-            deadline
-            if max_timeout_s is None
-            else start_time + max(timeout_s, max_timeout_s)
-        )
         last_status: Optional[EdaxMappingStatus] = None
+        started = start_timeout_s is None
+        deadline = hard_deadline = 0.0
 
-        def expired() -> bool:
+        def arm(now: float) -> None:
+            """Start the duration budget, from when the map is seen mapping."""
+            nonlocal deadline, hard_deadline
+            deadline = now + timeout_s
+            hard_deadline = (
+                deadline
+                if max_timeout_s is None
+                else now + max(timeout_s, max_timeout_s)
+            )
+
+        if started:
+            arm(start_time)
+        else:
+            # Until the map starts, the start allowance is the only deadline.
+            deadline = hard_deadline = start_time + start_timeout_s
+
+        def check_deadline() -> None:
             now = time.time()
-            if now >= hard_deadline:
-                return True
+            if not started:
+                if now >= hard_deadline:
+                    seen = "none" if last_status is None else f"'{last_status.value}'"
+                    raise EdaxStateError(
+                        f"EDAX {self.DETECTOR_NAME} map was not seen starting "
+                        f"within {start_timeout_s:.0f} s: last status {seen}, "
+                        "and no collection-complete event. APEX may still be "
+                        "preparing it (identifying elements can take minutes), "
+                        "or it may not have started. Please check the EDAX "
+                        "software."
+                    )
+                return
             # Past the expected budget, but APEX last said the map is running.
             running = last_status is not None and last_status.is_in_progress
-            return now >= deadline and not running
+            if now >= hard_deadline or (now >= deadline and not running):
+                raise EdaxTimeoutError(
+                    command=f"{self.DETECTOR_NAME} collection",
+                    timeout_s=timeout_s,
+                )
 
         # True while a status query has been sent but not yet answered, which
         # is the normal condition during map finalization.
@@ -406,11 +453,7 @@ class EdaxMappingController:
                 # The application is finalizing and has stopped answering. Keep
                 # the request outstanding and re-check the overall deadline.
                 awaiting_status = True
-                if expired():
-                    raise EdaxTimeoutError(
-                        command=f"{self.DETECTOR_NAME} collection",
-                        timeout_s=timeout_s,
-                    )
+                check_deadline()
                 continue
 
             status = self.parse_status(response.payload)
@@ -425,7 +468,13 @@ class EdaxMappingController:
                     f"EDAX {self.DETECTOR_NAME} collection reported status "
                     f"'{status.value}' after {elapsed_s:.0f} s."
                 )
-            if status.is_terminal:
+            if not started and status in _MAPPING_UNDER_WAY:
+                started = True
+                arm(time.time())
+            # Before the map starts, Ready means it has not started yet.
+            if status.is_terminal and (
+                started or status is not EdaxMappingStatus.READY
+            ):
                 return status
 
             # A completion event may have shared the read with this response.
@@ -433,10 +482,6 @@ class EdaxMappingController:
                 if event.command == self.COLLECTION_COMPLETE_EVENT.value:
                     return EdaxMappingStatus.MAPPING_COMPLETE
 
-            if expired():
-                raise EdaxTimeoutError(
-                    command=f"{self.DETECTOR_NAME} collection",
-                    timeout_s=timeout_s,
-                )
+            check_deadline()
 
             time.sleep(min(poll_interval_s, max(hard_deadline - time.time(), 0.0)))

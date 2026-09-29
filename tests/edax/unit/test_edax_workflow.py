@@ -215,6 +215,10 @@ def test_map_uses_the_eds_tag_for_the_slice(rig, no_sleep):
         get_system_detector_status="Ready",
         get_map_duration="0",
         get_map_status="MappingComplete",
+        # The size, frames, and dwell the EDS duration is predicted from.
+        get_map_params_numpoints="64",
+        get_map_params_numframes="1",
+        get_map_params_presetdwell="0",
     )
 
     result = edax_workflow.map_eds(SETTINGS, step_settings=None, slice_number=12)

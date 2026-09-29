@@ -288,6 +288,8 @@ class Constants(NamedTuple):
     edax_timeout_scalar = 3
     edax_map_start_delay_s = 10.0
     edax_map_status_interval_s = 10.0
+    # APEX identifies elements before an EDS map scans, which can take minutes
+    edax_eds_map_start_timeout_s = 600.0
     EDAX_GUID = "7b093500-6e8e-4657-bf45-03bc05ce8a32"
 
     # Test suite constants

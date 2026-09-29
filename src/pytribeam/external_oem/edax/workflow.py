@@ -476,6 +476,7 @@ def map_eds(
         start_delay_s=Constants.edax_map_start_delay_s,
         poll_interval_s=Constants.edax_map_status_interval_s,
         timeout_scalar=Constants.edax_timeout_scalar,
+        start_timeout_s=Constants.edax_eds_map_start_timeout_s,
     )
     with EdaxClient(connection_settings(general_settings.EDAX_settings)) as client:
         return mapping.run_eds_map(EdaxEdsController(client), plan)
