@@ -113,6 +113,23 @@ def test_execute_raises_on_an_unsuccessful_payload(make_client):
     assert error.value.received == "Execution Failed"
 
 
+def test_execute_accepts_a_bare_true(make_client):
+    """Shipping builds answer some action commands with 'True' (hardware)."""
+    client, _ = make_client(payloads={EdaxCommand.EDS_RETRACT_DETECTOR: "True"})
+
+    assert client.execute(EdaxCommand.EDS_RETRACT_DETECTOR).succeeded is True
+
+
+def test_execute_rejects_a_bare_false(make_client):
+    """Accepting 'True' must not turn 'False' into a success."""
+    client, _ = make_client(payloads={EdaxCommand.EDS_RETRACT_DETECTOR: "False"})
+
+    with pytest.raises(EdaxCommandError) as error:
+        client.execute(EdaxCommand.EDS_RETRACT_DETECTOR)
+
+    assert error.value.received == "False"
+
+
 def test_query_returns_the_payload_verbatim(make_client):
     """Query payloads keep their case and interior spacing."""
     client, _ = make_client(

@@ -167,6 +167,24 @@ def test_retract_detector_polls_until_the_slide_arrives(make_client, no_sleep):
     assert EdaxCommand.EDS_RETRACT_DETECTOR.value in service.commands()
 
 
+@pytest.mark.parametrize("command", ["insert_detector", "retract_detector"])
+def test_detector_moves_accept_the_true_acknowledgement(make_client, no_sleep, command):
+    """The hardware answers do_retract_eds_detector with 'True', not the
+    documented 'Execution Successful'; the move must still wait and succeed."""
+    start, end = ["SlideOut", "SlideIn"]
+    if command == "retract_detector":
+        start, end = end, start
+    client, _ = make_client(
+        payloads={
+            EdaxCommand.EDS_GET_DETECTOR_STATUS: [start, end],
+            EdaxCommand.EDS_INSERT_DETECTOR: "True",
+            EdaxCommand.EDS_RETRACT_DETECTOR: "True",
+        }
+    )
+
+    assert getattr(EdaxEdsController(client), command)(quiet=True) is True
+
+
 def test_detector_move_timeout_raises(make_client, no_sleep):
     """A detector that never arrives must not block the workflow forever."""
     client, _ = make_client(payloads={EdaxCommand.EDS_GET_DETECTOR_STATUS: "SlideOut"})

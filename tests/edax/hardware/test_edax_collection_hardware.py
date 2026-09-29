@@ -354,7 +354,10 @@ def _assert_data_written(folder, before, label: str, grace_s: float = 30.0):
 
 def _same_path(first: str, second: str) -> bool:
     """Compare paths the way Windows does: case and separators aside."""
-    normalize = lambda path: os.path.normcase(os.path.normpath(str(path).strip()))
+
+    def normalize(path: str) -> str:
+        return os.path.normcase(os.path.normpath(str(path).strip()))
+
     return normalize(first) == normalize(second)
 
 

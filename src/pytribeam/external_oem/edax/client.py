@@ -376,15 +376,19 @@ class EdaxClient:
         Raises
         ------
         EdaxCommandError
-            If the IPAPI reports anything other than execution success.
+            If the IPAPI reports anything other than execution success. Both
+            the documented "Execution Successful" and the bare "True" some
+            commands return instead count as success; see
+            :attr:`EdaxResponse.succeeded`.
         """
-        return self.send(
-            command,
-            *args,
-            timeout_s=timeout_s,
-            pause_s=pause_s,
-            expect=protocol.EXECUTION_SUCCESSFUL,
-        )
+        response = self.send(command, *args, timeout_s=timeout_s, pause_s=pause_s)
+        if not response.succeeded:
+            raise EdaxCommandError(
+                command=protocol.command_name(command),
+                expected=protocol.EXECUTION_SUCCESSFUL,
+                received=response.payload,
+            )
+        return response
 
     def query(
         self,

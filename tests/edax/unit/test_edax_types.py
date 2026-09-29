@@ -148,6 +148,8 @@ def test_response_reports_execution_success():
     assert et.EdaxResponse("", "cmd", "Execution Successful").succeeded is True
     assert et.EdaxResponse("", "cmd", "execution successful").succeeded is True
     assert et.EdaxResponse("", "cmd", "Ready").succeeded is False
+    assert et.EdaxResponse("", "cmd", "True").succeeded is True
+    assert et.EdaxResponse("", "cmd", "False").succeeded is False
 
 
 def test_limit_contains_is_inclusive():

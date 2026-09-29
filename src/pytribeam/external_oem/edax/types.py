@@ -601,8 +601,15 @@ class EdaxResponse(NamedTuple):
 
     @property
     def succeeded(self) -> bool:
-        """Return True when the payload reports successful execution."""
-        return self.payload.strip().lower() == "execution successful"
+        """
+        Return True when the payload reports successful execution.
+
+        The reference documents "Execution Successful" for every action
+        command, but shipping builds answer some of them with a bare "True"
+        instead (``do_retract_eds_detector`` does, observed on hardware).
+        Both mean the command was accepted; "False" and anything else do not.
+        """
+        return self.payload.strip().lower() in ("execution successful", "true")
 
 
 class EdaxProjectInfo(NamedTuple):
