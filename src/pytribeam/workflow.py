@@ -55,7 +55,7 @@ from typing import List
 # 3rd party module
 # Local scripts
 import pytribeam.constants as cs
-import pytribeam.external_oem.device_control as external_devices
+import pytribeam.external_oem.dispatch as external_devices
 import pytribeam.factory as factory
 import pytribeam.fib as fib
 import pytribeam.image as img
@@ -287,10 +287,14 @@ def _(
     image_settings = step_settings.image
     microscope = image_settings.microscope
 
-    # insert detector
-    devices.insert_EBSD(microscope=microscope)
+    # insert detector(s); concurrent EDS is part of the EBSD step
+    external_devices.insert_ebsd(
+        microscope=microscope, general_settings=general_settings
+    )
     if step_settings.enable_eds:
-        devices.insert_EDS(microscope=microscope)
+        external_devices.insert_eds(
+            microscope=microscope, general_settings=general_settings
+        )
 
     # measure and log specimen current
     found_current_na = devices.specimen_current(microscope=microscope)
@@ -321,7 +325,7 @@ def _(
     )
 
     # take map
-    laser.map_ebsd(
+    external_devices.map_ebsd(
         general_settings=general_settings,
         step_settings=step_settings,
         slice_number=slice_number,
@@ -329,9 +333,13 @@ def _(
     )
 
     # retract detector(s)
-    devices.retract_EBSD(microscope=microscope)
+    external_devices.retract_ebsd(
+        microscope=microscope, general_settings=general_settings
+    )
     if step_settings.enable_eds:
-        devices.retract_EDS(microscope=microscope)
+        external_devices.retract_eds(
+            microscope=microscope, general_settings=general_settings
+        )
 
     return True
 
@@ -366,7 +374,7 @@ def _(
     microscope = image_settings.microscope
 
     # insert detector
-    devices.insert_EDS(microscope=microscope)
+    external_devices.insert_eds(microscope=microscope, general_settings=general_settings)
 
     # measure and log specimen current
     found_current_na = devices.specimen_current(microscope=microscope)
@@ -397,10 +405,15 @@ def _(
     )
 
     # take map
-    laser.map_eds()
+    external_devices.map_eds(
+        general_settings=general_settings,
+        step_settings=step_settings,
+        slice_number=slice_number,
+        step=step,
+    )
 
     # retract detector
-    devices.retract_EDS(microscope=microscope)
+    external_devices.retract_eds(microscope=microscope, general_settings=general_settings)
 
     return True
 
@@ -542,11 +555,7 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
         status = external_devices.connect_ebsd(general_settings=general_settings)
         if status == tbt.RetractableDeviceState.ERROR:
             raise SystemError("EBSD camera is connected but in error state.")
-        if (
-            general_settings.EBSD_OEM == tbt.ExternalDeviceOEM.EDAX
-            and general_settings.yml_version >= 1.1
-        ):
-            laser.ebsd_preflight(general_settings=general_settings)
+        external_devices.preflight_ebsd(general_settings=general_settings)
     if enable_EDS:
         status = external_devices.connect_eds(general_settings=general_settings)
         if status == tbt.RetractableDeviceState.ERROR:

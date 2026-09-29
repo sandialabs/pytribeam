@@ -477,7 +477,7 @@ def retract_all_devices(
 
     This function is retained as a backward-compatible wrapper. New workflow code
     should call retract_all_microscope_insertable_detectors() for microscope
-    detector safety and use pytribeam.external_oem.device_control for external
+    detector safety and use pytribeam.external_oem.dispatch for external
     OEM EBSD/EDS detector control.
 
     Parameters

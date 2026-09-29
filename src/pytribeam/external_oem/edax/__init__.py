@@ -19,9 +19,15 @@ The package is layered so that each layer is testable on its own:
   EBSD halves of the API.
 - :mod:`~pytribeam.external_oem.edax.ebsd`, :mod:`~pytribeam.external_oem.edax.eds`,
   and :mod:`~pytribeam.external_oem.edax.sem` -- the device controllers.
+- :mod:`~pytribeam.external_oem.edax.mapping` -- the preflight and per-slice map
+  sequences, with the microscope-dependent step injected by the caller.
+- :mod:`~pytribeam.external_oem.edax.workflow` -- glue between pyTriBeam's
+  settings and microscope and the layers above.
 
-Only :mod:`~pytribeam.external_oem.edax.workflow` depends on AutoScript, so
-everything else imports and unit-tests on a machine without a microscope.
+Only :mod:`~pytribeam.external_oem.edax.workflow` depends on AutoScript, and this
+package does not import it, so everything else imports and unit-tests on a
+machine without a microscope. Experiment code reaches EDAX through
+:mod:`pytribeam.external_oem.dispatch`, never through this package directly.
 
 Examples
 --------
@@ -45,6 +51,16 @@ from pytribeam.external_oem.edax.errors import (
     EdaxStateError,
     EdaxTimeoutError,
     EdaxUnsupportedCommandError,
+)
+from pytribeam.external_oem.edax.mapping import (
+    AVERAGE_CI,
+    CAMERA_SATURATION,
+    EbsdMapPlan,
+    EdaxMapResult,
+    ebsd_map_params,
+    run_ebsd_map,
+    run_ebsd_preflight,
+    slice_tag,
 )
 from pytribeam.external_oem.edax.sem import EdaxSemController
 from pytribeam.external_oem.edax.types import (
@@ -74,7 +90,15 @@ from pytribeam.external_oem.edax.types import (
 )
 
 __all__ = [
+    "AVERAGE_CI",
+    "CAMERA_SATURATION",
     "TICKS_PER_SECOND",
+    "EbsdMapPlan",
+    "EdaxMapResult",
+    "ebsd_map_params",
+    "run_ebsd_map",
+    "run_ebsd_preflight",
+    "slice_tag",
     "EdaxAccessType",
     "EdaxCameraCapabilities",
     "EdaxCameraInfo",

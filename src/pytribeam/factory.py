@@ -2341,11 +2341,13 @@ def validate_EBSD_EDS_settings(
                 f"Error. Unsupported yml version {yml_format.version} provided."
             )
 
-        connection = fs_laser.connect_EDAX(
-            ebsd_host=edax_settings["connection"]["host"],
-            ebsd_port=edax_settings["connection"]["port"],
+        # Confirm the IPAPI accepts a connection before the experiment starts.
+        import pytribeam.external_oem.dispatch as external_devices
+
+        external_devices.check_edax_connection(
+            host=edax_settings["connection"]["host"],
+            port=edax_settings["connection"]["port"],
         )
-        fs_laser.disconnect_EDAX(connection=connection)
 
     return True
 

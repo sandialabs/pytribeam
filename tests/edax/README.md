@@ -56,6 +56,9 @@ Everything is read-only and nothing starts a map.
 | `PYTRIBEAM_EDAX_PORT` | Service port. Defaults to `8301`. |
 | `PYTRIBEAM_EDAX_PAUSE_S` | Per-command settling pause. Defaults to `0.2`, the production value. |
 | `PYTRIBEAM_EDAX_ALLOW_MOTION` | Separate opt-in for the one test that moves the camera slide. |
+| `PYTRIBEAM_EDAX_ALLOW_MAPPING` | Opt-in for the collection tests, which insert detectors and write maps. |
+| `PYTRIBEAM_EDAX_MAP_FOLDER` | Scratch folder on the EDAX PC for collection-test maps. |
+| `PYTRIBEAM_EDAX_MAP_SIZE_UM` / `_STEP_UM` | Collection-test scan size and step. Default 5 and 0.5. |
 
 The full sweep issues roughly 150 commands, so it takes about half a minute at
 the default pause. Drop `PYTRIBEAM_EDAX_PAUSE_S` to `0.01` when iterating.
@@ -195,6 +198,56 @@ slide status to *change*, so a stub replying `SlideOut` forever will sit
 through the full 120 s move timeout before failing. Leave
 `PYTRIBEAM_EDAX_ALLOW_MOTION` unset when rehearsing against a stub.
 
+## Collection tests — on the microscope PC
+
+`hardware/test_edax_collection_hardware.py` collects three real maps through the
+same dispatcher calls as the workflow's EBSD and EDS steps:
+
+| Test | Map | Path |
+|---|---|---|
+| `test_ebsd_map` | EBSD | native IPAPI |
+| `test_ebsd_map_with_concurrent_eds` | EBSD + spectra | native IPAPI, both detectors |
+| `test_eds_map` | EDS | LaserControl |
+
+Unlike the read-only sweep above, these need the microscope PC (AutoScript for
+the camera-saturation measurement, LaserControl for detector motion and EDS).
+They insert detectors, scan the beam, and write maps, so they have their own
+opt-in:
+
+```powershell
+$env:PYTRIBEAM_RUN_HARDWARE = "1"
+$env:PYTRIBEAM_EDAX_HOST = "localhost"
+$env:PYTRIBEAM_EDAX_ALLOW_MAPPING = "1"
+$env:PYTRIBEAM_EDAX_MAP_FOLDER = "D:\EDAX Data\pytribeam_hardware_test"
+python -m pytest tests/edax/hardware/test_edax_collection_hardware.py -v
+```
+
+Before running:
+
+- Sample at the EBSD position (tilted, at working distance), electron beam on.
+  **Nothing moves the stage.**
+- EDAX software open, no map running. The tests skip rather than interfere if
+  EDAX reports a map or setup in progress.
+- The EDS map configured in the EDAX software must take at least
+  `Constants.min_map_time_s` (30 s); LaserControl rejects shorter maps.
+- `PYTRIBEAM_EDAX_MAP_FOLDER` must be an existing scratch folder on the EDAX PC.
+  **Clear it between runs**: each run writes `Slice_0001` and `Slice_0002` there,
+  and EDAX requires tags to be unique within a folder.
+
+`PYTRIBEAM_EDAX_MAP_SIZE_UM` (default 5) and `PYTRIBEAM_EDAX_MAP_STEP_UM`
+(default 0.5) set the square scan area, centered in the field of view. Keep it
+inside the field of view at the current magnification.
+
+What they check, beyond the map completing:
+
+- camera saturation and average CI land in the HDF5 log for the right slice;
+- the microscope's field width and detector are restored after the saturation
+  measurement;
+- EDAX received the requested scan area, custom resolution, and step size;
+- spectra are enabled for the EBSD + EDS map and **cleared** for the EBSD-only
+  map, which first switches them on to mimic a preceding EBSD + EDS step;
+- the camera ends retracted.
+
 ## Markers
 
 - `detached` — unit tests, always runnable.
@@ -202,5 +255,5 @@ through the full 120 s move timeout before failing. Leave
   `edax_ipapi` override in `tests/conftest.py` deliberately bypasses the TFS
   host-name and laser checks that gate `edax_hardware`, because the IPAPI does
   not depend on either.
-- `edax_hardware` — reserved for tests that need the TriBeam *and* EDAX
-  together (AutoScript plus IPAPI), such as camera-saturation measurement.
+- `hardware` + `laser_hardware` + `edax_hardware` — needs the TriBeam *and* EDAX
+  together (AutoScript, LaserControl, and the IPAPI): the collection tests.
