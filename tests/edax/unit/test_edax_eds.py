@@ -103,6 +103,29 @@ def test_map_parameters_reads_the_full_set_back(make_client):
     assert params.inter_pixel_delay == 5
 
 
+def test_dwell_duration_takes_the_lines_from_the_preset(make_client):
+    """APEX's stored line count goes stale; the preset's own is used."""
+    client, _ = make_client(
+        payloads={
+            EdaxCommand.EDS_GET_NUMPOINTS: "256",
+            EdaxCommand.EDS_GET_NUMLINES: "101",
+            EdaxCommand.EDS_GET_NUMFRAMES: "3",
+            EdaxCommand.EDS_GET_PRESETDWELL: "50",
+        }
+    )
+
+    duration = EdaxEdsController(client).dwell_duration_s()
+
+    assert duration == pytest.approx(256 * 200 * 3 * 50e-6)
+
+
+def test_dwell_duration_is_unknown_off_the_presets(make_client):
+    """A stored point count that is no preset leaves the size unknown."""
+    client, _ = make_client(payloads={EdaxCommand.EDS_GET_NUMPOINTS: "100"})
+
+    assert EdaxEdsController(client).dwell_duration_s() is None
+
+
 def test_stored_point_count_off_the_presets_reads_back_as_none(make_client):
     """A value APEX rounded (e.g. 100, sent before) names no preset."""
     client, _ = make_client(payloads={**READBACK, EdaxCommand.EDS_GET_NUMPOINTS: "100"})

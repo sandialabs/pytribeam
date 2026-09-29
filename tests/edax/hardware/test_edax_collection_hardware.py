@@ -549,9 +549,9 @@ def test_eds_map(microscope, experiment, motion_watch):
     over the IPAPI, under the live chamber CCD.
 
     Resolution, frames, and dwell are set for the test; frames and dwell are
-    restored after, and APEX is left at the test's 64 x 50. APEX's duration
-    prediction is unreliable for EDS, so the map is judged by evidence that it
-    ran rather than by how long it took.
+    restored after, and APEX is left at the test's 64 x 50. The map must be
+    seen running and must take at least its dwell time, which pyTriBeam
+    computes from the preset rather than trusting APEX's own prediction.
     """
     config = experiment.EDAX_settings
     step = SimpleNamespace(number=3, name="edax_hw_eds")

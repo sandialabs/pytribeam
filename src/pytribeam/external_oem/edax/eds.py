@@ -164,6 +164,42 @@ class EdaxEdsController(EdaxMappingController):
             ),
         )
 
+    def dwell_duration_s(self, timeout_s: Optional[float] = None) -> Optional[float]:
+        """
+        Return points x lines x frames x dwell for the map APEX will collect.
+
+        Use this rather than :meth:`map_duration_s` for EDS. APEX's own
+        prediction multiplies by the stored line count, which APEX ignores and
+        never updates when the points value selects a preset; this takes the
+        lines from the preset itself.
+
+        It leaves out APEX's per-pixel and start-up overhead, so it is a lower
+        bound on the real duration: on hardware APEX's own figure ran about
+        25% higher, and a map with 0.2 s of dwell took about 6 s end to end.
+
+        Parameters
+        ----------
+        timeout_s : float, optional
+            Response timeout for each query, in seconds.
+
+        Returns
+        -------
+        float or None
+            Seconds of dwell, or None when the stored point count is not an
+            :class:`EdaxEdsResolution` preset, so the map size is unknown.
+        """
+        client = self._client
+        resolution = EdaxEdsResolution.from_points(
+            client.query_int(EdaxCommand.EDS_GET_NUMPOINTS, timeout_s=timeout_s)
+        )
+        if resolution is None:
+            return None
+        frames = client.query_int(EdaxCommand.EDS_GET_NUMFRAMES, timeout_s=timeout_s)
+        dwell_us = client.query_float(
+            EdaxCommand.EDS_GET_PRESETDWELL, timeout_s=timeout_s
+        )
+        return resolution.points * resolution.lines * frames * dwell_us * 1e-6
+
     # -- detector status (section 2.2.10, 2.2.20) ----------------------------
 
     def detector_status(self, timeout_s: Optional[float] = None) -> EdaxDetectorStatus:

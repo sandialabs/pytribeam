@@ -9,6 +9,7 @@ that catch a map EDAX did not actually collect.
 """
 
 # Default python modules
+import time
 from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import NamedTuple
@@ -566,6 +567,10 @@ def _eds_payloads(**overrides):
         EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "Ready",
         EdaxCommand.EDS_GET_MAP_DURATION: "0",
         EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingComplete"],
+        # The map pyTriBeam predicts from: 64 x 50, one frame, no dwell.
+        EdaxCommand.EDS_GET_NUMPOINTS: "64",
+        EdaxCommand.EDS_GET_NUMFRAMES: "1",
+        EdaxCommand.EDS_GET_PRESETDWELL: "0",
     }
     payloads.update(overrides)
     return payloads
@@ -577,7 +582,7 @@ def _eds_plan(**overrides) -> mapping.EdsMapPlan:
         start_delay_s=0.0,
         poll_interval_s=0.0,
         status_timeout_s=0.5,
-        min_timeout_s=0.0,
+        min_timeout_s=5.0,
         max_duration_s=5.0,
         event_grace_s=0.2,
     )
@@ -730,23 +735,61 @@ def test_eds_map_surfaces_an_unexpected_detector_status(make_client, no_sleep):
         mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
 
-# APEX's EDS prediction uses points and lines it never maps with, so these pin
-# down the evidence rule that replaces EBSD's duration check. The sequence a
-# running map reports on hardware is MappingActive, the event, then Ready.
+# EDS duration is predicted from the preset, frames, and dwell, because APEX's
+# get_map_duration multiplies by a stale line count. Every EDS map must also be
+# seen running: on hardware a running map reports MappingActive, then the
+# event, then Ready. A stored point count that is no preset leaves the size
+# unknown, and only then is APEX's figure used, unchecked and open-ended.
 PREDICTED_60_S = str(int(60 * TICKS_PER_SECOND))
+UNKNOWN_SIZE = {EdaxCommand.EDS_GET_NUMPOINTS: "100"}
 
 
-def test_eds_map_shorter_than_its_prediction_is_accepted(make_client, no_sleep):
-    """Seen on hardware: APEX mapped 64 x 50 against a 128 x 100 prediction.
-    A map seen running is accepted however far off the prediction is."""
+def test_eds_prediction_comes_from_the_map_size_not_apex(make_client, no_sleep):
+    """256 x 200, 3 frames, 50 us is 7.68 s, whatever APEX's own figure."""
     client, _ = make_client(
-        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_DURATION: PREDICTED_60_S})
+        payloads=_eds_payloads(
+            **{
+                EdaxCommand.EDS_GET_MAP_DURATION: PREDICTED_60_S,
+                EdaxCommand.EDS_GET_NUMPOINTS: "256",
+                EdaxCommand.EDS_GET_NUMFRAMES: "3",
+                EdaxCommand.EDS_GET_PRESETDWELL: "50",
+            }
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match=r"predicted 7\.7 seconds"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+
+def test_eds_map_finishing_before_its_dwell_is_rejected(make_client, no_sleep):
+    """With the size known, a map shorter than its dwell was not collected."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{
+                EdaxCommand.EDS_GET_NUMPOINTS: "512",
+                EdaxCommand.EDS_GET_NUMFRAMES: "10",
+                EdaxCommand.EDS_GET_PRESETDWELL: "100",
+            }
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match="EDS map .* unexpectedly quickly"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+
+def test_eds_map_of_unknown_size_uses_apex_prediction_unchecked(make_client, no_sleep):
+    """APEX's 60 s figure sizes the budget, but a quick map seen running is
+    accepted: that figure is not trusted as a lower bound."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_MAP_DURATION: PREDICTED_60_S, **UNKNOWN_SIZE}
+        )
     )
 
     result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
+    assert result.predicted_duration_s == pytest.approx(60.0)
     assert result.duration_s < result.predicted_duration_s
-    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
 
 
 def test_eds_map_seen_active_then_ready_is_accepted(make_client, no_sleep):
@@ -806,18 +849,21 @@ def test_eds_map_never_seen_running_is_rejected(make_client, no_sleep):
 
 
 def test_eds_map_outlasting_its_prediction_is_waited_for(make_client, no_sleep):
-    """A map larger than predicted must not be abandoned mid-collection while
-    APEX says it is running. The budget here is zero."""
+    """With the size unknown, a map larger than APEX predicted must not be
+    abandoned mid-collection while APEX says it is running. Budget: zero."""
     client, _ = make_client(
         payloads=_eds_payloads(
             **{
                 EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive"] * 5
-                + ["MappingComplete"]
+                + ["MappingComplete"],
+                **UNKNOWN_SIZE,
             }
         )
     )
 
-    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+    result = mapping.run_eds_map(
+        EdaxEdsController(client), _eds_plan(min_timeout_s=0.0), quiet=True
+    )
 
     assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
 
@@ -825,13 +871,36 @@ def test_eds_map_outlasting_its_prediction_is_waited_for(make_client, no_sleep):
 def test_eds_map_running_past_the_hard_limit_times_out(make_client, no_sleep):
     """The extension is bounded: a map stuck 'active' still ends the wait."""
     client, _ = make_client(
-        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive"})
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive", **UNKNOWN_SIZE}
+        )
     )
 
     with pytest.raises(EdaxTimeoutError):
         mapping.run_eds_map(
-            EdaxEdsController(client), _eds_plan(max_duration_s=0.3), quiet=True
+            EdaxEdsController(client),
+            _eds_plan(min_timeout_s=0.0, max_duration_s=0.3),
+            quiet=True,
         )
+
+
+def test_eds_map_of_known_size_keeps_a_hard_budget(make_client, no_sleep):
+    """A predictable map is not waited on past its budget, so a hung APEX
+    that keeps answering 'active' still ends the wait promptly."""
+    client, _ = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive"})
+    )
+
+    started = time.monotonic()
+    with pytest.raises(EdaxTimeoutError):
+        mapping.run_eds_map(
+            EdaxEdsController(client),
+            _eds_plan(min_timeout_s=0.0, max_duration_s=60.0),
+            quiet=True,
+        )
+
+    # Well short of max_duration_s, which applies only to an unknown size.
+    assert time.monotonic() - started < 5.0
 
 
 def test_interrupted_eds_map_is_rejected(make_client, no_sleep):
@@ -863,19 +932,24 @@ def test_eds_map_survives_the_finalization_stall(make_client, no_sleep):
     assert service.commands().count(EdaxCommand.EDS_GET_MAP_STATUS.value) == 1
 
 
-def test_eds_stall_past_an_underestimated_budget_is_waited_for(make_client, no_sleep):
+def test_eds_stall_past_an_unknown_size_budget_is_waited_for(make_client, no_sleep):
     """The production case: the map ran longer than predicted, the budget is
     spent, and APEX then goes quiet to finalize. It said the map was running,
     so the quiet is waited out, with one query and no re-send."""
     client, service = make_client(
         payloads=_eds_payloads(
-            **{EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingComplete"]}
+            **{
+                EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingComplete"],
+                **UNKNOWN_SIZE,
+            }
         ),
         delays={EdaxCommand.EDS_GET_MAP_STATUS: [0.0, 0.3]},
     )
 
     result = mapping.run_eds_map(
-        EdaxEdsController(client), _eds_plan(status_timeout_s=0.02), quiet=True
+        EdaxEdsController(client),
+        _eds_plan(status_timeout_s=0.02, min_timeout_s=0.0),
+        quiet=True,
     )
 
     assert result.status is EdaxMappingStatus.MAPPING_COMPLETE

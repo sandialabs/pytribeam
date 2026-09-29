@@ -202,8 +202,13 @@ APEX maps only at the presets in its resolution menu (64 x 50 up to
 4096 x 3200), and the IPAPI selects one through `set_map_params_numpoints`
 alone: APEX takes the preset at or below the points value and ignores
 `set_map_params_numlines`. `EdaxEdsResolution` therefore sends each preset as
-its exact point count and never sends lines. The read-back is only the last
-value sent over the IPAPI, not necessarily what APEX shows.
+its exact point count and never sends lines.
+
+APEX's `get_map_duration` still multiplies by the stored line count, which
+never updates, so EDS maps are timed from the preset instead
+(`EdaxEdsController.dwell_duration_s`). If the stored point count is not a
+preset, the size is unknown: APEX's figure then sizes the budget only, and the
+map is waited for while APEX reports it in progress.
 
 ### Rehearsing without hardware
 
@@ -267,12 +272,11 @@ What they check, beyond the map completing:
   (`localhost`), so a map that "succeeds" but saves nothing fails;
 - APEX's EDS folder was set to the experiment folder before the EDS map, and
   the EDS side is idle afterwards;
-- no EBSD map "completes" sooner than EDAX predicted, and every EDS map was
-  seen running (an in-progress status, the completion event, or
-  `MappingComplete`). EDS cannot use the duration check, because APEX's EDS
-  prediction uses stored points and lines that need not match the map it
-  runs; for the same reason an EDS map that outlasts its prediction is waited
-  for while APEX reports it in progress;
+- no map "completes" sooner than predicted, and every EDS map was seen
+  running (an in-progress status, the completion event, or
+  `MappingComplete`). The EDS prediction is points x lines x frames x dwell
+  from the preset, not APEX's `get_map_duration`, which multiplies by the
+  stale stored line count. It omits APEX's overhead, so it is a lower bound;
 - camera saturation and average CI land in the HDF5 log for the right slice;
 - the microscope's field width and detector are restored after the saturation
   measurement;
