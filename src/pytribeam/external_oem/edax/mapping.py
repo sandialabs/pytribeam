@@ -17,8 +17,11 @@ Classes
 EbsdMapPlan(NamedTuple)
     Everything needed to collect one EBSD map.
 
+EdsMapPlan(NamedTuple)
+    Everything needed to collect one EDS map.
+
 EdaxMapResult(NamedTuple)
-    What a completed EBSD collection reports.
+    What a completed EBSD or EDS collection reports.
 
 Functions
 ---------
@@ -33,6 +36,15 @@ run_ebsd_preflight(ebsd, folder, project) -> bool
 
 run_ebsd_map(ebsd, plan) -> EdaxMapResult
     Configure, collect, and measure one EBSD map.
+
+eds_slice_tag(slice_number) -> str
+    The database tag EDAX stores a slice's EDS map under.
+
+run_eds_preflight(eds, folder, project) -> bool
+    Put the EDS side of APEX in headless mode, pointed at the experiment.
+
+run_eds_map(eds, plan) -> EdaxMapResult
+    Configure and collect one EDS map.
 """
 
 # Default python modules
@@ -42,10 +54,13 @@ from typing import Any, Callable, ContextManager, Dict, NamedTuple, Optional
 
 # Local scripts
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController
+from pytribeam.external_oem.edax.eds import EdaxEdsController
 from pytribeam.external_oem.edax.errors import EdaxStateError
 from pytribeam.external_oem.edax.types import (
     EdaxAccessType,
+    EdaxDetectorStatus,
     EdaxEbsdMapParams,
+    EdaxEdsMapParams,
     EdaxEbsdResolution,
     EdaxGridType,
     EdaxMappingStatus,
@@ -113,7 +128,7 @@ class EbsdMapPlan(NamedTuple):
 
 class EdaxMapResult(NamedTuple):
     """
-    What a completed EBSD collection reports.
+    What a completed EBSD or EDS collection reports.
 
     Attributes
     ----------
@@ -129,7 +144,8 @@ class EdaxMapResult(NamedTuple):
         delay rather than its true length.
     metrics : Dict[str, float]
         Scalar measurements keyed by metric name, such as
-        :data:`CAMERA_SATURATION` and :data:`AVERAGE_CI`.
+        :data:`CAMERA_SATURATION` and :data:`AVERAGE_CI`. Empty for EDS maps,
+        which report no scalar quality measures over the IPAPI.
     """
 
     tag: str
@@ -331,12 +347,212 @@ def run_ebsd_map(
     if measure_saturation is not None:
         record(CAMERA_SATURATION, float(measure_saturation()))
 
-    predicted_s = ebsd.map_duration_s()
+    collection = _collect(ebsd, plan, "EBSD", progress_fn, quiet)
 
-    ebsd.collection_start(plan.tag)
+    record(AVERAGE_CI, ebsd.average_ci())
+    time.sleep(plan.settle_s)
+
+    if plan.retract_after:
+        with motion_guard():
+            ebsd.retract_camera(quiet=quiet)
+
+    # Checked after retraction, so a rejected map still leaves the camera out.
+    _require_full_duration("EBSD", plan.tag, collection)
+
+    return EdaxMapResult(
+        tag=plan.tag,
+        status=collection.status,
+        predicted_duration_s=collection.predicted_s,
+        duration_s=collection.duration_s,
+        metrics=metrics,
+    )
+
+
+# ----------------------------------------------------------------------
+# EDS
+# ----------------------------------------------------------------------
+class EdsMapPlan(NamedTuple):
+    """
+    Everything needed to collect one EDS map.
+
+    Timing fields mean the same as in :class:`EbsdMapPlan`. There is no camera
+    to retract: the EDS detector is moved by the caller, under the live chamber
+    CCD, before and after the map.
+
+    Attributes
+    ----------
+    tag : str
+        Database tag for the map, unique within its folder.
+    params : EdaxEdsMapParams
+        Map parameters to apply first. Unset fields are not sent, so the
+        default leaves APEX's own EDS map settings in force.
+    start_delay_s : float
+        Pause after starting collection before the first status query.
+    poll_interval_s : float
+        Delay between status queries.
+    status_timeout_s : float
+        How long to wait on a single status response before re-checking the
+        overall deadline.
+    timeout_scalar : float
+        Multiple of the expected duration allowed before giving up.
+    min_timeout_s : float
+        Floor on the overall wait.
+    """
+
+    tag: str
+    params: EdaxEdsMapParams = EdaxEdsMapParams()
+    start_delay_s: float = 10.0
+    poll_interval_s: float = 10.0
+    status_timeout_s: float = 120.0
+    timeout_scalar: float = 3.0
+    min_timeout_s: float = 0.0
+
+
+def eds_slice_tag(slice_number: int) -> str:
+    """
+    Return the database tag EDAX stores a slice's EDS map under.
+
+    It differs from :func:`slice_tag` so an EDS map and an EBSD map of the same
+    slice can share a folder: EDAX requires tags to be unique within one.
+
+    Parameters
+    ----------
+    slice_number : int
+        The slice being collected.
+
+    Returns
+    -------
+    str
+        A zero-padded tag such as ``Slice_0007_EDS``.
+    """
+    return f"{slice_tag(slice_number)}_EDS"
+
+
+def run_eds_preflight(
+    eds: EdaxEdsController,
+    folder: Path,
+    project: EdaxProjectInfo,
+    access_type: EdaxAccessType = EdaxAccessType.NO_WAIT,
+    access_timeout_s: float = 5.0,
+    project_timeout_s: float = 120.0,
+) -> bool:
+    """
+    Put the EDS side of APEX in headless mode, pointed at the experiment.
+
+    ``NO_WAIT`` tells APEX a remote client is driving, and the reference is
+    explicit that the folder must then be sent before mapping begins, or "the
+    path won't be set". So the order is fixed: access type, folder, project.
+    A map started without both runs headless with nowhere to save.
+
+    Parameters
+    ----------
+    eds : EdaxEdsController
+        Controller over a connected client.
+    folder : Path
+        Folder on the EDAX computer where EDS maps are stored.
+    project : EdaxProjectInfo
+        Project identity and, for 3D collection, slice count and thickness.
+    access_type : EdaxAccessType, optional
+        Remote access mode for map setup.
+    access_timeout_s : float, optional
+        Response timeout for the access-type command.
+    project_timeout_s : float, optional
+        Response timeout for the project command.
+
+    Returns
+    -------
+    bool
+        True on success.
+
+    Raises
+    ------
+    EdaxStateError
+        If APEX is not running, or the EDS detector is not ready to collect.
+    """
+    if not eds.app_started():
+        raise EdaxStateError("APEX is not running, so EDS cannot be prepared.")
+    eds.set_access_type(access_type, timeout_s=access_timeout_s)
+    eds.apply_map_parameters(EdaxEdsMapParams(folder_path=folder))
+    eds.set_project_info(project, timeout_s=project_timeout_s)
+    _require_eds_ready(eds)
+    return True
+
+
+def run_eds_map(
+    eds: EdaxEdsController,
+    plan: EdsMapPlan,
+    progress_fn: Optional[Callable[[EdaxMappingStatus, float], None]] = None,
+    quiet: bool = False,
+) -> EdaxMapResult:
+    """
+    Configure and collect one EDS map.
+
+    The detector must already be inserted; see
+    :func:`pytribeam.external_oem.edax.workflow.insert_eds_detector`.
+
+    Parameters
+    ----------
+    eds : EdaxEdsController
+        Controller over a connected client.
+    plan : EdsMapPlan
+        Tag, map parameters, and timing for this map.
+    progress_fn : callable, optional
+        Forwarded to :meth:`EdaxMappingController.wait_for_map_complete`.
+    quiet : bool, optional
+        Suppress console progress messages.
+
+    Returns
+    -------
+    EdaxMapResult
+        Status and timing for the collected map. ``metrics`` is empty.
+
+    Raises
+    ------
+    EdaxStateError
+        If the detector is not ready, or the map errors, is interrupted, or
+        finishes sooner than EDAX predicted.
+    EdaxTimeoutError
+        If the map does not finish within the allowed multiple of its
+        expected duration.
+    """
+    _require_eds_ready(eds)
+    eds.apply_map_parameters(plan.params)
+    collection = _collect(eds, plan, "EDS", progress_fn, quiet)
+    _require_full_duration("EDS", plan.tag, collection)
+    return EdaxMapResult(
+        tag=plan.tag,
+        status=collection.status,
+        predicted_duration_s=collection.predicted_s,
+        duration_s=collection.duration_s,
+        metrics={},
+    )
+
+
+# ----------------------------------------------------------------------
+# Shared collection
+# ----------------------------------------------------------------------
+class _Collection(NamedTuple):
+    """Outcome of one start-and-wait, before the duration check."""
+
+    status: EdaxMappingStatus
+    predicted_s: float
+    duration_s: float
+
+
+def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collection:
+    """
+    Start a map, wait out its collection and finalization, and time it.
+
+    Shared by EBSD and EDS, whose collections differ only in the commands the
+    controller sends. See :meth:`EdaxMappingController.wait_for_map_complete`
+    for how the finalization stall is survived without re-sending commands.
+    """
+    predicted_s = controller.map_duration_s()
+
+    controller.collection_start(plan.tag)
     scan_start = time.time()
     if not quiet:
-        print("\tEBSD map started...")
+        print(f"\t{label} map started...")
     time.sleep(plan.start_delay_s)
 
     # The overall budget runs from the start of collection, so it covers the
@@ -345,7 +561,7 @@ def run_ebsd_map(
         (predicted_s + plan.start_delay_s) * plan.timeout_scalar, plan.min_timeout_s
     )
     remaining_s = max(budget_s - (time.time() - scan_start), 0.0)
-    status = ebsd.wait_for_map_complete(
+    status = controller.wait_for_map_complete(
         timeout_s=remaining_s,
         poll_interval_s=plan.poll_interval_s,
         status_timeout_s=plan.status_timeout_s,
@@ -355,36 +571,38 @@ def run_ebsd_map(
 
     if status in _INCOMPLETE_STATUSES:
         raise EdaxStateError(
-            f"EDAX EBSD map '{plan.tag}' ended with status '{status.value}' "
+            f"EDAX {label} map '{plan.tag}' ended with status '{status.value}' "
             "before completing."
         )
     if not quiet:
         print("\t\tMapping complete")
+    return _Collection(status, predicted_s, end_time - scan_start)
 
-    record(AVERAGE_CI, ebsd.average_ci())
-    time.sleep(plan.settle_s)
 
-    if plan.retract_after:
-        with motion_guard():
-            ebsd.retract_camera(quiet=quiet)
+def _require_full_duration(label: str, tag: str, collection: _Collection) -> None:
+    """
+    Reject a map that finished sooner than EDAX predicted.
 
-    # Compare against EDAX's prediction alone. The start delay is our own wait,
-    # not collection time; including it would reject any map that finishes
-    # within the delay, which is every small map, even though completion can
-    # only be observed after the delay anyway. A map that never started still
-    # fails here, because the delay is far shorter than any real prediction.
-    duration_s = end_time - scan_start
-    if duration_s < predicted_s:
+    Compared against EDAX's prediction alone. The start delay is our own wait,
+    not collection time; including it would reject any map that finishes within
+    the delay, which is every small map, even though completion can only be
+    observed after the delay anyway. A map that never started still fails here,
+    because the delay is far shorter than any real prediction.
+    """
+    if collection.duration_s < collection.predicted_s:
         raise EdaxStateError(
-            f"EDAX EBSD map '{plan.tag}' finished unexpectedly quickly. EDAX "
-            f"predicted {predicted_s:.1f} seconds, but completion was observed "
-            f"after {duration_s:.1f} seconds. Please check the EDAX software."
+            f"EDAX {label} map '{tag}' finished unexpectedly quickly. EDAX "
+            f"predicted {collection.predicted_s:.1f} seconds, but completion was "
+            f"observed after {collection.duration_s:.1f} seconds. Please check "
+            "the EDAX software."
         )
 
-    return EdaxMapResult(
-        tag=plan.tag,
-        status=status,
-        predicted_duration_s=predicted_s,
-        duration_s=duration_s,
-        metrics=metrics,
-    )
+
+def _require_eds_ready(eds: EdaxEdsController) -> None:
+    """Refuse to map with a detector APEX does not report as ready."""
+    status = eds.detector_status()
+    if status is not EdaxDetectorStatus.READY:
+        raise EdaxStateError(
+            f"The EDS detector reports '{status.value}'. Check that it is cooled "
+            "and that APEX shows it ready before collecting."
+        )

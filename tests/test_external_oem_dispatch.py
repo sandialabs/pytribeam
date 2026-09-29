@@ -286,7 +286,34 @@ def routes(monkeypatch):
         check_connection=lambda host, port: (
             calls.append(("edax.check", host, port)) or True
         ),
+        preflight_eds=lambda general_settings: (
+            calls.append("edax.preflight_eds") or True
+        ),
+        eds_detector_state=lambda general_settings: (
+            calls.append("edax.eds_detector_state")
+            or tbt.RetractableDeviceState.RETRACTED
+        ),
+        insert_eds_detector=lambda general_settings, microscope: (
+            calls.append("edax.insert_eds_detector") or True
+        ),
+        retract_eds_detector=lambda general_settings, microscope: (
+            calls.append("edax.retract_eds_detector") or True
+        ),
+        map_eds=lambda general_settings, step_settings, slice_number: calls.append(
+            "edax.map_eds"
+        ),
     )
+
+    # LaserControl's EDS detector calls, so a test can show they were not used.
+    for name in ("connect_EDS", "insert_EDS", "retract_EDS"):
+        monkeypatch.setattr(
+            external_devices.devices,
+            name,
+            lambda *args, _name=name, **kwargs: (
+                calls.append(f"laser_control.{_name}")
+                or tbt.RetractableDeviceState.RETRACTED
+            ),
+        )
 
     monkeypatch.setattr(external_devices, "_laser", lambda: fake_laser)
     monkeypatch.setattr(external_devices, "_edax_workflow", lambda: fake_edax)
@@ -402,21 +429,80 @@ class TestEbsdRouting:
 
 
 class TestEdsRouting:
-    """EDS mapping stays on LaserControl for EDAX until native EDS is routed."""
+    """EDAX EDS runs over the IPAPI whenever an IPAPI host is configured."""
 
-    @pytest.mark.parametrize(
-        "oem", [tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.OXFORD]
-    )
-    def test_laser_control_oems_map_eds_through_laser_control(self, routes, oem):
-        settings = general_settings(tbt.ExternalDeviceOEM.NONE, oem, edax_config())
+    def _eds(self, oem, edax=True):
+        return general_settings(
+            tbt.ExternalDeviceOEM.NONE, oem, edax_config() if edax else None
+        )
 
-        assert external_devices.map_eds(general_settings=settings) is True
+    def test_native_edax_eds_never_touches_laser_control(self, routes):
+        """Connect, preflight, insert, map, and retract all go over the IPAPI."""
+        settings = self._eds(tbt.ExternalDeviceOEM.EDAX)
+
+        external_devices.connect_eds(general_settings=settings)
+        external_devices.preflight_eds(general_settings=settings)
+        external_devices.insert_eds(microscope=None, general_settings=settings)
+        external_devices.map_eds(general_settings=settings, slice_number=4)
+        external_devices.retract_eds(microscope=None, general_settings=settings)
+
+        assert routes.calls == [
+            "edax.eds_detector_state",
+            "edax.preflight_eds",
+            "edax.insert_eds_detector",
+            "edax.map_eds",
+            "edax.retract_eds_detector",
+        ]
+
+    def test_edax_without_ipapi_settings_falls_back_to_laser_control(self, routes):
+        """A v1.0 configuration names no IPAPI host."""
+        settings = self._eds(tbt.ExternalDeviceOEM.EDAX, edax=False)
+
+        external_devices.insert_eds(microscope=None, general_settings=settings)
+        external_devices.map_eds(general_settings=settings)
+        external_devices.retract_eds(microscope=None, general_settings=settings)
+
+        assert routes.calls == [
+            "laser_control.insert_EDS",
+            "laser.map_eds",
+            "laser_control.retract_EDS",
+        ]
+        assert external_devices.preflight_eds(general_settings=settings) is True
+
+    def test_oxford_ignores_an_edax_block(self, routes):
+        """v1.1 configurations carry EDAX_settings whatever the OEM."""
+        settings = self._eds(tbt.ExternalDeviceOEM.OXFORD)
+
+        external_devices.map_eds(general_settings=settings)
+        external_devices.preflight_eds(general_settings=settings)
+
         assert routes.calls == ["laser.map_eds"]
 
-    def test_bruker_eds_points_to_the_custom_step(self, routes):
+    def test_concurrent_eds_moves_the_detector_over_the_ipapi(self, routes):
+        """An EBSD step with concurrent EDS inserts the EDS detector natively."""
         settings = general_settings(
-            tbt.ExternalDeviceOEM.NONE, tbt.ExternalDeviceOEM.BRUKER
+            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.EDAX, edax_config()
         )
+
+        external_devices.insert_eds(microscope=None, general_settings=settings)
+
+        assert routes.calls == ["edax.insert_eds_detector"]
+
+    @pytest.mark.parametrize(
+        "oem, edax, expected",
+        [
+            (tbt.ExternalDeviceOEM.EDAX, True, True),
+            (tbt.ExternalDeviceOEM.EDAX, False, False),
+            (tbt.ExternalDeviceOEM.OXFORD, True, False),
+            (tbt.ExternalDeviceOEM.BRUKER, True, False),
+            (tbt.ExternalDeviceOEM.NONE, True, False),
+        ],
+    )
+    def test_native_edax_eds_selection(self, oem, edax, expected):
+        assert external_devices.uses_native_edax_eds(self._eds(oem, edax)) is expected
+
+    def test_bruker_eds_points_to_the_custom_step(self, routes):
+        settings = self._eds(tbt.ExternalDeviceOEM.BRUKER, edax=False)
 
         with pytest.raises(NotImplementedError, match="custom"):
             external_devices.map_eds(general_settings=settings)

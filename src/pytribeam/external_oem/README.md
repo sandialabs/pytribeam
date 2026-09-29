@@ -21,12 +21,17 @@ The dispatcher picks the backend from the configured OEM and settings:
 
 | OEM    | EBSD                                                     | EDS                |
 |--------|----------------------------------------------------------|--------------------|
-| EDAX   | native IPAPI when `EDAX_settings` is set, else LaserControl | LaserControl    |
+| EDAX   | native IPAPI when `EDAX_settings` is set, else LaserControl | same rule as EBSD |
 | Oxford | LaserControl                                             | LaserControl       |
 | Bruker | not supported yet                                        | Bruker custom step |
 
 EBSD and EDS are separate threads. Concurrent EDS during an EBSD scan is still
 an EBSD scan, routed with `EBSD_OEM`.
+
+Native EDAX EDS runs entirely over the IPAPI: headless setup, detector motion,
+and collection. Native EDAX EBSD still inserts its camera through LaserControl.
+Every detector move, on either interface, runs under the live chamber CCD view
+(`insertable_devices.ccd_live_view`).
 
 ## Layout
 

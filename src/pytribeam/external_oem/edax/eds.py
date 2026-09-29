@@ -25,6 +25,7 @@ from typing import Optional
 # Local scripts
 from pytribeam.external_oem.edax.base import EdaxMappingController
 from pytribeam.external_oem.edax.errors import (
+    EdaxResponseError,
     EdaxTimeoutError,
     EdaxUnsupportedCommandError,
 )
@@ -190,7 +191,13 @@ class EdaxEdsController(EdaxMappingController):
         try:
             return EdaxDetectorStatus(normalized)
         except ValueError:
-            return EdaxDetectorStatus.NOT_READY
+            # Reporting an unrecognized value as NOT_READY would hide the real
+            # text behind a misleading "not ready" at the start of every map.
+            raise EdaxResponseError(
+                EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS.value,
+                payload,
+                "a detector status (Ready or NotReady)",
+            ) from None
 
     def slide_status(
         self, timeout_s: Optional[float] = None

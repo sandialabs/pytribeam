@@ -9,9 +9,9 @@ so what passes here is what an experiment runs:
 ========================  ================================================
 Map                       Path
 ========================  ================================================
-EBSD                      native IPAPI, detector motion on LaserControl
-EBSD + concurrent EDS     native IPAPI with spectra saved, both detectors
-EDS                       LaserControl
+EBSD                      native IPAPI, camera inserted by LaserControl
+EBSD + concurrent EDS     as EBSD, spectra saved, EDS detector over IPAPI
+EDS                       native IPAPI throughout, headless
 ========================  ================================================
 
 Unlike the read-only sweep in ``test_edax_ipapi_hardware.py``, these need the
@@ -30,12 +30,15 @@ Before running:
 - Put the sample at the EBSD position (tilted, at working distance) with the
   electron beam on. Nothing here moves the stage.
 - Leave the EDAX software open with no map running.
-- Configure the EDS map in the EDAX software to take at least
-  ``Constants.min_map_time_s``; LaserControl rejects shorter maps.
+- The EDS map uses APEX's current EDS map settings (resolution, frames,
+  dwell); only where it saves is set by the test.
 - Point ``PYTRIBEAM_EDAX_MAP_FOLDER`` at an existing scratch folder on the EDAX
-  PC, and clear it between runs. Each run writes ``Slice_0001`` (EBSD) and
-  ``Slice_0002`` (EBSD + EDS) there, and EDAX requires tags to be unique within
-  a folder.
+  PC, and clear it between runs. Each run writes ``Slice_0001`` (EBSD),
+  ``Slice_0002`` (EBSD + EDS), and ``Slice_0003_EDS`` there, and EDAX requires
+  tags to be unique within a folder.
+
+When the IPAPI host is this machine, as it is with ``localhost``, the tests
+also look in that folder and fail if a map wrote nothing to it.
 
 ``PYTRIBEAM_EDAX_MAP_SIZE_UM`` (default 5) and ``PYTRIBEAM_EDAX_MAP_STEP_UM``
 (default 0.5) set the square scan area, centered in the field of view.
@@ -48,7 +51,10 @@ the CCD off fails the test.
 
 # Default python modules
 import os
+import platform
+import time
 from contextlib import contextmanager
+from pathlib import Path
 from types import SimpleNamespace
 
 # Third-party modules
@@ -73,7 +79,9 @@ from pytribeam.external_oem.edax.eds import EdaxEdsController  # noqa: E402
 from pytribeam.external_oem.edax.errors import EdaxUnsupportedCommandError  # noqa: E402
 from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxCameraStatus,
+    EdaxCommand,
     EdaxConnectionSettings,
+    EdaxDetectorSlideStatus,
     EdaxEbsdMapParams,
     EdaxEbsdResolution,
     EdaxMappingStatus,
@@ -245,6 +253,9 @@ def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
     _require_idle(experiment.EDAX_settings)
     devices.retract_all_microscope_insertable_detectors(microscope=microscope)
 
+    folder = _local_map_folder(experiment.EDAX_settings)
+    files_before = _folder_snapshot(folder)
+
     external_devices.preflight_ebsd(general_settings=experiment)
     try:
         external_devices.insert_ebsd(microscope=microscope, general_settings=experiment)
@@ -267,6 +278,7 @@ def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
         external_devices.retract_all_external_devices(
             microscope=microscope, general_settings=experiment
         )
+    _assert_data_written(folder, files_before, name)
     return step, before
 
 
@@ -297,6 +309,53 @@ def _assert_ebsd_map_recorded(microscope, experiment, step, slice_number, before
     assert params.custom_step_size_um == pytest.approx(step_um)
     assert camera is EdaxCameraStatus.SLIDE_OUT
     return params
+
+
+#: Hosts that mean APEX runs on this machine, so its save folder is local.
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1", platform.node().lower()}
+
+
+def _local_map_folder(config: tbt.EDAXConfig):
+    """Return the map folder when this test can see it, otherwise None."""
+    if config.connection.host.strip().lower() not in _LOCAL_HOSTS:
+        return None
+    folder = Path(config.save_directory)
+    return folder if folder.is_dir() else None
+
+
+def _folder_snapshot(folder):
+    """Return every file under a folder with its modification time."""
+    if folder is None:
+        return None
+    return {path: path.stat().st_mtime for path in folder.rglob("*") if path.is_file()}
+
+
+def _assert_data_written(folder, before, label: str, grace_s: float = 30.0):
+    """Fail unless a map created or updated a file in its folder.
+
+    APEX reports completion after finalization, but writes can trail slightly,
+    so the folder is polled for a short grace period.
+    """
+    if folder is None:
+        print(f"\t{label}: map folder is not on this machine; data not checked")
+        return
+    deadline = time.time() + grace_s
+    while True:
+        after = _folder_snapshot(folder)
+        written = [path for path, mtime in after.items() if before.get(path) != mtime]
+        if written or time.time() >= deadline:
+            break
+        time.sleep(1.0)
+    assert written, (
+        f"The {label} map completed but wrote nothing to {folder}. Check where "
+        "APEX saved it, and that the folder was set before the map started."
+    )
+
+
+def _same_path(first: str, second: str) -> bool:
+    """Compare paths the way Windows does: case and separators aside."""
+    normalize = lambda path: os.path.normcase(os.path.normpath(str(path).strip()))
+    return normalize(first) == normalize(second)
 
 
 class MotionWatch:
@@ -353,14 +412,19 @@ def motion_watch(monkeypatch) -> MotionWatch:
     monkeypatch.setattr(devices, "CCD_view", view)
     monkeypatch.setattr(devices, "CCD_pause", pause)
 
-    for method in ("insert_camera", "retract_camera"):
-        real = getattr(EdaxEbsdController, method)
+    for controller, method, label in (
+        (EdaxEbsdController, "insert_camera", "IPAPI insert_camera"),
+        (EdaxEbsdController, "retract_camera", "IPAPI retract_camera"),
+        (EdaxEdsController, "insert_detector", "IPAPI EDS insert_detector"),
+        (EdaxEdsController, "retract_detector", "IPAPI EDS retract_detector"),
+    ):
+        real = getattr(controller, method)
 
-        def spy(self, *args, _real=real, _name=method, **kwargs):
-            watch.moved(f"IPAPI {_name}")
+        def spy(self, *args, _real=real, _label=label, **kwargs):
+            watch.moved(_label)
             return _real(self, *args, **kwargs)
 
-        monkeypatch.setattr(EdaxEbsdController, method, spy)
+        monkeypatch.setattr(controller, method, spy)
 
     # LaserControl may be an extension module whose attributes cannot be
     # replaced; the IPAPI moves are still watched if so.
@@ -419,20 +483,32 @@ def test_ebsd_map_with_concurrent_eds(microscope, experiment, motion_watch):
 
     params = _assert_ebsd_map_recorded(microscope, experiment, step, 2, before)
     assert params.save_spectra is True
-    motion_watch.assert_all_moves_observed(expect=["IPAPI retract_camera"])
+    motion_watch.assert_all_moves_observed(
+        expect=[
+            "IPAPI retract_camera",
+            "IPAPI EDS insert_detector",
+            "IPAPI EDS retract_detector",
+        ]
+    )
 
 
 def test_eds_map(microscope, experiment, motion_watch):
-    """Collect an EDS map through LaserControl, as EDAX EDS steps do.
+    """Collect an EDS map entirely over the IPAPI, headless.
 
-    LaserControl runs the EDS map configured in the EDAX software and rejects a
-    map shorter than ``Constants.min_map_time_s``, so reaching the end is itself
-    the check that EDAX collected.
+    Checks the two things LaserControl collection could not guarantee: that
+    APEX was told where to save before the map started, and, when the folder is
+    on this machine, that the map actually wrote data there. The detector moves
+    over the IPAPI, under the live chamber CCD.
     """
+    config = experiment.EDAX_settings
     step = SimpleNamespace(number=3, name="edax_hw_eds")
 
-    _require_idle(experiment.EDAX_settings)
+    _require_idle(config)
     devices.retract_all_microscope_insertable_detectors(microscope=microscope)
+    folder = _local_map_folder(config)
+    files_before = _folder_snapshot(folder)
+
+    external_devices.preflight_eds(general_settings=experiment)
     try:
         external_devices.insert_eds(microscope=microscope, general_settings=experiment)
         assert external_devices.map_eds(
@@ -446,7 +522,18 @@ def test_eds_map(microscope, experiment, motion_watch):
             microscope=microscope, general_settings=experiment
         )
 
-    expected = ["LaserControl EDS_InsertCamera"]
-    if not motion_watch.laser_control_observed:
-        expected = []  # LaserControl could not be spied on; nothing to require
-    motion_watch.assert_all_moves_observed(expect=expected)
+    with _ipapi(config) as client:
+        eds = EdaxEdsController(client)
+        eds_folder = client.query(EdaxCommand.EDS_GET_FOLDERPATH)
+        position = eds.slide_status()
+        status = eds.map_status()
+    assert _same_path(eds_folder, config.save_directory), (
+        f"APEX's EDS folder is {eds_folder!r}, not {config.save_directory!r}"
+    )
+    assert position is EdaxDetectorSlideStatus.SLIDE_OUT
+    assert status not in _BUSY, f"APEX still reports the EDS side as {status.value}"
+
+    _assert_data_written(folder, files_before, "EDS")
+    motion_watch.assert_all_moves_observed(
+        expect=["IPAPI EDS insert_detector", "IPAPI EDS retract_detector"]
+    )

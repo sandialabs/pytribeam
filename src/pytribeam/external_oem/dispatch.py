@@ -15,7 +15,7 @@ an EBSD scan: it is a flag on the EBSD step, routed with ``EBSD_OEM``.
 ============  =============================================  ===================
 OEM           EBSD                                           EDS
 ============  =============================================  ===================
-EDAX          native IPAPI when ``EDAX_settings`` is set,    LaserControl
+EDAX          native IPAPI when ``EDAX_settings`` is set,    same rule as EBSD
               otherwise LaserControl
 Oxford        LaserControl                                   LaserControl
 Bruker        not supported                                  Bruker custom step
@@ -26,13 +26,11 @@ OEM: a configuration without an ``EDAX_settings`` block names no IPAPI host, so
 LaserControl is the only option. That reproduces the ``yml_version >= 1.1``
 rule this dispatcher replaced.
 
-Detector insertion and retraction stay on LaserControl for EDAX and Oxford in
-both modes, matching the behavior proven on hardware. The native EDAX map also
-retracts the camera over the IPAPI when it finishes.
-
-Native EDAX EDS mapping is available in the wrapper but not routed here yet:
-the experiment configuration has no EDS scan parameters to send, and the path
-has not been validated on hardware.
+Native EDAX EDS runs entirely over the IPAPI: headless setup, detector motion,
+and collection. Native EDAX EBSD maps over the IPAPI but still inserts the
+camera through LaserControl, whose insertion is proven on hardware; the map
+retracts the camera over the IPAPI when it finishes. Every detector move, on
+either interface, runs under the live chamber CCD view.
 
 Vendor packages are imported lazily, so selecting one OEM never imports
 another's dependencies.
@@ -122,6 +120,28 @@ def uses_native_edax_ebsd(general_settings: tbt.GeneralSettings) -> bool:
     )
 
 
+def uses_native_edax_eds(general_settings: tbt.GeneralSettings) -> bool:
+    """
+    Return True when EDS runs over the native EDAX IPAPI.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings.
+
+    Returns
+    -------
+    bool
+        True when the EDS OEM is EDAX and an ``EDAX_settings`` block names the
+        IPAPI host. Configurations without one fall back to LaserControl.
+    """
+    oem = _ensure_oem(general_settings.EDS_OEM)
+    return (
+        oem == tbt.ExternalDeviceOEM.EDAX
+        and getattr(general_settings, "EDAX_settings", None) is not None
+    )
+
+
 # ----------------------------------------------------------------------
 # Metric logging
 # ----------------------------------------------------------------------
@@ -199,11 +219,14 @@ def connect_eds(general_settings: tbt.GeneralSettings) -> tbt.RetractableDeviceS
     """
     Connect to the configured external EDS device control interface.
 
-    Bruker is a Phase 1 no-op placeholder and does not call TFS Laser API.
+    Native EDAX reports the detector position over the IPAPI. Bruker is a
+    Phase 1 no-op placeholder and does not call TFS Laser API.
     """
     oem = _ensure_oem(general_settings.EDS_OEM)
     if oem == tbt.ExternalDeviceOEM.NONE:
         return _neutral_status()
+    if uses_native_edax_eds(general_settings):
+        return _edax_workflow().eds_detector_state(general_settings)
     if _is_tfs_laser_oem(oem):
         return devices.connect_EDS()
     if oem == tbt.ExternalDeviceOEM.BRUKER:
@@ -281,6 +304,30 @@ def preflight_ebsd(general_settings: tbt.GeneralSettings) -> bool:
     return True
 
 
+def preflight_eds(general_settings: tbt.GeneralSettings) -> bool:
+    """
+    Prepare the EDS software before the first slice.
+
+    For native EDAX this puts APEX's EDS side in headless (NoWait) mode and
+    points it at the experiment folder and project, then confirms the detector
+    is ready. Without it, APEX decides where EDS maps are saved. LaserControl
+    needs no preflight, so the other OEMs return immediately.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings.
+
+    Returns
+    -------
+    bool
+        True on success.
+    """
+    if uses_native_edax_eds(general_settings):
+        return _edax_workflow().preflight_eds(general_settings)
+    return True
+
+
 # ----------------------------------------------------------------------
 # Detector motion
 # ----------------------------------------------------------------------
@@ -291,11 +338,15 @@ def insert_eds(
     """
     Insert the configured external EDS detector.
 
-    Bruker is a Phase 1 no-op placeholder and does not call TFS Laser API.
+    Native EDAX inserts over the IPAPI, with the same collision check and live
+    CCD view as LaserControl. Bruker is a Phase 1 no-op placeholder and does
+    not call TFS Laser API.
     """
     oem = _ensure_oem(general_settings.EDS_OEM)
     if oem == tbt.ExternalDeviceOEM.NONE:
         return True
+    if uses_native_edax_eds(general_settings):
+        return _edax_workflow().insert_eds_detector(general_settings, microscope)
     if _is_tfs_laser_oem(oem):
         return devices.insert_EDS(microscope=microscope)
     if oem == tbt.ExternalDeviceOEM.BRUKER:
@@ -331,11 +382,14 @@ def retract_eds(
     """
     Retract the configured external EDS detector.
 
-    Bruker is a Phase 1 no-op placeholder and does not call TFS Laser API.
+    Native EDAX retracts over the IPAPI, under the live CCD view. Bruker is a
+    Phase 1 no-op placeholder and does not call TFS Laser API.
     """
     oem = _ensure_oem(general_settings.EDS_OEM)
     if oem == tbt.ExternalDeviceOEM.NONE:
         return True
+    if uses_native_edax_eds(general_settings):
+        return _edax_workflow().retract_eds_detector(general_settings, microscope)
     if _is_tfs_laser_oem(oem):
         return devices.retract_EDS(microscope=microscope)
     if oem == tbt.ExternalDeviceOEM.BRUKER:
@@ -446,8 +500,9 @@ def map_eds(
     """
     Collect one EDS map with the configured OEM.
 
-    The step arguments are accepted for symmetry with :func:`map_ebsd`, and so
-    native EDAX EDS can be routed here later without changing callers.
+    Native EDAX collects over the IPAPI using APEX's current EDS map settings,
+    as LaserControl did, but saves to the experiment folder set in
+    :func:`preflight_eds` and waits out finalization properly.
 
     Parameters
     ----------
@@ -472,6 +527,13 @@ def map_eds(
         configured.
     """
     oem = _ensure_oem(general_settings.EDS_OEM)
+    if uses_native_edax_eds(general_settings):
+        _edax_workflow().map_eds(
+            general_settings=general_settings,
+            step_settings=step_settings,
+            slice_number=slice_number,
+        )
+        return True
     if _is_tfs_laser_oem(oem):
         return _laser().map_eds()
     if oem == tbt.ExternalDeviceOEM.BRUKER:

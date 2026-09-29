@@ -12,7 +12,7 @@ import pytest
 
 # Local scripts
 from pytribeam.external_oem.edax.eds import EdaxEdsController
-from pytribeam.external_oem.edax.errors import EdaxTimeoutError
+from pytribeam.external_oem.edax.errors import EdaxResponseError, EdaxTimeoutError
 from pytribeam.external_oem.edax.types import (
     EdaxCommand,
     EdaxDetectorSlideStatus,
@@ -105,6 +105,16 @@ def test_detector_status_normalizes_edax_spelling(make_client, payload, expected
         payloads={EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: payload}
     )
     assert EdaxEdsController(client).detector_status() is expected
+
+
+def test_unrecognized_detector_status_raises_with_the_text(make_client):
+    """An unexpected payload must surface as-is, not as a false "not ready"."""
+    client, _ = make_client(
+        payloads={EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "Warming"}
+    )
+
+    with pytest.raises(EdaxResponseError, match="Warming"):
+        EdaxEdsController(client).detector_status()
 
 
 @pytest.mark.parametrize(

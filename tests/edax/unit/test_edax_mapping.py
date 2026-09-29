@@ -542,3 +542,215 @@ def test_guard_is_not_opened_when_the_map_fails(make_client, no_sleep):
         )
 
     assert guard.opened_after is None
+
+
+# ----------------------------------------------------------------------
+# EDS
+# ----------------------------------------------------------------------
+from pytribeam.external_oem.edax.eds import EdaxEdsController  # noqa: E402
+from pytribeam.external_oem.edax.errors import EdaxResponseError  # noqa: E402
+from pytribeam.external_oem.edax.types import EdaxEdsMapParams  # noqa: E402
+
+
+def _eds_payloads(**overrides):
+    """Payloads for an EDS map that completes, with the detector ready."""
+    payloads = {
+        EdaxCommand.EDS_GET_SYSTEM_ISAPPSTARTED: "True",
+        EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "Ready",
+        EdaxCommand.EDS_GET_MAP_DURATION: "0",
+        EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingComplete"],
+    }
+    payloads.update(overrides)
+    return payloads
+
+
+def _eds_plan(**overrides) -> mapping.EdsMapPlan:
+    values = dict(
+        tag="Slice_0007_EDS",
+        start_delay_s=0.0,
+        poll_interval_s=0.0,
+        status_timeout_s=0.5,
+        min_timeout_s=5.0,
+    )
+    values.update(overrides)
+    return mapping.EdsMapPlan(**values)
+
+
+PROJECT = EdaxProjectInfo(
+    guid="guid-1", name="exp1", num_slices=200, slice_thickness_um=1.5
+)
+
+
+def test_eds_tag_differs_from_the_ebsd_tag():
+    """EBSD and EDS maps of one slice share a folder, where tags must differ."""
+    assert mapping.eds_slice_tag(7) == "Slice_0007_EDS"
+    assert mapping.eds_slice_tag(7) != mapping.slice_tag(7)
+
+
+def test_eds_preflight_sets_headless_access_then_folder_then_project(make_client):
+    """NoWait needs the EDS folder sent before mapping, or the path isn't set.
+
+    This is the setup LaserControl never performed, which left EDS maps saving
+    wherever APEX pointed, or nowhere once EBSD had set NoWait.
+    """
+    client, service = make_client(payloads=_eds_payloads())
+
+    mapping.run_eds_preflight(
+        EdaxEdsController(client), folder=Path("D:/EDAX Data/exp1"), project=PROJECT
+    )
+
+    sets = [name for name in service.commands() if name.startswith("set_")]
+    assert sets == [
+        EdaxCommand.EDS_SET_SYSTEM_REMOTEACCESSTYPE.value,
+        EdaxCommand.EDS_SET_FOLDERPATH.value,
+        EdaxCommand.EDS_SET_SYSTEM_PROJECTINFO_EXT.value,
+    ]
+    assert service.arguments_for(EdaxCommand.EDS_SET_SYSTEM_REMOTEACCESSTYPE) == ['"1"']
+    assert "exp1" in service.arguments_for(EdaxCommand.EDS_SET_FOLDERPATH)[0]
+    assert service.arguments_for(EdaxCommand.EDS_SET_SYSTEM_PROJECTINFO_EXT) == [
+        '"guid-1","exp1","200","1.5"'
+    ]
+
+
+def test_eds_preflight_uses_the_eds_commands_not_the_ebsd_ones(make_client):
+    """EDAX keeps EDS and EBSD settings apart; the EBSD folder is not enough."""
+    client, service = make_client(payloads=_eds_payloads())
+
+    mapping.run_eds_preflight(
+        EdaxEdsController(client), folder=Path("D:/x"), project=PROJECT
+    )
+
+    assert not [name for name in service.commands() if name.endswith("_ebsd")]
+    assert EdaxCommand.EBSD_SET_FOLDERPATH.value not in service.commands()
+
+
+def test_eds_preflight_refuses_when_apex_is_not_running(make_client):
+    """Nothing is configured against an application that is not there."""
+    client, service = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_SYSTEM_ISAPPSTARTED: "False"})
+    )
+
+    with pytest.raises(EdaxStateError, match="not running"):
+        mapping.run_eds_preflight(
+            EdaxEdsController(client), folder=Path("D:/x"), project=PROJECT
+        )
+    assert not [name for name in service.commands() if name.startswith("set_")]
+
+
+def test_eds_preflight_reports_a_detector_that_is_not_ready(make_client):
+    """Fail at the start of an experiment, not hours in at the first EDS step."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "NotReady"}
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match="cooled"):
+        mapping.run_eds_preflight(
+            EdaxEdsController(client), folder=Path("D:/x"), project=PROJECT
+        )
+
+
+def test_eds_map_collects_under_its_tag(make_client, no_sleep):
+    """A completed map reports its tag, status, and timing; no metrics."""
+    client, service = make_client(payloads=_eds_payloads())
+
+    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    assert service.arguments_for(EdaxCommand.EDS_COLLECTION_START) == [
+        '"Slice_0007_EDS"'
+    ]
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+    assert result.tag == "Slice_0007_EDS"
+    assert result.metrics == {}
+
+
+def test_eds_map_leaves_apex_settings_alone_by_default(make_client, no_sleep):
+    """With no parameters given, APEX's own EDS map settings are used, as
+    LaserControl collection did."""
+    client, service = make_client(payloads=_eds_payloads())
+
+    mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    assert not [n for n in service.commands() if n.startswith("set_map_params")]
+
+
+def test_eds_map_applies_the_parameters_it_is_given(make_client, no_sleep):
+    """Parameters set on the plan reach APEX before collection starts."""
+    client, service = make_client(payloads=_eds_payloads())
+
+    mapping.run_eds_map(
+        EdaxEdsController(client),
+        _eds_plan(params=EdaxEdsMapParams(num_points=512, num_lines=400)),
+        quiet=True,
+    )
+
+    sent = service.commands()
+    assert service.arguments_for(EdaxCommand.EDS_SET_NUMPOINTS) == ['"512"']
+    assert sent.index(EdaxCommand.EDS_SET_NUMLINES.value) < sent.index(
+        EdaxCommand.EDS_COLLECTION_START.value
+    )
+
+
+def test_eds_map_refuses_a_detector_that_is_not_ready(make_client, no_sleep):
+    """Readiness is rechecked per map: cooling can be lost mid-experiment."""
+    client, service = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "NotReady"}
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match="notready"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+    assert EdaxCommand.EDS_COLLECTION_START.value not in service.commands()
+
+
+def test_eds_map_surfaces_an_unexpected_detector_status(make_client, no_sleep):
+    """An unrecognized status shows its real text, not a false 'not ready'."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_SYSTEM_DETECTOR_STATUS: "Warming"}
+        )
+    )
+
+    with pytest.raises(EdaxResponseError, match="Warming"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+
+def test_eds_map_finishing_early_is_rejected(make_client, no_sleep):
+    """The same guard as EBSD, named for EDS."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_MAP_DURATION: str(int(60 * TICKS_PER_SECOND))}
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match="EDS map .* unexpectedly quickly"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+
+def test_interrupted_eds_map_is_rejected(make_client, no_sleep):
+    """An aborted EDS map leaves partial data, so it is a failure."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingAborted"]}
+        )
+    )
+
+    with pytest.raises(EdaxStateError, match="mappingaborted"):
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+
+def test_eds_map_survives_the_finalization_stall(make_client, no_sleep):
+    """EDS shares the stall handling: one query, waited on, never re-sent."""
+    client, service = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "MappingComplete"}),
+        delays={EdaxCommand.EDS_GET_MAP_STATUS: 0.3},
+    )
+
+    result = mapping.run_eds_map(
+        EdaxEdsController(client), _eds_plan(status_timeout_s=0.02), quiet=True
+    )
+
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+    assert service.commands().count(EdaxCommand.EDS_GET_MAP_STATUS.value) == 1

@@ -560,6 +560,7 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
         status = external_devices.connect_eds(general_settings=general_settings)
         if status == tbt.RetractableDeviceState.ERROR:
             raise SystemError("EDS camera is connected but in error state.")
+        external_devices.preflight_eds(general_settings=general_settings)
 
     # connect to microscope:
     connection = general_settings.connection

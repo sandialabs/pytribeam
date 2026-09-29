@@ -29,6 +29,21 @@ measure_camera_saturation(microscope, ebsd) -> float
 
 map_ebsd(general_settings, step_settings, slice_number) -> EdaxMapResult
     Collect one EBSD map over the IPAPI.
+
+preflight_eds(general_settings) -> bool
+    Put APEX's EDS side in headless mode, pointed at the experiment folder.
+
+eds_detector_state(general_settings) -> tbt.RetractableDeviceState
+    Report the EDS detector slide position.
+
+insert_eds_detector(general_settings, microscope) -> bool
+    Insert the EDS detector over the IPAPI, under the live chamber CCD.
+
+retract_eds_detector(general_settings, microscope) -> bool
+    Retract the EDS detector over the IPAPI, under the live chamber CCD.
+
+map_eds(general_settings, step_settings, slice_number) -> EdaxMapResult
+    Collect one EDS map over the IPAPI.
 """
 
 # Default python modules
@@ -44,10 +59,33 @@ from pytribeam.constants import Constants, Conversions
 from pytribeam.external_oem.edax import mapping
 from pytribeam.external_oem.edax.client import EdaxClient
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController
+from pytribeam.external_oem.edax.eds import EdaxEdsController
+from pytribeam.external_oem.edax.errors import EdaxStateError
 from pytribeam.external_oem.edax.types import (
     EdaxConnectionSettings,
+    EdaxDetectorSlideStatus,
+    EdaxEdsMapParams,
+    EdaxMappingStatus,
     EdaxProjectInfo,
 )
+
+# EDS map statuses during which the detector must not be inserted.
+_EDS_BUSY = frozenset(
+    {
+        EdaxMappingStatus.SETUP_ACTIVE,
+        EdaxMappingStatus.SETUP_PAUSED,
+        EdaxMappingStatus.MAPPING_ACTIVE,
+        EdaxMappingStatus.MAPPING_PAUSED,
+        EdaxMappingStatus.MAPPING_RESUMED,
+    }
+)
+
+# EDS slide status as pyTriBeam's generic device state.
+_SLIDE_STATE = {
+    EdaxDetectorSlideStatus.SLIDE_IN: tbt.RetractableDeviceState.INSERTED,
+    EdaxDetectorSlideStatus.SLIDE_OUT: tbt.RetractableDeviceState.RETRACTED,
+    EdaxDetectorSlideStatus.UNKNOWN: tbt.RetractableDeviceState.INDERTERMINATE,
+}
 
 # Default IPAPI service port, used when a configuration omits one.
 DEFAULT_PORT = 8301
@@ -104,6 +142,16 @@ def check_connection(host: str, port: int) -> bool:
     return True
 
 
+def _project(general_settings: tbt.GeneralSettings) -> EdaxProjectInfo:
+    """Return the EDAX project for this experiment, shared by EBSD and EDS."""
+    return EdaxProjectInfo(
+        guid=Constants.EDAX_GUID,
+        name=general_settings.EDAX_settings.project_name,
+        num_slices=general_settings.max_slice_number,
+        slice_thickness_um=general_settings.slice_thickness_um,
+    )
+
+
 def preflight(general_settings: tbt.GeneralSettings) -> bool:
     """
     Point EDAX at the experiment folder and project before the first slice.
@@ -120,17 +168,11 @@ def preflight(general_settings: tbt.GeneralSettings) -> bool:
         True on success.
     """
     config = general_settings.EDAX_settings
-    project = EdaxProjectInfo(
-        guid=Constants.EDAX_GUID,
-        name=config.project_name,
-        num_slices=general_settings.max_slice_number,
-        slice_thickness_um=general_settings.slice_thickness_um,
-    )
     with EdaxClient(connection_settings(config)) as client:
         mapping.run_ebsd_preflight(
             EdaxEbsdController(client),
             folder=Path(config.save_directory),
-            project=project,
+            project=_project(general_settings),
         )
     return True
 
@@ -251,3 +293,189 @@ def map_ebsd(
             on_metric=on_metric,
             motion_guard=lambda: devices.ccd_live_view(microscope=microscope),
         )
+
+
+# ----------------------------------------------------------------------
+# EDS
+# ----------------------------------------------------------------------
+def preflight_eds(general_settings: tbt.GeneralSettings) -> bool:
+    """
+    Put APEX's EDS side in headless mode, pointed at the experiment folder.
+
+    EDS maps are stored in the same folder and project as the EBSD maps, under
+    their own tags. Without this, APEX saves EDS maps wherever its own EDS
+    settings point, or nowhere once another client has set NoWait access.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings carrying the ``EDAX_settings`` block.
+
+    Returns
+    -------
+    bool
+        True on success.
+
+    Raises
+    ------
+    EdaxStateError
+        If APEX is not running or the EDS detector is not ready.
+    """
+    config = general_settings.EDAX_settings
+    with EdaxClient(connection_settings(config)) as client:
+        mapping.run_eds_preflight(
+            EdaxEdsController(client),
+            folder=Path(config.save_directory),
+            project=_project(general_settings),
+        )
+    return True
+
+
+def eds_detector_state(
+    general_settings: tbt.GeneralSettings,
+) -> tbt.RetractableDeviceState:
+    """
+    Report the EDS detector slide position.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings carrying the ``EDAX_settings`` block.
+
+    Returns
+    -------
+    tbt.RetractableDeviceState
+        ``INSERTED`` or ``RETRACTED``, or ``INDERTERMINATE`` when EDAX cannot
+        report the position.
+    """
+    with EdaxClient(
+        connection_settings(general_settings.EDAX_settings), quiet=True
+    ) as client:
+        return _SLIDE_STATE[EdaxEdsController(client).slide_status()]
+
+
+def insert_eds_detector(
+    general_settings: tbt.GeneralSettings,
+    microscope: tbt.Microscope,
+) -> bool:
+    """
+    Insert the EDS detector over the IPAPI, under the live chamber CCD.
+
+    Carries over every safeguard of the LaserControl insertion it replaces:
+    the CBS collision check, refusing while an EDS map is running, and the live
+    CCD view in the lower-right quadrant for the duration of the move. It also
+    refuses to insert a detector whose position EDAX cannot report, since the
+    move could then not be confirmed.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings carrying the ``EDAX_settings`` block.
+    microscope : tbt.Microscope
+        The microscope, for the collision check and the CCD view.
+
+    Returns
+    -------
+    bool
+        True once the detector is inserted.
+
+    Raises
+    ------
+    SystemError
+        If inserting could collide with another detector.
+    EdaxStateError
+        If an EDS map is running, or the slide position cannot be read.
+    """
+    if devices.detectors_will_collide(
+        microscope=microscope, detector_to_insert=tbt.DetectorType.EDS
+    ):
+        raise SystemError(
+            "Cannot insert the EDS detector, which may collide with another "
+            f"detector. Disallowed combinations are: {Constants.detector_collisions}"
+        )
+
+    with EdaxClient(connection_settings(general_settings.EDAX_settings)) as client:
+        eds = EdaxEdsController(client)
+        position = eds.slide_status()
+        if position is EdaxDetectorSlideStatus.SLIDE_IN:
+            return True
+        if position is EdaxDetectorSlideStatus.UNKNOWN:
+            raise EdaxStateError(
+                "EDAX cannot report the EDS detector position, so it will not be "
+                "inserted. Check the detector in APEX."
+            )
+        if eds.map_status() in _EDS_BUSY:
+            raise EdaxStateError(
+                "An EDS map or setup is running, so the detector will not be moved."
+            )
+        with devices.ccd_live_view(microscope=microscope):
+            eds.insert_detector()
+    return True
+
+
+def retract_eds_detector(
+    general_settings: tbt.GeneralSettings,
+    microscope: tbt.Microscope,
+) -> bool:
+    """
+    Retract the EDS detector over the IPAPI, under the live chamber CCD.
+
+    Retraction is the safe direction, so unlike insertion it proceeds even when
+    EDAX cannot report the position.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings carrying the ``EDAX_settings`` block.
+    microscope : tbt.Microscope
+        The microscope, for the CCD view.
+
+    Returns
+    -------
+    bool
+        True once the detector is retracted.
+    """
+    with EdaxClient(connection_settings(general_settings.EDAX_settings)) as client:
+        eds = EdaxEdsController(client)
+        if eds.slide_status() is EdaxDetectorSlideStatus.SLIDE_OUT:
+            return True
+        with devices.ccd_live_view(microscope=microscope):
+            eds.retract_detector()
+    return True
+
+
+def map_eds(
+    general_settings: tbt.GeneralSettings,
+    step_settings: tbt.EDSSettings,
+    slice_number: int,
+    params: EdaxEdsMapParams = None,
+) -> mapping.EdaxMapResult:
+    """
+    Collect one EDS map over the IPAPI.
+
+    Parameters
+    ----------
+    general_settings : tbt.GeneralSettings
+        Experiment settings carrying the ``EDAX_settings`` block.
+    step_settings : tbt.EDSSettings
+        The EDS step's settings.
+    slice_number : int
+        The slice being collected, which determines the map's tag.
+    params : EdaxEdsMapParams, optional
+        EDS map parameters to apply before collecting. None leaves APEX's own
+        EDS map settings in force, which is what LaserControl collection did.
+
+    Returns
+    -------
+    EdaxMapResult
+        Status and timing for the collected map.
+    """
+    plan = mapping.EdsMapPlan(
+        tag=mapping.eds_slice_tag(slice_number),
+        params=EdaxEdsMapParams() if params is None else params,
+        start_delay_s=Constants.edax_map_start_delay_s,
+        poll_interval_s=Constants.edax_map_status_interval_s,
+        timeout_scalar=Constants.edax_timeout_scalar,
+    )
+    with EdaxClient(connection_settings(general_settings.EDAX_settings)) as client:
+        return mapping.run_eds_map(EdaxEdsController(client), plan)

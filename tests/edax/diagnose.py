@@ -18,6 +18,12 @@ and environment used for pytest::
 
     python tests/edax/diagnose.py
 
+Add ``--apex`` to also ask APEX, read-only, what state its EDS and EBSD sides
+are in. Nothing is changed and nothing moves, so it is safe to run while APEX
+appears stuck, and it is worth capturing before restarting it::
+
+    python tests/edax/diagnose.py --apex
+
 Output is plain ASCII so it reads correctly in a default PowerShell console.
 """
 
@@ -207,8 +213,55 @@ def _collection_checks():
     return checks
 
 
+#: Read-only queries describing what APEX is doing, reported as raw payloads.
+APEX_STATE_COMMANDS = (
+    "get_system_isappstarted",
+    "get_map_status",
+    "get_system_detector_status",
+    "get_eds_detector_status",
+    "get_eds_detector_cooling_status",
+    "get_map_params_folderpath",
+    "get_system_isappstarted_ebsd",
+    "get_map_status_ebsd",
+    "get_camera_status",
+    "get_ebsd_params_folderpath",
+)
+
+
+def _apex_state() -> int:
+    """Print APEX's raw EDS and EBSD state. Read-only."""
+    from pytribeam.external_oem.edax.client import EdaxClient
+    from pytribeam.external_oem.edax.errors import EdaxError
+    from pytribeam.external_oem.edax.types import EdaxConnectionSettings
+
+    host = os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip() or "localhost"
+    port = int(os.environ.get("PYTRIBEAM_EDAX_PORT", "8301"))
+    print(f"\nAPEX state at {host}:{port}  (read-only)")
+    try:
+        client = EdaxClient(
+            EdaxConnectionSettings(host=host, port=port, timeout_s=15.0), quiet=True
+        ).connect()
+    except EdaxError as error:
+        print(f"  could not connect: {error}")
+        return 1
+    try:
+        for command in APEX_STATE_COMMANDS:
+            try:
+                print(f"  {command:<34} {client.query(command)!r}")
+            except EdaxError as error:
+                print(f"  {command:<34} <{type(error).__name__}: {error}>")
+        events = client.drain_events(timeout_s=1.0)
+        print(f"  pending events: {[event.raw for event in events] or 'none'}")
+    finally:
+        client.close()
+    return 0
+
+
 def main() -> int:
     """Report both tiers. Exit 0 only when every tier would run."""
+    if "--apex" in sys.argv[1:]:
+        return _apex_state()
+
     print("EDAX hardware test gating\n")
     _environment()
 

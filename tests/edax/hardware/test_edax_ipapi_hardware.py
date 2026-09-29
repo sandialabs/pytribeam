@@ -42,6 +42,7 @@ from pytribeam.external_oem.edax.types import (
     EdaxCameraStatus,
     EdaxCommand,
     EdaxConnectionSettings,
+    EdaxDetectorSlideStatus,
     EdaxMappingStatus,
 )
 
@@ -177,12 +178,39 @@ def test_ebsd_map_parameters_read_back(hardware_client):
 # ----------------------------------------------------------------------
 # Read-only EDS and SEM state
 # ----------------------------------------------------------------------
-def test_eds_detector_status_is_recognized(hardware_client):
-    """The EDS half of the API answers on the same connection."""
-    controller = EdaxEdsController(hardware_client)
+def test_eds_detector_readiness_is_recognized(hardware_client):
+    """Readiness is checked before every EDS map, so it must parse.
 
-    assert controller.detector_status() is not None
-    assert controller.slide_status() is not None
+    An unrecognized value raises with the raw text, naming what to add to
+    EdaxDetectorStatus.
+    """
+    EdaxEdsController(hardware_client).detector_status()
+
+
+def test_eds_slide_position_is_recognized(hardware_client):
+    """EDS insertion refuses to move a detector whose position reads unknown.
+
+    So this must pass before the EDS collection test can insert anything. The
+    raw payload is reported on failure.
+    """
+    payload = hardware_client.query(EdaxCommand.EDS_GET_DETECTOR_STATUS)
+    position = EdaxEdsController(hardware_client).slide_status()
+
+    assert position is not EdaxDetectorSlideStatus.UNKNOWN, (
+        f"The IPAPI reported EDS detector position {payload!r}, which "
+        "EdaxDetectorSlideStatus does not cover; EDS insertion would refuse."
+    )
+
+
+def test_eds_map_status_is_recognized(hardware_client):
+    """The EDS map wait depends on reading these; report the raw payload."""
+    payload = hardware_client.query(EdaxCommand.EDS_GET_MAP_STATUS)
+    status = EdaxEdsController.parse_status(payload)
+
+    assert status is not EdaxMappingStatus.UNKNOWN, (
+        f"The IPAPI reported EDS mapping status {payload!r}, which "
+        "EdaxMappingStatus does not cover."
+    )
 
 
 def test_sem_state_reads_back(hardware_client):

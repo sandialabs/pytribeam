@@ -217,10 +217,11 @@ same dispatcher calls as the workflow's EBSD and EDS steps:
 |---|---|---|
 | `test_ebsd_map` | EBSD | native IPAPI |
 | `test_ebsd_map_with_concurrent_eds` | EBSD + spectra | native IPAPI, both detectors |
-| `test_eds_map` | EDS | LaserControl |
+| `test_eds_map` | EDS | native IPAPI throughout, headless |
 
 Unlike the read-only sweep above, these need the microscope PC (AutoScript for
-the camera-saturation measurement, LaserControl for detector motion and EDS).
+the camera-saturation measurement and the CCD view, LaserControl for the EBSD
+camera insertion).
 They insert detectors, scan the beam, and write maps, so they have their own
 opt-in:
 
@@ -238,11 +239,11 @@ Before running:
   **Nothing moves the stage.**
 - EDAX software open, no map running. The tests skip rather than interfere if
   EDAX reports a map or setup in progress.
-- The EDS map configured in the EDAX software must take at least
-  `Constants.min_map_time_s` (30 s); LaserControl rejects shorter maps.
+- The EDS map uses APEX's current EDS map settings (resolution, frames,
+  dwell). The test sets only where it saves.
 - `PYTRIBEAM_EDAX_MAP_FOLDER` must be an existing scratch folder on the EDAX PC.
-  **Clear it between runs**: each run writes `Slice_0001` and `Slice_0002` there,
-  and EDAX requires tags to be unique within a folder.
+  **Clear it between runs**: each run writes `Slice_0001`, `Slice_0002`, and
+  `Slice_0003_EDS` there, and EDAX requires tags to be unique within a folder.
 
 `PYTRIBEAM_EDAX_MAP_SIZE_UM` (default 5) and `PYTRIBEAM_EDAX_MAP_STEP_UM`
 (default 0.5) set the square scan area, centered in the field of view. Keep it
@@ -250,6 +251,10 @@ inside the field of view at the current magnification.
 
 What they check, beyond the map completing:
 
+- **each map wrote data to the folder**, when the IPAPI host is this machine
+  (`localhost`), so a map that "succeeds" but saves nothing fails;
+- APEX's EDS folder was set to the experiment folder before the EDS map, and
+  the EDS side is idle afterwards;
 - camera saturation and average CI land in the HDF5 log for the right slice;
 - the microscope's field width and detector are restored after the saturation
   measurement;
