@@ -157,9 +157,7 @@ class RoiSelector:
         arr = np.asarray(image)
 
         if arr.ndim not in (2, 3):
-            raise ValueError(
-                "Image array must be either 2D grayscale or 3D RGB/RGBA."
-            )
+            raise ValueError("Image array must be either 2D grayscale or 3D RGB/RGBA.")
 
         if arr.ndim == 3 and arr.shape[2] not in (3, 4):
             raise ValueError(
@@ -1216,7 +1214,7 @@ class Configurator:
                 "beam": params_db["image"]["beam"],
                 "detector": params_db["image"]["detector"],
                 "scan": params_db["image"]["scan"],
-                "bit_depth": params_db["image"]["bit_depth"]
+                "bit_depth": params_db["image"]["bit_depth"],
             }
 
         interface = self._create_microscope_connection()

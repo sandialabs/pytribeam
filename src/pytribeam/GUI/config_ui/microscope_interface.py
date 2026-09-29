@@ -199,7 +199,7 @@ class MicroscopeInterface:
             return factory.active_image_settings(self._microscope)
         except Exception as e:
             raise MicroscopeConnectionError("Failed to get imaging settings") from e
-    
+
     def collect_image(self, save_path: Path, image_settings: tbt.ImageSettings) -> None:
         """Collect an image from the microscope using the current imaging settings.
 

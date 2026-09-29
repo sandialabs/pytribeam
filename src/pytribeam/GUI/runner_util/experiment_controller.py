@@ -373,8 +373,13 @@ class ExperimentController:
             True if step succeeded, False if error occurred
         """
         try:
-            if experiment_settings.general_settings.sectioning_axis == tbt.SectioningAxis.FIB_SS:
-                workflow_fib_ss.perform_fibss_step(slice_number, step_index, experiment_settings)
+            if (
+                experiment_settings.general_settings.sectioning_axis
+                == tbt.SectioningAxis.FIB_SS
+            ):
+                workflow_fib_ss.perform_fibss_step(
+                    slice_number, step_index, experiment_settings
+                )
             else:
                 workflow.perform_step(slice_number, step_index, experiment_settings)
             return True
@@ -621,6 +626,7 @@ class ExperimentController:
                 print(f"Warning: Failed to send {subject.lower()} email: {response}")
         except Exception as e:
             print(f"Warning: Failed to send email: {e}")
+
     # -------- Manual stage moves -------- #
 
     def plan_stage_move(self, slice_number: int, step_name: str) -> StoppableThread:
