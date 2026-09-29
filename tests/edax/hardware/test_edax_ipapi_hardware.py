@@ -16,13 +16,10 @@ microscope PC. The operator opts in by naming the host::
 sweep issues roughly 150 commands, so it takes about half a minute at the
 production pause of 0.2 s.
 
-Everything here is read-only apart from the camera-motion test, which is opt-in
-on its own flag because it moves a physical slide::
-
-    set PYTRIBEAM_EDAX_ALLOW_MOTION=1
-
-Nothing here starts a map. Collection is validated through the workflow tests
-on a system with a mounted sample.
+Everything here is read-only: nothing moves a detector and nothing starts a
+map. This tier can run from a machine with no view of the chamber, so detector
+motion belongs in ``test_edax_collection_hardware.py``, which runs on the
+microscope PC under the live chamber CCD.
 """
 
 # Default python modules
@@ -53,7 +50,6 @@ pytestmark = [pytest.mark.hardware, pytest.mark.edax_ipapi]
 EDAX_HOST_ENV_VAR = "PYTRIBEAM_EDAX_HOST"
 EDAX_PORT_ENV_VAR = "PYTRIBEAM_EDAX_PORT"
 EDAX_PAUSE_ENV_VAR = "PYTRIBEAM_EDAX_PAUSE_S"
-EDAX_MOTION_ENV_VAR = "PYTRIBEAM_EDAX_ALLOW_MOTION"
 
 
 @pytest.fixture(scope="module")
@@ -85,16 +81,6 @@ def hardware_client(hardware_settings):
     """
     with EdaxClient(hardware_settings) as client:
         yield client
-
-
-def _motion_allowed() -> bool:
-    """Return True when the operator has approved physical slide motion."""
-    return os.environ.get(EDAX_MOTION_ENV_VAR, "").strip().lower() in {
-        "1",
-        "true",
-        "yes",
-        "on",
-    }
 
 
 # ----------------------------------------------------------------------
@@ -356,25 +342,3 @@ def test_no_unexpected_events_while_idle(hardware_client):
 
     events = hardware_client.drain_events()
     assert events == [], f"Unexpected events from an idle system: {events}"
-
-
-@pytest.mark.skipif(
-    not _motion_allowed(),
-    reason=f"{EDAX_MOTION_ENV_VAR} is not set; this test moves the camera slide",
-)
-def test_camera_retract_and_insert_round_trip(hardware_client):
-    """The slide reaches both end stops and reports them accurately.
-
-    The camera is left retracted, which is the safe resting state for stage
-    movement and laser milling.
-    """
-    controller = EdaxEbsdController(hardware_client)
-
-    assert controller.retract_camera() is True
-    assert controller.camera_status() is EdaxCameraStatus.SLIDE_OUT
-
-    assert controller.insert_camera() is True
-    assert controller.camera_status() is EdaxCameraStatus.SLIDE_IN
-
-    assert controller.retract_camera() is True
-    assert controller.camera_status() is EdaxCameraStatus.SLIDE_OUT

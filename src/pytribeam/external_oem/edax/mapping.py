@@ -38,7 +38,7 @@ run_ebsd_map(ebsd, plan) -> EdaxMapResult
 # Default python modules
 import time
 from pathlib import Path
-from typing import Any, Callable, Dict, NamedTuple, Optional
+from typing import Any, Callable, ContextManager, Dict, NamedTuple, Optional
 
 # Local scripts
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController
@@ -94,7 +94,8 @@ class EbsdMapPlan(NamedTuple):
         duration. The default of zero keeps the budget purely proportional,
         which in practice is at least ``start_delay_s * timeout_scalar``.
     retract_after : bool
-        Retract the camera over the IPAPI once the map completes.
+        Retract the camera over the IPAPI once the map completes. This moves
+        hardware, so :func:`run_ebsd_map` requires a motion guard for it.
     settle_s : float
         Pause after reading the average CI and before retracting.
     """
@@ -257,6 +258,7 @@ def run_ebsd_map(
     measure_saturation: Optional[Callable[[], float]] = None,
     on_metric: Optional[Callable[[str, float], None]] = None,
     progress_fn: Optional[Callable[[EdaxMappingStatus, float], None]] = None,
+    motion_guard: Optional[Callable[[], ContextManager]] = None,
     quiet: bool = False,
 ) -> EdaxMapResult:
     """
@@ -282,6 +284,13 @@ def run_ebsd_map(
     progress_fn : callable, optional
         Forwarded to
         :meth:`EdaxMappingController.wait_for_map_complete`.
+    motion_guard : callable, optional
+        Returns a context manager entered around every camera motion. On a
+        TriBeam this is the live chamber CCD view
+        (:func:`pytribeam.insertable_devices.ccd_live_view`), so the operator
+        can watch for a collision. This module cannot reach the microscope to
+        provide it, so it is required whenever the plan retracts the camera;
+        pass :class:`contextlib.nullcontext` to move without observation.
     quiet : bool, optional
         Suppress console progress messages.
 
@@ -292,6 +301,9 @@ def run_ebsd_map(
 
     Raises
     ------
+    ValueError
+        If the plan retracts the camera but no motion guard was given. Raised
+        before anything is sent, so a misconfigured call moves nothing.
     EdaxStateError
         If the map errors, is aborted or stopped, or finishes sooner than
         EDAX predicted, which indicates the application did not collect it.
@@ -299,6 +311,14 @@ def run_ebsd_map(
         If the map does not finish within the allowed multiple of its
         expected duration.
     """
+    if plan.retract_after and motion_guard is None:
+        raise ValueError(
+            "run_ebsd_map retracts the camera, which requires a motion guard "
+            "such as the live chamber CCD view so the operator can watch for a "
+            "collision. Pass motion_guard=contextlib.nullcontext to move the "
+            "camera unobserved, or set retract_after=False."
+        )
+
     metrics: Dict[str, float] = {}
 
     def record(name: str, value: float) -> None:
@@ -345,7 +365,8 @@ def run_ebsd_map(
     time.sleep(plan.settle_s)
 
     if plan.retract_after:
-        ebsd.retract_camera(quiet=quiet)
+        with motion_guard():
+            ebsd.retract_camera(quiet=quiet)
 
     # Compare against EDAX's prediction alone. The start delay is our own wait,
     # not collection time; including it would reject any map that finishes

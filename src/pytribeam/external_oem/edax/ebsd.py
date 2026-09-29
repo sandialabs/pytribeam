@@ -267,6 +267,11 @@ class EdaxEbsdController(EdaxMappingController):
         """
         Insert the EBSD camera and wait until the slide reports ``SLIDE_IN``.
 
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
+
         Returns immediately when the camera is already inserted.
 
         Parameters
@@ -318,6 +323,11 @@ class EdaxEbsdController(EdaxMappingController):
     ) -> bool:
         """
         Retract the EBSD camera and wait until the slide reports ``SLIDE_OUT``.
+
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
 
         Returns immediately when the camera is already retracted. A slide that
         reports ``SLIDE_MOVE_WDOG`` has stalled mid-travel and is re-commanded
@@ -375,6 +385,11 @@ class EdaxEbsdController(EdaxMappingController):
     ) -> bool:
         """
         Retract the EBSD camera by a fixed distance.
+
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
 
         Parameters
         ----------
@@ -489,6 +504,11 @@ class EdaxEbsdController(EdaxMappingController):
     ) -> bool:
         """
         Move the camera slide to an absolute position.
+
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
 
         Parameters
         ----------

@@ -39,6 +39,11 @@ Before running:
 
 ``PYTRIBEAM_EDAX_MAP_SIZE_UM`` (default 5) and ``PYTRIBEAM_EDAX_MAP_STEP_UM``
 (default 0.5) set the square scan area, centered in the field of view.
+
+Every test also watches detector motion: each insertion and retraction, over
+LaserControl or the IPAPI, must happen while the chamber CCD is live in the
+lower-right quadrant, so the operator can stop a collision. A move made with
+the CCD off fails the test.
 """
 
 # Default python modules
@@ -239,7 +244,6 @@ def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
 
     _require_idle(experiment.EDAX_settings)
     devices.retract_all_microscope_insertable_detectors(microscope=microscope)
-    before = _imaging_state(microscope)
 
     external_devices.preflight_ebsd(general_settings=experiment)
     try:
@@ -248,6 +252,11 @@ def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
             external_devices.insert_eds(
                 microscope=microscope, general_settings=experiment
             )
+        # The saturation measurement must hand back exactly the imaging state
+        # it found. Capture that state here, after insertion: the collision
+        # check in insert_EBSD selects the CBS as the active detector as a side
+        # effect, so an earlier baseline would expect the wrong detector back.
+        before = _imaging_state(microscope)
         assert external_devices.map_ebsd(
             general_settings=experiment,
             step_settings=step_settings,
@@ -290,10 +299,90 @@ def _assert_ebsd_map_recorded(microscope, experiment, step, slice_number, before
     return params
 
 
+class MotionWatch:
+    """Tracks whether the chamber CCD is live, and every detector move."""
+
+    #: LaserControl calls that physically move an EBSD or EDS detector.
+    LASER_CONTROL_MOVES = (
+        "EBSD_InsertCamera",
+        "EBSD_RetractCamera",
+        "EDS_InsertCamera",
+        "EDS_RetractCamera",
+    )
+
+    def __init__(self):
+        self.live = False
+        self.moves = []  # every move, in order
+        self.blind = []  # moves made while the CCD was off
+        self.laser_control_observed = True
+
+    def moved(self, name: str) -> None:
+        self.moves.append(name)
+        if not self.live:
+            self.blind.append(name)
+
+    def assert_all_moves_observed(self, expect=()):
+        """Fail on any blind move, and on any expected move that never came."""
+        assert not self.blind, (
+            f"Detector moved with the chamber CCD off: {self.blind}. Every "
+            "insertion and retraction must run under the live CCD view."
+        )
+        for name in expect:
+            assert name in self.moves, f"expected {name} among moves {self.moves}"
+
+
+@pytest.fixture
+def motion_watch(monkeypatch) -> MotionWatch:
+    """Spy on the CCD and on detector motion, calling through to the real ones.
+
+    The CCD counts as live only once CCD_view has returned, and stops counting
+    as soon as CCD_pause is called, so a move racing either edge is blind.
+    """
+    watch = MotionWatch()
+    real_view, real_pause = devices.CCD_view, devices.CCD_pause
+
+    def view(*args, **kwargs):
+        result = real_view(*args, **kwargs)
+        watch.live = True
+        return result
+
+    def pause(*args, **kwargs):
+        watch.live = False
+        return real_pause(*args, **kwargs)
+
+    monkeypatch.setattr(devices, "CCD_view", view)
+    monkeypatch.setattr(devices, "CCD_pause", pause)
+
+    for method in ("insert_camera", "retract_camera"):
+        real = getattr(EdaxEbsdController, method)
+
+        def spy(self, *args, _real=real, _name=method, **kwargs):
+            watch.moved(f"IPAPI {_name}")
+            return _real(self, *args, **kwargs)
+
+        monkeypatch.setattr(EdaxEbsdController, method, spy)
+
+    # LaserControl may be an extension module whose attributes cannot be
+    # replaced; the IPAPI moves are still watched if so.
+    laser_control = getattr(devices, "external", None)
+    for name in MotionWatch.LASER_CONTROL_MOVES:
+        try:
+            real = getattr(laser_control, name)
+
+            def spy(*args, _real=real, _name=name, **kwargs):
+                watch.moved(f"LaserControl {_name}")
+                return _real(*args, **kwargs)
+
+            monkeypatch.setattr(laser_control, name, spy)
+        except (AttributeError, TypeError):
+            watch.laser_control_observed = False
+    return watch
+
+
 # ----------------------------------------------------------------------
 # Tests
 # ----------------------------------------------------------------------
-def test_ebsd_map(microscope, experiment):
+def test_ebsd_map(microscope, experiment, motion_watch):
     """Collect an EBSD map over the native IPAPI.
 
     Spectra are switched on first, as an earlier EBSD + EDS step would leave
@@ -311,9 +400,10 @@ def test_ebsd_map(microscope, experiment):
 
     params = _assert_ebsd_map_recorded(microscope, experiment, step, 1, before)
     assert params.save_spectra is False
+    motion_watch.assert_all_moves_observed(expect=["IPAPI retract_camera"])
 
 
-def test_ebsd_map_with_concurrent_eds(microscope, experiment):
+def test_ebsd_map_with_concurrent_eds(microscope, experiment, motion_watch):
     """Collect an EBSD map with spectra saved at every point.
 
     This is still an EBSD scan, routed with the EBSD OEM; the EDS detector is
@@ -329,9 +419,10 @@ def test_ebsd_map_with_concurrent_eds(microscope, experiment):
 
     params = _assert_ebsd_map_recorded(microscope, experiment, step, 2, before)
     assert params.save_spectra is True
+    motion_watch.assert_all_moves_observed(expect=["IPAPI retract_camera"])
 
 
-def test_eds_map(microscope, experiment):
+def test_eds_map(microscope, experiment, motion_watch):
     """Collect an EDS map through LaserControl, as EDAX EDS steps do.
 
     LaserControl runs the EDS map configured in the EDAX software and rejects a
@@ -354,3 +445,8 @@ def test_eds_map(microscope, experiment):
         external_devices.retract_all_external_devices(
             microscope=microscope, general_settings=experiment
         )
+
+    expected = ["LaserControl EDS_InsertCamera"]
+    if not motion_watch.laser_control_observed:
+        expected = []  # LaserControl could not be spied on; nothing to require
+    motion_watch.assert_all_moves_observed(expect=expected)

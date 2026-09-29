@@ -241,6 +241,11 @@ class EdaxEdsController(EdaxMappingController):
         """
         Insert the EDS detector slide and wait until it reports ``SLIDE_IN``.
 
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
+
         Returns immediately when the detector is already inserted.
 
         Parameters
@@ -285,6 +290,11 @@ class EdaxEdsController(EdaxMappingController):
     ) -> bool:
         """
         Retract the EDS detector slide and wait until it reports ``SLIDE_OUT``.
+
+        This moves hardware. On a TriBeam, call it inside
+        :func:`pytribeam.insertable_devices.ccd_live_view` so the operator can
+        watch the chamber for a collision; this layer has no microscope access
+        to do that itself.
 
         Returns immediately when the detector is already retracted.
 

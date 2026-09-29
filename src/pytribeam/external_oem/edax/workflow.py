@@ -38,6 +38,7 @@ from typing import Callable, Optional
 
 # Local scripts
 import pytribeam.image as img
+import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
 from pytribeam.constants import Constants, Conversions
 from pytribeam.external_oem.edax import mapping
@@ -206,6 +207,10 @@ def map_ebsd(
     closes even when collection fails. Closing under an outstanding request is
     what stops the IPAPI Windows service.
 
+    The camera retraction at the end of the map runs inside the live chamber
+    CCD view in the lower-right quadrant, like every LaserControl insertion and
+    retraction, so the operator can watch for a collision.
+
     Parameters
     ----------
     general_settings : tbt.GeneralSettings
@@ -244,4 +249,5 @@ def map_ebsd(
             plan,
             measure_saturation=lambda: measure_camera_saturation(microscope, ebsd),
             on_metric=on_metric,
+            motion_guard=lambda: devices.ccd_live_view(microscope=microscope),
         )

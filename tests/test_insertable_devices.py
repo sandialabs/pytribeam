@@ -361,3 +361,42 @@ def test_specimen_current(microscope):
     current_na = devices.specimen_current(microscope=microscope)
 
     assert current_na != pytest.approx(0.0)
+
+
+class TestCcdLiveView:
+    """The live chamber view wrapped around detector motion.
+
+    These need AutoScript to import, but not a microscope: the CCD calls are
+    replaced with recorders.
+    """
+
+    @pytest.fixture
+    def ccd_calls(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            devices, "CCD_view", lambda microscope, quad: calls.append(("view", quad))
+        )
+        monkeypatch.setattr(
+            devices, "CCD_pause", lambda microscope, quad: calls.append(("pause", quad))
+        )
+        return calls
+
+    def test_view_is_live_for_the_body_only(self, ccd_calls):
+        with devices.ccd_live_view(microscope=None):
+            ccd_calls.append(("move", None))
+
+        assert [name for name, _ in ccd_calls] == ["view", "move", "pause"]
+
+    def test_defaults_to_the_lower_right_quadrant(self, ccd_calls):
+        with devices.ccd_live_view(microscope=None):
+            pass
+
+        assert all(quad == tbt.ViewQuad.LOWER_RIGHT for _, quad in ccd_calls)
+
+    def test_pauses_even_when_the_motion_fails(self, ccd_calls):
+        """CCD illumination must not be left on into the map that follows."""
+        with pytest.raises(RuntimeError):
+            with devices.ccd_live_view(microscope=None):
+                raise RuntimeError("slide stalled")
+
+        assert [name for name, _ in ccd_calls] == ["view", "pause"]

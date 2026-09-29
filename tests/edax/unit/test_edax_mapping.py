@@ -9,6 +9,7 @@ that catch a map EDAX did not actually collect.
 """
 
 # Default python modules
+from contextlib import contextmanager, nullcontext
 from pathlib import Path
 from typing import NamedTuple
 
@@ -174,6 +175,7 @@ def test_map_sequence_order(make_client, no_sleep):
         EdaxEbsdController(client),
         _plan(),
         measure_saturation=lambda: events.append("<measure saturation>") or 0.6,
+        motion_guard=nullcontext,
         quiet=True,
     )
 
@@ -193,7 +195,9 @@ def test_map_starts_under_the_plan_tag(make_client, no_sleep):
     """The tag identifies the slice's map in the EDAX database."""
     client, service = make_client(payloads=_service_payloads())
 
-    mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+    mapping.run_ebsd_map(
+        EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+    )
 
     assert service.arguments_for(EdaxCommand.EBSD_COLLECTION_START) == ['"Slice_0007"']
 
@@ -208,6 +212,7 @@ def test_metrics_reported_as_measured_and_returned(make_client, no_sleep):
         _plan(),
         measure_saturation=lambda: 0.6,
         on_metric=lambda name, value: seen.append((name, value)),
+        motion_guard=nullcontext,
         quiet=True,
     )
 
@@ -232,6 +237,7 @@ def test_saturation_is_reported_even_when_the_map_fails(make_client, no_sleep):
             _plan(),
             measure_saturation=lambda: 0.97,
             on_metric=lambda name, value: seen.append((name, value)),
+            motion_guard=nullcontext,
             quiet=True,
         )
 
@@ -242,7 +248,9 @@ def test_saturation_is_optional(make_client, no_sleep):
     """Without a microscope callable, only the CI is measured."""
     client, _ = make_client(payloads=_service_payloads())
 
-    result = mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+    result = mapping.run_ebsd_map(
+        EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+    )
 
     assert mapping.CAMERA_SATURATION not in result.metrics
 
@@ -255,7 +263,9 @@ def test_camera_is_retracted_after_the_map(make_client, no_sleep):
         )
     )
 
-    mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+    mapping.run_ebsd_map(
+        EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+    )
 
     assert EdaxCommand.EBSD_RETRACT_CAMERA.value in service.commands()
 
@@ -267,7 +277,10 @@ def test_retraction_can_be_skipped(make_client, no_sleep):
     )
 
     mapping.run_ebsd_map(
-        EdaxEbsdController(client), _plan(retract_after=False), quiet=True
+        EdaxEbsdController(client),
+        _plan(retract_after=False),
+        motion_guard=nullcontext,
+        quiet=True,
     )
 
     assert EdaxCommand.EBSD_GET_CAMERA_STATUS.value not in service.commands()
@@ -285,7 +298,9 @@ def test_a_map_finishing_early_is_rejected(make_client, no_sleep):
     )
 
     with pytest.raises(EdaxStateError, match="unexpectedly quickly"):
-        mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+        mapping.run_ebsd_map(
+            EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+        )
 
 
 @pytest.mark.parametrize("status", ["MappingAborted", "MappingStopped"])
@@ -298,7 +313,9 @@ def test_an_interrupted_map_is_rejected(make_client, no_sleep, status):
     )
 
     with pytest.raises(EdaxStateError, match=status.lower()):
-        mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+        mapping.run_ebsd_map(
+            EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+        )
 
 
 def test_interrupted_map_does_not_read_the_ci(make_client, no_sleep):
@@ -310,7 +327,9 @@ def test_interrupted_map_does_not_read_the_ci(make_client, no_sleep):
     )
 
     with pytest.raises(EdaxStateError):
-        mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+        mapping.run_ebsd_map(
+            EdaxEbsdController(client), _plan(), motion_guard=nullcontext, quiet=True
+        )
 
     assert EdaxCommand.EBSD_GET_MAP_AVG_CI.value not in service.commands()
 
@@ -320,7 +339,10 @@ def test_result_reports_the_edax_prediction(make_client, no_sleep):
     client, _ = make_client(payloads=_service_payloads())
 
     result = mapping.run_ebsd_map(
-        EdaxEbsdController(client), _plan(start_delay_s=0.0), quiet=True
+        EdaxEbsdController(client),
+        _plan(start_delay_s=0.0),
+        motion_guard=nullcontext,
+        quiet=True,
     )
 
     assert result.predicted_duration_s == pytest.approx(0.0)
@@ -341,7 +363,10 @@ def test_map_finishing_within_the_start_delay_is_accepted(make_client):
     )
 
     result = mapping.run_ebsd_map(
-        EdaxEbsdController(client), _plan(start_delay_s=0.2), quiet=True
+        EdaxEbsdController(client),
+        _plan(start_delay_s=0.2),
+        motion_guard=nullcontext,
+        quiet=True,
     )
 
     assert result.predicted_duration_s == pytest.approx(0.1)
@@ -366,7 +391,10 @@ def test_a_map_that_never_started_is_still_rejected(make_client):
 
     with pytest.raises(EdaxStateError, match="predicted 30.0 seconds"):
         mapping.run_ebsd_map(
-            EdaxEbsdController(client), _plan(start_delay_s=0.2), quiet=True
+            EdaxEbsdController(client),
+            _plan(start_delay_s=0.2),
+            motion_guard=nullcontext,
+            quiet=True,
         )
 
 
@@ -386,7 +414,9 @@ def test_timeout_budget_scales_with_the_expected_duration(make_client, no_sleep)
     client._socket.payloads[EdaxCommand.EBSD_GET_MAP_DURATION.value] = client_payload
 
     with pytest.raises(EdaxStateError):  # finishes early; the budget is the point
-        mapping.run_ebsd_map(controller, _plan(timeout_scalar=3.0), quiet=True)
+        mapping.run_ebsd_map(
+            controller, _plan(timeout_scalar=3.0), motion_guard=nullcontext, quiet=True
+        )
 
     # (predicted 20 s + start delay 0 s) x 3
     assert budgets[0] == pytest.approx(60.0, abs=0.5)
@@ -397,9 +427,118 @@ def test_default_params_leave_every_setting_alone(make_client, no_sleep):
     client, service = make_client(payloads=_service_payloads())
 
     mapping.run_ebsd_map(
-        EdaxEbsdController(client), _plan(params=EdaxEbsdMapParams()), quiet=True
+        EdaxEbsdController(client),
+        _plan(params=EdaxEbsdMapParams()),
+        motion_guard=nullcontext,
+        quiet=True,
     )
 
     assert not [
         name for name in service.commands() if name.startswith("set_ebsd_params")
     ]
+
+
+# ----------------------------------------------------------------------
+# Observing camera motion
+# ----------------------------------------------------------------------
+# Every detector insertion and retraction must be visible on the live chamber
+# CCD, so the operator can stop a collision. This module cannot reach the
+# microscope, so the caller supplies the view as a motion guard.
+class GuardRecorder:
+    """A motion guard that records when it opens and closes."""
+
+    def __init__(self, service):
+        self.service = service
+        self.opened_after = None  # commands sent before the guard opened
+        self.closed_after = None  # commands sent before the guard closed
+
+    @contextmanager
+    def __call__(self):
+        self.opened_after = len(self.service.commands())
+        try:
+            yield
+        finally:
+            self.closed_after = len(self.service.commands())
+
+    def commands_inside(self):
+        return self.service.commands()[self.opened_after : self.closed_after]
+
+
+def test_camera_motion_refused_without_a_guard(make_client):
+    """Forgetting the CCD view must fail loudly, not move the camera blind."""
+    client, service = make_client(payloads=_service_payloads())
+    sent_before = len(service.commands())
+
+    with pytest.raises(ValueError, match="motion guard"):
+        mapping.run_ebsd_map(EdaxEbsdController(client), _plan(), quiet=True)
+
+    assert len(service.commands()) == sent_before, "nothing may be sent"
+
+
+def test_no_guard_needed_when_the_camera_stays_put(make_client, no_sleep):
+    """A plan that does not retract moves nothing, so needs no guard."""
+    client, _ = make_client(payloads=_service_payloads())
+
+    mapping.run_ebsd_map(
+        EdaxEbsdController(client), _plan(retract_after=False), quiet=True
+    )
+
+
+def test_guard_wraps_the_retraction_and_nothing_else(make_client, no_sleep):
+    """The CCD is live for the motion only, not during the map.
+
+    Chamber CCD illumination reaches the EBSD detector, so it must be off while
+    patterns are collected.
+    """
+    client, service = make_client(
+        payloads=_service_payloads(
+            **{EdaxCommand.EBSD_GET_CAMERA_STATUS: ["SlideIn", "SlideOut"]}
+        )
+    )
+    guard = GuardRecorder(service)
+
+    mapping.run_ebsd_map(
+        EdaxEbsdController(client), _plan(), motion_guard=guard, quiet=True
+    )
+
+    inside = guard.commands_inside()
+    assert EdaxCommand.EBSD_RETRACT_CAMERA.value in inside
+    assert EdaxCommand.EBSD_COLLECTION_START.value not in inside
+    assert EdaxCommand.EBSD_GET_MAP_STATUS.value not in inside
+    before_guard = service.commands()[: guard.opened_after]
+    assert EdaxCommand.EBSD_RETRACT_CAMERA.value not in before_guard
+
+
+def test_guard_closes_when_the_retraction_fails(make_client, no_sleep):
+    """A failed retraction still pauses the CCD before the error propagates."""
+    client, service = make_client(
+        payloads=_service_payloads(
+            **{EdaxCommand.EBSD_GET_CAMERA_STATUS: ["SlideIn", "SlideWatchDog"]}
+        )
+    )
+    guard = GuardRecorder(service)
+
+    with pytest.raises(EdaxStateError, match="slidewatchdog"):
+        mapping.run_ebsd_map(
+            EdaxEbsdController(client), _plan(), motion_guard=guard, quiet=True
+        )
+
+    assert guard.opened_after is not None
+    assert guard.closed_after is not None
+
+
+def test_guard_is_not_opened_when_the_map_fails(make_client, no_sleep):
+    """No retraction is attempted after a failed map, so no view is shown."""
+    client, service = make_client(
+        payloads=_service_payloads(
+            **{EdaxCommand.EBSD_GET_MAP_STATUS: ["MappingActive", "MappingError"]}
+        )
+    )
+    guard = GuardRecorder(service)
+
+    with pytest.raises(EdaxStateError):
+        mapping.run_ebsd_map(
+            EdaxEbsdController(client), _plan(), motion_guard=guard, quiet=True
+        )
+
+    assert guard.opened_after is None

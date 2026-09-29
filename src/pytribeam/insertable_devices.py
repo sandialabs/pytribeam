@@ -55,6 +55,9 @@ CCD_pause(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RI
 CCD_view(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT) -> bool
     Visualize detector or stage movement for the user using the CCD camera.
 
+ccd_live_view(microscope: tbt.Microscope, quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT)
+    Context manager showing the live CCD for the duration of detector motion.
+
 specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_hfw_mm, delay_s=Constants.specimen_current_delay_s) -> float
     Measure the specimen current using the electron beam and return the value in nA.
 """
@@ -63,6 +66,7 @@ specimen_current(microscope: tbt.Microscope, hfw_mm=Constants.specimen_current_h
 # from functools import singledispatch
 import time
 import warnings
+from contextlib import contextmanager
 
 # 3rd party module
 # Local scripts
@@ -796,6 +800,41 @@ def CCD_view(
     finally:
         microscope.imaging.set_active_view(initial_view.value)
         return True
+
+
+@contextmanager
+def ccd_live_view(
+    microscope: tbt.Microscope,
+    quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT,
+):
+    """
+    Show the live chamber CCD for the duration of detector motion.
+
+    Every insertion or retraction of an EBSD or EDS detector must run inside
+    this, so the operator can watch the chamber and stop a collision. It pairs
+    :func:`CCD_view` with :func:`CCD_pause`, and pauses even when the motion
+    raises, so the CCD illumination is never left on into the map that follows.
+
+    Motion issued over a vendor API, such as the EDAX IPAPI, cannot reach the
+    microscope itself; those callers receive this as a motion guard instead.
+
+    Parameters
+    ----------
+    microscope : tbt.Microscope
+        The microscope whose CCD to show.
+    quad : tbt.ViewQuad, optional
+        The quadrant to show it in (default is tbt.ViewQuad.LOWER_RIGHT).
+
+    Yields
+    ------
+    None
+        Control returns to the caller with the CCD live.
+    """
+    CCD_view(microscope=microscope, quad=quad)
+    try:
+        yield
+    finally:
+        CCD_pause(microscope=microscope, quad=quad)
 
 
 def specimen_current(

@@ -47,7 +47,10 @@ PYTRIBEAM_EDAX_HOST=localhost PYTRIBEAM_RUN_EDAX_IPAPI=1 \
   python -m pytest tests/edax/hardware -v
 ```
 
-Everything is read-only and nothing starts a map.
+Everything in this tier is read-only: nothing moves a detector and nothing
+starts a map. It can run from a machine with no view of the chamber, so all
+detector motion lives in the collection tests below, which run under the live
+chamber CCD.
 
 The two tiers have different gates. **The run flags are not interchangeable**:
 the sweep accepts either, but the collection tests insert detectors and so
@@ -63,7 +66,6 @@ require `PYTRIBEAM_RUN_HARDWARE` specifically.
 | `PYTRIBEAM_EDAX_MAP_FOLDER` | -- | required | Existing scratch folder on the EDAX PC for test maps. |
 | `PYTRIBEAM_EDAX_PORT` | optional | optional | Service port. Defaults to `8301`. |
 | `PYTRIBEAM_EDAX_PAUSE_S` | optional | -- | Per-command settling pause. Defaults to `0.2`, the production value. |
-| `PYTRIBEAM_EDAX_ALLOW_MOTION` | optional | -- | Opt-in for the one sweep test that moves the camera slide. |
 | `PYTRIBEAM_EDAX_MAP_SIZE_UM` / `_STEP_UM` | -- | optional | Test scan size and step. Default 5 and 0.5. |
 
 \* Either run flag enables the sweep.
@@ -206,12 +208,6 @@ hardware tier itself was validated:
 
 Point `PYTRIBEAM_EDAX_HOST=127.0.0.1` and `PYTRIBEAM_EDAX_PORT` at it to
 exercise the full connect, unlock, sweep, and teardown path.
-
-A static stub cannot satisfy the camera-motion test: that test waits for the
-slide status to *change*, so a stub replying `SlideOut` forever will sit
-through the full 120 s move timeout before failing. Leave
-`PYTRIBEAM_EDAX_ALLOW_MOTION` unset when rehearsing against a stub.
-
 ## Collection tests — on the microscope PC
 
 `hardware/test_edax_collection_hardware.py` collects three real maps through the
@@ -260,7 +256,15 @@ What they check, beyond the map completing:
 - EDAX received the requested scan area, custom resolution, and step size;
 - spectra are enabled for the EBSD + EDS map and **cleared** for the EBSD-only
   map, which first switches them on to mimic a preceding EBSD + EDS step;
-- the camera ends retracted.
+- the camera ends retracted;
+- **every detector insertion and retraction happened with the chamber CCD live**
+  in the lower-right quadrant, whether it went through LaserControl or the
+  IPAPI. A move made with the CCD off fails the test and names the move.
+
+Camera motion over the IPAPI cannot reach the microscope to turn the CCD on, so
+the map sequence in `edax/mapping.py` refuses to move the camera without a
+motion guard. `edax/workflow.py` supplies
+`insertable_devices.ccd_live_view` as that guard.
 
 ## Markers
 
