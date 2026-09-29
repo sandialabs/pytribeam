@@ -80,10 +80,10 @@ def _arguments():
         help="existing folder on the EDAX PC for the map "
         "(default: PYTRIBEAM_EDAX_MAP_FOLDER)",
     )
-    parser.add_argument("--points", type=int, default=128)
-    parser.add_argument("--lines", type=int, default=100)
-    parser.add_argument("--frames", type=int, default=10)
-    parser.add_argument("--dwell-us", type=float, default=200.0)
+    parser.add_argument("--points", type=int, default=100)
+    parser.add_argument("--lines", type=int, default=101)
+    parser.add_argument("--frames", type=int, default=1)
+    parser.add_argument("--dwell-us", type=float, default=60.0)
     parser.add_argument(
         "--after-s",
         type=float,
