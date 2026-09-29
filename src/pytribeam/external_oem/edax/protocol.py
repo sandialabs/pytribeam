@@ -71,6 +71,33 @@ EXECUTION_SUCCESSFUL = "execution successful"
 # The unlock command is the one command that does not echo its own name.
 UNLOCK_RESPONSE = "client connection accepted"
 
+# Rejection the service returns for a command it does not implement, or for one
+# whose arguments it cannot parse. Sent without a command prefix.
+INVALID_COMMAND_RESPONSE = "invalid command or invalid syntax"
+
+
+def is_invalid_command(payload: str) -> bool:
+    """
+    Report whether a payload is the service's invalid-command rejection.
+
+    Several commands in the reference are absent from shipping IPAPI builds,
+    the same way EDAX documents GET_MAP_SETUP_DURATION as not implemented, and
+    the service rejects them at runtime rather than at connect time.
+
+    Parameters
+    ----------
+    payload : str
+        A parsed response payload.
+
+    Returns
+    -------
+    bool
+        True when the service rejected the command.
+    """
+    normalized = " ".join(payload.strip().lower().split())
+    return "invalid command" in normalized or "invalid syntax" in normalized
+
+
 # Boolean literals the IPAPI accepts and returns.
 _TRUE_LITERALS = frozenset({"true", "1", "yes", "on"})
 _FALSE_LITERALS = frozenset({"false", "0", "no", "off"})
@@ -306,17 +333,26 @@ def matches_command(response: EdaxResponse, command: CommandLike) -> bool:
     Returns
     -------
     bool
-        True when the response echoes the command name, or when it is the
-        unlock acknowledgement and the unlock command was sent.
+        True when the response echoes the command name, and also for the
+        replies the IPAPI sends without a prefix.
+
+    Notes
+    -----
+    Not every reply echoes its command. The unlock acknowledgement does not,
+    and neither does the rejection the service returns for a command it does
+    not implement ("Invalid Command or Invalid Syntax"). The protocol carries
+    one request at a time over a single socket, and every asynchronous message
+    is prefixed with ``EVENT_``, so an un-prefixed non-event message is the
+    answer to whatever is outstanding. Treating it as such is what turns an
+    unimplemented command into an immediate error instead of a full-length
+    timeout waiting for a reply that already arrived.
     """
     if response.is_event:
         return False
     name = command_name(command)
     if response.command == name:
         return True
-    if name == EdaxCommand.UNLOCK.value:
-        return UNLOCK_RESPONSE in response.payload.lower()
-    return False
+    return response.command == ""
 
 
 def to_bool(response: EdaxResponse) -> bool:

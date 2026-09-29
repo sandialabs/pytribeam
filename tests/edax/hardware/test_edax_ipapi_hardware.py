@@ -36,7 +36,10 @@ from pytribeam.external_oem.edax import protocol
 from pytribeam.external_oem.edax.client import EdaxClient
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController
 from pytribeam.external_oem.edax.eds import EdaxEdsController
-from pytribeam.external_oem.edax.errors import EdaxError
+from pytribeam.external_oem.edax.errors import (
+    EdaxError,
+    EdaxUnsupportedCommandError,
+)
 from pytribeam.external_oem.edax.sem import EdaxSemController
 from pytribeam.external_oem.edax.types import (
     EdaxCameraStatus,
@@ -320,6 +323,11 @@ def test_read_only_command_conforms(hardware_client, command, kind):
     """
     try:
         response = hardware_client.send(command)
+    except EdaxUnsupportedCommandError:
+        # Documented in the reference but absent from this IPAPI build. That is
+        # a property of the installation, so it is reported rather than failed;
+        # the wrapper degrades to None for these fields.
+        pytest.skip(f"{command.value} is not implemented by this IPAPI build")
     except EdaxError as error:
         pytest.fail(f"{command.value} did not answer: {error}")
 

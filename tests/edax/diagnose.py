@@ -96,7 +96,7 @@ def main() -> int:
         print("  it was set in the same terminal that runs pytest.")
     elif not (flag_ok or hardware_ok):
         print(f"  {conftest.RUN_EDAX_IPAPI_ENV_VAR} is not an accepted value.")
-        print(f"  Set it to one of {ACCEPTED_FLAGS}, for example \"1\".")
+        print(f'  Set it to one of {ACCEPTED_FLAGS}, for example "1".')
     return 1
 
 

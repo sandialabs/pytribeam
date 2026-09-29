@@ -154,6 +154,29 @@ corresponding enum in `edax/types.py`.
 `test_no_unexpected_events_while_idle` catches events the wrapper does not
 anticipate, which is worth knowing before they interfere with a collection.
 
+### Commands a build does not implement
+
+Some commands in the reference are missing from shipping IPAPI builds, which
+reject them at runtime with `Invalid Command or Invalid Syntax` rather than
+failing at connect time. `get_ebsd_params_bytesperchannel` is one observed on
+hardware.
+
+The rejection arrives *without* a command prefix, so the client treats an
+un-prefixed non-event reply as the answer to whatever is outstanding and raises
+`EdaxUnsupportedCommandError` immediately. Without that, the reply is discarded
+as stale and the caller waits out the full timeout for a response that already
+arrived.
+
+The sweep reports these as skips naming the command:
+
+```
+SKIPPED [1] ...: get_ebsd_params_bytesperchannel is not implemented by this IPAPI build
+```
+
+The parameter read-backs (`map_parameters()` on both controllers) degrade the
+affected field to `None` rather than failing the whole set, so a missing command
+costs one field, not the read.
+
 ### Rehearsing without hardware
 
 The protocol is simple enough to stand up a local stub, which is how the

@@ -44,6 +44,7 @@ from pytribeam.external_oem.edax.errors import (
     EdaxResponseError,
     EdaxStateError,
     EdaxTimeoutError,
+    EdaxUnsupportedCommandError,
 )
 from pytribeam.external_oem.edax.sem import EdaxSemController
 from pytribeam.external_oem.edax.types import (
@@ -108,4 +109,5 @@ __all__ = [
     "EdaxSettings",
     "EdaxStateError",
     "EdaxTimeoutError",
+    "EdaxUnsupportedCommandError",
 ]

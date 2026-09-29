@@ -24,6 +24,9 @@ EdaxCommandError(EdaxError)
 EdaxResponseError(EdaxError)
     A response arrived but could not be parsed into the requested type.
 
+EdaxUnsupportedCommandError(EdaxError)
+    The service rejected a command it does not implement.
+
 EdaxStateError(EdaxError)
     A device or map reported a state incompatible with the requested action.
 """
@@ -101,6 +104,33 @@ class EdaxResponseError(EdaxError):
         super().__init__(
             f"EDAX IPAPI command '{command}' returned '{payload}', "
             f"which could not be interpreted as {expected_type}."
+        )
+
+
+class EdaxUnsupportedCommandError(EdaxError):
+    """The service rejected a command it does not implement.
+
+    Several commands in the *EDAX IP / API Reference* are absent from shipping
+    IPAPI builds, which reject them at runtime with "Invalid Command or Invalid
+    Syntax" rather than failing at connect time. Which commands are missing
+    varies between builds, so this is a property of the installation rather
+    than a defect in the caller.
+
+    Attributes
+    ----------
+    command : str
+        The command the service rejected.
+    payload : str
+        The rejection text the service returned.
+    """
+
+    def __init__(self, command: str, payload: str):
+        self.command = command
+        self.payload = payload
+        super().__init__(
+            f"The EDAX IPAPI does not implement '{command}'; it responded "
+            f"'{payload}'. This command is documented but missing from this "
+            "IPAPI build."
         )
 
 

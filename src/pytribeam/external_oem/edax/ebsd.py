@@ -25,7 +25,12 @@ from typing import Callable, Optional, Tuple
 
 # Local scripts
 from pytribeam.external_oem.edax.base import EdaxMappingController
-from pytribeam.external_oem.edax.errors import EdaxStateError, EdaxTimeoutError
+from pytribeam.external_oem.edax.errors import (
+    EdaxResponseError,
+    EdaxStateError,
+    EdaxTimeoutError,
+    EdaxUnsupportedCommandError,
+)
 from pytribeam.external_oem.edax.types import (
     EdaxCameraCapabilities,
     EdaxCameraInfo,
@@ -145,14 +150,20 @@ class EdaxEbsdController(EdaxMappingController):
             folder_path=Path(
                 client.query(EdaxCommand.EBSD_GET_FOLDERPATH, timeout_s=timeout_s)
             ),
-            mode=EdaxEbsdMode(
-                client.query_int(EdaxCommand.EBSD_GET_MODE, timeout_s=timeout_s)
+            mode=_enum_or_error(
+                EdaxEbsdMode,
+                client.query_int(EdaxCommand.EBSD_GET_MODE, timeout_s=timeout_s),
+                EdaxCommand.EBSD_GET_MODE,
             ),
-            resolution=EdaxEbsdResolution(
-                client.query_int(EdaxCommand.EBSD_GET_RESOLUTION, timeout_s=timeout_s)
+            resolution=_enum_or_error(
+                EdaxEbsdResolution,
+                client.query_int(EdaxCommand.EBSD_GET_RESOLUTION, timeout_s=timeout_s),
+                EdaxCommand.EBSD_GET_RESOLUTION,
             ),
-            grid=EdaxGridType(
-                client.query_int(EdaxCommand.EBSD_GET_GRID, timeout_s=timeout_s)
+            grid=_enum_or_error(
+                EdaxGridType,
+                client.query_int(EdaxCommand.EBSD_GET_GRID, timeout_s=timeout_s),
+                EdaxCommand.EBSD_GET_GRID,
             ),
             save_hough_peaks=client.query_bool(
                 EdaxCommand.EBSD_GET_SAVEHOUGHPEAKS, timeout_s=timeout_s
@@ -181,13 +192,44 @@ class EdaxEbsdController(EdaxMappingController):
             custom_step_size_um=client.query_float(
                 EdaxCommand.EBSD_GET_CUSTOMSTEPSIZE, timeout_s=timeout_s
             ),
-            eds_num_channels=client.query_int(
-                EdaxCommand.EBSD_GET_EDSNUMCHAN, timeout_s=timeout_s
+            eds_num_channels=self._optional(
+                client.query_int,
+                EdaxCommand.EBSD_GET_EDSNUMCHAN,
+                timeout_s=timeout_s,
             ),
-            bytes_per_channel=client.query_int(
-                EdaxCommand.EBSD_GET_BYTESPERCHANNEL, timeout_s=timeout_s
+            bytes_per_channel=self._optional(
+                client.query_int,
+                EdaxCommand.EBSD_GET_BYTESPERCHANNEL,
+                timeout_s=timeout_s,
             ),
         )
+
+    def _optional(self, query, command, **kwargs):
+        """
+        Run a read-back query, returning None when the build lacks the command.
+
+        Read-backs gather many fields at once, and IPAPI builds vary in which
+        documented commands they implement. One missing command should leave
+        its field empty rather than discard the whole parameter set.
+
+        Parameters
+        ----------
+        query : callable
+            A client query method, such as ``self._client.query_int``.
+        command : EdaxCommand
+            The command to issue.
+        **kwargs
+            Forwarded to the query method.
+
+        Returns
+        -------
+        Any or None
+            The converted value, or None when the service rejected the command.
+        """
+        try:
+            return query(command, **kwargs)
+        except EdaxUnsupportedCommandError:
+            return None
 
     # -- camera slide (section 2.4) ------------------------------------------
 
@@ -897,3 +939,39 @@ class EdaxEbsdController(EdaxMappingController):
                 EdaxCommand.CAMERA_GET_BINNING_NAMES, timeout_s=timeout_s
             ),
         )
+
+
+def _enum_or_error(enum_cls, value, command):
+    """
+    Convert a numeric payload into an enum member, or raise a typed error.
+
+    A bare ``ValueError`` from the enum constructor names neither the command
+    nor the wrapper, which makes an unexpected value hard to trace back to the
+    IPAPI. Raising :class:`EdaxResponseError` keeps it catchable alongside every
+    other response fault and reports where it came from.
+
+    Parameters
+    ----------
+    enum_cls : type
+        The enum to construct.
+    value : int
+        The value the IPAPI returned.
+    command : EdaxCommand
+        The command that produced the value, for the error message.
+
+    Returns
+    -------
+    Enum
+        The matching member.
+
+    Raises
+    ------
+    EdaxResponseError
+        If the value is not a member of ``enum_cls``.
+    """
+    try:
+        return enum_cls(value)
+    except ValueError:
+        raise EdaxResponseError(
+            command.value, str(value), f"a valid {enum_cls.__name__}"
+        ) from None

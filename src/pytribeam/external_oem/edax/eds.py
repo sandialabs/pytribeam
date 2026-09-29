@@ -24,7 +24,10 @@ from typing import Optional
 
 # Local scripts
 from pytribeam.external_oem.edax.base import EdaxMappingController
-from pytribeam.external_oem.edax.errors import EdaxTimeoutError
+from pytribeam.external_oem.edax.errors import (
+    EdaxTimeoutError,
+    EdaxUnsupportedCommandError,
+)
 from pytribeam.external_oem.edax.types import (
     EdaxCommand,
     EdaxDetectorSlideStatus,
@@ -141,11 +144,15 @@ class EdaxEdsController(EdaxMappingController):
             preset_dwell_us=client.query_float(
                 EdaxCommand.EDS_GET_PRESETDWELL, timeout_s=timeout_s
             ),
-            eds_num_channels=client.query_int(
-                EdaxCommand.EDS_GET_EDSNUMCHAN, timeout_s=timeout_s
+            eds_num_channels=self._optional(
+                client.query_int,
+                EdaxCommand.EDS_GET_EDSNUMCHAN,
+                timeout_s=timeout_s,
             ),
-            bytes_per_channel=client.query_int(
-                EdaxCommand.EDS_GET_BYTESPERCHANNEL, timeout_s=timeout_s
+            bytes_per_channel=self._optional(
+                client.query_int,
+                EdaxCommand.EDS_GET_BYTESPERCHANNEL,
+                timeout_s=timeout_s,
             ),
             inter_pixel_delay=client.query_int(
                 EdaxCommand.EDS_GET_IPD, timeout_s=timeout_s
@@ -396,3 +403,30 @@ class EdaxEdsController(EdaxMappingController):
         return self._client.query_bool(
             EdaxCommand.EDS_GET_DETECTOR_COOLING_STATUS, timeout_s=timeout_s
         )
+
+    def _optional(self, query, command, **kwargs):
+        """
+        Run a read-back query, returning None when the build lacks the command.
+
+        Read-backs gather many fields at once, and IPAPI builds vary in which
+        documented commands they implement. One missing command should leave
+        its field empty rather than discard the whole parameter set.
+
+        Parameters
+        ----------
+        query : callable
+            A client query method, such as ``self._client.query_int``.
+        command : EdaxCommand
+            The command to issue.
+        **kwargs
+            Forwarded to the query method.
+
+        Returns
+        -------
+        Any or None
+            The converted value, or None when the service rejected the command.
+        """
+        try:
+            return query(command, **kwargs)
+        except EdaxUnsupportedCommandError:
+            return None

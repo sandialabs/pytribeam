@@ -33,6 +33,7 @@ from pytribeam.external_oem.edax.errors import (
     EdaxCommandError,
     EdaxConnectionError,
     EdaxTimeoutError,
+    EdaxUnsupportedCommandError,
 )
 from pytribeam.external_oem.edax.types import (
     EdaxCommand,
@@ -173,7 +174,11 @@ class EdaxClient:
         """
         try:
             response = self.send(EdaxCommand.UNLOCK)
-        except (EdaxTimeoutError, EdaxCommandError) as error:
+        except (
+            EdaxTimeoutError,
+            EdaxCommandError,
+            EdaxUnsupportedCommandError,
+        ) as error:
             raise EdaxConnectionError(f"EDAX IPAPI refused the unlock command: {error}")
 
         if protocol.UNLOCK_RESPONSE not in response.payload.lower():
@@ -332,6 +337,9 @@ class EdaxClient:
             time.sleep(pause_s)
 
         response = self._await_response(command=command, timeout_s=timeout_s)
+
+        if protocol.is_invalid_command(response.payload):
+            raise EdaxUnsupportedCommandError(command=name, payload=response.payload)
 
         if expect is not None and response.payload.strip().lower() != expect.lower():
             raise EdaxCommandError(
