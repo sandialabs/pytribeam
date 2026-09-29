@@ -78,6 +78,7 @@ from pytribeam.alignment import (
     TemplateMatchSettings,
     measure_template_offset,
     template_match,
+    template_match_subpixel,
 )
 from pytribeam.image import read_beam_shift, set_beam_shift
 from pytribeam.workflow import perform_operation, setup_experiment
@@ -351,6 +352,7 @@ def acquire_alignment_image(
             general_settings=general_settings,
             slice_number=slice_number,
             suffix=iteration,
+            perform_autofocus=False,
         )
         return Path(general_settings.exp_dir).joinpath(
             image_step.name, f"{slice_number:04}_{iteration:02}.tif"
@@ -365,6 +367,7 @@ def acquire_alignment_image(
             image_settings=image_settings,
             general_settings=general_settings,
             slice_number=slice_number,
+            perform_autofocus=False,
         )
         return Path(general_settings.exp_dir).joinpath(
             iter_step.name, f"{slice_number:04}.tif"
@@ -859,7 +862,7 @@ def perform_step_alignment(
             f"Step '{step.name}' has alignment enabled but no reference image path."
         )
 
-    baseline_match_px, baseline_score = template_match(
+    baseline_match_px, baseline_score = template_match_subpixel(
         input_image=alignment_settings.reference_image_path,
         reference_patch=alignment_settings.reference_patch_path,
     )
