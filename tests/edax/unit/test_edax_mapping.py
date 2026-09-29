@@ -548,8 +548,15 @@ def test_guard_is_not_opened_when_the_map_fails(make_client, no_sleep):
 # EDS
 # ----------------------------------------------------------------------
 from pytribeam.external_oem.edax.eds import EdaxEdsController  # noqa: E402
-from pytribeam.external_oem.edax.errors import EdaxResponseError  # noqa: E402
-from pytribeam.external_oem.edax.types import EdaxEdsMapParams  # noqa: E402
+from pytribeam.external_oem.edax.errors import (  # noqa: E402
+    EdaxResponseError,
+    EdaxTimeoutError,
+)
+from pytribeam.external_oem.edax.types import (  # noqa: E402
+    EdaxEdsMapParams,
+    EdaxEdsResolution,
+    EdaxEvent,
+)
 
 
 def _eds_payloads(**overrides):
@@ -570,7 +577,9 @@ def _eds_plan(**overrides) -> mapping.EdsMapPlan:
         start_delay_s=0.0,
         poll_interval_s=0.0,
         status_timeout_s=0.5,
-        min_timeout_s=5.0,
+        min_timeout_s=0.0,
+        max_duration_s=5.0,
+        event_grace_s=0.2,
     )
     values.update(overrides)
     return mapping.EdsMapPlan(**values)
@@ -681,13 +690,17 @@ def test_eds_map_applies_the_parameters_it_is_given(make_client, no_sleep):
 
     mapping.run_eds_map(
         EdaxEdsController(client),
-        _eds_plan(params=EdaxEdsMapParams(num_points=512, num_lines=400)),
+        _eds_plan(
+            params=EdaxEdsMapParams(
+                resolution=EdaxEdsResolution.PRESET_512X400, num_frames=4
+            )
+        ),
         quiet=True,
     )
 
     sent = service.commands()
     assert service.arguments_for(EdaxCommand.EDS_SET_NUMPOINTS) == ['"512"']
-    assert sent.index(EdaxCommand.EDS_SET_NUMLINES.value) < sent.index(
+    assert sent.index(EdaxCommand.EDS_SET_NUMFRAMES.value) < sent.index(
         EdaxCommand.EDS_COLLECTION_START.value
     )
 
@@ -717,61 +730,108 @@ def test_eds_map_surfaces_an_unexpected_detector_status(make_client, no_sleep):
         mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
 
-def test_eds_map_finishing_early_is_rejected(make_client, no_sleep):
-    """The same guard as EBSD, named for EDS."""
+# APEX's EDS prediction uses points and lines it never maps with, so these pin
+# down the evidence rule that replaces EBSD's duration check. The sequence a
+# running map reports on hardware is MappingActive, the event, then Ready.
+PREDICTED_60_S = str(int(60 * TICKS_PER_SECOND))
+
+
+def test_eds_map_shorter_than_its_prediction_is_accepted(make_client, no_sleep):
+    """Seen on hardware: APEX mapped 64 x 50 against a 128 x 100 prediction.
+    A map seen running is accepted however far off the prediction is."""
+    client, _ = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_DURATION: PREDICTED_60_S})
+    )
+
+    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    assert result.duration_s < result.predicted_duration_s
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+
+
+def test_eds_map_seen_active_then_ready_is_accepted(make_client, no_sleep):
+    """The observed hardware sequence, with no event: active, then Ready."""
     client, _ = make_client(
         payloads=_eds_payloads(
-            **{EdaxCommand.EDS_GET_MAP_DURATION: str(int(60 * TICKS_PER_SECOND))}
+            **{EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "Ready"]}
         )
     )
 
-    with pytest.raises(EdaxStateError, match="EDS map .* unexpectedly quickly"):
-        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    assert result.status is EdaxMappingStatus.READY
 
 
-def test_early_ready_is_named_in_the_error(make_client, no_sleep):
-    """Seen on hardware: a 44-minute EDS map 'completed' at 12 s. The error
-    must say which status ended the wait, since 'ready' also means not started."""
+def test_eds_map_ended_by_the_event_alone_is_accepted(make_client, no_sleep):
+    """A map shorter than the start delay is over before the first poll; its
+    event proves it ran."""
+    client, service = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "Ready"})
+    )
+    service.push_event(EdaxEvent.EDS_COLLECTION_COMPLETE, "Mapping complete")
+
+    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+
+
+def test_eds_map_event_trailing_ready_is_accepted(make_client, no_sleep):
+    """The event may land just after the status reads Ready."""
+    client, service = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "Ready"})
+    )
+    service.push_event(
+        EdaxEvent.EDS_COLLECTION_COMPLETE, "Mapping complete", delay_s=0.1
+    )
+
+    mapping.run_eds_map(
+        EdaxEdsController(client), _eds_plan(event_grace_s=2.0), quiet=True
+    )
+
+
+def test_eds_map_never_seen_running_is_rejected(make_client, no_sleep):
+    """Ready with no activity and no event may be a map that never started.
+    The error names what EDAX reported."""
     client, _ = make_client(
-        payloads=_eds_payloads(
-            **{
-                EdaxCommand.EDS_GET_MAP_DURATION: str(int(2621.44 * TICKS_PER_SECOND)),
-                EdaxCommand.EDS_GET_MAP_STATUS: "Ready",
-            }
-        )
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "Ready"})
     )
 
     with pytest.raises(EdaxStateError) as error:
         mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
     message = str(error.value)
+    assert "never seen running" in message
     assert "on status 'ready'" in message
-    assert "before a map has started" in message
     assert "Statuses polled: 'ready' at" in message
 
 
-def test_early_completion_event_is_named_in_the_error(make_client, no_sleep):
-    """When the event, not a status, ends the wait, the error says so."""
+def test_eds_map_outlasting_its_prediction_is_waited_for(make_client, no_sleep):
+    """A map larger than predicted must not be abandoned mid-collection while
+    APEX says it is running. The budget here is zero."""
     client, _ = make_client(
         payloads=_eds_payloads(
             **{
-                EdaxCommand.EDS_GET_MAP_DURATION: str(int(60 * TICKS_PER_SECOND)),
-                EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive",
+                EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive"] * 5
+                + ["MappingComplete"]
             }
-        ),
-        events={
-            EdaxCommand.EDS_GET_MAP_STATUS: [
-                'EVENT_MAP_COLLECTION_COMPLETE "Mapping Complete"'
-            ]
-        },
+        )
     )
 
-    with pytest.raises(EdaxStateError) as error:
-        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+    result = mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
-    message = str(error.value)
-    assert "collection-complete event" in message
-    assert "'mappingactive' at" in message
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+
+
+def test_eds_map_running_past_the_hard_limit_times_out(make_client, no_sleep):
+    """The extension is bounded: a map stuck 'active' still ends the wait."""
+    client, _ = make_client(
+        payloads=_eds_payloads(**{EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive"})
+    )
+
+    with pytest.raises(EdaxTimeoutError):
+        mapping.run_eds_map(
+            EdaxEdsController(client), _eds_plan(max_duration_s=0.3), quiet=True
+        )
 
 
 def test_interrupted_eds_map_is_rejected(make_client, no_sleep):
@@ -794,8 +854,29 @@ def test_eds_map_survives_the_finalization_stall(make_client, no_sleep):
     )
 
     result = mapping.run_eds_map(
-        EdaxEdsController(client), _eds_plan(status_timeout_s=0.02), quiet=True
+        EdaxEdsController(client),
+        _eds_plan(status_timeout_s=0.02, min_timeout_s=5.0),
+        quiet=True,
     )
 
     assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
     assert service.commands().count(EdaxCommand.EDS_GET_MAP_STATUS.value) == 1
+
+
+def test_eds_stall_past_an_underestimated_budget_is_waited_for(make_client, no_sleep):
+    """The production case: the map ran longer than predicted, the budget is
+    spent, and APEX then goes quiet to finalize. It said the map was running,
+    so the quiet is waited out, with one query and no re-send."""
+    client, service = make_client(
+        payloads=_eds_payloads(
+            **{EdaxCommand.EDS_GET_MAP_STATUS: ["MappingActive", "MappingComplete"]}
+        ),
+        delays={EdaxCommand.EDS_GET_MAP_STATUS: [0.0, 0.3]},
+    )
+
+    result = mapping.run_eds_map(
+        EdaxEdsController(client), _eds_plan(status_timeout_s=0.02), quiet=True
+    )
+
+    assert result.status is EdaxMappingStatus.MAPPING_COMPLETE
+    assert service.commands().count(EdaxCommand.EDS_GET_MAP_STATUS.value) == 2

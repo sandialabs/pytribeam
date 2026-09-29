@@ -143,6 +143,15 @@ def test_camera_error_states_require_intervention(status, is_error):
 # ----------------------------------------------------------------------
 # Named tuples
 # ----------------------------------------------------------------------
+def test_mapping_status_in_progress():
+    """Paused still counts as under way; finished and idle do not."""
+    assert et.EdaxMappingStatus.MAPPING_ACTIVE.is_in_progress
+    assert et.EdaxMappingStatus.MAPPING_PAUSED.is_in_progress
+    assert not et.EdaxMappingStatus.READY.is_in_progress
+    assert not et.EdaxMappingStatus.MAPPING_COMPLETE.is_in_progress
+    assert not et.EdaxMappingStatus.NOT_READY.is_in_progress
+
+
 def test_response_reports_execution_success():
     """The success check tolerates the case EDAX actually sends."""
     assert et.EdaxResponse("", "cmd", "Execution Successful").succeeded is True

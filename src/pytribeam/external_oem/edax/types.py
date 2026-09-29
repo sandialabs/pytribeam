@@ -359,6 +359,67 @@ class EdaxEbsdResolution(IntEnum):
     CUSTOM = 3
 
 
+class EdaxEdsMatrix(NamedTuple):
+    """
+    EDS map size in points per line and lines per frame.
+
+    Attributes
+    ----------
+    points : int
+        Points in one line of the map.
+    lines : int
+        Lines in one frame of the map.
+    """
+
+    points: int
+    lines: int
+
+
+class EdaxEdsResolution(EdaxEdsMatrix, Enum):
+    """
+    EDS map resolution presets, as listed in APEX's resolution menu.
+
+    APEX maps only at these sizes, and the IPAPI selects one through
+    ``set_map_params_numpoints`` alone: APEX picks a preset from the points
+    value (rounding down, observed on hardware) and ignores
+    ``set_map_params_numlines`` entirely. So a resolution is always sent as its
+    exact point count, and the line count is never sent.
+
+    Attributes
+    ----------
+    PRESET_64X50 : EdaxEdsMatrix
+        64x50 map.
+    PRESET_128X100 : EdaxEdsMatrix
+        128x100 map.
+    PRESET_256X200 : EdaxEdsMatrix
+        256x200 map.
+    PRESET_512X400 : EdaxEdsMatrix
+        512x400 map.
+    PRESET_1024X800 : EdaxEdsMatrix
+        1024x800 map.
+    PRESET_2048X1600 : EdaxEdsMatrix
+        2048x1600 map.
+    PRESET_4096X3200 : EdaxEdsMatrix
+        4096x3200 map.
+    """
+
+    PRESET_64X50 = EdaxEdsMatrix(points=64, lines=50)
+    PRESET_128X100 = EdaxEdsMatrix(points=128, lines=100)
+    PRESET_256X200 = EdaxEdsMatrix(points=256, lines=200)
+    PRESET_512X400 = EdaxEdsMatrix(points=512, lines=400)
+    PRESET_1024X800 = EdaxEdsMatrix(points=1024, lines=800)
+    PRESET_2048X1600 = EdaxEdsMatrix(points=2048, lines=1600)
+    PRESET_4096X3200 = EdaxEdsMatrix(points=4096, lines=3200)
+
+    @classmethod
+    def from_points(cls, points: int) -> Optional["EdaxEdsResolution"]:
+        """Return the preset with exactly this many points, or None."""
+        for preset in cls:
+            if preset.points == points:
+                return preset
+        return None
+
+
 class EdaxGridType(IntEnum):
     """
     EBSD sampling grid, IPAPI section 2.5.7.
@@ -411,6 +472,11 @@ class EdaxMappingStatus(str, Enum):
         """Return True for statuses that indicate a failed operation."""
         return self in _ERROR_MAPPING_STATUSES
 
+    @property
+    def is_in_progress(self) -> bool:
+        """Return True while a setup or map is under way, including paused."""
+        return self in _IN_PROGRESS_MAPPING_STATUSES
+
 
 _TERMINAL_MAPPING_STATUSES = frozenset(
     {
@@ -420,6 +486,17 @@ _TERMINAL_MAPPING_STATUSES = frozenset(
         EdaxMappingStatus.MAPPING_STOPPED,
         EdaxMappingStatus.MAPPING_ERROR,
         EdaxMappingStatus.UNKNOWN,
+    }
+)
+
+_IN_PROGRESS_MAPPING_STATUSES = frozenset(
+    {
+        EdaxMappingStatus.SETUP_ACTIVE,
+        EdaxMappingStatus.SETUP_PAUSED,
+        EdaxMappingStatus.SETUP_RESUMED,
+        EdaxMappingStatus.MAPPING_ACTIVE,
+        EdaxMappingStatus.MAPPING_PAUSED,
+        EdaxMappingStatus.MAPPING_RESUMED,
     }
 )
 
@@ -702,6 +779,12 @@ class EdaxEdsMapParams(NamedTuple):
     Every field is optional; ``None`` means "leave the current value alone"
     when the parameter set is applied to a connected system.
 
+    The map size is a :class:`EdaxEdsResolution` preset, sent as its point
+    count only; see that class for why. Read back, ``resolution`` is the last
+    preset sent over the IPAPI, which is not necessarily what APEX shows if it
+    was changed there since, and None if the stored point count is not a
+    preset.
+
     Attributes
     ----------
     folder_path : Path
@@ -710,10 +793,8 @@ class EdaxEdsMapParams(NamedTuple):
         Channel number of the EDS detector.
     num_frames : int
         Number of frames in the map.
-    num_points : int
-        Number of points in one line of the map.
-    num_lines : int
-        Number of lines in one frame of the map.
+    resolution : EdaxEdsResolution
+        Map size preset.
     preset_dwell_us : float
         Dwell time per point in microseconds.
     eds_num_channels : int
@@ -729,8 +810,7 @@ class EdaxEdsMapParams(NamedTuple):
     folder_path: Optional[Path] = None
     eds_channel: Optional[int] = None
     num_frames: Optional[int] = None
-    num_points: Optional[int] = None
-    num_lines: Optional[int] = None
+    resolution: Optional[EdaxEdsResolution] = None
     preset_dwell_us: Optional[float] = None
     eds_num_channels: Optional[int] = None
     bytes_per_channel: Optional[int] = None

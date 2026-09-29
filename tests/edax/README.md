@@ -196,6 +196,15 @@ The parameter read-backs (`map_parameters()` on both controllers) degrade the
 affected field to `None` rather than failing the whole set, so a missing command
 costs one field, not the read.
 
+### EDS map resolution
+
+APEX maps only at the presets in its resolution menu (64 x 50 up to
+4096 x 3200), and the IPAPI selects one through `set_map_params_numpoints`
+alone: APEX takes the preset at or below the points value and ignores
+`set_map_params_numlines`. `EdaxEdsResolution` therefore sends each preset as
+its exact point count and never sends lines. The read-back is only the last
+value sent over the IPAPI, not necessarily what APEX shows.
+
 ### Rehearsing without hardware
 
 The protocol is simple enough to stand up a local stub, which is how the
@@ -239,11 +248,11 @@ Before running:
   **Nothing moves the stage.**
 - EDAX software open, no map running. The tests skip rather than interfere if
   EDAX reports a map or setup in progress.
-- The EDS map has no scan box, so the test sets a small one explicitly
-  (`TEST_EDS_MAP`: 128 x 100 points, 10 frames, 200 us, about 26 s), checks
-  that APEX read it back and predicts a matching duration, and restores APEX's
-  own EDS map settings afterwards. `PYTRIBEAM_EDAX_MAP_SIZE_UM` applies to the
-  EBSD maps only.
+- The EDS map is set to 64 x 50, two frames at 100 us (`TEST_EDS_MAP`).
+  Frames and dwell are restored afterwards; **the resolution is left at
+  64 x 50**, because the IPAPI only echoes the last value sent, not what
+  APEX shows, so there is no safe value to restore.
+  `PYTRIBEAM_EDAX_MAP_SIZE_UM` applies to the EBSD maps only.
 - `PYTRIBEAM_EDAX_MAP_FOLDER` must be an existing scratch folder on the EDAX PC.
   **Clear it between runs**: each run writes `Slice_0001`, `Slice_0002`, and
   `Slice_0003_EDS` there, and EDAX requires tags to be unique within a folder.
@@ -258,9 +267,12 @@ What they check, beyond the map completing:
   (`localhost`), so a map that "succeeds" but saves nothing fails;
 - APEX's EDS folder was set to the experiment folder before the EDS map, and
   the EDS side is idle afterwards;
-- no map "completes" sooner than APEX predicted; the error names the status
-  that ended the wait, since `Ready` is also what APEX reports before a map
-  has started;
+- no EBSD map "completes" sooner than EDAX predicted, and every EDS map was
+  seen running (an in-progress status, the completion event, or
+  `MappingComplete`). EDS cannot use the duration check, because APEX's EDS
+  prediction uses stored points and lines that need not match the map it
+  runs; for the same reason an EDS map that outlasts its prediction is waited
+  for while APEX reports it in progress;
 - camera saturation and average CI land in the HDF5 log for the right slice;
 - the microscope's field width and detector are restored after the saturation
   measurement;

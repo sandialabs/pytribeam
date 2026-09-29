@@ -300,6 +300,7 @@ class EdaxMappingController:
         poll_interval_s: float = 10.0,
         status_timeout_s: float = 120.0,
         progress_fn: Optional[Callable[[EdaxMappingStatus, float], None]] = None,
+        max_timeout_s: Optional[float] = None,
     ) -> EdaxMappingStatus:
         """
         Poll until map collection finishes, fails, or the timeout expires.
@@ -342,6 +343,12 @@ class EdaxMappingController:
         progress_fn : callable, optional
             Called after each answered poll with the current status and the
             elapsed seconds. Intended for logging.
+        max_timeout_s : float, optional
+            For maps whose duration cannot be predicted reliably. Once
+            ``timeout_s`` has passed, keep waiting for as long as the last
+            answered status says the map is still in progress, which includes
+            the finalization stall that follows it, up to this many seconds in
+            total. None, the default, makes ``timeout_s`` a hard limit.
 
         Returns
         -------
@@ -357,6 +364,20 @@ class EdaxMappingController:
         """
         start_time = time.time()
         deadline = start_time + timeout_s
+        hard_deadline = (
+            deadline
+            if max_timeout_s is None
+            else start_time + max(timeout_s, max_timeout_s)
+        )
+        last_status: Optional[EdaxMappingStatus] = None
+
+        def expired() -> bool:
+            now = time.time()
+            if now >= hard_deadline:
+                return True
+            # Past the expected budget, but APEX last said the map is running.
+            running = last_status is not None and last_status.is_in_progress
+            return now >= deadline and not running
 
         # True while a status query has been sent but not yet answered, which
         # is the normal condition during map finalization.
@@ -385,7 +406,7 @@ class EdaxMappingController:
                 # The application is finalizing and has stopped answering. Keep
                 # the request outstanding and re-check the overall deadline.
                 awaiting_status = True
-                if time.time() >= deadline:
+                if expired():
                     raise EdaxTimeoutError(
                         command=f"{self.DETECTOR_NAME} collection",
                         timeout_s=timeout_s,
@@ -393,6 +414,7 @@ class EdaxMappingController:
                 continue
 
             status = self.parse_status(response.payload)
+            last_status = status
             elapsed_s = time.time() - start_time
 
             if progress_fn is not None:
@@ -411,10 +433,10 @@ class EdaxMappingController:
                 if event.command == self.COLLECTION_COMPLETE_EVENT.value:
                     return EdaxMappingStatus.MAPPING_COMPLETE
 
-            if time.time() >= deadline:
+            if expired():
                 raise EdaxTimeoutError(
                     command=f"{self.DETECTOR_NAME} collection",
                     timeout_s=timeout_s,
                 )
 
-            time.sleep(min(poll_interval_s, max(deadline - time.time(), 0.0)))
+            time.sleep(min(poll_interval_s, max(hard_deadline - time.time(), 0.0)))

@@ -63,6 +63,7 @@ from pytribeam.external_oem.edax.types import (
     EdaxEdsMapParams,
     EdaxEbsdResolution,
     EdaxGridType,
+    EdaxEvent,
     EdaxMappingStatus,
     EdaxProjectInfo,
 )
@@ -379,6 +380,15 @@ class EdsMapPlan(NamedTuple):
     to retract: the EDS detector is moved by the caller, under the live chamber
     CCD, before and after the map.
 
+    APEX's EDS duration prediction cannot be trusted. It is computed from the
+    IPAPI's stored points and lines, but the map runs at the resolution
+    selected in APEX: the points value selects it, the lines value is ignored
+    and goes stale, and the resolution can be changed in APEX at any time
+    (observed on hardware, where 128 x 100 predicted a map APEX ran at
+    64 x 50). So an EDS map is judged by evidence that it ran, not by how long
+    it took, and a map that outlasts the prediction is waited for while APEX
+    reports it in progress.
+
     Attributes
     ----------
     tag : str
@@ -397,6 +407,13 @@ class EdsMapPlan(NamedTuple):
         Multiple of the expected duration allowed before giving up.
     min_timeout_s : float
         Floor on the overall wait.
+    max_duration_s : float
+        Hard limit on the wait, from the start of collection, however long
+        APEX keeps reporting the map in progress.
+    event_grace_s : float
+        When the wait ends on ``Ready`` with no sign the map ran, how long to
+        wait for a late collection-complete event before concluding it never
+        started.
     """
 
     tag: str
@@ -406,6 +423,8 @@ class EdsMapPlan(NamedTuple):
     status_timeout_s: float = 120.0
     timeout_scalar: float = 3.0
     min_timeout_s: float = 0.0
+    max_duration_s: float = 24 * 3600.0
+    event_grace_s: float = 10.0
 
 
 def eds_slice_tag(slice_number: int) -> str:
@@ -509,16 +528,18 @@ def run_eds_map(
     Raises
     ------
     EdaxStateError
-        If the detector is not ready, or the map errors, is interrupted, or
-        finishes sooner than EDAX predicted.
+        If the detector is not ready, the map errors or is interrupted, or it
+        was never seen running.
     EdaxTimeoutError
-        If the map does not finish within the allowed multiple of its
-        expected duration.
+        If the map stops reporting progress past the allowed multiple of its
+        predicted duration, or runs past ``plan.max_duration_s``.
     """
     _require_eds_ready(eds)
     eds.apply_map_parameters(plan.params)
-    collection = _collect(eds, plan, "EDS", progress_fn, quiet)
-    _require_full_duration("EDS", plan.tag, collection)
+    collection = _collect(
+        eds, plan, "EDS", progress_fn, quiet, max_timeout_s=plan.max_duration_s
+    )
+    _require_eds_ran(eds, plan, collection)
     return EdaxMapResult(
         tag=plan.tag,
         status=collection.status,
@@ -541,13 +562,22 @@ class _Collection(NamedTuple):
     polled: Tuple[Tuple[EdaxMappingStatus, float], ...] = ()
 
 
-def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collection:
+def _collect(
+    controller,
+    plan,
+    label: str,
+    progress_fn,
+    quiet: bool,
+    max_timeout_s: Optional[float] = None,
+) -> _Collection:
     """
     Start a map, wait out its collection and finalization, and time it.
 
     Shared by EBSD and EDS, whose collections differ only in the commands the
     controller sends. See :meth:`EdaxMappingController.wait_for_map_complete`
-    for how the finalization stall is survived without re-sending commands.
+    for how the finalization stall is survived without re-sending commands,
+    and for ``max_timeout_s``, which EDS passes because its prediction is
+    unreliable.
     """
     predicted_s = controller.map_duration_s()
 
@@ -577,6 +607,11 @@ def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collect
         poll_interval_s=plan.poll_interval_s,
         status_timeout_s=plan.status_timeout_s,
         progress_fn=record,
+        max_timeout_s=(
+            None
+            if max_timeout_s is None
+            else max(max_timeout_s - (time.time() - scan_start), 0.0)
+        ),
     )
     end_time = time.time()
 
@@ -610,8 +645,39 @@ def _require_full_duration(label: str, tag: str, collection: _Collection) -> Non
         )
 
 
+def _require_eds_ran(
+    eds: EdaxEdsController, plan: EdsMapPlan, collection: _Collection
+) -> None:
+    """
+    Reject an EDS map that was never seen running.
+
+    Stands in for the duration check EBSD uses, because APEX's EDS prediction
+    describes a map size APEX does not use. On hardware a running map reports
+    ``MappingActive`` within seconds, then sends the collection-complete event,
+    then reports ``Ready``. Any of an in-progress status, the event, or
+    ``MappingComplete`` proves the map ran; a wait that ended on ``Ready``
+    without any of them may not have started one. The event can trail the
+    status, so it gets a short grace period before that conclusion.
+    """
+    if collection.status is EdaxMappingStatus.MAPPING_COMPLETE:
+        return  # from the status or from the event; either proves it ran
+    if any(status.is_in_progress for status, _ in collection.polled):
+        return
+    if eds.client.wait_for_event(
+        EdaxEvent.EDS_COLLECTION_COMPLETE, timeout_s=plan.event_grace_s
+    ):
+        return
+    raise EdaxStateError(
+        f"EDAX EDS map '{plan.tag}' was never seen running: no in-progress "
+        f"status, and no collection-complete event within "
+        f"{plan.event_grace_s:.0f} s of the wait ending, "
+        f"{_completion_evidence(collection)} Please check the EDAX software; "
+        "the map may not have started, or may still be running there."
+    )
+
+
 def _completion_evidence(collection: _Collection) -> str:
-    """Describe what ended the wait, for the too-quick error."""
+    """Describe what ended the wait, for the completion errors."""
     history = ", ".join(
         f"'{status.value}' at {seconds:.0f} s" for status, seconds in collection.polled
     )

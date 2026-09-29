@@ -307,6 +307,32 @@ def test_hung_application_is_still_bounded(make_client, no_sleep):
     assert _status_queries(service) == 1
 
 
+def test_active_map_past_its_budget_times_out_without_an_extension(
+    make_client, no_sleep
+):
+    """EBSD's budget stays a hard limit; only a caller passing max_timeout_s
+    (EDS, whose prediction is unreliable) waits on a map that says it is active."""
+    client, _ = make_client(payloads={STATUS: "MappingActive"})
+
+    with pytest.raises(EdaxTimeoutError):
+        EdaxEbsdController(client).wait_for_map_complete(
+            timeout_s=0.05, poll_interval_s=0.0, status_timeout_s=0.5
+        )
+
+
+def test_active_map_is_waited_for_up_to_the_extension(make_client, no_sleep):
+    """With max_timeout_s, 'active' past the budget keeps the wait going."""
+    client, _ = make_client(
+        payloads={STATUS: ["MappingActive"] * 4 + ["MappingComplete"]}
+    )
+
+    status = EdaxEbsdController(client).wait_for_map_complete(
+        timeout_s=0.0, poll_interval_s=0.0, status_timeout_s=0.5, max_timeout_s=5.0
+    )
+
+    assert status is EdaxMappingStatus.MAPPING_COMPLETE
+
+
 def test_socket_stays_open_after_a_stalled_poll(make_client, no_sleep):
     """Giving up on the wait must not tear the connection down.
 

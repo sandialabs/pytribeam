@@ -24,7 +24,7 @@ from pytribeam.external_oem.edax.errors import (
     EdaxTimeoutError,
     EdaxUnsupportedCommandError,
 )
-from pytribeam.external_oem.edax.types import EdaxCommand
+from pytribeam.external_oem.edax.types import EdaxCommand, EdaxEdsResolution
 
 pytestmark = pytest.mark.detached
 
@@ -120,7 +120,7 @@ def test_eds_map_parameters_degrades_to_none(make_client):
     params = EdaxEdsController(client).map_parameters()
 
     assert params.bytes_per_channel is None
-    assert params.num_points == 512
+    assert params.resolution is EdaxEdsResolution.PRESET_512X400
 
 
 def test_a_genuinely_silent_command_still_times_out(make_client):

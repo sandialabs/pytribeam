@@ -30,8 +30,9 @@ Before running:
 - Put the sample at the EBSD position (tilted, at working distance) with the
   electron beam on. Nothing here moves the stage.
 - Leave the EDAX software open with no map running.
-- The EDS map is set to a small one for the test (``TEST_EDS_MAP``, about
-  26 s), and APEX's own EDS map settings are put back afterwards.
+- The EDS map is set to 64 x 50, two frames at 100 us (``TEST_EDS_MAP``).
+  Frames and dwell are put back afterwards; the resolution is left at
+  64 x 50.
 - Point ``PYTRIBEAM_EDAX_MAP_FOLDER`` at an existing scratch folder on the EDAX
   PC, and clear it between runs. Each run writes ``Slice_0001`` (EBSD),
   ``Slice_0002`` (EBSD + EDS), and ``Slice_0003_EDS`` there, and EDAX requires
@@ -89,6 +90,7 @@ from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxEbsdMapParams,
     EdaxEbsdResolution,
     EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxMappingStatus,
 )
 
@@ -102,11 +104,11 @@ MAP_STEP_ENV_VAR = "PYTRIBEAM_EDAX_MAP_STEP_UM"
 #: EDAX project the test maps are filed under, kept apart from real experiments.
 PROJECT_NAME = "pytribeam_hardware_test"
 
-#: The EDS test map, set explicitly: the EDS map has no scan box, so without
-#: this it runs at whatever APEX last used (44 minutes, on hardware). About
-#: 26 s of dwell, so the first status poll lands mid-map rather than after it.
+#: The EDS test map: APEX's smallest preset, two frames at 100 us, under a
+#: second of dwell. The resolution is selected through the points value alone;
+#: see EdaxEdsResolution.
 TEST_EDS_MAP = EdaxEdsMapParams(
-    num_points=128, num_lines=100, num_frames=10, preset_dwell_us=200.0
+    resolution=EdaxEdsResolution.PRESET_64X50, num_frames=2, preset_dwell_us=100.0
 )
 
 # Statuses meaning EDAX is busy and a test map must not be started.
@@ -200,37 +202,24 @@ def _ipapi(config: tbt.EDAXConfig):
         yield client
 
 
-def _dwell_s(params: EdaxEdsMapParams) -> float:
-    """Points x lines x frames x dwell: the EDS map's collection time."""
-    return (
-        params.num_points
-        * params.num_lines
-        * params.num_frames
-        * params.preset_dwell_us
-        * 1e-6
-    )
-
-
 @contextmanager
 def _eds_map_settings(config: tbt.EDAXConfig, params: EdaxEdsMapParams):
     """
-    Apply an EDS map size for one test, then put APEX's own settings back.
+    Apply EDS map settings for one test, then put APEX's frames and dwell back.
 
-    Yields what APEX read back and the duration it then predicted, which is how
-    a test proves the settings took effect.
+    Yields what APEX read back. The resolution is not restored: the IPAPI
+    reads back the last value sent over it, not what APEX shows, so restoring
+    it could change APEX to a size nobody chose. It is left at the test's.
     """
     with _ipapi(config) as client:
         eds = EdaxEdsController(client)
         original = eds.map_parameters()
         eds.apply_map_parameters(params)
         applied = eds.map_parameters()
-        predicted_s = eds.map_duration_s()
     try:
-        yield applied, predicted_s
+        yield applied
     finally:
         restore = EdaxEdsMapParams(
-            num_points=original.num_points,
-            num_lines=original.num_lines,
             num_frames=original.num_frames,
             preset_dwell_us=original.preset_dwell_us,
         )
@@ -559,9 +548,10 @@ def test_eds_map(microscope, experiment, motion_watch):
     on this machine, that the map actually wrote data there. The detector moves
     over the IPAPI, under the live chamber CCD.
 
-    The map size is set explicitly and confirmed through APEX's read-back and
-    its predicted duration, since the EDS map otherwise runs at whatever APEX
-    last used.
+    Resolution, frames, and dwell are set for the test; frames and dwell are
+    restored after, and APEX is left at the test's 64 x 50. APEX's duration
+    prediction is unreliable for EDS, so the map is judged by evidence that it
+    ran rather than by how long it took.
     """
     config = experiment.EDAX_settings
     step = SimpleNamespace(number=3, name="edax_hw_eds")
@@ -572,22 +562,19 @@ def test_eds_map(microscope, experiment, motion_watch):
     files_before = _folder_snapshot(folder)
 
     external_devices.preflight_eds(general_settings=experiment)
-    with _eds_map_settings(config, TEST_EDS_MAP) as (applied, predicted_s):
-        # The EDS map takes APEX's current settings, so these must have landed
-        # before the dispatcher starts it.
-        for field in ("num_points", "num_lines", "num_frames"):
-            assert getattr(applied, field) == getattr(TEST_EDS_MAP, field), (
-                f"APEX read back {field}={getattr(applied, field)}, "
-                f"not {getattr(TEST_EDS_MAP, field)}"
-            )
+    with _eds_map_settings(config, TEST_EDS_MAP) as applied:
+        # The dispatcher maps with APEX's current settings, so these must have
+        # landed before it starts. Confirm the size in APEX's menu, too: the
+        # read-back only echoes what was sent.
+        assert applied.resolution is TEST_EDS_MAP.resolution, (
+            f"APEX read back resolution {applied.resolution}"
+        )
+        assert applied.num_frames == TEST_EDS_MAP.num_frames, (
+            f"APEX read back {applied.num_frames} frames"
+        )
         assert applied.preset_dwell_us == pytest.approx(
             TEST_EDS_MAP.preset_dwell_us, rel=0.05
         ), f"APEX read back a dwell of {applied.preset_dwell_us} us"
-        nominal_s = _dwell_s(TEST_EDS_MAP)
-        assert 0.5 * nominal_s <= predicted_s <= 3 * nominal_s, (
-            f"APEX predicts {predicted_s:.1f} s for an EDS map whose points x "
-            f"lines x frames x dwell is {nominal_s:.1f} s"
-        )
 
         try:
             external_devices.insert_eds(

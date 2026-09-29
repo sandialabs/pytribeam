@@ -18,6 +18,7 @@ from pytribeam.external_oem.edax.types import (
     EdaxDetectorSlideStatus,
     EdaxDetectorStatus,
     EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxMappingStatus,
 )
 
@@ -54,38 +55,59 @@ def test_apply_map_parameters_sends_only_populated_fields(make_client):
     client, service = make_client()
 
     EdaxEdsController(client).apply_map_parameters(
-        EdaxEdsMapParams(num_points=512, num_lines=400, preset_dwell_us=200.0)
+        EdaxEdsMapParams(
+            resolution=EdaxEdsResolution.PRESET_512X400, preset_dwell_us=200.0
+        )
     )
 
     sent = service.commands()
     assert EdaxCommand.EDS_SET_NUMPOINTS.value in sent
-    assert EdaxCommand.EDS_SET_NUMLINES.value in sent
     assert EdaxCommand.EDS_SET_PRESETDWELL.value in sent
     assert EdaxCommand.EDS_SET_NUMFRAMES.value not in sent
 
 
+@pytest.mark.parametrize("preset", list(EdaxEdsResolution))
+def test_resolution_is_sent_as_its_exact_point_count_only(make_client, preset):
+    """Seen on hardware: APEX picks its preset from numpoints (rounding down)
+    and ignores numlines. Exact widths make the rounding irrelevant."""
+    client, service = make_client()
+
+    EdaxEdsController(client).apply_map_parameters(EdaxEdsMapParams(resolution=preset))
+
+    assert service.arguments_for(EdaxCommand.EDS_SET_NUMPOINTS) == [
+        f'"{preset.points}"'
+    ]
+    assert EdaxCommand.EDS_SET_NUMLINES.value not in service.commands()
+
+
+READBACK = {
+    EdaxCommand.EDS_GET_FOLDERPATH: r"C:\EDAX Data",
+    EdaxCommand.EDS_GET_EDSCHANNEL: "1",
+    EdaxCommand.EDS_GET_NUMFRAMES: "10",
+    EdaxCommand.EDS_GET_NUMPOINTS: "512",
+    EdaxCommand.EDS_GET_PRESETDWELL: "200.0",
+    EdaxCommand.EDS_GET_EDSNUMCHAN: "1024",
+    EdaxCommand.EDS_GET_BYTESPERCHANNEL: "2",
+    EdaxCommand.EDS_GET_IPD: "5",
+    EdaxCommand.EDS_GET_NUMREADS: "1",
+}
+
+
 def test_map_parameters_reads_the_full_set_back(make_client):
     """The read-back path converts every payload into its typed field."""
-    client, _ = make_client(
-        payloads={
-            EdaxCommand.EDS_GET_FOLDERPATH: r"C:\EDAX Data",
-            EdaxCommand.EDS_GET_EDSCHANNEL: "1",
-            EdaxCommand.EDS_GET_NUMFRAMES: "10",
-            EdaxCommand.EDS_GET_NUMPOINTS: "512",
-            EdaxCommand.EDS_GET_NUMLINES: "400",
-            EdaxCommand.EDS_GET_PRESETDWELL: "200.0",
-            EdaxCommand.EDS_GET_EDSNUMCHAN: "1024",
-            EdaxCommand.EDS_GET_BYTESPERCHANNEL: "2",
-            EdaxCommand.EDS_GET_IPD: "5",
-            EdaxCommand.EDS_GET_NUMREADS: "1",
-        }
-    )
+    client, _ = make_client(payloads=READBACK)
     params = EdaxEdsController(client).map_parameters()
 
-    assert params.num_points == 512
-    assert params.num_lines == 400
+    assert params.resolution is EdaxEdsResolution.PRESET_512X400
     assert params.preset_dwell_us == pytest.approx(200.0)
     assert params.inter_pixel_delay == 5
+
+
+def test_stored_point_count_off_the_presets_reads_back_as_none(make_client):
+    """A value APEX rounded (e.g. 100, sent before) names no preset."""
+    client, _ = make_client(payloads={**READBACK, EdaxCommand.EDS_GET_NUMPOINTS: "100"})
+
+    assert EdaxEdsController(client).map_parameters().resolution is None
 
 
 # ----------------------------------------------------------------------

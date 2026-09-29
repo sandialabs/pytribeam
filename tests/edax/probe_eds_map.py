@@ -49,6 +49,7 @@ from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxConnectionSettings,
     EdaxDetectorSlideStatus,
     EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxEvent,
     EdaxProjectInfo,
 )
@@ -80,8 +81,12 @@ def _arguments():
         help="existing folder on the EDAX PC for the map "
         "(default: PYTRIBEAM_EDAX_MAP_FOLDER)",
     )
-    parser.add_argument("--points", type=int, default=100)
-    parser.add_argument("--lines", type=int, default=101)
+    parser.add_argument(
+        "--resolution",
+        choices=[f"{p.points}x{p.lines}" for p in EdaxEdsResolution],
+        default="64x50",
+        help="EDS map preset, sent as its point count only",
+    )
     parser.add_argument("--frames", type=int, default=1)
     parser.add_argument("--dwell-us", type=float, default=60.0)
     parser.add_argument(
@@ -148,9 +153,11 @@ def main() -> int:
     args = _arguments()
     host = os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip() or "localhost"
     port = int(os.environ.get("PYTRIBEAM_EDAX_PORT", "8301"))
+    resolution = next(
+        p for p in EdaxEdsResolution if f"{p.points}x{p.lines}" == args.resolution
+    )
     params = EdaxEdsMapParams(
-        num_points=args.points,
-        num_lines=args.lines,
+        resolution=resolution,
         num_frames=args.frames,
         preset_dwell_us=args.dwell_us,
     )
@@ -159,7 +166,9 @@ def main() -> int:
         return 2
     folder = Path(args.folder)
     tag = time.strftime("probe_%Y%m%d_%H%M%S")
-    nominal_s = args.points * args.lines * args.frames * args.dwell_us * 1e-6
+    nominal_s = (
+        resolution.points * resolution.lines * args.frames * args.dwell_us * 1e-6
+    )
 
     print(f"EDS map probe at {host}:{port}")
     print(f"  folder {folder}, tag {tag}")
@@ -242,13 +251,16 @@ def main() -> int:
         finally:
             eds.apply_map_parameters(
                 EdaxEdsMapParams(
-                    num_points=original.num_points,
-                    num_lines=original.num_lines,
                     num_frames=original.num_frames,
                     preset_dwell_us=original.preset_dwell_us,
                 )
             )
-            print("\nAPEX's EDS map settings restored to what it read back before.")
+            # Not the resolution: the IPAPI read-back is only the last value
+            # sent, not what APEX showed, so there is no safe value to restore.
+            print(
+                f"\nAPEX's EDS frames and dwell restored; resolution left at "
+                f"{args.resolution}."
+            )
 
     print("\nSummary")
     print(f"  predicted duration        {predicted_s:.1f} s")

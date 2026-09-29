@@ -34,6 +34,7 @@ from pytribeam.external_oem.edax.types import (
     EdaxDetectorSlideStatus,
     EdaxDetectorStatus,
     EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxEvent,
 )
 
@@ -97,8 +98,11 @@ class EdaxEdsController(EdaxMappingController):
             (EdaxCommand.EDS_SET_FOLDERPATH, params.folder_path),
             (EdaxCommand.EDS_SET_EDSCHANNEL, params.eds_channel),
             (EdaxCommand.EDS_SET_NUMFRAMES, params.num_frames),
-            (EdaxCommand.EDS_SET_NUMPOINTS, params.num_points),
-            (EdaxCommand.EDS_SET_NUMLINES, params.num_lines),
+            # The resolution goes as points alone; APEX ignores numlines.
+            (
+                EdaxCommand.EDS_SET_NUMPOINTS,
+                None if params.resolution is None else params.resolution.points,
+            ),
             (EdaxCommand.EDS_SET_PRESETDWELL, params.preset_dwell_us),
             (EdaxCommand.EDS_SET_EDSNUMCHAN, params.eds_num_channels),
             (EdaxCommand.EDS_SET_BYTESPERCHANNEL, params.bytes_per_channel),
@@ -136,11 +140,8 @@ class EdaxEdsController(EdaxMappingController):
             num_frames=client.query_int(
                 EdaxCommand.EDS_GET_NUMFRAMES, timeout_s=timeout_s
             ),
-            num_points=client.query_int(
-                EdaxCommand.EDS_GET_NUMPOINTS, timeout_s=timeout_s
-            ),
-            num_lines=client.query_int(
-                EdaxCommand.EDS_GET_NUMLINES, timeout_s=timeout_s
+            resolution=EdaxEdsResolution.from_points(
+                client.query_int(EdaxCommand.EDS_GET_NUMPOINTS, timeout_s=timeout_s)
             ),
             preset_dwell_us=client.query_float(
                 EdaxCommand.EDS_GET_PRESETDWELL, timeout_s=timeout_s
