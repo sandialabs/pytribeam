@@ -159,7 +159,7 @@ class Autofocus:
         frame = self.microscope.imaging.get_image()
         frame = frame.data
         t2 = time.perf_counter()
-        print(f"        set_wd={t1-t0:.3f}s  grab_frame={t2-t1:.3f}s")
+        print(f"        set_wd={t1 - t0:.3f}s  grab_frame={t2 - t1:.3f}s")
         return frame
 
     def compute_metric(self, image):
@@ -211,8 +211,8 @@ class Autofocus:
 
     def convergent_search(self, bounds, max_iterations=15, tolerance=0.001):
         print(
-            f"  Convergent search in [{bounds[0]*1e3:.4f}, {bounds[1]*1e3:.4f}] mm "
-            f"(tol={tolerance*1e3:.4f} mm, max_iter={max_iterations}) ..."
+            f"  Convergent search in [{bounds[0] * 1e3:.4f}, {bounds[1] * 1e3:.4f}] mm "
+            f"(tol={tolerance * 1e3:.4f} mm, max_iter={max_iterations}) ..."
         )
 
         _eval_count = [0]
@@ -225,12 +225,12 @@ class Autofocus:
             _eval_count[0] += 1
             t0 = time.perf_counter()
             print(
-                f"    [iter {_eval_count[0]}] WD = {wd*1e3:.4f} mm ...",
+                f"    [iter {_eval_count[0]}] WD = {wd * 1e3:.4f} mm ...",
                 end=" ",
                 flush=True,
             )
             m = self.get_metric(wd)
-            print(f"sharpness = {m:.4f}  ({time.perf_counter()-t0:.3f} s)")
+            print(f"sharpness = {m:.4f}  ({time.perf_counter() - t0:.3f} s)")
             _history.append((wd, m))
             return -m
 
@@ -263,7 +263,7 @@ class Autofocus:
                 bounds = [lower_bound, upper_bound]
 
                 print(
-                    f"Convergent search in [{bounds[0]*1e3:.4f}, {bounds[1]*1e3:.4f}] mm{bounds}"
+                    f"Convergent search in [{bounds[0] * 1e3:.4f}, {bounds[1] * 1e3:.4f}] mm{bounds}"
                 )
 
                 # Do the search again
@@ -311,8 +311,8 @@ class Autofocus:
         best5_wds, best5_iqs = zip(*best5) if best5 else ((), ())
 
         print(
-            f"Convergent search done in {time.perf_counter()-t_conv_start:.3f} s.  "
-            f"Best WD = {result.x*1e3:.4f} mm"
+            f"Convergent search done in {time.perf_counter() - t_conv_start:.3f} s.  "
+            f"Best WD = {result.x * 1e3:.4f} mm"
         )
         return result.x, best5_wds, best5_iqs
 
@@ -328,7 +328,7 @@ class Autofocus:
 
         print(
             f"Starting autofocus search in "
-            f"[{bounds[0]*1e3:.3f}, {bounds[1]*1e3:.3f}] mm ..."
+            f"[{bounds[0] * 1e3:.3f}, {bounds[1] * 1e3:.3f}] mm ..."
         )
         t_total_start = time.perf_counter()
 
@@ -340,11 +340,11 @@ class Autofocus:
         )
 
         if not self.simulating:
-            print(f"\nSetting WD to {wd*1e3:.4f} mm on microscope ...")
+            print(f"\nSetting WD to {wd * 1e3:.4f} mm on microscope ...")
             self.set_wd(wd)
         print(
-            f"\nAutofocus finished in {time.perf_counter()-t_total_start:.3f} s.  "
-            f"Optimal WD = {wd*1e3:.4f} mm"
+            f"\nAutofocus finished in {time.perf_counter() - t_total_start:.3f} s.  "
+            f"Optimal WD = {wd * 1e3:.4f} mm"
         )
 
         self.set_wd(wd)
@@ -366,7 +366,7 @@ class Autofocus:
             optimal_wd * 1e3,
             color="red",
             linestyle="--",
-            label=f"Optimal WD = {optimal_wd*1e3:.4f} mm",
+            label=f"Optimal WD = {optimal_wd * 1e3:.4f} mm",
         )
         ax.axvspan(
             bounds[0] * 1e3,
@@ -435,7 +435,7 @@ def run_autofocus(
     )
 
     print(
-        f"Searching WD in [{settings.bounds[0]*1e3:.3f}, {settings.bounds[1]*1e3:.3f}] mm ..."
+        f"Searching WD in [{settings.bounds[0] * 1e3:.3f}, {settings.bounds[1] * 1e3:.3f}] mm ..."
     )
     optimal_wd = af.find_optimal_wd(settings.bounds)
 

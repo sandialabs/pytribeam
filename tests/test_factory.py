@@ -128,8 +128,8 @@ class TestActiveSettings:
         )
         found_detector = factory.active_detector_settings(microscope=microscope)
 
-        assert found_detector.type == pytest.approx(known_detector.type)
-        assert found_detector.mode == pytest.approx(known_detector.mode)
+        assert found_detector.type.value == pytest.approx(known_detector.type)
+        assert found_detector.mode.value == pytest.approx(known_detector.mode)
         assert found_detector.brightness == pytest.approx(known_detector.brightness)
         assert found_detector.contrast == pytest.approx(known_detector.contrast)
         assert found_detector.auto_cb_settings.left == pytest.approx(

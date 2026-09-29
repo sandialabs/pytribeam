@@ -251,7 +251,8 @@ __all__ = [
 # Default python modules
 from enum import Enum, IntEnum
 from pathlib import Path
-from typing import List, NamedTuple, Union
+from dataclasses import dataclass, field
+from typing import List, NamedTuple, Union, Mapping
 
 import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
 import autoscript_sdb_microscope_client.enumerations as as_enums
@@ -927,7 +928,8 @@ class RetractableDeviceState(Enum):
     STATIONARY: str = "Stationary"
 
 
-class DeviceStatus(NamedTuple):
+@dataclass(frozen=True)
+class DeviceStatus:
     """
     Status of connected devices.
 
@@ -946,9 +948,33 @@ class DeviceStatus(NamedTuple):
     laser: RetractableDeviceState
     ebsd: RetractableDeviceState
     eds: RetractableDeviceState
+    extra_devices: Mapping = field(default_factory=dict)
 
-    def __str__(self):
-        return f'Laser: "{self.laser.value}"\nEBSD Detector: "{self.ebsd.value}"\nEDS Detector: "{self.eds.value}"'
+    @property
+    def devices(self) -> dict:
+        return {
+            "laser": self.laser,
+            "ebsd": self.ebsd,
+            "eds": self.eds,
+            **self.extra_devices,
+        }
+
+    def __getitem__(self, name: str) -> RetractableDeviceState:
+        return self.devices[name]
+
+    def __str__(self) -> str:
+        display_names = {
+            "laser": "Laser",
+            "ebsd": "EBSD Detector",
+            "eds": "EDS Detector",
+        }
+
+        lines = []
+        for name, state in self.devices.items():
+            display_name = display_names.get(name, name)
+            lines.append(f'{display_name}: "{state.value}"')
+
+        return "\n".join(lines)
 
 
 class RotationSide(Enum):
