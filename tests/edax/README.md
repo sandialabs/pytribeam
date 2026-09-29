@@ -49,16 +49,30 @@ PYTRIBEAM_EDAX_HOST=localhost PYTRIBEAM_RUN_EDAX_IPAPI=1 \
 
 Everything is read-only and nothing starts a map.
 
-| Variable | Purpose |
-|---|---|
-| `PYTRIBEAM_EDAX_HOST` | Host running the IPAPI service. Required. |
-| `PYTRIBEAM_RUN_EDAX_IPAPI` | Opt-in flag. `PYTRIBEAM_RUN_HARDWARE=1` also works. |
-| `PYTRIBEAM_EDAX_PORT` | Service port. Defaults to `8301`. |
-| `PYTRIBEAM_EDAX_PAUSE_S` | Per-command settling pause. Defaults to `0.2`, the production value. |
-| `PYTRIBEAM_EDAX_ALLOW_MOTION` | Separate opt-in for the one test that moves the camera slide. |
-| `PYTRIBEAM_EDAX_ALLOW_MAPPING` | Opt-in for the collection tests, which insert detectors and write maps. |
-| `PYTRIBEAM_EDAX_MAP_FOLDER` | Scratch folder on the EDAX PC for collection-test maps. |
-| `PYTRIBEAM_EDAX_MAP_SIZE_UM` / `_STEP_UM` | Collection-test scan size and step. Default 5 and 0.5. |
+The two tiers have different gates. **The run flags are not interchangeable**:
+the sweep accepts either, but the collection tests insert detectors and so
+require `PYTRIBEAM_RUN_HARDWARE` specifically.
+
+| Variable | Sweep | Collection | Purpose |
+|---|---|---|---|
+| `PYTRIBEAM_EDAX_HOST` | required | required | Host running the IPAPI service. |
+| `PYTRIBEAM_RUN_EDAX_IPAPI` | required* | -- | Opt-in for the read-only sweep. |
+| `PYTRIBEAM_RUN_HARDWARE` | *or this | **required** | Opt-in for tests that drive the microscope. |
+| `PYTRIBEAM_TEST_OEM` | -- | `edax`** | Declares an EDAX system. |
+| `PYTRIBEAM_EDAX_ALLOW_MAPPING` | -- | required | Opt-in for inserting detectors and writing maps. |
+| `PYTRIBEAM_EDAX_MAP_FOLDER` | -- | required | Existing scratch folder on the EDAX PC for test maps. |
+| `PYTRIBEAM_EDAX_PORT` | optional | optional | Service port. Defaults to `8301`. |
+| `PYTRIBEAM_EDAX_PAUSE_S` | optional | -- | Per-command settling pause. Defaults to `0.2`, the production value. |
+| `PYTRIBEAM_EDAX_ALLOW_MOTION` | optional | -- | Opt-in for the one sweep test that moves the camera slide. |
+| `PYTRIBEAM_EDAX_MAP_SIZE_UM` / `_STEP_UM` | -- | optional | Test scan size and step. Default 5 and 0.5. |
+
+\* Either run flag enables the sweep.
+\*\* Not needed on a PC listed in `Constants.microscope_with_edax_machines`.
+
+The collection tests also require a PC listed in `Constants.microscope_machines`,
+with AutoScript and the laser API importable. `python tests/edax/diagnose.py`
+checks every gate for both tiers, in the order pytest applies them, and names
+the first that fails.
 
 The full sweep issues roughly 150 commands, so it takes about half a minute at
 the default pause. Drop `PYTRIBEAM_EDAX_PAUSE_S` to `0.01` when iterating.

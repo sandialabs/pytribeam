@@ -2,102 +2,228 @@
 """
 Explain why the EDAX hardware tests are running or skipping.
 
-The gating lives in ``tests/conftest.py`` and depends only on environment
-variables, so this reports exactly what the Python process sees. Run it from
-the repository root with the same shell and environment used for pytest::
+The EDAX hardware tests come in two tiers with different gates:
+
+- **IPAPI sweep** (``test_edax_ipapi_hardware.py``): read-only, runs from any
+  machine that can reach the IPAPI. Needs ``PYTRIBEAM_EDAX_HOST`` and
+  ``PYTRIBEAM_RUN_EDAX_IPAPI``.
+- **Collection** (``test_edax_collection_hardware.py``): inserts detectors and
+  writes maps, so it runs only on the microscope PC. Needs AutoScript, the laser
+  API, ``PYTRIBEAM_RUN_HARDWARE``, and an EDAX-declared system.
+
+The gating lives in ``tests/conftest.py``; this reuses those same functions and
+reports each condition, in the order pytest applies them, so the first failure
+is the one pytest reports. Run it from the repository root, in the same shell
+and environment used for pytest::
 
     python tests/edax/diagnose.py
 
-Environment variables set in one terminal do not reach a different one, and
-``$env:NAME`` in PowerShell silently creates whatever name is typed, so a
-mis-typed or unprefixed variable looks identical to an unset one. This prints
-every EDAX-related variable it can find, which makes that case obvious.
+Output is plain ASCII so it reads correctly in a default PowerShell console.
 """
 
 # Default python modules
 import os
+import platform
 import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "tests"))
+sys.path.insert(0, str(REPO_ROOT / "src"))
 
 import conftest  # noqa: E402
 
 ACCEPTED_FLAGS = ("1", "true", "yes", "on")
 
+ALLOW_MAPPING_ENV_VAR = "PYTRIBEAM_EDAX_ALLOW_MAPPING"
+MAP_FOLDER_ENV_VAR = "PYTRIBEAM_EDAX_MAP_FOLDER"
 
-def _show(name: str) -> str:
-    """Print one variable as Python sees it and return its raw value."""
+
+def _flag(name: str) -> bool:
+    """Return True when a variable holds an accepted opt-in value."""
+    return os.environ.get(name, "").strip().lower() in ACCEPTED_FLAGS
+
+
+def _value(name: str) -> str:
+    """Return a variable for display, marking it when unset."""
     raw = os.environ.get(name)
-    if raw is None:
-        print(f"  {name:<30} NOT SET")
-    else:
-        print(f"  {name:<30} {raw!r}")
-    return raw or ""
+    return "NOT SET" if raw is None else repr(raw)
 
 
-def main() -> int:
-    """Report the gating decision and the reason behind it."""
-    print("EDAX hardware test gating\n")
+def _report(checks) -> bool:
+    """Print a tier's checks and name the first failure. Return True if all pass."""
+    for label, passed, detail, _fix in checks:
+        print(f"  [{'ok' if passed else 'FAIL'}] {label:<42} {detail}")
+    failures = [check for check in checks if not check[1]]
+    if not failures:
+        print("  -> will run")
+        return True
+    label, _passed, _detail, fix = failures[0]
+    print(f"  -> will skip at: {label}")
+    print(f"     fix: {fix}")
+    return False
+
+
+def _environment() -> None:
+    """Print where settings come from."""
     print(f"working directory: {Path.cwd()}")
-    print(f"interpreter:       {sys.executable}\n")
-
+    print(f"interpreter:       {sys.executable}")
+    print(f"hostname:          {platform.uname().node}")
     if conftest.ENV_FILE.is_file():
         print(f"env file:          {conftest.ENV_FILE}")
-        if conftest.ENV_FILE_APPLIED:
-            names = ", ".join(sorted(conftest.ENV_FILE_APPLIED))
-            print(f"  supplied from it:  {names}")
-        else:
-            print("  supplied from it:  nothing (all already set in the shell)")
+        applied = ", ".join(sorted(conftest.ENV_FILE_APPLIED)) or (
+            "nothing (all already set in the shell)"
+        )
+        print(f"  supplied from it:  {applied}")
     else:
         print(f"env file:          none at {conftest.ENV_FILE}")
-    print()
-
-    print("Required variables, as this Python process sees them:")
-    host = _show(conftest.EDAX_HOST_ENV_VAR)
-    flag = _show(conftest.RUN_EDAX_IPAPI_ENV_VAR)
-    hardware_flag = _show(conftest.RUN_HARDWARE_ENV_VAR)
 
     related = {
         key: value
         for key, value in os.environ.items()
         if "EDAX" in key.upper() or "PYTRIBEAM" in key.upper()
     }
-    print("\nEvery PYTRIBEAM/EDAX variable in this environment:")
-    if related:
-        for key in sorted(related):
-            print(f"  {key:<30} {related[key]!r}")
-    else:
-        print("  (none)")
+    print("\nEvery PYTRIBEAM/EDAX variable this process sees:")
+    for key in sorted(related) or ["(none)"]:
+        print(f"  {key:<30} {related[key]!r}" if key in related else f"  {key}")
 
-    host_ok = bool(host.strip())
-    flag_ok = flag.strip().lower() in ACCEPTED_FLAGS
-    hardware_ok = hardware_flag.strip().lower() in ACCEPTED_FLAGS
 
-    print("\nChecks:")
-    print(f"  host is non-empty                 {host_ok}")
-    print(f"  run flag is one of {ACCEPTED_FLAGS}  {flag_ok}")
-    print(f"  hardware flag accepted instead    {hardware_ok}")
+def _ipapi_checks():
+    """Gates for the read-only IPAPI sweep."""
+    host = os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip()
+    run_flag = _flag(conftest.RUN_EDAX_IPAPI_ENV_VAR) or _flag(
+        conftest.RUN_HARDWARE_ENV_VAR
+    )
+    return [
+        (
+            conftest.EDAX_HOST_ENV_VAR,
+            bool(host),
+            _value(conftest.EDAX_HOST_ENV_VAR),
+            f"{conftest.EDAX_HOST_ENV_VAR}=<ipapi host>   (check the PYTRIBEAM_ prefix)",
+        ),
+        (
+            f"{conftest.RUN_EDAX_IPAPI_ENV_VAR} (or RUN_HARDWARE)",
+            run_flag,
+            _value(conftest.RUN_EDAX_IPAPI_ENV_VAR),
+            f"{conftest.RUN_EDAX_IPAPI_ENV_VAR}=1",
+        ),
+    ]
 
-    enabled = conftest.can_run_edax_ipapi()
-    print(f"\ncan_run_edax_ipapi() -> {enabled}")
 
-    if enabled:
-        print("\nThe hardware tests should run. If they still skip, the skip")
-        print("reason will name a different gate; paste it and check that")
-        print("marker instead.")
-        return 0
+def _collection_checks():
+    """Gates for the collection tests, in the order pytest applies them."""
+    checks = []
 
-    print("\nThey will skip. Cause:")
-    if not host_ok:
-        print(f"  {conftest.EDAX_HOST_ENV_VAR} is empty or unset in THIS process.")
-        print("  Check the spelling, including the PYTRIBEAM_ prefix, and that")
-        print("  it was set in the same terminal that runs pytest.")
-    elif not (flag_ok or hardware_ok):
-        print(f"  {conftest.RUN_EDAX_IPAPI_ENV_VAR} is not an accepted value.")
-        print(f'  Set it to one of {ACCEPTED_FLAGS}, for example "1".')
-    return 1
+    # 1. The module imports AutoScript, and is skipped whole without it.
+    try:
+        import autoscript_sdb_microscope_client  # noqa: F401
+
+        autoscript = True
+    except ImportError:
+        autoscript = False
+    checks.append(
+        (
+            "AutoScript importable",
+            autoscript,
+            "yes" if autoscript else "no",
+            "run on the microscope PC, in the environment with AutoScript",
+        )
+    )
+    if not autoscript:
+        # Everything below needs pytribeam.constants, which needs AutoScript.
+        return checks
+
+    # 2. The module-level opt-in.
+    checks.append(
+        (
+            ALLOW_MAPPING_ENV_VAR,
+            _flag(ALLOW_MAPPING_ENV_VAR),
+            _value(ALLOW_MAPPING_ENV_VAR),
+            f"{ALLOW_MAPPING_ENV_VAR}=1",
+        )
+    )
+
+    # 3-5. The marker gates, in the order conftest adds their skip markers.
+    from pytribeam.constants import Constants
+
+    hardware = conftest.is_hardware_system()
+    checks.append(
+        (
+            "'hardware': hostname is a microscope PC",
+            hardware,
+            f"known: {Constants.microscope_machines}",
+            "run on a listed PC, or add this hostname to Constants.microscope_machines",
+        )
+    )
+    laser = hardware and conftest.has_laser_hardware()
+    checks.append(
+        (
+            "'laser_hardware': laser API importable",
+            laser,
+            "yes" if laser else "no",
+            "run in the environment where Laser.PythonControl imports",
+        )
+    )
+
+    run_hardware = _flag(conftest.RUN_HARDWARE_ENV_VAR)
+    checks.append(
+        (
+            f"'edax_hardware': {conftest.RUN_HARDWARE_ENV_VAR}",
+            run_hardware,
+            _value(conftest.RUN_HARDWARE_ENV_VAR),
+            f"{conftest.RUN_HARDWARE_ENV_VAR}=1   "
+            f"({conftest.RUN_EDAX_IPAPI_ENV_VAR} does not count here)",
+        )
+    )
+    declared = conftest._declared_test_oem() == "edax"
+    edax_host = conftest.is_edax_hardware_system()
+    checks.append(
+        (
+            "'edax_hardware': system declared EDAX",
+            declared or edax_host,
+            f"{conftest.TEST_OEM_ENV_VAR}={_value(conftest.TEST_OEM_ENV_VAR)}, "
+            f"EDAX hosts: {Constants.microscope_with_edax_machines}",
+            f"{conftest.TEST_OEM_ENV_VAR}=edax",
+        )
+    )
+
+    # 6. Checked by the module's fixture once the markers allow it to run.
+    checks.append(
+        (
+            conftest.EDAX_HOST_ENV_VAR,
+            bool(os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip()),
+            _value(conftest.EDAX_HOST_ENV_VAR),
+            f"{conftest.EDAX_HOST_ENV_VAR}=localhost",
+        )
+    )
+    checks.append(
+        (
+            MAP_FOLDER_ENV_VAR,
+            bool(os.environ.get(MAP_FOLDER_ENV_VAR, "").strip()),
+            _value(MAP_FOLDER_ENV_VAR),
+            f"{MAP_FOLDER_ENV_VAR}=<existing scratch folder on the EDAX PC>",
+        )
+    )
+    return checks
+
+
+def main() -> int:
+    """Report both tiers. Exit 0 only when every tier would run."""
+    print("EDAX hardware test gating\n")
+    _environment()
+
+    print("\nIPAPI sweep  (test_edax_ipapi_hardware.py)")
+    sweep = _ipapi_checks()
+    sweep_ok = _report(sweep)
+    # Cross-check against the function pytest actually calls.
+    if sweep_ok != conftest.can_run_edax_ipapi():
+        print("  !! disagrees with conftest.can_run_edax_ipapi(); please report")
+
+    print("\nCollection  (test_edax_collection_hardware.py)")
+    collection = _collection_checks()
+    collection_ok = _report(collection)
+
+    return 0 if (sweep_ok and collection_ok) else 1
 
 
 if __name__ == "__main__":
