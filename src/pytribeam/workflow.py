@@ -374,7 +374,9 @@ def _(
     microscope = image_settings.microscope
 
     # insert detector
-    external_devices.insert_eds(microscope=microscope, general_settings=general_settings)
+    external_devices.insert_eds(
+        microscope=microscope, general_settings=general_settings
+    )
 
     # measure and log specimen current
     found_current_na = devices.specimen_current(microscope=microscope)
@@ -413,7 +415,9 @@ def _(
     )
 
     # retract detector
-    external_devices.retract_eds(microscope=microscope, general_settings=general_settings)
+    external_devices.retract_eds(
+        microscope=microscope, general_settings=general_settings
+    )
 
     return True
 

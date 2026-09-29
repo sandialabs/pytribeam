@@ -936,7 +936,6 @@ def laser_operation(
     return True
 
 
-
 def map_ebsd() -> bool:
     """
     Run an EBSD map through the TFS LaserControl interface.
