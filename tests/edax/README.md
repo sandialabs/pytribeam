@@ -277,6 +277,16 @@ the map sequence in `edax/mapping.py` refuses to move the camera without a
 motion guard. `edax/workflow.py` supplies
 `insertable_devices.ccd_live_view` as that guard.
 
+### Probing EDS map completion
+
+`python tests/edax/probe_eds_map.py --folder <map folder> --yes` starts one
+small EDS map with the workflow's headless setup and prints, about once a
+second, APEX's EDS and EBSD map status and every event, then the files that
+appeared. Use it when an EDS map "finishes" too quickly: it shows whether the
+map ran at all and which signal marks its end. It never moves a detector, so
+insert the EDS detector from APEX, with the chamber CCD on, first. Without
+`--yes` it only prints what it would do.
+
 ## Markers
 
 - `detached` — unit tests, always runnable.
