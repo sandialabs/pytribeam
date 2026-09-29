@@ -43,6 +43,7 @@ from pytribeam.external_oem.edax import mapping  # noqa: E402
 from pytribeam.external_oem.edax.client import EdaxClient  # noqa: E402
 from pytribeam.external_oem.edax.eds import EdaxEdsController  # noqa: E402
 from pytribeam.external_oem.edax.errors import EdaxError, EdaxTimeoutError  # noqa: E402
+from pytribeam.external_oem.edax.sem import EdaxSemController  # noqa: E402
 from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxCommand,
     EdaxConnectionSettings,
@@ -56,6 +57,9 @@ from pytribeam.external_oem.edax.types import (  # noqa: E402
 PROJECT = EdaxProjectInfo(
     guid="7b093500-6e8e-4657-bf45-03bc05ce8a32", name="pytribeam_eds_probe"
 )
+
+# Hosts whose map folder is this machine's, so its files can be listed here.
+LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
 
 # Answers that mean a map is under way, as opposed to idle or finished.
 IN_PROGRESS = {
@@ -185,7 +189,13 @@ def main() -> int:
             return 2
 
         original = eds.map_parameters()
-        files_before = _snapshot(folder)
+        log(f"before the probe, APEX reads back {original}")
+        sem = EdaxSemController(client)
+        try:
+            log(f"SEM image {sem.image_width_px()} x {sem.image_height_px()} px")
+        except EdaxError as error:
+            log(f"SEM image size unavailable: {error}")
+        files_before = _snapshot(folder) if host.lower() in LOCAL_HOSTS else None
         try:
             mapping.run_eds_preflight(eds, folder, PROJECT)
             log("preflight done: NoWait access, folder, project, detector ready")
@@ -206,7 +216,7 @@ def main() -> int:
                 for event in client.drain_events():
                     log(f"EVENT {event.raw!r}")
                     if event.command == EdaxEvent.EDS_COLLECTION_COMPLETE.value:
-                        completed_at = completed_at or elapsed
+                        completed_at = completed_at or time.time() - log.start
                 answers, pending = _poll_statuses(client, pending)
                 eds_status = answers.get(EdaxCommand.EDS_GET_MAP_STATUS)
                 ebsd_status = answers.get(EdaxCommand.EBSD_GET_MAP_STATUS)
@@ -220,7 +230,7 @@ def main() -> int:
                     and eds_status
                     and eds_status.strip().lower() in IN_PROGRESS
                 ):
-                    first_busy = elapsed
+                    first_busy = time.time() - log.start
                 if completed_at is not None and elapsed >= completed_at + args.after_s:
                     break
                 if elapsed >= deadline_s:
@@ -238,7 +248,7 @@ def main() -> int:
                     preset_dwell_us=original.preset_dwell_us,
                 )
             )
-            print("\nAPEX's own EDS map size restored.")
+            print("\nAPEX's EDS map settings restored to what it read back before.")
 
     print("\nSummary")
     print(f"  predicted duration        {predicted_s:.1f} s")
@@ -252,11 +262,14 @@ def main() -> int:
     )
     files_after = _snapshot(folder)
     if files_before is None:
-        print("  new files                 folder is not on this machine; check it")
+        print(f"  new files                 folder is on {host}; check it there")
     else:
         new = sorted(set(files_after) - set(files_before))
         print(f"  new files                 {new or 'none'}")
-    print("\nThe EDS detector is still inserted; retract it from APEX.")
+    print(
+        "\nNote the map size APEX shows, and the size of the saved map.\n"
+        "The EDS detector is still inserted; retract it from APEX."
+    )
     return 0
 
 
