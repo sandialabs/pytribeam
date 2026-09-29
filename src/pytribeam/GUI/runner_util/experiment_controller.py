@@ -481,9 +481,7 @@ class ExperimentController:
         self._notify("state_changed", self.state)
         if self._send_emails:
             end_of_slice = step_num == total_steps
-            update_frequency = (
-                self.experiment_settings.general_settings.email_update_settings.update_frequency
-            )
+            update_frequency = self.experiment_settings.general_settings.email_update_settings.update_frequency
             if end_of_slice and (slice_num % update_frequency == 0):
                 message = (
                     f"Experiment update:\n"
@@ -614,24 +612,14 @@ class ExperimentController:
             ssh_user = (
                 self.experiment_settings.general_settings.email_update_settings.ssh_user
             )
-            ssh_key_path = (
-                self.experiment_settings.general_settings.email_update_settings.ssh_key_path
-            )
+            ssh_key_path = self.experiment_settings.general_settings.email_update_settings.ssh_key_path
             sender_email = (
                 self.experiment_settings.general_settings.email_update_settings.sender
             )
-            sender_password = (
-                self.experiment_settings.general_settings.email_update_settings.sender_password
-            )
-            recipients = (
-                self.experiment_settings.general_settings.email_update_settings.recipients
-            )
-            smtp_server = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_server
-            )
-            smtp_port = (
-                self.experiment_settings.general_settings.email_update_settings.smtp_port
-            )
+            sender_password = self.experiment_settings.general_settings.email_update_settings.sender_password
+            recipients = self.experiment_settings.general_settings.email_update_settings.recipients
+            smtp_server = self.experiment_settings.general_settings.email_update_settings.smtp_server
+            smtp_port = self.experiment_settings.general_settings.email_update_settings.smtp_port
 
             success, response = send_update_email(
                 ssh_host=ssh_host,
