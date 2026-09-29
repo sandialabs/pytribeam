@@ -6,7 +6,10 @@ from .images import *
 
 
 class MenuButton(tk.Menubutton):
-    """A tk  MenuButton."""
+    """A tk MenuButton showing its value on the left and a dropdown arrow on the right."""
+
+    ARROW = "▼"
+    ARROW_GAP = "  "  # minimum space between the value and the arrow
 
     def __init__(
         self,
@@ -40,10 +43,20 @@ class MenuButton(tk.Menubutton):
         else:
             self.var = var
 
+        # Display the value with an arrow so the button reads as a dropdown,
+        # while self.var keeps holding just the value
+        self._display_var = tk.StringVar(parent)
+        self._trace_id = self.var.trace_add("write", self._update_display)
+        # The arrow is pushed to the right edge by padding the text to the widget's
+        # width, so a text-sized request would grow with every resize. Without an
+        # explicit width, size the widget to its values instead.
+        self._auto_width = not kw.get("width")
+
         relief = kw.get("relief", "raised")
+        kw.setdefault("anchor", "w")
         kw.update(
             dict(
-                textvariable=self.var,
+                textvariable=self._display_var,
                 bg=bg,
                 fg=fg,
                 highlightbackground=bg,
@@ -66,6 +79,47 @@ class MenuButton(tk.Menubutton):
         self["menu"] = self.menu
         self.options = options
         self.set_options(options, command)
+        self.bind("<Configure>", self._update_display, add="+")
+
+    def _update_display(self, *args):
+        """Show the current value with the dropdown arrow at the right edge."""
+        # Read the raw Tcl value so a non-numeric value in an IntVar/DoubleVar can't raise
+        value = str(self.getvar(str(self.var)))
+        if self._auto_width:
+            longest = max([len(str(opt)) for opt in self.options] + [len(value)])
+            width = longest + len(self.ARROW_GAP) + 2
+            if int(self.cget("width")) != width:
+                self.configure(width=width)
+        self._display_var.set(self._fit_to_width(value))
+
+    def _fit_to_width(self, value):
+        """Pad (or shorten) the value so the arrow ends at the right edge of the text area."""
+        font = self.cget("font")
+
+        def measure(text):
+            return int(self.tk.call("font", "measure", font, text))
+
+        arrow = self.ARROW_GAP + self.ARROW
+        inset = sum(
+            self.winfo_fpixels(self.cget(opt))
+            for opt in ("borderwidth", "highlightthickness", "padx")
+        )
+        available = self.winfo_width() - 2 * inset
+        if available <= 0:
+            return value + arrow  # not laid out yet, <Configure> will refit it
+
+        # Shorten values that don't fit so the arrow stays visible
+        if measure(value + arrow) > available:
+            while value and measure(value + "…" + arrow) > available:
+                value = value[:-1]
+            value += "…"
+        spaces = int((available - measure(value + arrow)) // max(measure(" "), 1))
+        return value + " " * max(spaces, 0) + arrow
+
+    def destroy(self):
+        """Stop mirroring the variable, which may outlive this widget."""
+        self.var.trace_remove("write", self._trace_id)
+        tk.Menubutton.destroy(self)
 
     def set_options(self, options, command=None):
         """Set the options for the menubutton."""
@@ -82,6 +136,7 @@ class MenuButton(tk.Menubutton):
                     value=opt,
                     command=lambda: command(self.var.get()),
                 )
+        self._update_display()
 
 
 class EntryMenuButton(ttk.Combobox):
@@ -170,40 +225,36 @@ class EntryMenuButton(ttk.Combobox):
             ],
         )
 
-        # Set the style to use the correct background and foreground colors
-        # Note: On Windows, ttk.Combobox fieldbackground cannot be reliably styled
-        # The entry field will remain white, so we use dark text for visibility
+        # Set the style to use the correct background and foreground colors,
+        # matching the other entry widgets (e.g. white text on a dark field in dark mode)
         self.bg = bg or DEFAULT_COLOR
         self.fg = fg or calc_font_color(self.bg)
-        # Force dark text on white background for readability in the entry field
-        entry_fg = calc_font_color(
-            "#FFFFFF"
-        )  # Calculate text color for white background
 
         custom_style = f"EMB_{len(EntryMenuButton.style)}.TCombobox"
         EntryMenuButton.style.append(custom_style)
         style.configure(
             custom_style,
             padding=(1, 1, 1, 1),
-            fieldbackground="white",  # Explicitly set to white since we can't override it
+            fieldbackground=self.bg,
             background=self.bg,
-            foreground=entry_fg,  # Dark text for white background
+            foreground=self.fg,
+            insertcolor=self.fg,
             selectbackground="#0078D7",  # Standard blue selection
             selectforeground="white",
-            arrowcolor=entry_fg,
+            arrowcolor=self.fg,
         )
         style.map(
             custom_style,
             fieldbackground=[
-                ("readonly", "white"),
-                ("disabled", "#F0F0F0"),
-                ("", "white"),
+                ("readonly", self.bg),
+                ("disabled", self.bg),
+                ("", self.bg),
             ],
             background=[("readonly", self.bg), ("disabled", self.bg), ("", self.bg)],
             foreground=[
-                ("readonly", entry_fg),
+                ("readonly", self.fg),
                 ("disabled", "#808080"),
-                ("", entry_fg),
+                ("", self.fg),
             ],
             selectbackground=[("", "#0078D7")],
             selectforeground=[("", "white")],

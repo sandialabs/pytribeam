@@ -232,10 +232,14 @@ def get_available_detector_modes(
             detector_type(microscope, detector)
         except:
             warnings.warn(
-                f"""Warning. Invalid detector type of "{detector_type}" for currently selected device
+                f"""Warning. Invalid detector type of "{detector.value}" for currently selected device
                 of "{tbt.Device(microscope.imaging.get_active_device()).value}" or detector not found on this system.
-                Detector will be assumed to not be insertable."""
+                No detector modes will be returned."""
             )
+            # Clean up
+            detector_type(microscope, original_detector_type)
+            detector_mode(microscope, original_detector_mode)
+            set_beam_device(microscope, original_device)
             return
 
     # Get the available values of detector mode for this type
@@ -314,7 +318,7 @@ def get_available_insertable_detectors(
     insertable_detectors = []
     for dt in get_available_detector_types(microscope, device):
         if devices.detector_insertable(microscope=microscope, detector=dt):
-            insertable_detectors.append(detector_type)
+            insertable_detectors.append(dt)
 
     # Clean up
     detector_type(microscope, original_detector_type)

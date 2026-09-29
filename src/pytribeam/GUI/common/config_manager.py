@@ -167,8 +167,12 @@ class AppConfig:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         return self.log_dir / f"{timestamp}_terminal.txt"
 
-    def get_error_log_path(self) -> Path:
+    def get_error_log_path(self, directory: Optional[Path] = None) -> Path:
         """Get path for new error traceback file.
+
+        Args:
+            directory: Directory for the file (default: log_dir), e.g. the
+                experiment's errors folder
 
         Returns:
             Path for error log file with timestamp
@@ -176,4 +180,5 @@ class AppConfig:
         import time
 
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        return self.log_dir / f"{timestamp}_error_traceback.txt"
+        directory = self.log_dir if directory is None else Path(directory)
+        return directory / f"{timestamp}_error_traceback.txt"
