@@ -30,8 +30,8 @@ Before running:
 - Put the sample at the EBSD position (tilted, at working distance) with the
   electron beam on. Nothing here moves the stage.
 - Leave the EDAX software open with no map running.
-- The EDS map uses APEX's current EDS map settings (resolution, frames,
-  dwell); only where it saves is set by the test.
+- The EDS map is set to a small one for the test (``TEST_EDS_MAP``, about
+  26 s), and APEX's own EDS map settings are put back afterwards.
 - Point ``PYTRIBEAM_EDAX_MAP_FOLDER`` at an existing scratch folder on the EDAX
   PC, and clear it between runs. Each run writes ``Slice_0001`` (EBSD),
   ``Slice_0002`` (EBSD + EDS), and ``Slice_0003_EDS`` there, and EDAX requires
@@ -53,6 +53,7 @@ the CCD off fails the test.
 import os
 import platform
 import time
+import warnings
 from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
@@ -76,7 +77,10 @@ from pytribeam.constants import Constants  # noqa: E402
 from pytribeam.external_oem.edax.client import EdaxClient  # noqa: E402
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController  # noqa: E402
 from pytribeam.external_oem.edax.eds import EdaxEdsController  # noqa: E402
-from pytribeam.external_oem.edax.errors import EdaxUnsupportedCommandError  # noqa: E402
+from pytribeam.external_oem.edax.errors import (  # noqa: E402
+    EdaxError,
+    EdaxUnsupportedCommandError,
+)
 from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxCameraStatus,
     EdaxCommand,
@@ -84,6 +88,7 @@ from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxDetectorSlideStatus,
     EdaxEbsdMapParams,
     EdaxEbsdResolution,
+    EdaxEdsMapParams,
     EdaxMappingStatus,
 )
 
@@ -96,6 +101,13 @@ MAP_STEP_ENV_VAR = "PYTRIBEAM_EDAX_MAP_STEP_UM"
 
 #: EDAX project the test maps are filed under, kept apart from real experiments.
 PROJECT_NAME = "pytribeam_hardware_test"
+
+#: The EDS test map, set explicitly: the EDS map has no scan box, so without
+#: this it runs at whatever APEX last used (44 minutes, on hardware). About
+#: 26 s of dwell, so the first status poll lands mid-map rather than after it.
+TEST_EDS_MAP = EdaxEdsMapParams(
+    num_points=128, num_lines=100, num_frames=10, preset_dwell_us=200.0
+)
 
 # Statuses meaning EDAX is busy and a test map must not be started.
 _BUSY = frozenset(
@@ -186,6 +198,50 @@ def _ipapi(config: tbt.EDAXConfig):
     )
     with EdaxClient(settings, quiet=True) as client:
         yield client
+
+
+def _dwell_s(params: EdaxEdsMapParams) -> float:
+    """Points x lines x frames x dwell: the EDS map's collection time."""
+    return (
+        params.num_points
+        * params.num_lines
+        * params.num_frames
+        * params.preset_dwell_us
+        * 1e-6
+    )
+
+
+@contextmanager
+def _eds_map_settings(config: tbt.EDAXConfig, params: EdaxEdsMapParams):
+    """
+    Apply an EDS map size for one test, then put APEX's own settings back.
+
+    Yields what APEX read back and the duration it then predicted, which is how
+    a test proves the settings took effect.
+    """
+    with _ipapi(config) as client:
+        eds = EdaxEdsController(client)
+        original = eds.map_parameters()
+        eds.apply_map_parameters(params)
+        applied = eds.map_parameters()
+        predicted_s = eds.map_duration_s()
+    try:
+        yield applied, predicted_s
+    finally:
+        restore = EdaxEdsMapParams(
+            num_points=original.num_points,
+            num_lines=original.num_lines,
+            num_frames=original.num_frames,
+            preset_dwell_us=original.preset_dwell_us,
+        )
+        try:
+            with _ipapi(config) as client:
+                EdaxEdsController(client).apply_map_parameters(restore)
+        except EdaxError as error:
+            # Never mask the test's own failure with a restore failure.
+            warnings.warn(
+                f"Could not restore APEX's EDS map settings {restore}: {error}"
+            )
 
 
 def _require_idle(config: tbt.EDAXConfig) -> None:
@@ -502,6 +558,10 @@ def test_eds_map(microscope, experiment, motion_watch):
     APEX was told where to save before the map started, and, when the folder is
     on this machine, that the map actually wrote data there. The detector moves
     over the IPAPI, under the live chamber CCD.
+
+    The map size is set explicitly and confirmed through APEX's read-back and
+    its predicted duration, since the EDS map otherwise runs at whatever APEX
+    last used.
     """
     config = experiment.EDAX_settings
     step = SimpleNamespace(number=3, name="edax_hw_eds")
@@ -512,18 +572,37 @@ def test_eds_map(microscope, experiment, motion_watch):
     files_before = _folder_snapshot(folder)
 
     external_devices.preflight_eds(general_settings=experiment)
-    try:
-        external_devices.insert_eds(microscope=microscope, general_settings=experiment)
-        assert external_devices.map_eds(
-            general_settings=experiment,
-            step_settings=None,
-            slice_number=3,
-            step=step,
+    with _eds_map_settings(config, TEST_EDS_MAP) as (applied, predicted_s):
+        # The EDS map takes APEX's current settings, so these must have landed
+        # before the dispatcher starts it.
+        for field in ("num_points", "num_lines", "num_frames"):
+            assert getattr(applied, field) == getattr(TEST_EDS_MAP, field), (
+                f"APEX read back {field}={getattr(applied, field)}, "
+                f"not {getattr(TEST_EDS_MAP, field)}"
+            )
+        assert applied.preset_dwell_us == pytest.approx(
+            TEST_EDS_MAP.preset_dwell_us, rel=0.05
+        ), f"APEX read back a dwell of {applied.preset_dwell_us} us"
+        nominal_s = _dwell_s(TEST_EDS_MAP)
+        assert 0.5 * nominal_s <= predicted_s <= 3 * nominal_s, (
+            f"APEX predicts {predicted_s:.1f} s for an EDS map whose points x "
+            f"lines x frames x dwell is {nominal_s:.1f} s"
         )
-    finally:
-        external_devices.retract_all_external_devices(
-            microscope=microscope, general_settings=experiment
-        )
+
+        try:
+            external_devices.insert_eds(
+                microscope=microscope, general_settings=experiment
+            )
+            assert external_devices.map_eds(
+                general_settings=experiment,
+                step_settings=None,
+                slice_number=3,
+                step=step,
+            )
+        finally:
+            external_devices.retract_all_external_devices(
+                microscope=microscope, general_settings=experiment
+            )
 
     with _ipapi(config) as client:
         eds = EdaxEdsController(client)

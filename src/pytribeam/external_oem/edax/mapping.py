@@ -50,7 +50,7 @@ run_eds_map(eds, plan) -> EdaxMapResult
 # Default python modules
 import time
 from pathlib import Path
-from typing import Any, Callable, ContextManager, Dict, NamedTuple, Optional
+from typing import Any, Callable, ContextManager, Dict, NamedTuple, Optional, Tuple
 
 # Local scripts
 from pytribeam.external_oem.edax.ebsd import EdaxEbsdController
@@ -537,6 +537,8 @@ class _Collection(NamedTuple):
     status: EdaxMappingStatus
     predicted_s: float
     duration_s: float
+    # (status, seconds since collection start) for every answered poll.
+    polled: Tuple[Tuple[EdaxMappingStatus, float], ...] = ()
 
 
 def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collection:
@@ -561,11 +563,20 @@ def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collect
         (predicted_s + plan.start_delay_s) * plan.timeout_scalar, plan.min_timeout_s
     )
     remaining_s = max(budget_s - (time.time() - scan_start), 0.0)
+
+    # Kept so a suspicious completion can say what EDAX actually reported.
+    polled = []
+
+    def record(status: EdaxMappingStatus, elapsed_s: float) -> None:
+        polled.append((status, time.time() - scan_start))
+        if progress_fn is not None:
+            progress_fn(status, elapsed_s)
+
     status = controller.wait_for_map_complete(
         timeout_s=remaining_s,
         poll_interval_s=plan.poll_interval_s,
         status_timeout_s=plan.status_timeout_s,
-        progress_fn=progress_fn,
+        progress_fn=record,
     )
     end_time = time.time()
 
@@ -576,7 +587,7 @@ def _collect(controller, plan, label: str, progress_fn, quiet: bool) -> _Collect
         )
     if not quiet:
         print("\t\tMapping complete")
-    return _Collection(status, predicted_s, end_time - scan_start)
+    return _Collection(status, predicted_s, end_time - scan_start, tuple(polled))
 
 
 def _require_full_duration(label: str, tag: str, collection: _Collection) -> None:
@@ -593,9 +604,25 @@ def _require_full_duration(label: str, tag: str, collection: _Collection) -> Non
         raise EdaxStateError(
             f"EDAX {label} map '{tag}' finished unexpectedly quickly. EDAX "
             f"predicted {collection.predicted_s:.1f} seconds, but completion was "
-            f"observed after {collection.duration_s:.1f} seconds. Please check "
-            "the EDAX software."
+            f"observed after {collection.duration_s:.1f} seconds, "
+            f"{_completion_evidence(collection)} Please check the EDAX software; "
+            "the map may still be running there."
         )
+
+
+def _completion_evidence(collection: _Collection) -> str:
+    """Describe what ended the wait, for the too-quick error."""
+    history = ", ".join(
+        f"'{status.value}' at {seconds:.0f} s" for status, seconds in collection.polled
+    )
+    history = f"Statuses polled: {history}." if history else "No status was polled."
+    if collection.polled and collection.polled[-1][0] is collection.status:
+        ended = f"on status '{collection.status.value}'."
+        if collection.status is EdaxMappingStatus.READY:
+            ended += " 'ready' is also what EDAX reports before a map has started."
+    else:
+        ended = "on EDAX's collection-complete event."
+    return f"{ended} {history}"
 
 
 def _require_eds_ready(eds: EdaxEdsController) -> None:

@@ -729,6 +729,51 @@ def test_eds_map_finishing_early_is_rejected(make_client, no_sleep):
         mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
 
 
+def test_early_ready_is_named_in_the_error(make_client, no_sleep):
+    """Seen on hardware: a 44-minute EDS map 'completed' at 12 s. The error
+    must say which status ended the wait, since 'ready' also means not started."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{
+                EdaxCommand.EDS_GET_MAP_DURATION: str(int(2621.44 * TICKS_PER_SECOND)),
+                EdaxCommand.EDS_GET_MAP_STATUS: "Ready",
+            }
+        )
+    )
+
+    with pytest.raises(EdaxStateError) as error:
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    message = str(error.value)
+    assert "on status 'ready'" in message
+    assert "before a map has started" in message
+    assert "Statuses polled: 'ready' at" in message
+
+
+def test_early_completion_event_is_named_in_the_error(make_client, no_sleep):
+    """When the event, not a status, ends the wait, the error says so."""
+    client, _ = make_client(
+        payloads=_eds_payloads(
+            **{
+                EdaxCommand.EDS_GET_MAP_DURATION: str(int(60 * TICKS_PER_SECOND)),
+                EdaxCommand.EDS_GET_MAP_STATUS: "MappingActive",
+            }
+        ),
+        events={
+            EdaxCommand.EDS_GET_MAP_STATUS: [
+                'EVENT_MAP_COLLECTION_COMPLETE "Mapping Complete"'
+            ]
+        },
+    )
+
+    with pytest.raises(EdaxStateError) as error:
+        mapping.run_eds_map(EdaxEdsController(client), _eds_plan(), quiet=True)
+
+    message = str(error.value)
+    assert "collection-complete event" in message
+    assert "'mappingactive' at" in message
+
+
 def test_interrupted_eds_map_is_rejected(make_client, no_sleep):
     """An aborted EDS map leaves partial data, so it is a failure."""
     client, _ = make_client(

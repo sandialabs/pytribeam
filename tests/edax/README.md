@@ -239,8 +239,11 @@ Before running:
   **Nothing moves the stage.**
 - EDAX software open, no map running. The tests skip rather than interfere if
   EDAX reports a map or setup in progress.
-- The EDS map uses APEX's current EDS map settings (resolution, frames,
-  dwell). The test sets only where it saves.
+- The EDS map has no scan box, so the test sets a small one explicitly
+  (`TEST_EDS_MAP`: 128 x 100 points, 10 frames, 200 us, about 26 s), checks
+  that APEX read it back and predicts a matching duration, and restores APEX's
+  own EDS map settings afterwards. `PYTRIBEAM_EDAX_MAP_SIZE_UM` applies to the
+  EBSD maps only.
 - `PYTRIBEAM_EDAX_MAP_FOLDER` must be an existing scratch folder on the EDAX PC.
   **Clear it between runs**: each run writes `Slice_0001`, `Slice_0002`, and
   `Slice_0003_EDS` there, and EDAX requires tags to be unique within a folder.
@@ -255,6 +258,9 @@ What they check, beyond the map completing:
   (`localhost`), so a map that "succeeds" but saves nothing fails;
 - APEX's EDS folder was set to the experiment folder before the EDS map, and
   the EDS side is idle afterwards;
+- no map "completes" sooner than APEX predicted; the error names the status
+  that ended the wait, since `Ready` is also what APEX reports before a map
+  has started;
 - camera saturation and average CI land in the HDF5 log for the right slice;
 - the microscope's field width and detector are restored after the saturation
   measurement;
