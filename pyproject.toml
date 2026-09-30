@@ -67,6 +67,8 @@ source = "vcs"
 local_scheme = "no-local-version"
 
 [tool.hatch.build.targets.wheel]
+# Includes the GUI resources (src/pytribeam/GUI/resources); don't add them
+# again with force-include, which puts duplicate entries in the wheel.
 packages = ["src/pytribeam"]
 
 [tool.hatch.build.hooks.vcs]

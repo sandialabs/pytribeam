@@ -161,14 +161,16 @@ __all__ = [
 import time
 import contextlib, io
 import math
+from typing import Optional
 
 try:
     import Laser.PythonControl as tfs_laser
-
-    print("Laser PythonControl API imported.")
-except:
+except ImportError:
+    tfs_laser = None
     print("WARNING: Laser API not imported!")
     print("\tLaser control, as well as EBSD and EDS control are unavailable.")
+else:
+    print("Laser PythonControl API imported.")
 
 # 3rd party .whl modules
 
@@ -258,7 +260,9 @@ def laser_connected() -> bool:
     return False
 
 
-def _device_connections() -> tbt.DeviceStatus:
+def _device_connections(
+    microscope: Optional[tbt.Microscope] = None,
+) -> tbt.DeviceStatus:
     """
     Check the connection status of the laser and associated external devices.
 
@@ -280,10 +284,17 @@ def _device_connections() -> tbt.DeviceStatus:
         ebsd = devices.connect_EBSD()  # retractable device state
         eds = devices.connect_EDS()  # retractable device state
 
+    if microscope is not None:
+        states = img.get_available_insertable_detector_states(microscope)
+        states = {a.value: b for (a, b) in states}
+    else:
+        states = {}
+
     return tbt.DeviceStatus(
         laser=laser,
         ebsd=ebsd,
         eds=eds,
+        extra_devices=states,
     )
 
 
