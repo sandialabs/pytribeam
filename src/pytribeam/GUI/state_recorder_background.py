@@ -8,7 +8,8 @@ from typing import Optional, Tuple, List
 from pytribeam import types as tbt
 from pytribeam import utilities
 from pytribeam.GUI import CustomTkinterWidgets as ctk
-from pytribeam.mcp.state.capture import build_provenance, capture_to_directory
+from pytribeam.mcp.state import next_path, save
+from pytribeam.mcp.state.capture import capture
 
 
 # -----------------------------------------------------------------------------
@@ -94,10 +95,10 @@ def set_status(message: str):
 def ensure_directory_exists() -> Path:
     """Make sure the output state directory exists and return it.
 
-    States are written one file per record into a directory alongside an
-    index, rather than appended to a single growing YAML file. This keeps each
-    write constant-time, survives an interrupted write, and makes individual
-    states convenient to hand around as test fixtures.
+    Each state is written as its own self-contained file (``s0001.yml``,
+    ``s0002.yml``, ...) rather than appended to a single growing YAML file.
+    This keeps each write constant-time, survives an interrupted write, and
+    makes individual states convenient to hand around as test fixtures.
 
     Returns
     -------
@@ -172,22 +173,21 @@ def record_state_worker(
     try:
         microscope = get_connected_microscope(host, port)
 
-        record = capture_to_directory(
+        state = capture(
             microscope,
-            directory,
             description=description,
             intended_action=intended_action,
             include_quads=include_quads,
-            provenance=build_provenance(host=host, port=port),
         )
+        path = save(state, next_path(directory))
 
         result_queue.put(
             {
                 "success": True,
-                "record_id": record.id,
-                "recorded_at": record.recorded_at,
-                "n_values": len(record.values),
-                "n_read_errors": len(record.read_errors),
+                "file_name": path.name,
+                "recorded_at": state["recorded_at"],
+                "n_values": len(state["values"]),
+                "n_read_errors": len(state["read_errors"]),
                 "error": None,
             }
         )
@@ -200,7 +200,7 @@ def record_state_worker(
         result_queue.put(
             {
                 "success": False,
-                "record_id": None,
+                "file_name": None,
                 "recorded_at": None,
                 "n_values": 0,
                 "n_read_errors": 0,
@@ -277,7 +277,7 @@ def check_recording_result_queue():
             hide_recording_indicator()
 
             if result["success"]:
-                message = f"Saved {result['record_id']} ({result['n_values']} values"
+                message = f"Saved {result['file_name']} ({result['n_values']} values"
 
                 # Surface read errors in the status line. Attributes that fail
                 # on a healthy microscope are exactly the ones worth knowing

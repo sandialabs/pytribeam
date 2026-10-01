@@ -1,94 +1,16 @@
-schema_version: '1.0'
-id: s0008
-recorded_at: '2026-09-03T10:46:57.172-07:00'
-description: Turned off the electron beam
-intended_action: null
-provenance:
-  pytribeam_version: 0.1.4
-  autoscript_version: 4.8.1
-  host: localhost
-  port: null
-  hostname: S1125518
-  recorded_by: state_recorder
-read_errors:
-- path: beams.electron_beam.beam_mode.available_values
-  error: 'ApplicationServerException: Electron beam mode control is not supported
-    on this microscope.'
-  kind: access
-- path: beams.electron_beam.beam_mode.value
-  error: 'ApplicationServerException: Electron beam mode control is not supported
-    on this microscope.'
-  kind: access
-- path: beams.ion_beam.source.plasma_gas.available_values
-  error: 'ApplicationServerException: This microscope does not have a plasma FIB source
-    with selectable gases.'
-  kind: access
-- path: beams.ion_beam.source.plasma_gas.value
-  error: 'ApplicationServerException: This microscope does not have a plasma FIB source
-    with selectable gases.'
-  kind: access
-- path: detector.custom_settings.converter_voltage.value
-  error: 'ApplicationServerException: The active detector doesn''t have a converter
-    voltage parameter.'
-  kind: access
-- path: detector.custom_settings.grid_voltage.value
-  error: 'ApplicationServerException: The active detector doesn''t have a grid voltage
-    parameter.'
-  kind: access
-- path: detector.custom_settings.mirror_voltage.value
-  error: 'ApplicationServerException: The active detector doesn''t have a mirror voltage
-    parameter.'
-  kind: access
-- path: detector.custom_settings.scintillator_voltage.value
-  error: 'ApplicationServerException: The active detector doesn''t have a scintillator
-    voltage parameter.'
-  kind: access
-- path: detector.custom_settings.suction_tube_voltage.value
-  error: 'ApplicationServerException: The active detector doesn''t have a suction
-    tube voltage parameter.'
-  kind: access
-- path: detector.state
-  error: 'ApplicationServerException: Detector ''TLD2'' is not retractable on this
-    microscope.'
-  kind: access
-- path: patterning.real_time_monitor.mode
-  error: 'ApplicationServerException: Real time monitor is not supported on this microscope.'
-  kind: access
-- path: specimen.compustage.current_position
-  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
-    first.'
-  kind: access
-- path: specimen.compustage.is_linked
-  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
-    first.'
-  kind: access
-- path: specimen.compustage.neutral_mill_position.value
-  error: 'ApplicationServerException: Compustage is not controllable. Insert compustage
-    first.'
-  kind: access
-- path: specimen.loadlock.state
-  error: 'ApplicationServerException: LoadLock is not available on this microscope.'
-  kind: access
-- path: specimen.sputter_coater.current.available_values
-  error: 'ApplicationServerException: AvailableValues property is not supported on
-    this microscope.'
-  kind: access
-- path: specimen.temperature_stage.humidity.is_on
-  error: 'ApplicationServerException: Humidity is not supported on the current temperature
-    stage.'
-  kind: access
-- path: specimen.temperature_stage.humidity.target_value
-  error: 'ApplicationServerException: Humidity is not supported on the current temperature
-    stage.'
-  kind: access
-- path: specimen.temperature_stage.humidity.value
-  error: 'ApplicationServerException: Humidity is not supported on the current temperature
-    stage.'
-  kind: access
+schema_version: 2
+recorded_at: '2026-09-03T10:11:49.575-07:00'
+description: Switch to the ion beam, modify contrast/brightness, decrease resolution,
+  decrease dwell time
+intended_action:
+- set_active_beam
+- set_detector_levels
+- set_resolution
+- set_dwell_time
 values:
-  beams.electron_beam.angular_correction.angle.limits.max: 6.283185307179586
+  beams.electron_beam.angular_correction.angle.limits.max: 6.28318530718
   beams.electron_beam.angular_correction.angle.limits.midpoint: 0.0
-  beams.electron_beam.angular_correction.angle.limits.min: -6.283185307179586
+  beams.electron_beam.angular_correction.angle.limits.min: -6.28318530718
   beams.electron_beam.angular_correction.angle.value: 0.0
   beams.electron_beam.angular_correction.dynamic_focus.is_on: false
   beams.electron_beam.angular_correction.mode: Automatic
@@ -100,7 +22,7 @@ values:
   beams.electron_beam.beam_current.limits.max: 10.0
   beams.electron_beam.beam_current.limits.midpoint: 5.0
   beams.electron_beam.beam_current.limits.min: 0.0
-  beams.electron_beam.beam_current.value: 6.399999999999999e-09
+  beams.electron_beam.beam_current.value: 6.4e-09
   beams.electron_beam.beam_deceleration.is_on: false
   beams.electron_beam.beam_deceleration.stage_bias.limits.max: 3000.0
   beams.electron_beam.beam_deceleration.stage_bias.limits.midpoint: 1500.0
@@ -127,10 +49,10 @@ values:
   beams.electron_beam.horizontal_field_width.limits.max: 0.001
   beams.electron_beam.horizontal_field_width.limits.midpoint: 0.0005000000005
   beams.electron_beam.horizontal_field_width.limits.min: 1.0e-12
-  beams.electron_beam.horizontal_field_width.value: 0.0009000000000000001
+  beams.electron_beam.horizontal_field_width.value: 0.0001
   beams.electron_beam.is_blanked: false
   beams.electron_beam.is_installed: true
-  beams.electron_beam.is_on: false
+  beams.electron_beam.is_on: true
   beams.electron_beam.lens_alignment.limits.limits_x.max: 100000.0
   beams.electron_beam.lens_alignment.limits.limits_x.midpoint: -450000.0
   beams.electron_beam.lens_alignment.limits.limits_x.min: -1000000.0
@@ -152,7 +74,7 @@ values:
   beams.electron_beam.scanning.dwell_time.limits.max: 0.001
   beams.electron_beam.scanning.dwell_time.limits.midpoint: 0.0005000000005
   beams.electron_beam.scanning.dwell_time.limits.min: 1.0e-12
-  beams.electron_beam.scanning.dwell_time.value: 1.0e-06
+  beams.electron_beam.scanning.dwell_time.value: 2.0e-06
   beams.electron_beam.scanning.mode.value: 1
   beams.electron_beam.scanning.resolution.available_values:
   - 768x512
@@ -166,7 +88,7 @@ values:
   - 4096x3536
   - 4096x4096
   - 8192x8192
-  beams.electron_beam.scanning.resolution.value: 768x512
+  beams.electron_beam.scanning.resolution.value: 2048x1768
   beams.electron_beam.scanning.rotation.limits.max: 100000.0
   beams.electron_beam.scanning.rotation.limits.midpoint: 0.0
   beams.electron_beam.scanning.rotation.limits.min: -100000.0
@@ -210,7 +132,7 @@ values:
   - 5.403e-09
   - 1.2e-08
   - 2.15e-08
-  beams.ion_beam.beam_current.value: 6.399999999999999e-09
+  beams.ion_beam.beam_current.value: 6.4e-09
   beams.ion_beam.beam_shift.limits.limits_x.max: 1.0
   beams.ion_beam.beam_shift.limits.limits_x.midpoint: 0.0
   beams.ion_beam.beam_shift.limits.limits_x.min: -1.0
@@ -267,15 +189,15 @@ values:
   detector.brightness.limits.max: 1.0
   detector.brightness.limits.midpoint: 0.5
   detector.brightness.limits.min: 0.0
-  detector.brightness.value: 0.5
+  detector.brightness.value: 0.44
   detector.contrast.limits.max: 1.0
   detector.contrast.limits.midpoint: 0.5
   detector.contrast.limits.min: 0.0
-  detector.contrast.value: 0.5
+  detector.contrast.value: 0.71
   detector.custom_settings.md_shutter.is_needed: false
   detector.mode.available_values:
   - SecondaryElectrons
-  detector.mode.value: None
+  detector.mode.value: SecondaryElectrons
   detector.type.available_values:
   - BSD
   - CDEM
@@ -303,7 +225,7 @@ values:
   - SingleBSD
   - TLD
   - TLD2
-  detector.type.value: TLD2
+  detector.type.value: ETD
   patterning.mode: Serial
   patterning.state: Idle
   specimen.cap_probe.is_installed: false
@@ -326,11 +248,11 @@ values:
   specimen.sputter_coater.is_inserted: true
   specimen.sputter_coater.is_installed: true
   specimen.stage.current_position.coordinate_system: Specimen
-  specimen.stage.current_position.x: 0.0
-  specimen.stage.current_position.y: 0.0
+  specimen.stage.current_position.x: 0.005
+  specimen.stage.current_position.y: 0.004
   specimen.stage.current_position.z: 0.0
-  specimen.stage.current_position.t: 0.0
-  specimen.stage.current_position.r: 0.0
+  specimen.stage.current_position.t: 0.174532925199
+  specimen.stage.current_position.r: 0.174532925199
   specimen.stage.holder.available_values:
   - UMB Holder
   - HPF Carrier
@@ -348,7 +270,7 @@ values:
   specimen.temperature_stage.ramping_speed.target_value: 10.0
   specimen.temperature_stage.ramping_speed.value: 0.0
   specimen.temperature_stage.temperature.limits.max: 1273.15
-  specimen.temperature_stage.temperature.limits.midpoint: 778.1500000000001
+  specimen.temperature_stage.temperature.limits.midpoint: 778.15
   specimen.temperature_stage.temperature.limits.min: 283.15
   specimen.temperature_stage.temperature.target_value: 313.15
   specimen.temperature_stage.temperature.value: 293.15
@@ -385,8 +307,47 @@ values:
   vacuum.pressure_limiting_aperture.value: Unknown
   imaging.scanning_filter.number_of_frames: 1
   imaging.scanning_filter.type: 1
-  imaging.active_view: 1
+  imaging.active_view: 2
   imaging.quad1.active_device: ELECTRON_BEAM
   imaging.quad2.active_device: ION_BEAM
   imaging.quad3.active_device: NAV_CAM
   imaging.quad4.active_device: CCD_CAMERA
+read_errors:
+  beams.electron_beam.beam_mode.available_values: 'ApplicationServerException: Electron
+    beam mode control is not supported on this microscope.'
+  beams.electron_beam.beam_mode.value: 'ApplicationServerException: Electron beam
+    mode control is not supported on this microscope.'
+  beams.ion_beam.source.plasma_gas.available_values: 'ApplicationServerException:
+    This microscope does not have a plasma FIB source with selectable gases.'
+  beams.ion_beam.source.plasma_gas.value: 'ApplicationServerException: This microscope
+    does not have a plasma FIB source with selectable gases.'
+  detector.custom_settings.converter_voltage.value: 'ApplicationServerException: The
+    active detector doesn''t have a converter voltage parameter.'
+  detector.custom_settings.grid_voltage.value: 'ApplicationServerException: The active
+    detector doesn''t have a grid voltage parameter.'
+  detector.custom_settings.mirror_voltage.value: 'ApplicationServerException: The
+    active detector doesn''t have a mirror voltage parameter.'
+  detector.custom_settings.scintillator_voltage.value: 'ApplicationServerException:
+    The active detector doesn''t have a scintillator voltage parameter.'
+  detector.custom_settings.suction_tube_voltage.value: 'ApplicationServerException:
+    The active detector doesn''t have a suction tube voltage parameter.'
+  detector.state: 'ApplicationServerException: Detector ''ETD'' is not retractable
+    on this microscope.'
+  patterning.real_time_monitor.mode: 'ApplicationServerException: Real time monitor
+    is not supported on this microscope.'
+  specimen.compustage.current_position: 'ApplicationServerException: Compustage is
+    not controllable. Insert compustage first.'
+  specimen.compustage.is_linked: 'ApplicationServerException: Compustage is not controllable.
+    Insert compustage first.'
+  specimen.compustage.neutral_mill_position.value: 'ApplicationServerException: Compustage
+    is not controllable. Insert compustage first.'
+  specimen.loadlock.state: 'ApplicationServerException: LoadLock is not available
+    on this microscope.'
+  specimen.sputter_coater.current.available_values: 'ApplicationServerException: AvailableValues
+    property is not supported on this microscope.'
+  specimen.temperature_stage.humidity.is_on: 'ApplicationServerException: Humidity
+    is not supported on the current temperature stage.'
+  specimen.temperature_stage.humidity.target_value: 'ApplicationServerException: Humidity
+    is not supported on the current temperature stage.'
+  specimen.temperature_stage.humidity.value: 'ApplicationServerException: Humidity
+    is not supported on the current temperature stage.'

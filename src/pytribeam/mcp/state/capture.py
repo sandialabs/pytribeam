@@ -3,45 +3,36 @@
 Microscope State Capture
 ========================
 
-Reflective capture of the full microscope state tree into a
-:class:`~schema.StateRecord`.
+Reads the full microscope state by walking the AutoScript object tree.
 
-This module touches the hardware and therefore imports AutoScript. Everything
-that reads, writes, or compares records lives in ``schema.py`` and stays
-importable without it.
-
-Two deliberate differences from ``GUI/state_recorder_background.py``:
-
-1. :func:`capture_state` takes an already-connected microscope rather than
-   connecting on every call. A GUI button pressed occasionally can afford a
-   reconnect; an agent polling state cannot, and the open question in
-   ``state_recorder_dev.md`` about reconnection cost disappears if there is
-   only one connection.
-2. Attributes that raise, and values that cannot be represented as scalars,
-   are recorded in ``read_errors`` instead of being silently skipped.
+This is the only module in the package that touches the hardware and
+imports AutoScript. It takes an already-connected microscope, so a caller
+polling state holds one connection. Capture never raises on an unreadable
+attribute: the failure is recorded in ``read_errors`` and the walk continues.
 """
 
 from __future__ import annotations
 
-import platform
-import socket
+import datetime
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import autoscript_sdb_microscope_client.structures as as_structs
 
 from pytribeam import types as tbt
-from pytribeam import utilities as ut
-from pytribeam._version import __version__ as PYTRIBEAM_VERSION
+from pytribeam.mcp.state import SCHEMA_VERSION
 
-from pytribeam.mcp.state.schema import (
-    Provenance,
-    ReadError,
-    StateRecord,
-    SUBSYSTEMS,
-    next_record_id,
-    utc_offset_now,
+SUBSYSTEMS = (
+    "beams",
+    "detector",
+    "gas",
+    "patterning",
+    "specimen",
+    "state",
+    "vacuum",
+    "imaging",
 )
+"""Top level microscope attributes walked by the recorder."""
 
 MAX_DEPTH = 8
 """Maximum recursion depth when walking the attribute tree.
@@ -51,373 +42,202 @@ is not enough to bound the walk, because distinct proxy objects can be minted
 on each access.
 """
 
+SIGNIFICANT_FIGURES = 12
+"""Floats are rounded to this many significant figures.
+
+This strips binary representation noise (``6.399999999999999e-09`` becomes
+``6.4e-09``) while keeping far more precision than any reading carries.
+"""
+
 QUADS = (1, 2, 3, 4)
 
-
-def _is_public(name: str) -> bool:
-    """Return True if *name* is not private or dunder."""
-    return not name.startswith("_")
+_LEAF_TYPES = (Enum, bool, int, float, str, bytes, list, tuple, dict)
 
 
-def _coerce(value: Any) -> Tuple[bool, Any]:
-    """Convert a read value into something YAML-safe and diffable.
+def _describe(error: Exception) -> str:
+    return f"{type(error).__name__}: {error}"
 
-    Returns
-    -------
-    tuple of (bool, Any)
-        ``(True, coerced)`` on success, ``(False, type_name)`` if the value
-        cannot be represented as a scalar or flat sequence of scalars.
 
-    Notes
-    -----
-    Enums are stored by name rather than by integer value. An integer alone
-    is meaningless to a diff consumer and to anyone reading the file, which
-    is why the original recorder had to special-case ``active_device``.
-    Tuples become lists so that pyyaml does not emit ``!!python/tuple`` tags,
-    which ``yaml.safe_load`` refuses to read back.
+def _is_leaf(value: Any) -> bool:
+    """Return True for a value to record, False for an object to walk into."""
+    return value is None or isinstance(value, _LEAF_TYPES) or _is_numpy_scalar(value)
+
+
+def _is_numpy_scalar(value: Any) -> bool:
+    return callable(getattr(value, "item", None))
+
+
+def _coerce(value: Any) -> Any:
+    """Return a leaf value as YAML-safe data, or raise TypeError.
+
+    Enums are stored by name, since an integer alone is meaningless to a
+    reader. Tuples become lists so that ``yaml.safe_load`` can read them back.
     """
-    if value is None or isinstance(value, (bool, int, float, str)):
-        return True, value
-
     if isinstance(value, Enum):
-        return True, value.name
-
-    if isinstance(value, bytes):
-        return False, "bytes"
-
+        return value.name
+    if isinstance(value, float):
+        return float(f"{value:.{SIGNIFICANT_FIGURES}g}")
+    if value is None or isinstance(value, (bool, int, str)):
+        return value
     if isinstance(value, (list, tuple)):
-        out = []
-        for item in value:
-            ok, coerced = _coerce(item)
-            if not ok:
-                return False, f"{type(value).__name__}[{coerced}]"
-            out.append(coerced)
-        return True, out
-
+        return [_coerce(item) for item in value]
     if isinstance(value, dict):
-        out = {}
-        for key, item in value.items():
-            if not isinstance(key, str):
-                return False, f"dict[{type(key).__name__}]"
-            ok, coerced = _coerce(item)
-            if not ok:
-                return False, f"dict[{coerced}]"
-            out[key] = coerced
-        return True, out
-
-    item_method = getattr(value, "item", None)
-    if callable(item_method):
-        try:
-            return _coerce(item_method())
-        except Exception:
-            return False, type(value).__name__
-
-    return False, type(value).__name__
+        return {str(key): _coerce(item) for key, item in value.items()}
+    if _is_numpy_scalar(value):
+        return _coerce(value.item())
+    raise TypeError(type(value).__name__)
 
 
 def _collect(
     obj: Any,
     prefix: str,
-    visited: Dict[int],
     values: Dict[str, Any],
-    errors: List[ReadError],
+    errors: Dict[str, str],
+    visited: Dict[int, Any],
     depth: int = 0,
 ) -> None:
-    """Recursively walk *obj*, filling *values* and *errors* in place.
+    """Recursively walk the public attributes of *obj* into *values*.
 
-    Parameters
-    ----------
-    obj : Any
-        Object currently being inspected.
-    prefix : str
-        Dotted path to *obj*. No ``scope.`` prefix is added; the subsystem is
-        simply the first component.
-    visited : set of int
-        ``id`` values already seen, to break reference cycles.
-    values : dict
-        Accumulator for successfully read paths.
-    errors : list of ReadError
-        Accumulator for paths that could not be read or represented.
-    depth : int
-        Current recursion depth.
+    *visited* maps ``id`` to object for everything already walked, breaking
+    reference cycles; holding the objects stops their ids being reused.
     """
     if depth > MAX_DEPTH:
-        errors.append(
-            ReadError(
-                path=prefix, error=f"max depth {MAX_DEPTH} exceeded", kind="depth"
-            )
-        )
+        errors[prefix] = f"max depth {MAX_DEPTH} exceeded"
         return
-
-    obj_id = id(obj)
-    if obj_id in visited:
+    if id(obj) in visited:
         return
-    visited[obj_id] = obj
+    visited[id(obj)] = obj
 
     for name in dir(obj):
-        if not _is_public(name):
+        if name.startswith("_"):
             continue
-
-        full_path = f"{prefix}.{name}" if prefix else name
+        path = f"{prefix}.{name}"
 
         try:
             attr = getattr(obj, name)
         except Exception as error:
-            errors.append(
-                ReadError(
-                    path=full_path,
-                    error=f"{type(error).__name__}: {error}",
-                    kind="access",
-                )
-            )
+            errors[path] = _describe(error)
             continue
 
         if callable(attr):
             continue
 
         if isinstance(attr, as_structs.StagePosition):
+            # Record only the axes; walking it would also pick up helpers.
             for axis in ("coordinate_system", "x", "y", "z", "t", "r"):
-                ok, coerced = _coerce(getattr(attr, axis, None))
-                if ok:
-                    values[f"{full_path}.{axis}"] = coerced
-                else:
-                    errors.append(
-                        ReadError(
-                            path=f"{full_path}.{axis}",
-                            error=f"unrepresentable type {coerced}",
-                            kind="coerce",
-                        )
-                    )
-            continue
-
-        ok, coerced = _coerce(attr)
-        if ok:
-            values[full_path] = coerced
-        elif isinstance(attr, (int, float, str, bool, bytes)) or attr is None:
-            errors.append(
-                ReadError(
-                    path=full_path,
-                    error=f"unrepresentable type {coerced}",
-                    kind="coerce",
-                )
-            )
+                _store(f"{path}.{axis}", getattr(attr, axis, None), values, errors)
+        elif _is_leaf(attr):
+            _store(path, attr, values, errors)
         else:
-            _collect(attr, full_path, visited, values, errors, depth + 1)
+            _collect(attr, path, values, errors, visited, depth + 1)
 
 
-def capture_values(
-    microscope: tbt.Microscope,
-    include_quads: bool = True,
-) -> Tuple[Dict[str, Any], List[ReadError]]:
-    """Read the microscope state tree into a flat path/value mapping.
-
-    Parameters
-    ----------
-    microscope : tbt.Microscope
-        A connected microscope.
-    include_quads : bool
-        If True, additionally cycle through the four imaging quadrants to
-        record the active device in each, restoring the operator's original
-        view afterwards. This perturbs the microscope UI and may close open
-        drop-down menus, so it is worth skipping for frequent polling. The
-        cost of skipping it is that ``imaging.quadN.active_device`` will be
-        absent from the record.
-
-    Returns
-    -------
-    tuple of (dict, list of ReadError)
-        The flat values mapping and any paths that failed.
-    """
-    values: Dict[str, Any] = {}
-    errors: List[ReadError] = []
-
-    for subsystem in SUBSYSTEMS:
-        try:
-            root = getattr(microscope, subsystem)
-        except Exception as error:
-            errors.append(
-                ReadError(
-                    path=subsystem,
-                    error=f"{type(error).__name__}: {error}",
-                    kind="access",
-                )
-            )
-            continue
-        _collect(root, subsystem, {}, values, errors)
-
-    if include_quads:
-        _capture_quads(microscope, values, errors)
-
-    return values, errors
+def _store(path: str, value: Any, values: Dict[str, Any], errors: Dict[str, str]):
+    """Store a leaf value, or a read error if it cannot be represented."""
+    try:
+        values[path] = _coerce(value)
+    except Exception as error:
+        errors[path] = f"unrepresentable value, {_describe(error)}"
 
 
-def _capture_quads(
+def _capture_imaging(
     microscope: tbt.Microscope,
     values: Dict[str, Any],
-    errors: List[ReadError],
+    errors: Dict[str, str],
+    include_quads: bool,
 ) -> None:
-    """Record the active device in each imaging quadrant, restoring the view.
+    """Record the active view and its device, optionally sweeping all quads.
 
-    The operator's original active view is restored in a ``finally`` block so
-    that a failure partway through the sweep does not leave them looking at a
-    different quadrant than they started on.
+    Reading the active view and device does not disturb the microscope UI.
+    The quadrant sweep does: it switches the view through each quad and
+    restores the original in a ``finally`` block, so a failure partway
+    through never leaves the operator on a different quadrant. The sweep is
+    skipped if the original view cannot be read, since it could not then be
+    restored.
     """
+    imaging = microscope.imaging
     try:
-        original_view = microscope.imaging.get_active_view()
+        original_view = imaging.get_active_view()
         values["imaging.active_view"] = original_view
     except Exception as error:
-        original_view = None
-        errors.append(
-            ReadError(
-                path="imaging.active_view",
-                error=f"{type(error).__name__}: {error}",
-                kind="access",
-            )
-        )
+        errors["imaging.active_view"] = _describe(error)
+        return
+
+    try:
+        values["imaging.active_device"] = tbt.Device(imaging.get_active_device()).name
+    except Exception as error:
+        errors["imaging.active_device"] = _describe(error)
+
+    if not include_quads:
+        return
 
     try:
         for quad in QUADS:
             path = f"imaging.quad{quad}.active_device"
             try:
-                microscope.imaging.set_active_view(quad)
-                values[path] = tbt.Device(microscope.imaging.get_active_device()).name
+                imaging.set_active_view(quad)
+                values[path] = tbt.Device(imaging.get_active_device()).name
             except Exception as error:
-                errors.append(
-                    ReadError(
-                        path=path,
-                        error=f"{type(error).__name__}: {error}",
-                        kind="access",
-                    )
-                )
+                errors[path] = _describe(error)
     finally:
-        if original_view is not None:
-            try:
-                microscope.imaging.set_active_view(original_view)
-            except Exception as error:
-                errors.append(
-                    ReadError(
-                        path="imaging.active_view",
-                        error=f"restore failed, {type(error).__name__}: {error}",
-                        kind="restore",
-                    )
-                )
+        try:
+            imaging.set_active_view(original_view)
+        except Exception as error:
+            errors["imaging.restore_active_view"] = _describe(error)
 
 
-def build_provenance(
-    host: str = "unknown",
-    port: Optional[int] = None,
-    recorded_by: str = "state_recorder",
-) -> Provenance:
-    """Collect software and connection context for a recording.
-
-    Parameters
-    ----------
-    host : str
-        Microscope connection host.
-    port : int, optional
-        Microscope connection port.
-    recorded_by : str
-        Identifier for whatever produced the record.
-
-    Returns
-    -------
-    Provenance
-        Populated provenance block. Version lookups that fail fall back to
-        ``"unknown"`` rather than raising, since provenance should never be
-        the reason a capture is lost.
-    """
-    try:
-        autoscript_version = ut.get_autoscript_version()
-    except Exception:
-        autoscript_version = "unknown"
-
-    try:
-        hostname = socket.gethostname() or platform.node()
-    except Exception:
-        hostname = "unknown"
-
-    return Provenance(
-        pytribeam_version=PYTRIBEAM_VERSION,
-        autoscript_version=str(autoscript_version),
-        host=host,
-        port=port,
-        hostname=hostname,
-        recorded_by=recorded_by,
-    )
-
-
-def capture_state(
+def capture(
     microscope: tbt.Microscope,
-    record_id: str,
     description: str = "",
     intended_action: Optional[List[str]] = None,
-    include_quads: bool = True,
-    provenance: Optional[Provenance] = None,
-) -> StateRecord:
-    """Capture the current microscope state as a :class:`StateRecord`.
+    include_quads: bool = False,
+) -> Dict[str, Any]:
+    """Capture the current microscope state.
 
-    This function is total: it does not raise on unreadable attributes, and a
-    subsystem that fails entirely yields a record with that subsystem absent
-    from ``values`` and present in ``read_errors``. A consumer can then decide
-    whether the gap matters, which it cannot do if capture throws.
+    A subsystem that fails entirely is absent from ``values`` and present in
+    ``read_errors``, so a consumer can decide whether the gap matters.
 
     Parameters
     ----------
     microscope : tbt.Microscope
         A connected microscope.
-    record_id : str
-        Identifier for this record, typically from
-        :func:`schema.next_record_id`.
     description : str
         Free-text operator note.
-    intended_action : str, optional
-        Capability the operator believes they used since the previous record.
+    intended_action : list of str, optional
+        What the operator believes they did since the previous capture, e.g.
+        ``["move_stage"]``. Recorded as ground truth for testing diffs.
     include_quads : bool
-        Whether to sweep the imaging quadrants. See :func:`capture_values`.
-    provenance : Provenance, optional
-        Precomputed provenance. Built fresh if omitted.
+        If True, also cycle through the four imaging quadrants to record
+        ``imaging.quadN.active_device`` for each. This perturbs the microscope
+        UI and may close open drop-down menus, so it is off by default. The
+        active view and its device are recorded either way.
 
     Returns
     -------
-    StateRecord
-        The captured state.
+    dict
+        A state, in the format described in :mod:`pytribeam.mcp.state`.
     """
-    recorded_at = utc_offset_now()
-    values, errors = capture_values(microscope, include_quads=include_quads)
-
-    return StateRecord(
-        id=record_id,
-        recorded_at=recorded_at,
-        values=values,
-        description=description,
-        intended_action=intended_action,
-        read_errors=errors,
-        provenance=provenance or build_provenance(),
+    recorded_at = (
+        datetime.datetime.now().astimezone().isoformat(timespec="milliseconds")
     )
+    values: Dict[str, Any] = {}
+    errors: Dict[str, str] = {}
 
+    for subsystem in SUBSYSTEMS:
+        try:
+            root = getattr(microscope, subsystem)
+        except Exception as error:
+            errors[subsystem] = _describe(error)
+            continue
+        _collect(root, subsystem, values, errors, {})
 
-def capture_to_directory(
-    microscope: tbt.Microscope,
-    directory,
-    description: str = "",
-    intended_action: Optional[List[str]] = None,
-    include_quads: bool = True,
-    provenance: Optional[Provenance] = None,
-) -> StateRecord:
-    """Capture the current state and write it into a state directory.
+    _capture_imaging(microscope, values, errors, include_quads)
 
-    Convenience wrapper that allocates the next record id, captures, and
-    writes. Returns the record so the caller can report its id.
-    """
-    from pytribeam.mcp.state.schema import write_record
-
-    record = capture_state(
-        microscope,
-        record_id=next_record_id(directory),
-        description=description,
-        intended_action=intended_action,
-        include_quads=include_quads,
-        provenance=provenance,
-    )
-    write_record(record, directory)
-    return record
+    return {
+        "schema_version": SCHEMA_VERSION,
+        "recorded_at": recorded_at,
+        "description": description,
+        "intended_action": intended_action,
+        "values": values,
+        "read_errors": errors,
+    }
