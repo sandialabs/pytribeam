@@ -40,7 +40,7 @@ MCP servers can be connected to an MCP client (such as claude code) or ran in st
 Manual usage is quite simple and crucial for development and monitoring. To simply test the MCP server and interact with it manually in a browser, run the following (assumes Node.js is installed on your computer):
 
 ```bash
-npx @modelcontextprotocol/inspector pytribeam_mcp -e PYTRIBEAM_MCP_MICROSCOPE_HOST=localhost
+npx @modelcontextprotocol/inspector pytribeam_mcp -e PYTRIBEAM_MCP_ENV_FILE="C:\path\to\.env"
 ```
 
 What this command does is starts a the MCP server using our CLI entrypoint `pytribeam_mcp` and launches a webpage that acts as an inspector for the server. It will open up the web UI to the landing page, where you can connect to the server and peruse the tools, resources, and prompts that we have added to the server.
