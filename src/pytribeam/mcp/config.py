@@ -107,7 +107,8 @@ class ServerConfig:
 
         def _env(name: str, default=None):
             key = ENV_PREFIX + name
-            return os.getenv(key, file_values.get(key, default))
+            value = os.getenv(key, file_values.get(key))
+            return default if value in (None, "") else value  # empty means unset
 
         port = _env("MICROSCOPE_PORT")
         p = argparse.ArgumentParser(
