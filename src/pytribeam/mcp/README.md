@@ -2,6 +2,29 @@
 
 This describes the usage, structure, and roadmap for MCP development within the `pytribeam` python package.
 
+## Installation
+
+pytribeam includes an MCP server, `pytribeam_mcp`, that lets an AI agent work with the microscope. Which tools the agent can see depends on the configured tier, and the default is tier 0 (read-only). Install it with the `mcp` extra:
+
+```bash
+pip install "pytribeam[mcp]"
+# or with uv
+uv sync --extra mcp
+```
+
+The server is configured through environment variables:
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `PYTRIBEAM_MCP_MICROSCOPE_HOST` | Host name or IP of the microscope PC | none |
+| `PYTRIBEAM_MCP_MICROSCOPE_PORT` | AutoScript port | AutoScript default |
+| `PYTRIBEAM_MCP_MAX_TIER` | Highest tier exposed to the agent (0–3) | `0` |
+| `PYTRIBEAM_MCP_LOG_DIR` | Location of server and audit logs | `%LOCALAPPDATA%/pytribeam/logs/mcp` |
+
+Settings can also live in a file of `KEY=VALUE` lines. The server reads
+`%LOCALAPPDATA%/pytribeam/mcp.env` if it exists, or the file named by `--env-file`
+or `PYTRIBEAM_MCP_ENV_FILE`. Command-line flags and real environment variables
+take precedence over the file. It is recommended to create a `.env` file in the project root directory with the above variables for easier management and consistency across different environments.
 
 ## Usage
 
@@ -22,16 +45,11 @@ What this command does is starts a the MCP server using our CLI entrypoint `pytr
 
 ### Agentic usage
 
-For claude code:
+For claude code or codex:
 
 ```bash
-claude mcp add pytribeam -e PYTRIBEAM_MCP_MICROSCOPE_HOST=localhost -- pytribeam_mcp
-```
-
-For codex:
-
-```bash
-codex mcp add pytribeam --env PYTRIBEAM_MCP_MICROSCOPE_HOST=localhost -- pytribeam_mcp
+claude mcp add pytribeam -- pytribeam_mcp
+codex mcp add pytribeam -- pytribeam_mcp
 ```
 
 For other MCP clients, most clients that use a JSON config (Claude Desktop, Cursor, and others) accept this format:
