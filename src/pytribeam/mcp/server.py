@@ -35,12 +35,12 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 
 from pytribeam import __version__
-from pytribeam.mcp.capabilities import diagnostics
+from pytribeam.mcp.capabilities import diagnostics, state
 from pytribeam.mcp.config import ServerConfig
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics,)
+CAPABILITY_MODULES = (diagnostics, state)
 
 INSTRUCTIONS = (
     "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
