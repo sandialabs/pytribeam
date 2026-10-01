@@ -286,12 +286,17 @@ class EditorController:
         self._notify("pipeline_validation_complete", success, summary)
         return success, summary
 
-    def validate_step(self, index: int, microscope=None) -> Tuple[bool, str]:
+    def validate_step(
+        self, index: int, microscope=None, notify: bool = True
+    ) -> Tuple[bool, str]:
         """Validate specific step configuration.
 
         Args:
             index: Index of step to validate
             microscope: Optional microscope connection
+            notify: Whether to trigger the step_validation_complete callback.
+                Pass False when validating on a background thread, since the
+                callbacks update the GUI.
 
         Returns:
             Tuple of (is_valid, message)
@@ -319,7 +324,8 @@ class EditorController:
         message = (
             "Step is valid." if success else f"Step validation failed: {result.message}"
         )
-        self._notify("step_validation_complete", index, success, message)
+        if notify:
+            self._notify("step_validation_complete", index, success, message)
         return success, message
 
     def validate_general(self) -> Tuple[bool, str]:
