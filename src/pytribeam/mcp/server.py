@@ -63,7 +63,10 @@ def setup_logging(config: ServerConfig) -> None:
     fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
 
     server_file = RotatingFileHandler(
-        config.log_dir / "server.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8"
+        config.log_dir / "server.log",
+        maxBytes=5_000_000,
+        backupCount=5,
+        encoding="utf-8",
     )
     server_file.setLevel(config.log_level)
     server_file.setFormatter(fmt)
@@ -132,7 +135,9 @@ def _audited(fn: Callable, tier: int) -> Callable:
 def _adder(server: MCPServer, tier: int) -> Callable:
     """The ``add`` function handed to one capability module's ``register``."""
 
-    def add(fn: Callable, *, read_only: bool = False, destructive: bool = False) -> None:
+    def add(
+        fn: Callable, *, read_only: bool = False, destructive: bool = False
+    ) -> None:
         server.add_tool(
             _audited(fn, tier),
             description=inspect.cleandoc(fn.__doc__ or ""),
@@ -150,8 +155,12 @@ def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
     server = MCPServer(name="pytribeam", version=__version__, instructions=INSTRUCTIONS)
     for module in modules:
         if module.TIER > config.max_tier:
-            log.info("skipping %s (tier %d > max %d)",
-                     module.__name__, module.TIER, config.max_tier)
+            log.info(
+                "skipping %s (tier %d > max %d)",
+                module.__name__,
+                module.TIER,
+                config.max_tier,
+            )
             continue
         module.register(_adder(server, module.TIER), config)
     return server

@@ -35,7 +35,9 @@ def _fake_module(tier):
 
         add(poke)
 
-    return types.SimpleNamespace(__name__=f"fake_tier{tier}", TIER=tier, register=register)
+    return types.SimpleNamespace(
+        __name__=f"fake_tier{tier}", TIER=tier, register=register
+    )
 
 
 async def test_ping_round_trip(config):
@@ -67,9 +69,20 @@ def test_config_fails_closed():
 
 def test_config_from_args(tmp_path):
     cfg = ServerConfig.from_args(
-        ["--max-tier", "1", "--microscope-host", "10.0.0.5", "--project-dir", str(tmp_path)]
+        [
+            "--max-tier",
+            "1",
+            "--microscope-host",
+            "10.0.0.5",
+            "--project-dir",
+            str(tmp_path),
+        ]
     )
-    assert (cfg.max_tier, cfg.microscope_host, cfg.project_dir) == (1, "10.0.0.5", tmp_path)
+    assert (cfg.max_tier, cfg.microscope_host, cfg.project_dir) == (
+        1,
+        "10.0.0.5",
+        tmp_path,
+    )
 
 
 def _failing_module(exc):
@@ -86,14 +99,18 @@ def _failing_module(exc):
 async def test_tool_error_message_reaches_the_agent(config):
     from mcp.server.mcpserver.exceptions import ToolError
 
-    server = build_server(config, modules=(_failing_module(ToolError("stage is locked")),))
+    server = build_server(
+        config, modules=(_failing_module(ToolError("stage is locked")),)
+    )
     async with Client(server) as client:
         result = await client.call_tool("fail", {})
     assert result.is_error and "stage is locked" in result.content[0].text
 
 
 async def test_unexpected_errors_are_not_leaked(config):
-    server = build_server(config, modules=(_failing_module(RuntimeError("secret detail")),))
+    server = build_server(
+        config, modules=(_failing_module(RuntimeError("secret detail")),)
+    )
     async with Client(server) as client:
         result = await client.call_tool("fail", {})
     assert result.is_error and "secret detail" not in result.content[0].text
@@ -108,9 +125,18 @@ def test_env_file_precedence(tmp_path, monkeypatch):
         "OTHER_TOOL_SECRET=ignored\n"
     )
     monkeypatch.setenv("PYTRIBEAM_MCP_MAX_TIER", "0")  # real env beats the file
-    cfg = ServerConfig.from_args(["--env-file", str(env_file), "--project-dir", str(tmp_path)])
+    cfg = ServerConfig.from_args(
+        ["--env-file", str(env_file), "--project-dir", str(tmp_path)]
+    )
     assert (cfg.microscope_host, cfg.max_tier) == ("10.0.0.5", 0)
     cfg = ServerConfig.from_args(
-        ["--env-file", str(env_file), "--microscope-host", "cli-host", "--project-dir", str(tmp_path)]
+        [
+            "--env-file",
+            str(env_file),
+            "--microscope-host",
+            "cli-host",
+            "--project-dir",
+            str(tmp_path),
+        ]
     )
     assert cfg.microscope_host == "cli-host"  # flag beats everything

@@ -131,21 +131,41 @@ class ServerConfig:
             description="pytribeam MCP server (stdio). Exposes microscope "
             "capabilities to an agent, gated by tier.",
         )
-        p.add_argument("--env-file", type=Path,
-                       help="File of PYTRIBEAM_MCP_* settings (default: "
-                       f"{default_env_file()}, if it exists).")
-        p.add_argument("--max-tier", type=int, default=int(_env("MAX_TIER", 0)),
-                       help="Highest capability tier to expose (default: 0).")
-        p.add_argument("--microscope-host", default=_env("MICROSCOPE_HOST"),
-                       help="Host name or IP of the microscope PC.")
-        p.add_argument("--microscope-port", type=int,
-                       default=int(port) if port else None,
-                       help="AutoScript port, if not the default.")
-        p.add_argument("--project-dir", type=Path, default=_env("PROJECT_DIR"),
-                       help="Directory for this project's logs and saved states "
-                       f"(default: {default_project_dir()}).")
-        p.add_argument("--log-level", default=_env("LOG_LEVEL", "INFO"),
-                       help="Level for the server log file (default: INFO).")
+        p.add_argument(
+            "--env-file",
+            type=Path,
+            help="File of PYTRIBEAM_MCP_* settings (default: "
+            f"{default_env_file()}, if it exists).",
+        )
+        p.add_argument(
+            "--max-tier",
+            type=int,
+            default=int(_env("MAX_TIER", 0)),
+            help="Highest capability tier to expose (default: 0).",
+        )
+        p.add_argument(
+            "--microscope-host",
+            default=_env("MICROSCOPE_HOST"),
+            help="Host name or IP of the microscope PC.",
+        )
+        p.add_argument(
+            "--microscope-port",
+            type=int,
+            default=int(port) if port else None,
+            help="AutoScript port, if not the default.",
+        )
+        p.add_argument(
+            "--project-dir",
+            type=Path,
+            default=_env("PROJECT_DIR"),
+            help="Directory for this project's logs and saved states "
+            f"(default: {default_project_dir()}).",
+        )
+        p.add_argument(
+            "--log-level",
+            default=_env("LOG_LEVEL", "INFO"),
+            help="Level for the server log file (default: INFO).",
+        )
         a = p.parse_args(argv)
         return cls(
             max_tier=a.max_tier,
