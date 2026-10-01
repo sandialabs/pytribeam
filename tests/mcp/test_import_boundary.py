@@ -9,7 +9,6 @@ STATE_DIR = Path(__file__).parent.parent.parent / "src" / "pytribeam" / "mcp" / 
 
 # capture.py is the one module under state/ allowed to touch the vendor SDK
 # and the rest of pytribeam -- it is the module that talks to the hardware.
-# See mcp_context_transfer.md R1 and state/capture.py's own docstring.
 EXEMPT_FILES = {"capture.py"}
 
 FORBIDDEN_MODULES = (
@@ -66,10 +65,9 @@ def test_no_forbidden_imports(path: Path):
     """state/*.py (except capture.py) must not import AutoScript or the
     parts of pytribeam that hard-import it.
 
-    This is R1 from mcp_context_transfer.md: `pytribeam.types` hard-imports
-    the vendor client at module scope, and `utilities`/`constants` both
-    import `types`, so any of them poisons the whole subpackage for anyone
-    without the vendor software installed. If this test fails, the import
+    `pytribeam.types` hard-imports the vendor client at module scope, and
+    `utilities`/`constants` both import `types`, so any of them poisons the
+    whole subpackage for anyone without the vendor software installed. If this test fails, the import
     you just added is the bug -- don't relax this test to make it pass.
     """
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
