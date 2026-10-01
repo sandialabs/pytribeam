@@ -24,6 +24,7 @@ ENV/
 env.bak/
 venv.bak/
 .python-version
+.env
 uv.lock
 
 # Distribution / packaging
