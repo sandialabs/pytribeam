@@ -42,6 +42,7 @@ dev = [
     "ruff",
     "coverage",
 ]
+mcp = ["mcp>=2.2,<3"]
 
 # CLI Entry Points
 # https://setuptools.pypa.io/en/latest/userguide/entry_point.html
@@ -51,6 +52,7 @@ pytribeam_info ="pytribeam.command_line:module_info"
 pytribeam_gui="pytribeam.command_line:launch_gui"
 pytribeam_exp="pytribeam.command_line:run_experiment"
 pytribeam_setup="pytribeam.command_line:setup_env"
+pytribeam_mcp = "pytribeam.mcp.server:main"
 
 [project.urls]
 documentation = "https://sandialabs.github.io/pytribeam/docs/userguide/book/index.html"

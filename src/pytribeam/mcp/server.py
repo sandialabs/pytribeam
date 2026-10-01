@@ -1,99 +1,172 @@
-"""Read-only MCP-style state access tools.
+#!/usr/bin/python3
+"""
+pytribeam MCP Server
+====================
 
-This module exposes the small, safe surface area the MCP server needs for
-recorded states: listing available records, reading one state, and diffs
-between two states. It intentionally avoids any hardware access and any
-AutoScript / vendor imports.
+Builds the MCP server from a :class:`~pytribeam.mcp.config.ServerConfig` and
+runs it over stdio. The agent host (Claude Code, the Inspector, a local-model
+harness) launches this as a subprocess::
+
+    python -m pytribeam.mcp --max-tier 0 --microscope-host 192.168.0.10
+
+stdout carries the MCP protocol. Nothing in this process may print to it;
+logs go to stderr and to files under ``config.log_dir``.
+
+Do not import ``pytribeam.types``, ``pytribeam.utilities``, or AutoScript at
+module level here. The server must start, and be testable, on a machine with no
+microscope software installed; capabilities that need the hardware import it
+themselves.
 """
 
 from __future__ import annotations
 
-import argparse
-from pathlib import Path
-from typing import Any, Dict, Iterable, Optional, Sequence, Union
+import datetime
+import functools
+import inspect
+import json
+import logging
+import sys
+import time
+from logging.handlers import RotatingFileHandler
+from typing import Callable, Optional, Sequence
 
-from pytribeam.mcp.state import diff, metadata, schema
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
+from mcp.types import ToolAnnotations
 
-StateDir = Union[str, Path]
+from pytribeam import __version__
+from pytribeam.mcp.capabilities import diagnostics
+from pytribeam.mcp.config import ServerConfig
+
+# Hand-written and reviewed. A capability module that is not listed here is
+# never loaded, whatever the configuration says. Fail closed.
+CAPABILITY_MODULES = (diagnostics,)
+
+INSTRUCTIONS = (
+    "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
+    "tools you can see are permitted in this session. When a tool refuses a "
+    "request, report the reason to the user; do not try to reach the same "
+    "result another way."
+)
+
+log = logging.getLogger("pytribeam.mcp")
+audit = logging.getLogger("pytribeam.mcp.audit")
 
 
-def _default_state_dir() -> Path:
-    """Return the best-known state fixture directory if one exists."""
-    candidates = [
-        Path.cwd() / "tests" / "mcp" / "state_records",
-        Path.cwd() / "state_records",
-        Path(__file__).resolve().parents[3] / "tests" / "mcp" / "state_records",
-    ]
-    for candidate in candidates:
-        if candidate.exists():
-            return candidate
-    raise FileNotFoundError(
-        "No state directory found. Pass directory=... explicitly or create a "
-        "state_records directory in the project."
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+def setup_logging(config: ServerConfig) -> None:
+    """Server log (rotating, human-readable), audit log (JSON lines), stderr."""
+    config.log_dir.mkdir(parents=True, exist_ok=True)
+    fmt = logging.Formatter("%(asctime)s %(levelname)-7s %(name)s: %(message)s")
+
+    server_file = RotatingFileHandler(
+        config.log_dir / "server.log", maxBytes=5_000_000, backupCount=5, encoding="utf-8"
     )
+    server_file.setLevel(config.log_level)
+    server_file.setFormatter(fmt)
+
+    # One JSON object per line, never rotated away: this is the record of what
+    # the agent did. Archive it deliberately rather than letting it roll over.
+    audit_file = logging.FileHandler(config.log_dir / "audit.jsonl", encoding="utf-8")
+    audit_file.setFormatter(logging.Formatter("%(message)s"))
+    audit.addHandler(audit_file)
+
+    console = logging.StreamHandler(sys.stderr)
+    console.setLevel(logging.WARNING)
+    console.setFormatter(fmt)
+
+    root = logging.getLogger("pytribeam")
+    root.setLevel(logging.DEBUG)
+    root.addHandler(server_file)
+    root.addHandler(console)
+    root.propagate = False  # keep our records out of any handlers the SDK installs
 
 
-def _resolve_state_dir(directory: Optional[StateDir] = None) -> Path:
-    if directory is None:
-        return _default_state_dir()
-    return Path(directory)
+def _audited(fn: Callable, tier: int) -> Callable:
+    """Wrap a tool so every call writes one audit record, success or failure.
+
+    Error contract for capabilities:
+
+    * Raise ``ToolError`` for anything the agent should read and act on: a
+      refusal, an out-of-range value, an interlock. Its message is returned to
+      the agent verbatim, so write it for the agent.
+    * Any other exception is a bug or a hardware fault. The SDK reports it to
+      the agent only as a generic failure; the traceback goes to server.log.
+    """
+
+    @functools.wraps(fn)
+    def wrapper(*args, **kwargs):
+        record = {
+            "time": datetime.datetime.now().astimezone().isoformat(),
+            "tool": fn.__name__,
+            "tier": tier,
+            "args": kwargs,
+        }
+        start = time.perf_counter()
+        try:
+            result = fn(*args, **kwargs)
+        except ToolError as exc:
+            record.update(ok=False, refused=True, error=str(exc))
+            raise
+        except Exception as exc:
+            record.update(ok=False, refused=False, error=f"{type(exc).__name__}: {exc}")
+            log.exception("tool %s failed unexpectedly", fn.__name__)
+            raise
+        else:
+            record["ok"] = True
+            return result
+        finally:
+            record["ms"] = round((time.perf_counter() - start) * 1000, 1)
+            level = logging.INFO if record["ok"] else logging.WARNING
+            audit.log(level, json.dumps(record, default=str))
+
+    return wrapper
 
 
-def list_states(directory: Optional[StateDir] = None) -> list[dict]:
-    """Return the index summaries for every state record in a directory."""
-    state_dir = _resolve_state_dir(directory)
-    return list(schema.read_index(state_dir))
+# ---------------------------------------------------------------------------
+# Server construction
+# ---------------------------------------------------------------------------
+def _adder(server: MCPServer, tier: int) -> Callable:
+    """The ``add`` function handed to one capability module's ``register``."""
+
+    def add(fn: Callable, *, read_only: bool = False, destructive: bool = False) -> None:
+        server.add_tool(
+            _audited(fn, tier),
+            description=inspect.cleandoc(fn.__doc__ or ""),
+            annotations=ToolAnnotations(
+                read_only_hint=read_only, destructive_hint=destructive
+            ),
+        )
+        log.info("registered tool %s (tier %d)", fn.__name__, tier)
+
+    return add
 
 
-def get_state(record_id: str, directory: Optional[StateDir] = None) -> dict:
-    """Return the full serialized state for *record_id*."""
-    state_dir = _resolve_state_dir(directory)
-    return schema.read_record(state_dir, record_id).to_dict()
+def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
+    """Create the server and register every module at or below ``config.max_tier``."""
+    server = MCPServer(name="pytribeam", version=__version__, instructions=INSTRUCTIONS)
+    for module in modules:
+        if module.TIER > config.max_tier:
+            log.info("skipping %s (tier %d > max %d)",
+                     module.__name__, module.TIER, config.max_tier)
+            continue
+        module.register(_adder(server, module.TIER), config)
+    return server
 
 
-def diff_states(
-    before_id: str,
-    after_id: str,
-    directory: Optional[StateDir] = None,
-    path_metadata: Optional[metadata.PathMetadata] = None,
-) -> dict:
-    """Return the diff between two state records from *directory*."""
-    state_dir = _resolve_state_dir(directory)
-    before = schema.read_record(state_dir, before_id)
-    after = schema.read_record(state_dir, after_id)
-    pm = path_metadata or metadata.load()
-    return diff.diff_records(before, after, pm).to_dict()
-
-
-def _cli() -> None:
-    parser = argparse.ArgumentParser(description="Read-only pytribeam state inspection tools")
-    parser.add_argument("command", choices=["list", "get", "diff"], help="Action to perform")
-    parser.add_argument("--directory", default=None, help="State record directory to inspect")
-    parser.add_argument("--before", default=None, help="Before record id for a diff")
-    parser.add_argument("--after", default=None, help="After record id for a diff")
-    parser.add_argument("--record", default=None, help="Single record id for get")
-    args = parser.parse_args()
-
-    if args.command == "list":
-        records = list_states(args.directory)
-        print(records)
-        return
-
-    if args.command == "get":
-        if not args.record:
-            raise SystemExit("--record is required for get")
-        print(get_state(args.record, args.directory))
-        return
-
-    if args.command == "diff":
-        if not args.before or not args.after:
-            raise SystemExit("--before and --after are required for diff")
-        print(diff_states(args.before, args.after, args.directory))
-        return
-
-
-__all__ = ["list_states", "get_state", "diff_states"]
+def main(argv: Optional[Sequence[str]] = None) -> None:
+    """Console entry point: parse config, set up logging, serve over stdio."""
+    config = ServerConfig.from_args(argv)
+    setup_logging(config)
+    log.info("starting pytribeam MCP server %s with %s", __version__, config.summary())
+    server = build_server(config)
+    try:
+        server.run("stdio")
+    finally:
+        log.info("server stopped")
 
 
 if __name__ == "__main__":
-    _cli()
+    main()
