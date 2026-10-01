@@ -23,6 +23,8 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.python-version
+uv.lock
 
 # Distribution / packaging
 *.egg-info/
