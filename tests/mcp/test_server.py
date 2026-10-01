@@ -97,4 +97,20 @@ async def test_unexpected_errors_are_not_leaked(config):
     async with Client(server) as client:
         result = await client.call_tool("fail", {})
     assert result.is_error and "secret detail" not in result.content[0].text
-    
+
+
+def test_env_file_precedence(tmp_path, monkeypatch):
+    env_file = tmp_path / "mcp.env"
+    env_file.write_text(
+        "# microscope settings\n"
+        "PYTRIBEAM_MCP_MICROSCOPE_HOST='10.0.0.5'\n"
+        "export PYTRIBEAM_MCP_MAX_TIER=1\n"
+        "OTHER_TOOL_SECRET=ignored\n"
+    )
+    monkeypatch.setenv("PYTRIBEAM_MCP_MAX_TIER", "0")  # real env beats the file
+    cfg = ServerConfig.from_args(["--env-file", str(env_file), "--log-dir", str(tmp_path)])
+    assert (cfg.microscope_host, cfg.max_tier) == ("10.0.0.5", 0)
+    cfg = ServerConfig.from_args(
+        ["--env-file", str(env_file), "--microscope-host", "cli-host", "--log-dir", str(tmp_path)]
+    )
+    assert cfg.microscope_host == "cli-host"  # flag beats everything

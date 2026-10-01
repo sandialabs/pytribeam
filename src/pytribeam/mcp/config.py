@@ -6,9 +6,16 @@ MCP Server Configuration
 Everything that varies between sessions lives here, in one frozen object that
 is built once at startup and never changes while the server runs.
 
-Values come from command-line flags, falling back to ``PYTRIBEAM_MCP_*``
-environment variables, falling back to the defaults below. Defaults fail
-closed: tier 0 only, and no microscope host.
+Each setting is resolved in this order, first match wins:
+
+1. Command-line flag (``--max-tier``)
+2. Environment variable (``PYTRIBEAM_MCP_MAX_TIER``)
+3. Env file (same variable names), from ``--env-file``,
+   ``PYTRIBEAM_MCP_ENV_FILE``, or ``default_env_file()`` if it exists
+4. The defaults below, which fail closed: tier 0 only, no microscope host.
+
+The env file is read into a dict, not into ``os.environ``, so it never leaks
+into AutoScript or anything else running in the process.
 
 Tiers
 -----
@@ -37,8 +44,39 @@ def default_log_dir() -> Path:
     return Path(base) / "pytribeam" / "logs" / "mcp"
 
 
-def _env(name: str, default=None):
-    return os.getenv(ENV_PREFIX + name, default)
+def default_env_file() -> Path:
+    """Used when no env file is named explicitly, and only if it exists."""
+    base = os.getenv("LOCALAPPDATA", os.path.expanduser("~/.local/share"))
+    return Path(base) / "pytribeam" / "mcp.env"
+
+
+def read_env_file(path: Path) -> dict:
+    """Parse ``KEY=VALUE`` lines. Blank lines, ``#`` comments, an ``export``
+    prefix, and surrounding quotes are allowed. Only ``PYTRIBEAM_MCP_*`` keys
+    are kept, so a shared .env file can't change anything else."""
+    values = {}
+    for n, raw in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        key, sep, value = line.removeprefix("export ").partition("=")
+        if not sep:
+            raise ValueError(f"{path}:{n}: expected KEY=VALUE, got {raw!r}")
+        key, value = key.strip(), value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        if key.startswith(ENV_PREFIX):
+            values[key] = value
+    return values
+
+
+def _env_file_values(explicit: Optional[Path]) -> dict:
+    path = explicit or os.getenv(ENV_PREFIX + "ENV_FILE")
+    if path:
+        return read_env_file(Path(path))  # named explicitly: must exist
+    if default_env_file().is_file():
+        return read_env_file(default_env_file())
+    return {}
 
 
 @dataclass(frozen=True)
@@ -62,12 +100,24 @@ class ServerConfig:
     @classmethod
     def from_args(cls, argv: Optional[Sequence[str]] = None) -> "ServerConfig":
         """Build a config from CLI flags, with environment variables as defaults."""
+        pre = argparse.ArgumentParser(add_help=False)
+        pre.add_argument("--env-file", type=Path)
+        known, _ = pre.parse_known_args(argv)
+        file_values = _env_file_values(known.env_file)
+
+        def _env(name: str, default=None):
+            key = ENV_PREFIX + name
+            return os.getenv(key, file_values.get(key, default))
+
         port = _env("MICROSCOPE_PORT")
         p = argparse.ArgumentParser(
             prog="pytribeam_mcp",
             description="pytribeam MCP server (stdio). Exposes microscope "
             "capabilities to an agent, gated by tier.",
         )
+        p.add_argument("--env-file", type=Path,
+                       help="File of PYTRIBEAM_MCP_* settings (default: "
+                       f"{default_env_file()}, if it exists).")
         p.add_argument("--max-tier", type=int, default=int(_env("MAX_TIER", 0)),
                        help="Highest capability tier to expose (default: 0).")
         p.add_argument("--microscope-host", default=_env("MICROSCOPE_HOST"),
