@@ -10,7 +10,8 @@ harness) launches this as a subprocess::
     python -m pytribeam.mcp --max-tier 0 --microscope-host 192.168.0.10
 
 stdout carries the MCP protocol. Nothing in this process may print to it;
-logs go to stderr and to files under ``config.log_dir``.
+logs go to stderr and to files under ``config.log_dir``
+(``<project_dir>/logs``).
 
 Do not import ``pytribeam.types``, ``pytribeam.utilities``, or AutoScript at
 module level here. The server must start, and be testable, on a machine with no

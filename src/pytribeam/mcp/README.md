@@ -24,12 +24,30 @@ The server is configured through environment variables:
 | `PYTRIBEAM_MCP_MICROSCOPE_HOST` | Host name or IP of the microscope PC | none |
 | `PYTRIBEAM_MCP_MICROSCOPE_PORT` | AutoScript port | AutoScript default |
 | `PYTRIBEAM_MCP_MAX_TIER` | Highest tier exposed to the agent (0–3) | `0` |
-| `PYTRIBEAM_MCP_LOG_DIR` | Location of server and audit logs | `%LOCALAPPDATA%/pytribeam/logs/mcp` |
+| `PYTRIBEAM_MCP_PROJECT_DIR` | Folder for this project's logs and saved states | `%LOCALAPPDATA%/pytribeam/mcp` |
 
 Settings can also live in a file of `KEY=VALUE` lines. The server reads
 `%LOCALAPPDATA%/pytribeam/mcp.env` if it exists, or the file named by `--env-file`
 or `PYTRIBEAM_MCP_ENV_FILE`. Command-line flags and real environment variables
 take precedence over the file. It is recommended to create a `.env` file in the project root directory with the above variables for easier management and consistency across different environments.
+
+Everything the server writes goes under the project directory, so pointing it
+at an experiment's folder keeps that experiment's record in one place:
+
+```
+<project_dir>/
+├── logs/
+│   ├── server.log       # rotating server log
+│   └── audit.jsonl      # one line per tool call
+└── states/
+    ├── s0001.yml        # every state the agent reads, saved in full
+    └── ...
+```
+
+State ids are the file names and continue across sessions, so the agent can
+compare against states from earlier sessions. The GUI state recorder writes the
+same format, so pointing it at `<project_dir>/states` adds its recordings to
+the same sequence.
 
 ## Usage
 

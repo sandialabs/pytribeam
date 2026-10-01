@@ -38,10 +38,10 @@ MAX_TIER = 3
 ENV_PREFIX = "PYTRIBEAM_MCP_"
 
 
-def default_log_dir() -> Path:
-    """Same location the GUI uses, so all pytribeam logs live together."""
+def default_project_dir() -> Path:
+    """Used when no project directory is configured."""
     base = os.getenv("LOCALAPPDATA", os.path.expanduser("~/.local/share"))
-    return Path(base) / "pytribeam" / "logs" / "mcp"
+    return Path(base) / "pytribeam" / "mcp"
 
 
 def default_env_file() -> Path:
@@ -81,13 +81,28 @@ def _env_file_values(explicit: Optional[Path]) -> dict:
 
 @dataclass(frozen=True)
 class ServerConfig:
-    """Session configuration for the MCP server."""
+    """Session configuration for the MCP server.
+
+    Everything the server writes goes under ``project_dir``::
+
+        project_dir/
+            logs/       server.log, audit.jsonl
+            states/     s0001.yml, s0002.yml, ...  (see pytribeam.mcp.state)
+    """
 
     max_tier: int = 0
     microscope_host: Optional[str] = None
     microscope_port: Optional[int] = None
-    log_dir: Path = field(default_factory=default_log_dir)
+    project_dir: Path = field(default_factory=default_project_dir)
     log_level: str = "INFO"
+
+    @property
+    def log_dir(self) -> Path:
+        return self.project_dir / "logs"
+
+    @property
+    def states_dir(self) -> Path:
+        return self.project_dir / "states"
 
     def __post_init__(self) -> None:
         if not 0 <= self.max_tier <= MAX_TIER:
@@ -126,8 +141,9 @@ class ServerConfig:
         p.add_argument("--microscope-port", type=int,
                        default=int(port) if port else None,
                        help="AutoScript port, if not the default.")
-        p.add_argument("--log-dir", type=Path, default=_env("LOG_DIR"),
-                       help="Directory for server and audit logs.")
+        p.add_argument("--project-dir", type=Path, default=_env("PROJECT_DIR"),
+                       help="Directory for this project's logs and saved states "
+                       f"(default: {default_project_dir()}).")
         p.add_argument("--log-level", default=_env("LOG_LEVEL", "INFO"),
                        help="Level for the server log file (default: INFO).")
         a = p.parse_args(argv)
@@ -135,7 +151,7 @@ class ServerConfig:
             max_tier=a.max_tier,
             microscope_host=a.microscope_host,
             microscope_port=a.microscope_port,
-            log_dir=Path(a.log_dir) if a.log_dir else default_log_dir(),
+            project_dir=Path(a.project_dir) if a.project_dir else default_project_dir(),
             log_level=a.log_level.upper(),
         )
 
@@ -145,6 +161,6 @@ class ServerConfig:
             "max_tier": self.max_tier,
             "microscope_host": self.microscope_host,
             "microscope_port": self.microscope_port,
-            "log_dir": str(self.log_dir),
+            "project_dir": str(self.project_dir),
             "log_level": self.log_level,
         }

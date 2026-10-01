@@ -22,7 +22,7 @@ def anyio_backend():
 
 @pytest.fixture
 def config(tmp_path):
-    return ServerConfig(max_tier=0, microscope_host="scope-pc", log_dir=tmp_path)
+    return ServerConfig(max_tier=0, microscope_host="scope-pc", project_dir=tmp_path)
 
 
 def _fake_module(tier):
@@ -67,9 +67,9 @@ def test_config_fails_closed():
 
 def test_config_from_args(tmp_path):
     cfg = ServerConfig.from_args(
-        ["--max-tier", "1", "--microscope-host", "10.0.0.5", "--log-dir", str(tmp_path)]
+        ["--max-tier", "1", "--microscope-host", "10.0.0.5", "--project-dir", str(tmp_path)]
     )
-    assert (cfg.max_tier, cfg.microscope_host, cfg.log_dir) == (1, "10.0.0.5", tmp_path)
+    assert (cfg.max_tier, cfg.microscope_host, cfg.project_dir) == (1, "10.0.0.5", tmp_path)
 
 
 def _failing_module(exc):
@@ -108,9 +108,9 @@ def test_env_file_precedence(tmp_path, monkeypatch):
         "OTHER_TOOL_SECRET=ignored\n"
     )
     monkeypatch.setenv("PYTRIBEAM_MCP_MAX_TIER", "0")  # real env beats the file
-    cfg = ServerConfig.from_args(["--env-file", str(env_file), "--log-dir", str(tmp_path)])
+    cfg = ServerConfig.from_args(["--env-file", str(env_file), "--project-dir", str(tmp_path)])
     assert (cfg.microscope_host, cfg.max_tier) == ("10.0.0.5", 0)
     cfg = ServerConfig.from_args(
-        ["--env-file", str(env_file), "--microscope-host", "cli-host", "--log-dir", str(tmp_path)]
+        ["--env-file", str(env_file), "--microscope-host", "cli-host", "--project-dir", str(tmp_path)]
     )
     assert cfg.microscope_host == "cli-host"  # flag beats everything
