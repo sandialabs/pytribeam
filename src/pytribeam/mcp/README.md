@@ -7,8 +7,13 @@ This describes the usage, structure, and roadmap for MCP development within the 
 pytribeam includes an MCP server, `pytribeam_mcp`, that lets an AI agent work with the microscope. Which tools the agent can see depends on the configured tier, and the default is tier 0 (read-only). Install it with the `mcp` extra:
 
 ```bash
+# with pip
 pip install "pytribeam[mcp]"
-# or with uv
+
+# with uv
+uv add "pytribeam[mcp]"
+
+# uv from git clone / repo root folder
 uv sync --extra mcp
 ```
 
