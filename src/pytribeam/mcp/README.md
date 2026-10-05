@@ -241,30 +241,6 @@ These apply to every tool in every stage.
   environment:
   `PYTHONPATH=src uv run --no-project --python 3.11 --with "mcp>=2.2,<3" --with pytest --with anyio --with pyyaml --with pillow --with numpy python -m pytest tests/mcp -o addopts=""`
 
-**Simulator behavior that differs from a real microscope**
-
-- **Unsupported features.** These fail to read on the simulator; see
-  `read_errors` in `tests/mcp/state_records/s0001.yml`:
-  - electron beam mode
-  - plasma gas
-  - detector custom voltages
-  - detector insertion state
-  - real-time monitor
-  - compustage
-  - loadlock
-  - stage humidity
-
-  Code must handle the resulting exceptions, but a tool that cannot do
-  anything useful on the simulator (e.g. detector insertion) can only be
-  tested with fakes.
-- **Detector lists.** `detector.type.available_values` lists every detector
-  AutoScript knows about, not the ones that work. That is why the
-  `get_available_*` functions try each one.
-- **Images.** These are synthetic, so they cannot be used to judge focus or
-  contrast.
-- **Stage.** The simulator does not model collisions or real motion times. A
-  move passing on the simulator proves the plumbing works, not that it is
-  safe.
 
 ### Stage 1: Shared infrastructure
 
