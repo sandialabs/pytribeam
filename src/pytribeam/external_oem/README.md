@@ -38,7 +38,7 @@ Every detector move, on either interface, runs under the live chamber CCD view
 ```
 external_oem/
 ├── dispatch.py        # the only module experiment code imports
-├── core/              # vendor-neutral errors and identifiers
+├── tfs/               # fallback control for EDAX/Oxford using the LaserControl API from TFS
 ├── edax/              # EDAX IPAPI wrapper
 │   ├── types.py       #   command vocabulary, parameters, states   (stdlib only)
 │   ├── protocol.py    #   wire formatting and parsing               (stdlib only)
