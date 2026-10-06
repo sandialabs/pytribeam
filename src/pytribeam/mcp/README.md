@@ -147,57 +147,43 @@ different modules.
 | 3 | Stage motion. | `stage` | `move_to_position` |
 | 4 | TODO: material removal and other high-risk operations. See [Stage 5](#stage-5-tier-4-todo). | | |
 
-### Conventions for every tool
+### How to add a tool
 
-These apply to every tool in every stage.
+All tools go in the `capabilities/` directory, in a module corresponding to their tier and functionality. At a high level, each module should declare its `TIER` and provide a `register(add, config, connection)` function that the server calls to register the tools. In its simplest form, this looks like:
 
-1. **Module shape.** Copy `capabilities/diagnostics.py`: a module docstring, a
-   `TIER` constant, and `register(add, config, connection)` that defines each
-   tool as an inner function and calls `add(fn, ...)` once per tool. Never
-   import or touch the server object.
-2. **Imports.** The server must start, and the detached tests must run, on a
-   machine with no AutoScript. Do not import `pytribeam.types`,
-   `pytribeam.utilities`, `pytribeam.image`, `pytribeam.stage`,
-   `pytribeam.factory`, `pytribeam.insertable_devices`, or AutoScript at the
-   top of a capability module. Import them inside the function that needs them,
-   as `capabilities/state.py` does in `_connect` and `_capture`.
-3. **Hardware access goes through the shared connection (step 1.2).** Every tool that
-   talks to the microscope does so inside `with connection.use() as microscope:`.
-   This serializes access, so two tools never drive the microscope at once. It
-   also keeps AutoScript output off stdout.
-4. **Never write to stdout.** stdout carries the MCP protocol, and a single
-   stray `print` corrupts the session. Many pytribeam functions print
-   (`beam_current` prints "Adjusting beam current..."). `connection.use()`
-   redirects stdout to stderr for exactly this reason. Do not call pytribeam
-   functions outside it.
-5. **Errors.** Follow the error contract in `server.py`. Raise `ToolError` for
-   anything the agent should read and act on: an invalid value, a refused
-   action, a failed move. Its message goes to the agent verbatim, so write it
-   for the agent: say what was wrong and what the valid options are, e.g.
-   `"Unknown detector 'SE'. Available: ETD, TLD, ICE."`. pytribeam signals
-   these conditions with `ValueError` and `SystemError`, so convert them with
-   the step 1.3 helper. Anything else is treated as a bug and the agent only sees a
-   generic failure.
-6. **Warnings.** pytribeam reports useful information through `warnings.warn`,
-   e.g. "Requested beam current is not the current setting". Record them with
-   the step 1.3 helper and return them as a `warnings` list in the tool result.
-7. **Arguments.**
-   - Use flat, simple types: `str`, `int`, `float`, `bool`, `Optional[...]`.
-     Do not use nested objects.
-   - Use `Literal[...]` for fixed choices (`Literal["electron", "ion"]`) so the
-     allowed values appear in the tool schema the agent sees.
-   - Put the unit in the argument name, the same way pytribeam experiment
-     configs do: `hfw_mm`, `dwell_us`, `voltage_kv`, `current_na`, `x_mm`,
-     `t_deg`.
-   - `None` means "leave this setting as it is", so the agent only passes what
-     it wants to change.
-8. **Results.**
-   - Return a JSON-safe `dict`. Convert enums with `.value` and paths with
-     `str()`.
-   - Report settings in the same units the arguments use.
-   - State tools (`get_state`, `compare_states`) report SI units. Say so in
-     docstrings wherever the two meet, e.g. the stage position is SI meters in
-     `get_state` but millimeters in `get_stage_position`.
+```python
+# Example capability module at tier 0.
+TIER = 0
+
+# Register the tools provided by this module.
+def register(add, config):
+    """Register the tools provided by this module."""
+
+    # Define a simple hello world tool.
+    def hello_world() -> str:
+        """A simple hello world tool."""
+        return "Hello, world!"
+
+    # Register the tool with the server.
+    add(hello_world)
+```
+
+TODO: Add a few notes about stdout redirect for pytribeam functions and handling microscope connections (see `capabilities/state.py`).
+
+A few implementation notes:
+
+- All tools should handle errors gracefully and follow the error contract specified in `server.py`. Error messages are sent directly to the agent, so they should be written to be informative and user-friendly.
+- Avoid writing to stdout directly; use the connection context manager to redirect output to stderr. Stdout carries the MCP protocol, and a single stray `print` can corrupt the session.
+- Always import pytribeam modules inside the functions that need them to ensure the server can start without AutoScript.
+- pytribeam reports useful information through `warnings.warn` that should be recorded and returned as part of the tool result (step 1.3 helper).
+- Always clean up resources, such as file handles and microscope connections, to avoid leaving the system in an inconsistent state.
+- Always validate inputs and handle edge cases to prevent unexpected behavior and maintain system stability.
+- Use flat, simple data structures for communication with the agent (inputs, results), avoiding nested objects and complex types. Put units in the argument names. `None` should mean "leave this setting as it is".
+- Docstrings should be clear and concise, describing the tool's purpose, side effects, units, and what a refusal means. Avoid NumPy-style parameter sections; the schema already lists the arguments.
+- Pass `read_only=True` for tier 0 tools and `destructive=True` for anything that can damage the sample or hardware.
+
+
+
 9. **Files.** The server chooses every file path, under the project directory
    (`config.project_dir`). Never accept a path from the agent: a tool that
    writes to an agent-chosen path can overwrite anything. Name files the same
@@ -206,65 +192,21 @@ These apply to every tool in every stage.
     snapshot before and after acting, and return both state ids and the diff
     (step 1.3 helper). The agent sees exactly what its action changed, and the
     project folder keeps the before/after states next to the audit log.
-11. **Docstrings are the tool description the agent reads.** For each tool,
-    write a summary, every side effect (including temporary ones), the units,
-    and what a refusal means. Do not write NumPy-style parameter sections; the
-    schema already lists the arguments.
-12. **Annotations.** Pass `read_only=True` for tier 0 tools. Pass
-    `destructive=True` for anything that can damage the sample or hardware:
-    stage motion, and ion-beam imaging, which sputters the surface it scans.
-13. **Tests.** Every step needs three kinds of check:
-    - **Detached tests** in `tests/mcp/`, marked `@pytest.mark.detached`, that
-      drive the tools through an in-process MCP `Client` with a fake
-      microscope. `tests/mcp/test_state_capabilities.py` is the template. They
-      cover argument validation, refusals, and result shape.
-    - **Simulator tests**, marked `@pytest.mark.simulated`, that call the same
-      tools against the real simulator through `build_server`.
-    - **A manual pass in the MCP Inspector** (see [Manual usage](#manual-usage)):
-      call each new tool once against the simulator and check its result.
 
-### Working on the simulator
+### Testing
+Every step needs three kinds of check:
+- **Detached tests** in `tests/mcp/`, marked `@pytest.mark.detached`, that drive the tools through an in-process MCP `Client` with a fake microscope. `tests/mcp/test_state_capabilities.py` is the template. They cover argument validation, refusals, and result shape.
+- **Simulator tests**, marked `@pytest.mark.simulated`, that call the same tools against the real simulator through `build_server`.
+- **A manual pass in the MCP Inspector** (see [Manual usage](#manual-usage)): call each new tool once against the simulator and check its result.
 
-**Environment**
+### Python environment
 
-- The MCP server needs Python 3.10 or 3.11 (`mcp` requires ≥3.10; pytribeam
-  requires ≤3.11.14). Create the environment with `uv sync --extra mcp` on the
-  simulator PC.
-- Run the server on the simulator PC with
-  `PYTRIBEAM_MCP_MICROSCOPE_HOST=localhost` and a project directory of your
-  own, e.g. `PYTRIBEAM_MCP_PROJECT_DIR=C:\Users\you\mcp_dev`. Put both in a
-  `.env` file and pass it with `--env-file`.
-- `@pytest.mark.simulated` tests only run on machines listed in
-  `Constants.offline_machines` (`src/pytribeam/constants.py`). If yours is not
-  listed, add the simulator PC's hostname there.
-- On a machine without the `mcp` package, the MCP tests can run in a temporary
-  environment:
+- The MCP server needs Python 3.10 or 3.11 (`mcp` requires ≥3.10; pytribeam requires ≤3.11.14). Create the environment with `uv sync --extra mcp` on the simulator PC.
+- Run the server on the simulator PC with `PYTRIBEAM_MCP_MICROSCOPE_HOST=localhost` and a project directory of your own, e.g. `PYTRIBEAM_MCP_PROJECT_DIR=C:\Users\you\mcp_dev`. Put both in a `.env` file and pass it with `--env-file`.
+- `@pytest.mark.simulated` tests only run on machines listed in `Constants.offline_machines` (`src/pytribeam/constants.py`). If yours is not listed, add the simulator PC's hostname there.
+- On a machine without the `mcp` package, the MCP tests can run in a temporary environment:
   `PYTHONPATH=src uv run --no-project --python 3.11 --with "mcp>=2.2,<3" --with pytest --with anyio --with pyyaml --with pillow --with numpy python -m pytest tests/mcp -o addopts=""`
 
-**Simulator behavior that differs from a real microscope**
-
-- **Unsupported features.** These fail to read on the simulator; see
-  `read_errors` in `tests/mcp/state_records/s0001.yml`:
-  - electron beam mode
-  - plasma gas
-  - detector custom voltages
-  - detector insertion state
-  - real-time monitor
-  - compustage
-  - loadlock
-  - stage humidity
-
-  Code must handle the resulting exceptions, but a tool that cannot do
-  anything useful on the simulator (e.g. detector insertion) can only be
-  tested with fakes.
-- **Detector lists.** `detector.type.available_values` lists every detector
-  AutoScript knows about, not the ones that work. That is why the
-  `get_available_*` functions try each one.
-- **Images.** These are synthetic, so they cannot be used to judge focus or
-  contrast.
-- **Stage.** The simulator does not model collisions or real motion times. A
-  move passing on the simulator proves the plumbing works, not that it is
-  safe.
 
 ### Stage 1: Shared infrastructure
 
