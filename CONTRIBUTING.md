@@ -105,7 +105,7 @@ Implementation details:
   ```
 * **No commit-back of `_version.py`:** `hatch-vcs` stamps the exact version into the built wheel/sdist from the git tag, so published artifacts are always correct. `release.yml` does **not** regenerate and commit `_version.py` back to `main`/`dev` after tagging — doing so would create a commit *past* the tag (forcing every later build to report the next `.devN` version) and would fail against branch protection on `main`.
   * Commit traceability is preserved by the tag itself (see [Tags and Semantic Versioning](#tags-and-semantic-versioning)).
-  * The tracked `_version.py` is a separate, static fallback for installs without git metadata (zip downloads, offline installs) — it must be bumped **before** tagging via `prepare-release.yml`, not after (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)); `validate_tag` refuses any tag where it's out of sync.
+  * The tracked `_version.py` is a separate, static fallback that `pytribeam_install.bat` reads for installs without git metadata (zip downloads, offline installs) — it must be bumped **before** tagging via `prepare-release.yml`, not after (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)); `validate_tag` refuses any tag where it's out of sync.
 * **Artifact Integrity:** By building once and downloading the artifacts in subsequent jobs, we ensure the exact same files go to GitHub and PyPI.
 * **Security:** We use `id-token: write` for PyPI's Trusted Publishing, which is a modern and secure way to handle authentication.
 
@@ -177,7 +177,7 @@ Version strings are generated automatically by `hatch-vcs` (which uses `setuptoo
 
 Each new commit increments the distance by 1. When a commit is tagged (e.g., `v0.1.0`), the distance resets to zero and the version becomes the clean `0.1.0` with no `.dev` suffix. `hatch-vcs` computes this clean version **at build time** (in CI, from the tag) and bakes it directly into the wheel and sdist, so everything published to PyPI/TestPyPI reports the correct version — this always works and needs no manual step.
 
-The *tracked* `src/pytribeam/_version.py` file in the repo is a different thing: a static, checked-in copy that `hatch-vcs` falls back to reading when it *can't* compute a version from git (a zip download or offline install with no `.git` directory present). Nothing regenerates this tracked copy automatically — it must be bumped manually before tagging (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)), or it drifts out of sync with the tag, as happened with `v0.1.3`.
+The *tracked* `src/pytribeam/_version.py` file in the repo is a different thing: a static, checked-in copy of the version string for installs with no `.git` directory present (a zip download or offline install). `hatch-vcs`/`setuptools-scm` do **not** read this file back on their own — if git metadata is missing they simply raise `LookupError`, they never fall back to a file in the source tree. `pytribeam_install.bat` is what makes this file useful: when it finds no `.git` folder next to it, it parses the version out of this file and exports it as the `SETUPTOOLS_SCM_PRETEND_VERSION` environment variable before invoking pip, which `setuptools-scm` *does* honor instead of querying git. (`pyproject.toml` also sets `fallback-version = "0.0.0"` as a last-resort safety net for any other invocation path that skips the installer script — that only avoids a crash, it does not report the real version.) Nothing regenerates the tracked copy automatically — it must be bumped manually before tagging (see [Bump `src/pytribeam/_version.py`](#bump-srcpytribeam_versionpy)), or it drifts out of sync with the tag, as happened with `v0.1.3`.
 
 **The tag is the permanent link between a version and a commit.** A git tag is an immutable pointer to exactly one commit, so the three are locked together one-to-one:
 
@@ -222,7 +222,7 @@ A release candidate is made during the final testing stage before a full release
 
 ### Bump `src/pytribeam/_version.py`
 
-Before tagging, bring `src/pytribeam/_version.py` up to date with the version you're about to release. This file is a static fallback used only when git metadata isn't available (zip downloads, offline installs via `pytribeam_install.bat`) — `hatch-vcs` reads it back in that case instead of computing a version from git. `release.yml` never writes this file, so it goes stale unless bumped ahead of time, and `validate_tag` refuses any tag where it's out of sync.
+Before tagging, bring `src/pytribeam/_version.py` up to date with the version you're about to release. This file is a static fallback used only when git metadata isn't available (zip downloads, offline installs via `pytribeam_install.bat`) — the installer script parses the version out of this file and exports it as `SETUPTOOLS_SCM_PRETEND_VERSION` so `hatch-vcs`/`setuptools-scm` use it instead of trying (and failing) to compute a version from git. `release.yml` never writes this file, so it goes stale unless bumped ahead of time, and `validate_tag` refuses any tag where it's out of sync.
 
 Run the `Prepare Release` workflow with the target version — this opens a PR bumping the file, which you review and merge like any normal PR (works fine against protected `main` too, since it's human-reviewed, not a workflow push):
 
