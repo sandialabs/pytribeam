@@ -60,6 +60,9 @@ coverage.xml
 # Test dir
 tests/test_dir/*
 
+# Offline installer log
+pytribeam_install.log
+
 # AI stuff
 .claude/
 .codex/

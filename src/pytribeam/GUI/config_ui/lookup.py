@@ -1000,9 +1000,9 @@ mask_file = LUTField(
 application_file = LUTField(
     "Mill Pattern Preset",
     "",
-    ctk.Entry,
-    {"dtype": str},
-    "The preset to use for milling.",
+    ctk.EntryMenuButton,
+    {"options": [], "dtype": str},
+    "The preset (application file) to use for milling. Type a name, or sync options from the microscope to choose from its application files.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
