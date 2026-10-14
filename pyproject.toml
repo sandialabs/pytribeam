@@ -25,6 +25,7 @@ dependencies = [
     "opencv-python",
     "scikit-image",
     "pandas",
+    "colorama",
     "importlib_resources; python_version < '3.9'",
 ]
 
