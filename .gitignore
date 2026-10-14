@@ -65,3 +65,8 @@ body.json
 
 # Per-machine test settings (instrument hosts, hardware opt-in flags)
 .env
+
+# AI stuff
+.claude/
+.codex/
+.opencode-workspace/
