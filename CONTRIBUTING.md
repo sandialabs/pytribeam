@@ -269,7 +269,7 @@ pushing the release tag itself works directly once the PR is merged.
 **Before either recipe below**, run the preflight script:
 
 ```sh
-python preflight.py --all-tests
+python scripts/preflight.py --all-tests
 ```
 
 This runs `ruff format --check src/` and the full `pytest tests/` suite against your
@@ -277,7 +277,7 @@ current checkout, exiting non-zero if either fails. It does **not** check your b
 whether commits are pushed, or `_version.py` — those are handled by the steps below.
 
 If the AutoScript SDK isn't installed (true for most local dev environments — it's only
-present inside the AutoScript CI container, see `api-docs` above), `preflight.py`
+present inside the AutoScript CI container, see `api-docs` above), `scripts/preflight.py`
 dynamically and automatically skips any test modules that transitively need
 `autoscript_sdb_microscope_client`, or the pandas/scikit-image versions AutoScript's
 vendor wheels provide, instead of crashing the run. It prints exactly which modules were

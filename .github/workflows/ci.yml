@@ -84,6 +84,27 @@ jobs:
             htmlcov/
             report_coverage.xml
 
+  wheelhouse:
+    name: Check offline installer wheelhouse
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+            fetch-depth: 0 # hatch-vcs needs tags to compute pytribeam's version
+            fetch-tags: true
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          # Any interpreter works: the checker resolves for Windows / Python
+          # 3.8.12 through uv's --python-platform and --python-version.
+          python-version: '3.12'
+          enable-cache: true
+
+      - name: Check wheelhouse against pyproject.toml
+        run: uv run --no-project python scripts/check_wheelhouse.py
+
   api-docs:
     name: Build API Documentation with pdoc
     runs-on: ubuntu-latest

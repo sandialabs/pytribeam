@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import random
 import string
 import re
@@ -734,7 +735,7 @@ def get_local_ci_config() -> dict:
     return data.get("tool", {}).get("pytribeam", {}).get("local_ci", {})
 
 
-REPO_ROOT = Path.cwd()
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 LOCAL_CI = get_local_ci_config()
 
@@ -771,5 +772,8 @@ userguide_badge_value = "📖"
 
 
 if __name__ == "__main__":
+    # Tools below are run with repo-relative paths (src, tests), so run from
+    # the repo root no matter where this script was launched from.
+    os.chdir(REPO_ROOT)
     main(parse_args())
     # raise SystemExit(main())

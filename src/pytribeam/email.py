@@ -345,9 +345,9 @@ def send_update_email(
 ) -> Tuple[bool, str]:
     """
     Send an update email.
-    
+
     ## Parameters
-    
+
     - `ssh_host` (`str`) : The hostname of the machine with internet access that the email will be sent through.
     - `ssh_port` (`int`) : The port of the machine with internet access.
     - `ssh_user` (`str`) : The username of the machine with internet access.
