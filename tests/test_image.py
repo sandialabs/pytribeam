@@ -390,6 +390,131 @@ class TestDetector:
             assert microscope.detector.type.value == detector
 
 
+class TestAvailableDetectors:
+    @staticmethod
+    def _imaging_state(microscope):
+        """Snapshot of the active device, detector type, and detector mode"""
+        return (
+            microscope.imaging.get_active_device(),
+            microscope.detector.type.value,
+            microscope.detector.mode.value,
+        )
+
+    @pytest.mark.simulated
+    def test_get_available_detector_types(self, microscope):
+        """Tests that available detector types are settable and state is restored"""
+        img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        original_state = self._imaging_state(microscope)
+
+        for device in [tbt.Device.ELECTRON_BEAM, tbt.Device.ION_BEAM]:
+            available_types = img.get_available_detector_types(
+                microscope=microscope, device=device
+            )
+            assert self._imaging_state(microscope) == original_state
+
+            assert len(available_types) > 0
+            assert all(isinstance(dt, tbt.DetectorType) for dt in available_types)
+
+            # every returned detector must actually be settable on that device
+            img.set_beam_device(microscope=microscope, device=device)
+            for dt in available_types:
+                assert dt.value in microscope.detector.type.available_values
+                assert img.detector_type(microscope=microscope, detector=dt)
+            img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+            img.detector_type(
+                microscope=microscope, detector=tbt.DetectorType(original_state[1])
+            )
+            img.detector_mode(
+                microscope=microscope,
+                detector_mode=tbt.DetectorMode(original_state[2]),
+            )
+
+        # no device given defaults to the active device
+        assert img.get_available_detector_types(
+            microscope=microscope
+        ) == img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
+
+    @pytest.mark.simulated
+    def test_get_available_detector_modes(self, microscope):
+        """Tests that available detector modes match each detector and state is restored"""
+        img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        original_state = self._imaging_state(microscope)
+
+        # no detector given defaults to the active detector
+        default_modes = img.get_available_detector_modes(microscope=microscope)
+        assert self._imaging_state(microscope) == original_state
+        assert default_modes == [
+            tbt.DetectorMode(dm) for dm in microscope.detector.mode.available_values
+        ]
+
+        for dt in img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        ):
+            modes = img.get_available_detector_modes(
+                microscope=microscope,
+                device=tbt.Device.ELECTRON_BEAM,
+                detector=dt,
+            )
+            assert self._imaging_state(microscope) == original_state
+
+            assert len(modes) > 0
+            assert all(isinstance(dm, tbt.DetectorMode) for dm in modes)
+
+            # every returned mode must actually be settable on that detector
+            img.detector_type(microscope=microscope, detector=dt)
+            for dm in modes:
+                assert img.detector_mode(microscope=microscope, detector_mode=dm)
+            img.detector_type(
+                microscope=microscope, detector=tbt.DetectorType(original_state[1])
+            )
+            img.detector_mode(
+                microscope=microscope,
+                detector_mode=tbt.DetectorMode(original_state[2]),
+            )
+
+    @pytest.mark.simulated
+    def test_get_available_insertable_detectors(self, microscope):
+        """Tests that insertable detectors and their states are consistent"""
+        devices.device_access(microscope=microscope)
+        original_state = self._imaging_state(microscope)
+
+        insertable = img.get_available_insertable_detectors(microscope=microscope)
+        assert self._imaging_state(microscope) == original_state
+        insertable_states = img.get_available_insertable_detector_states(
+            microscope=microscope
+        )
+        assert self._imaging_state(microscope) == original_state
+
+        available_types = img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
+        for dt in insertable:
+            assert isinstance(dt, tbt.DetectorType)
+            assert dt in available_types
+        assert tbt.DetectorType.ETD not in insertable
+
+        # the states function reports on the same detectors, in the same order
+        assert [dt for dt, _ in insertable_states] == insertable
+        for _, state in insertable_states:
+            assert isinstance(state, tbt.RetractableDeviceState)
+            assert state != tbt.RetractableDeviceState.STATIONARY
+
+    @pytest.mark.hardware
+    def test_get_available_insertable_detectors_cbs(self, microscope):
+        """Tests that the CBS detector is reported as insertable on hardware"""
+        devices.device_access(microscope=microscope)
+
+        insertable = img.get_available_insertable_detectors(microscope=microscope)
+        assert tbt.DetectorType.CBS in insertable
+
+        insertable_states = dict(
+            img.get_available_insertable_detector_states(microscope=microscope)
+        )
+        assert tbt.DetectorType.CBS in insertable_states
+
+
 class TestSetImagingDevice:
     @pytest.mark.simulated
     def test_set_beam_device(self, microscope):

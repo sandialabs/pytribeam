@@ -34,7 +34,12 @@ class AppConfig:
     max_recent_files: int = 10
 
     @classmethod
-    def from_env(cls, app_name: str = "pytribeam") -> "AppConfig":
+    def from_env(
+        cls,
+        app_name: str = "pytribeam",
+        os_name: Optional[str] = None,
+        path_cls=Path,
+    ) -> "AppConfig":
         """Create configuration from environment variables.
 
         Uses LOCALAPPDATA on Windows or ~/.local/share on Unix-like systems.
@@ -45,12 +50,14 @@ class AppConfig:
         Returns:
             AppConfig instance with paths set from environment
         """
-        if os.name == "nt":
+        os_name = os.name if os_name is None else os_name
+
+        if os_name == "nt":
             # Windows
-            base_dir = Path(os.getenv("LOCALAPPDATA", os.path.expanduser("~")))
+            base_dir = path_cls(os.getenv("LOCALAPPDATA", os.path.expanduser("~")))
         else:
             # Unix-like
-            base_dir = Path(
+            base_dir = path_cls(
                 os.getenv("XDG_DATA_HOME", os.path.expanduser("~/.local/share"))
             )
 
@@ -160,8 +167,12 @@ class AppConfig:
         timestamp = time.strftime("%Y%m%d-%H%M%S")
         return self.log_dir / f"{timestamp}_terminal.txt"
 
-    def get_error_log_path(self) -> Path:
+    def get_error_log_path(self, directory: Optional[Path] = None) -> Path:
         """Get path for new error traceback file.
+
+        Args:
+            directory: Directory for the file (default: log_dir), e.g. the
+                experiment's errors folder
 
         Returns:
             Path for error log file with timestamp
@@ -169,4 +180,5 @@ class AppConfig:
         import time
 
         timestamp = time.strftime("%Y%m%d-%H%M%S")
-        return self.log_dir / f"{timestamp}_error_traceback.txt"
+        directory = self.log_dir if directory is None else Path(directory)
+        return directory / f"{timestamp}_error_traceback.txt"

@@ -479,6 +479,232 @@ class TestLogError:
         assert "step 3" in content
         assert "ValueError" in content
 
+    @pytest.fixture
+    def fake_app_config(self, monkeypatch, tmp_path):
+        from pytribeam.GUI.common.config_manager import AppConfig
+
+        fake_cfg = AppConfig(data_dir=tmp_path / "data", log_dir=tmp_path / "logs")
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.AppConfig.from_env",
+            lambda: fake_cfg,
+        )
+        return fake_cfg
+
+    def test_saves_to_experiment_errors_folder(self, fake_app_config, tmp_path):
+        exp_dir = tmp_path / "experiment"
+        ctrl = ExperimentController()
+        ctrl._log_error(ValueError("test error"), 2, 3, exp_dir=exp_dir)
+
+        log_files = list((exp_dir / "errors").glob("*_error_traceback.txt"))
+        assert len(log_files) == 1
+        assert "ValueError" in log_files[0].read_text()
+        assert not fake_app_config.log_dir.exists()
+
+    def test_falls_back_to_app_log_dir(self, fake_app_config, tmp_path):
+        # A file where the experiment directory should be makes "errors" unwritable
+        exp_dir = tmp_path / "experiment"
+        exp_dir.write_text("not a directory")
+        ctrl = ExperimentController()
+        ctrl._log_error(ValueError("test error"), 2, 3, exp_dir=exp_dir)
+
+        log_files = list(fake_app_config.log_dir.glob("*_error_traceback.txt"))
+        assert len(log_files) == 1
+        assert "ValueError" in log_files[0].read_text()
+
+    def test_execute_step_saves_traceback_in_experiment(
+        self, fake_app_config, monkeypatch, tmp_path
+    ):
+        def failing_step(slice_number, step_index, settings):
+            raise RuntimeError("step failed")
+
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.workflow.perform_step",
+            failing_step,
+        )
+        monkeypatch.setattr(
+            "pytribeam.GUI.runner_util.experiment_controller.stage.stop",
+            lambda m: None,
+        )
+        settings = MagicMock()
+        settings.general_settings.exp_dir = tmp_path / "experiment"
+
+        ctrl = ExperimentController()
+        assert ctrl._execute_step(4, 1, settings) is False
+
+        log_files = list((tmp_path / "experiment" / "errors").glob("*.txt"))
+        assert len(log_files) == 1
+        content = log_files[0].read_text()
+        assert "slice 4, step 1" in content
+        assert "RuntimeError: step failed" in content
+
+
+# ----------------------------------------------------------------------
+# Manual stage moves
+# ----------------------------------------------------------------------
+MODULE = "pytribeam.GUI.runner_util.experiment_controller"
+
+
+class TestStageMove:
+    @pytest.fixture
+    def settings(self, tmp_path):
+        settings = MagicMock()
+        laser_step, image_step = MagicMock(), MagicMock()
+        laser_step.name, laser_step.frequency = "laser", 1
+        image_step.name, image_step.frequency = "image_bse", 2
+        settings.step_sequence = [laser_step, image_step]
+        settings.general_settings.max_slice_number = 200
+        settings.general_settings.slice_thickness_um = 1.5
+        settings.general_settings.exp_dir = tmp_path / "experiment"
+        return settings
+
+    @pytest.fixture
+    def scope(self, monkeypatch, settings):
+        """Patch hardware calls, recording them in order."""
+        calls = []
+        monkeypatch.setattr(f"{MODULE}.workflow.pre_flight_check", lambda p: settings)
+        monkeypatch.setattr(
+            f"{MODULE}.factory.active_stage_position_settings", lambda m: "current"
+        )
+
+        def target_position(stage_settings, slice_number, slice_thickness_um):
+            calls.append(("target", stage_settings, slice_number, slice_thickness_um))
+            return "target"
+
+        monkeypatch.setattr(f"{MODULE}.stage.target_position", target_position)
+        monkeypatch.setattr(
+            f"{MODULE}.utilities.disconnect_microscope",
+            lambda m, quiet_output=False: calls.append(("disconnect", m)),
+        )
+        monkeypatch.setattr(
+            f"{MODULE}.insertable_devices.retract_all_devices",
+            lambda **kw: calls.append(("retract", kw)),
+        )
+        monkeypatch.setattr(
+            f"{MODULE}.stage.step_start_position",
+            lambda **kw: calls.append(("move", kw)),
+        )
+        monkeypatch.setattr(f"{MODULE}.stage.stop", lambda m: calls.append(("stop", m)))
+        return calls
+
+    @pytest.fixture
+    def ctrl(self, tmp_path):
+        ctrl = ExperimentController(config_path=tmp_path / "config.yml")
+        yield ctrl
+        if ctrl._thread is not None:
+            ctrl._thread.join(timeout=5)
+
+    def _plan(self, ctrl, slice_number, step_name):
+        thread = ctrl.plan_stage_move(slice_number, step_name)
+        thread.join(timeout=5)
+        return thread.result
+
+    def test_plan_calculates_target(self, ctrl, scope, settings):
+        result = self._plan(ctrl, 100, "image_bse")
+        assert result["error"] is None
+        plan = result["value"]
+        assert (plan.slice_number, plan.step_number, plan.step_name) == (
+            100,
+            2,
+            "image_bse",
+        )
+        assert plan.current_position == "current"
+        assert plan.target_position == "target"
+        assert plan.experiment_settings is settings
+        assert scope == [("target", settings.step_sequence[1].stage, 100, 1.5)]
+        assert ctrl.is_moving is True
+
+    @pytest.mark.parametrize(
+        "slice_number, runs", [(1, True), (100, False), (101, True)]
+    )
+    def test_plan_notes_step_frequency(self, ctrl, scope, slice_number, runs):
+        plan = self._plan(ctrl, slice_number, "image_bse")["value"]
+        assert plan.step_runs_on_slice is runs
+
+    @pytest.mark.parametrize(
+        "slice_number, step_name", [(0, "laser"), (201, "laser"), (5, "missing")]
+    )
+    def test_plan_rejects_bad_choice_and_disconnects(
+        self, ctrl, scope, settings, slice_number, step_name
+    ):
+        result = self._plan(ctrl, slice_number, step_name)
+        assert isinstance(result["error"], ValueError)
+        assert ("disconnect", settings.microscope) in scope
+
+    def test_plan_refused_while_running_or_moving(self, ctrl, scope):
+        ctrl.state.is_running = True
+        with pytest.raises(RuntimeError):
+            ctrl.plan_stage_move(1, "laser")
+        ctrl.state.is_running = False
+        ctrl.is_moving = True
+        with pytest.raises(RuntimeError):
+            ctrl.plan_stage_move(1, "laser")
+
+    def test_move_retracts_then_moves(self, ctrl, scope, settings):
+        plan = self._plan(ctrl, 100, "image_bse")["value"]
+        scope.clear()
+        thread = ctrl.move_stage_to_step(plan)
+        thread.join(timeout=5)
+        assert thread.result["error"] is None
+        assert [c[0] for c in scope] == ["retract", "move"]
+        assert scope[0][1]["microscope"] is settings.microscope
+        move_kwargs = scope[1][1]
+        assert move_kwargs["slice_number"] == 100
+        assert move_kwargs["operation"] is settings.step_sequence[1]
+        assert move_kwargs["general_settings"] is settings.general_settings
+
+    def test_move_failure_logs_error_and_stops_stage(
+        self, ctrl, scope, settings, monkeypatch, tmp_path
+    ):
+        def failing_move(**kw):
+            raise ValueError("Destination position is unsafe")
+
+        monkeypatch.setattr(f"{MODULE}.stage.step_start_position", failing_move)
+        plan = self._plan(ctrl, 3, "laser")["value"]
+        thread = ctrl.move_stage_to_step(plan)
+        thread.join(timeout=5)
+        assert isinstance(thread.result["error"], ValueError)
+        assert ("stop", settings.microscope) in scope
+        log_files = list((tmp_path / "experiment" / "errors").glob("*.txt"))
+        assert len(log_files) == 1
+        assert "unsafe" in log_files[0].read_text()
+
+    def test_end_stage_move_disconnects_and_allows_new_moves(
+        self, ctrl, scope, settings
+    ):
+        plan = self._plan(ctrl, 1, "laser")["value"]
+        ctrl.end_stage_move(plan)
+        assert ("disconnect", settings.microscope) in scope
+        assert ctrl.is_moving is False
+        ctrl.plan_stage_move(1, "laser").join(timeout=5)  # allowed again
+
+    def test_start_experiment_blocked_while_moving(self, ctrl):
+        ctrl.is_moving = True
+        errors = []
+        ctrl.register_callback("error", errors.append)
+        assert ctrl.start_experiment() is False
+        assert errors
+
+    def test_hard_stop_interrupts_move(self, ctrl, scope, settings, monkeypatch):
+        started = []
+
+        def slow_move(**kw):
+            started.append(True)
+            for _ in range(200):
+                time.sleep(0.01)
+
+        monkeypatch.setattr(f"{MODULE}.stage.step_start_position", slow_move)
+        plan = self._plan(ctrl, 1, "laser")["value"]
+        thread = ctrl.move_stage_to_step(plan)
+        while not started:
+            time.sleep(0.01)
+        ctrl.request_stop_now()
+        thread.join(timeout=5)
+        assert not thread.is_alive()
+        assert thread.result["stopped"] is True
+        assert ("stop", settings.microscope) in scope
+        ctrl.end_stage_move(plan)
+        assert ctrl.state.should_stop_now is False
+
 
 # ----------------------------------------------------------------------
 # _try_stop_stage
