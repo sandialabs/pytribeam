@@ -25,6 +25,7 @@ dependencies = [
     "opencv-python",
     "scikit-image",
     "pandas",
+    "colorama",
     "importlib_resources; python_version < '3.9'",
 ]
 
@@ -62,6 +63,14 @@ repository = "https://github.com/sandialabs/pytribeam"
 
 [tool.hatch.version]
 source = "vcs"
+# Safety net only: pytribeam_install.bat is the primary offline-install fix —
+# it exports SETUPTOOLS_SCM_PRETEND_VERSION from the tracked _version.py before
+# invoking pip, so hatch-vcs reports the real released version with no git
+# metadata present. fallback-version only matters if hatch-vcs is invoked some
+# other way (e.g. a bare `pip install .` from an unzipped download) without that
+# env var set; it keeps the build from raising LookupError, at the cost of
+# reporting a dummy version instead of the real one.
+fallback-version = "0.0.0"
 
 [tool.hatch.version.raw-options]
 local_scheme = "no-local-version"
