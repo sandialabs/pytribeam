@@ -119,23 +119,33 @@ REM baked into the tracked src\pytribeam\_version.py (kept in sync with each
 REM release — see CONTRIBUTING.md). When .git IS present (e.g. installing
 REM from a real clone), leave it alone so hatch-vcs reports the real,
 REM git-derived version instead of the possibly-stale tracked one.
+REM
+REM Deliberately uses goto instead of if/else ( ) blocks: cmd.exe expands
+REM %VAR% in a parenthesized block once, at parse time, before any line in
+REM that block has run — so a variable set earlier in the SAME block still
+REM reads back as empty. (EnableDelayedExpansion + !VAR! is the usual fix,
+REM but it would also mangle any path containing a literal "!".)
 set "SETUPTOOLS_SCM_PRETEND_VERSION="
-if exist "%~dp0.git" (
-  echo [INFO] Git metadata found; version will be computed from git.
-) else (
-  set "VERSION_FILE=%~dp0src\pytribeam\_version.py"
-  if not exist "%VERSION_FILE%" (
-    echo [ERROR] Version file not found: "%VERSION_FILE%"
-    goto :FAIL
-  )
-  for /f "tokens=2 delims='" %%V in ('findstr /b "__version__ = version = " "%VERSION_FILE%"') do set "SETUPTOOLS_SCM_PRETEND_VERSION=%%V"
-  if not defined SETUPTOOLS_SCM_PRETEND_VERSION (
-    echo [ERROR] Could not parse version from "%VERSION_FILE%"
-    goto :FAIL
-  )
-  echo [INFO] No git metadata; pinning version to %SETUPTOOLS_SCM_PRETEND_VERSION% from _version.py
-  >>"%LOG%" echo No .git found; SETUPTOOLS_SCM_PRETEND_VERSION=%SETUPTOOLS_SCM_PRETEND_VERSION%
+if exist "%~dp0.git" goto :VERSION_FROM_GIT
+
+set "VERSION_FILE=%~dp0src\pytribeam\_version.py"
+if not exist "%VERSION_FILE%" (
+  echo [ERROR] Version file not found: "%VERSION_FILE%"
+  goto :FAIL
 )
+for /f "tokens=2 delims='" %%V in ('findstr /b "__version__ = version = " "%VERSION_FILE%"') do set "SETUPTOOLS_SCM_PRETEND_VERSION=%%V"
+if not defined SETUPTOOLS_SCM_PRETEND_VERSION (
+  echo [ERROR] Could not parse version from "%VERSION_FILE%"
+  goto :FAIL
+)
+echo [INFO] No git metadata; pinning version to %SETUPTOOLS_SCM_PRETEND_VERSION% from _version.py
+>>"%LOG%" echo No .git found; SETUPTOOLS_SCM_PRETEND_VERSION=%SETUPTOOLS_SCM_PRETEND_VERSION%
+goto :VERSION_DONE
+
+:VERSION_FROM_GIT
+echo [INFO] Git metadata found; version will be computed from git.
+
+:VERSION_DONE
 
 REM Pin every package to its wheelhouse version. Pillow is the exception:
 REM its wheel is a fallback for environments without a usable Pillow, so an
