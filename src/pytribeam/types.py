@@ -1222,7 +1222,7 @@ class SectioningAxis(Enum):
     # X_NEG: str = "X-"
     # Y_POS: str = "Y+"
     # Y_NEG: str = "Y-"
-    POS_Y_FIB: str = "+Y_FIB"
+    NEG_Y_FIB: str = "-Y_FIB"
     Z: str = "Z"
 
 
