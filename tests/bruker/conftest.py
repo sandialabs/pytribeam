@@ -7,13 +7,13 @@ from tests.bruker.helpers import require_esprit, require_hardware
 @pytest.fixture
 def bruker_session_settings():
     return BrukerSessionSettings(
-        dll_dir=r"C:\Program Files\Bruker\Esprit API",
-        mode="local",
+        dll_dir=r"C:\Users\User\Documents\Esprit API",
+        mode="tcp",
         server="Lokaler Server",
         user="edx",
         password="edx",
-        host=None,
-        port=None,
+        host="192.168.0.3",
+        port=5328,
         close_on_exit=False,
         keep_connection_open=True,
     )

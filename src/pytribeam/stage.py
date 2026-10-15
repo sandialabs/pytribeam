@@ -410,7 +410,7 @@ def target_position(
         delta_x_m = increment_factor_m
         pass
 
-    elif sectioning_axis == tbt.SectioningAxis.POS_Y_FIB:
+    elif sectioning_axis == tbt.SectioningAxis.NEG_Y_FIB:
         # no pretilt other than 0 degrees currently supported
         # only need to move y axis by increment factor
         delta_y_m = increment_factor_m

@@ -172,7 +172,7 @@ def run_bruker_eds_workflow(
             log_fn(f"Acquiring profile EDS map: {map_settings.name}")
         outputs = eds.acquire_map_with_profile(
             settings=map_settings,
-            poll_interval_s=0.5,
+            poll_interval_s=1.0,
             max_wait_s=600.0,
             log_fn=log_fn,
         )
@@ -181,7 +181,7 @@ def run_bruker_eds_workflow(
             log_fn(f"Acquiring simple EDS map: {map_settings.name}")
         outputs = eds.acquire_map(
             settings=map_settings,
-            poll_interval_s=0.5,
+            poll_interval_s=1.0,
             max_wait_s=600.0,
             log_fn=log_fn,
         )
@@ -189,15 +189,16 @@ def run_bruker_eds_workflow(
     bcf_path_str = outputs.output_bcf_path
     image_path_str = outputs.output_image_path
 
-    # Verify BCF
-    if bcf_path_str and Path(bcf_path_str).exists():
-        bcf_size = Path(bcf_path_str).stat().st_size
-        if log_fn:
-            log_fn(f"BCF saved: {bcf_path_str} ({bcf_size} bytes)")
-    else:
-        errors.append("BCF file missing after acquisition")
-        if log_fn:
-            log_fn("WARNING: BCF file missing after acquisition")
+    #TODO
+    # # Verify BCF
+    # if bcf_path_str and Path(bcf_path_str).exists():
+    #     bcf_size = Path(bcf_path_str).stat().st_size
+    #     if log_fn:
+    #         log_fn(f"BCF saved: {bcf_path_str} ({bcf_size} bytes)")
+    # else:
+    #     errors.append("BCF file missing after acquisition")
+    #     if log_fn:
+    #         log_fn("WARNING: BCF file missing after acquisition")
 
     # --- Readback ---
     readback_results = None

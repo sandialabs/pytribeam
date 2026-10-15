@@ -194,7 +194,7 @@ class ExperimentController:
             starting_step_idx = step_names.index(starting_step)
 
         # Check EBSD/EDS detector status and warn user if needed
-        self._check_detector_warning(experiment_settings)
+        # self._check_detector_warning(experiment_settings)
 
         # Notify experiment start
         self._notify(

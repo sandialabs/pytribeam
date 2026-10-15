@@ -125,7 +125,7 @@ import pytribeam.types as tbt
 import pytribeam.image as img
 
 
-def shutter_control(microscope: tbt.Microscope) -> None:
+def shutter_control(microscope: tbt.Microscope, mode: tbt.ProtectiveShutterMode) -> None:
     """
     Ensure auto control is set on the e-beam shutter. Manual control is not currently offered.
 
@@ -148,16 +148,19 @@ def shutter_control(microscope: tbt.Microscope) -> None:
         warnings.warn("Protective E-beam shutter not installed on this system.")
         return
     status = shutter.mode.value
-    if status != tbt.ProtectiveShutterMode.AUTOMATIC:
-        shutter.mode.value = tbt.ProtectiveShutterMode.AUTOMATIC
+    if status != mode:
+        shutter.mode.value = mode
     new_status = shutter.mode.value
-    if new_status != tbt.ProtectiveShutterMode.AUTOMATIC:
-        raise SystemError(
-            "E-beam shutter for FIB milling is installed but cannot set control to 'Automatic' mode."
+    if new_status != mode:
+        raise SystemError(f"Failed to set the Ebeam protective shutter control to requested mode of '{mode.value}'.")
+    if new_status == tbt.ProtectiveShutterMode.AUTOMATIC:
+        warnings.warn(
+            "E-beam shutter for FIB milling operations is in auto-mode, which may not insert at certain tilt angles and stage positions. Manual control not available."
         )
-    warnings.warn(
-        "E-beam shutter for FIB milling operations is in auto-mode, which may not insert at certain tilt angles and stage positions. Manual control not available."
-    )
+    if new_status == tbt.ProtectiveShutterMode.OFF:
+        warnings.warn(
+            "E-beam shutter for FIB milling operations is off, which may lead to increased contamination of the electron column at high milling currents."
+        )
     return
 
 
@@ -491,7 +494,7 @@ def mill_operation(
     """
     microscope = fib_settings.microscope
 
-    shutter_control(microscope=microscope)
+    shutter_control(microscope=microscope, mode=fib_settings.shutter_control)
     # prepare beam
     img.imaging_device(microscope=microscope, beam=fib_settings.mill_beam)
     # set milling application and device

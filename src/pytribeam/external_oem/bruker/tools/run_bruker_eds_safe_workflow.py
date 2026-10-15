@@ -352,9 +352,12 @@ def main(argv: Optional[list[str]] = None) -> int:
 
         if not result.success:
             log("Workflow failure: run_bruker_eds_workflow returned success=False")
-        bcf_ok = _validate_bcf_result(result, log) if result.success else False
+        
+        #TODO cannot read bcf in remote
+        # bcf_ok = _validate_bcf_result(result, log) if result.success else False
 
-        if result.success and bcf_ok and detector_ok:
+        # if result.success and bcf_ok and detector_ok:
+        if result.success and detector_ok:
             log("=== Bruker EDS safe standalone workflow SUCCESS ===")
             exit_code = 0
         else:

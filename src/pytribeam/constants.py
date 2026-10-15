@@ -287,7 +287,7 @@ class Constants(NamedTuple):
         "daasplus2132w11",
         "daasplus2134w11",
     ]
-    microscope_machines = ["HPN125v-MPC", "HPN276-MPC"]
+    microscope_machines = ["HPN125v-MPC", "HPN276-MPC", "HPN177v-MPC"]
     microscope_with_edax_machines = ["HPN276-MPC"]
 
     # error message display constants

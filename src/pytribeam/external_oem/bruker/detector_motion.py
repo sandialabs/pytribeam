@@ -3,7 +3,7 @@ import ctypes as ct
 
 from .bindings import bind_eds
 from .ctypes_types import c_i32
-from .session import BrukerSession
+from .session import BrukerSession, BrukerSessionSettings
 from .types import BrukerDetectorMotionSettings, BrukerDetectorPositionState
 
 _POSITION_NAME_TO_CODE = {
@@ -55,6 +55,7 @@ class BrukerDetectorMotionController:
         t0 = time.time()
         while True:
             state = self.get_eds_detector_position(settings.detector_index)
+            # print(state)
             if state.position_code == target_code:
                 return state
 
@@ -64,3 +65,72 @@ class BrukerDetectorMotionController:
                 )
 
             time.sleep(settings.poll_interval_s)
+
+def retract_eds_detector(host: str,
+                         port: int,
+                         mode: str,
+                         dll_dir: str,
+                         server: str  = "Lokaler Server",
+                         user: str = "edx",
+                         password: str = "edx",
+                         detector_index: int = 1,
+                         timeout_s: int = 60,
+                         poll_interval_s: int = 0.5,
+                         close_on_exit: bool = False,
+                         keep_connection_open: bool = True,
+    ) -> bool:
+    session_settings = BrukerSessionSettings(
+        dll_dir=dll_dir,
+        mode=mode.value,
+        server = server,
+        user=user,
+        password=password,
+        host=host,
+        port=port,
+        close_on_exit=close_on_exit,keep_connection_open=keep_connection_open,
+        )
+    session = BrukerSession(session_settings)
+    motion = BrukerDetectorMotionController(session)
+    park_settings = BrukerDetectorMotionSettings(
+            detector_index=detector_index,
+            target_position="park",
+            timeout_s=timeout_s,
+            poll_interval_s= poll_interval_s,
+        )
+    session.connect()
+    session.check_connection()
+    motion.move_eds_detector(park_settings)
+    session.close()
+
+def insert_eds_detector(host: str,
+                         port: int,
+                         mode: str,
+                         dll_dir: str,
+                         server: str  = "Lokaler Server",
+                         user: str = "edx",
+                         password: str = "edx",
+                         detector_index: int = 1,
+                         timeout_s: int = 60,
+                         poll_interval_s: int = 0.5,
+                         close_on_exit: bool = False,
+                         keep_connection_open: bool = True,
+    ) -> bool:
+    session_settings = BrukerSessionSettings(
+        dll_dir=dll_dir,
+        mode=mode,
+        server = server,
+        user=user,
+        password=password,
+        host=host,
+        port=port,
+        close_on_exit=close_on_exit,keep_connection_open=keep_connection_open,
+        )
+    session = BrukerSession(session_settings)
+    motion = BrukerDetectorMotionController(session)
+    park_settings = BrukerDetectorMotionSettings(
+            detector_index=detector_index,
+            target_position="acquire",
+            timeout_s=timeout_s,
+            poll_interval_s= poll_interval_s,
+        )
+    motion.move_eds_detector(park_settings)

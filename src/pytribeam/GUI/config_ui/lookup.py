@@ -261,8 +261,8 @@ sectioning_axis = LUTField(
     "Sectioning Axis",
     "Z",
     ctk.MenuButton,
-    {"options": ["Z", "+Y_FIB"], "dtype": str},  # "state": "disabled"},
-    "The axis that the milling device will cut along. Can be Z with laser or +Y for FIB only.",
+    {"options": ["Z", "-Y_FIB"], "dtype": str},  # "state": "disabled"},
+    "The axis that the milling device will cut along. Can be Z with laser or -Y for FIB only.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
@@ -943,7 +943,7 @@ bruker_connection_mode = LUTField(
 )
 bruker_dll_dir = LUTField(
     "DLL Directory",
-    "./",
+    "C:/Users/User/Documents/Esprit API",
     ctk.PathEntry,
     {"directory": True},
     "The directory where the Bruker API DLLs are stored.",
@@ -961,7 +961,7 @@ bruker_output_path = LUTField(
 )
 bruker_connection_host = LUTField(
     "Connection Host",
-    "localhost",
+    "192.168.0.3",
     ctk.Entry,
     {"dtype": str},
     "The host of the connection to the PC running the Bruker software.",
@@ -970,7 +970,7 @@ bruker_connection_host = LUTField(
 )
 bruker_connection_port = LUTField(
     "Connection Port",
-    "",
+    5328,
     ctk.Entry,
     {"dtype": int},
     "The port of the connection to the PC running the Bruker software.",
@@ -984,6 +984,15 @@ bruker_detector_index = LUTField(
     {"dtype": int},
     "The index of the Bruker detector. Almost always '1' unless you have mutliple detectors.",
     int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_move_detector = LUTField(
+    "Enable Detector Movement",
+    True,
+    ctk.Checkbutton,
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
+    "Whether or not to enable detector movement. If False, the detector will stay in the current position during the experiment.",
+    bool,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 bruker_roi_x_start_px = LUTField(
@@ -1067,6 +1076,7 @@ bruker_eds_settings_lut.add_entry("map", deepcopy(bruker_map))
 bruker_eds_settings_lut.add_entry("host", deepcopy(bruker_connection_host))
 bruker_eds_settings_lut.add_entry("port", deepcopy(bruker_connection_port))
 bruker_eds_settings_lut.add_entry("detector_index", deepcopy(bruker_detector_index))
+bruker_eds_settings_lut.add_entry("move_detector", deepcopy(bruker_move_detector))
 bruker_eds_lut = LUT("bruker_eds")
 bruker_eds_lut.add_entry("step_general", deepcopy(common_lut))
 bruker_eds_lut.add_entry("beam", deepcopy(beam_lut))
@@ -1280,6 +1290,15 @@ application_file = LUTField(
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
+shutter_control = LUTField(
+    "E-Column Shutter Control",
+    "Off",
+    ctk.MenuButton,
+    {"options": ["Off", "Automatic"], "dtype": str},
+    "The preset to use for milling.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
 fib_center_lut = LUT("center")
 fib_center_lut.add_entry("x_um", center_x_um)
 fib_center_lut.add_entry("y_um", center_y_um)
@@ -1315,6 +1334,7 @@ fib_lut = LUT("fib")
 fib_lut.add_entry("step_general", deepcopy(common_lut))
 fib_lut.add_entry("image", deepcopy(fib_image_lut))
 fib_lut.add_entry("mill", deepcopy(fib_mill_lut))
+fib_lut.add_entry("shutter_control", shutter_control)
 # FIB should be ion beam types only, dynamic focus should be off, and tilt correction should be off, and step type and name should be fib
 
 ### Custom step ###

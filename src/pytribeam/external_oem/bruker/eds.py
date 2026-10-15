@@ -334,11 +334,11 @@ class BrukerEDSController:
                             * (100.0 - progress.percent_complete)
                         )
                     eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
-                    log_fn(
-                        f"Map progress: {progress.percent_complete:.1f}%, "
-                        f"line={progress.current_line}, "
-                        f"elapsed={elapsed:.1f}s{eta_str}"
-                    )
+                    # log_fn(
+                    #     f"Map progress: {progress.percent_complete:.1f}%, "
+                    #     f"line={progress.current_line}, "
+                    #     f"elapsed={elapsed:.1f}s{eta_str}"
+                    # )
 
                 if elapsed > max_wait_s:
                     raise TimeoutError(
@@ -475,11 +475,11 @@ class BrukerEDSController:
                             * (100.0 - progress.percent_complete)
                         )
                     eta_str = f", ETA={eta_s:.1f}s" if eta_s is not None else ""
-                    log_fn(
-                        f"Map progress: {progress.percent_complete:.1f}%, "
-                        f"line={progress.current_line}, "
-                        f"elapsed={elapsed:.1f}s{eta_str}"
-                    )
+                    # log_fn(
+                    #     f"Map progress: {progress.percent_complete:.1f}%, "
+                    #     f"line={progress.current_line}, "
+                    #     f"elapsed={elapsed:.1f}s{eta_str}"
+                    # )
 
                 if elapsed > max_wait_s:
                     raise TimeoutError(f"Map acquisition exceeded {max_wait_s} s")

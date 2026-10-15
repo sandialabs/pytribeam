@@ -1018,7 +1018,7 @@ class SectioningAxis(Enum):
     X_NEG: str = "X-"
     Y_POS: str = "Y+"
     Y_NEG: str = "Y-"
-    POS_Y_FIB: str = "+Y_FIB"
+    NEG_Y_FIB: str = "-Y_FIB"
     Z: str = "Z"
 
 
@@ -1794,6 +1794,7 @@ class FIBSettings(NamedTuple):
     image: ImageSettings
     mill_beam: Beam
     pattern: FIBPattern
+    shutter_control: ProtectiveShutterMode = ProtectiveShutterMode.OFF
 
 
 class EBSDGridType(IntEnum):
@@ -1958,6 +1959,7 @@ class BrukerEDSSettings(NamedTuple):
     host: str = None
     port: int = None
     detector_index: int = 1
+    move_detector: bool = True
 
 
 class LaserPolarization(Enum):
@@ -2162,6 +2164,7 @@ class Step(NamedTuple):
         ImageSettings,
         FIBSettings,
         LaserSettings,
+        BrukerEDSSettings,
     ]
 
 

@@ -1164,6 +1164,8 @@ def fib(
         mill_beam_db = mill_step_settings.get("beam")
         mill_pattern_db = mill_step_settings.get("pattern")
 
+        shutter_control = step_settings.get("shutter_control")
+
     # ensure image is with an ion beam
     enforce_beam_type(
         tbt.IonBeam(settings=None),
@@ -1221,6 +1223,7 @@ def fib(
         image=image_settings,
         mill_beam=mill_beam,
         pattern=pattern,
+        shutter_control=shutter_control,
     )
     return fib_settings
 
@@ -1516,6 +1519,7 @@ def bruker_eds(
     host = bruker_settings.get("host", None)
     port = bruker_settings.get("port", None)
     detector_index = bruker_settings.get("detector_index", None)
+    move_detector = bruker_settings.get("move_detector", None)
     map_settings = bruker_settings.get("map", None)
 
     if dll_dir is None:
@@ -1568,8 +1572,8 @@ def bruker_eds(
         host=bruker_settings["host"],
         port=bruker_settings["port"],
         detector_index=bruker_settings["detector_index"],
+        move_detector=move_detector,
     )
-    print(eds_settings)
     return eds_settings
 
 
@@ -3229,6 +3233,7 @@ def validate_fib_pattern_settings(
 
         pattern = tbt.FIBPattern(
             application=application_file,
+
             type=pattern_type,
             geometry=tbt.FIBRectanglePattern(
                 center_um=tbt.Point(

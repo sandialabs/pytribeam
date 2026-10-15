@@ -260,7 +260,6 @@ def _perform_fib_operation(
         stage=step.stage,
         operation_settings=step_settings.image,
     )
-    type(image_step.operation_settings)
     perform_operation(
         image_step.operation_settings,
         step=image_step,
@@ -534,11 +533,14 @@ def _perform_bruker_eds_operation(
         tilt_correction=tilt_correction,
     )
 
+    # unpause the ccd quad
+    devices.CCD_view(microscope=microscope)
+
     # Create configuration file
     db = {
         "session": {
             "dll_dir": step_settings.dll_dir,
-            "mode": step_settings.mode,
+            "mode": step_settings.mode.value,
             "server": "Lokaler Server",
             "user": "edx",
             "password": "edx",
@@ -553,9 +555,9 @@ def _perform_bruker_eds_operation(
         },
         "detector": {
             "detector_index": step_settings.detector_index,
-            "move_detector": False,
+            "move_detector": step_settings.move_detector,
             "move_timeout_s": 60.0,
-            "poll_interval_s ": 0.5,
+            "poll_interval_s": 2.0,
         },
         "map": {
             "mode": "profile",
@@ -607,22 +609,6 @@ def _perform_bruker_eds_operation(
     ut.dict_to_yml(db, bruker_config_path)
 
     # take map
-    # bruker_script_path = Path(__file__).parent.joinpath(
-    #     "external_oem",
-    #     "bruker",
-    #     "tools",
-    #     "run_bruker_eds_safe_workflow.py",
-    # )
-    # args = [
-    #     sys.executable,
-    #     str(bruker_script_path),
-    #     "--config",
-    #     str(bruker_config_path)
-    # ]
-    # subprocess.call(
-    #     args,
-    #     capture_output=True,
-    # )
     args = [
         "--config",
         str(bruker_config_path),
@@ -636,10 +622,9 @@ def _perform_bruker_eds_operation(
     if exit_code != 0:
         raise RuntimeError("Bruker EDS step failed.")
 
-    # laser.map_eds()
-
-    # retract detector
-    # devices.retract_EDS(microscope=microscope)
+    # unpause the ccd quad
+    devices.CCD_view(microscope=microscope)    
+    devices.time.sleep(1.0)
 
     return True
 
@@ -882,6 +867,28 @@ def setup_experiment(
         enable_EBSD=experiment_settings.enable_EBSD,
         enable_EDS=experiment_settings.enable_EDS,
     )
+
+    # turn off protective pfib shutter to avoid collision
+    fib.shutter_control(experiment_settings.microscope, tbt.ProtectiveShutterMode.OFF)
+
+    # check if we have an Bruker EDS step
+    step_type_list = [s.type for s in experiment_settings.step_sequence]
+
+    if tbt.StepType.BRUKER_EDS in step_type_list:
+        idx = step_type_list.index(tbt.StepType.BRUKER_EDS)
+        bruker: tbt.BrukerEDSSettings = experiment_settings.step_sequence[idx].operation_settings
+        if bruker.move_detector:
+            print("\tFound Bruker EDS step, retracting EDS detector")
+            print("\t\tThis may take a few moments...")
+            devices.CCD_view(microscope=experiment_settings.microscope)
+            from pytribeam.external_oem.bruker.detector_motion import retract_eds_detector as retract_bruker
+            retract_bruker(
+                host = bruker.host,
+                port=bruker.port,
+                mode=bruker.mode,
+                dll_dir=bruker.dll_dir,
+                detector_index=bruker.detector_index,
+                )
 
     return experiment_settings
 
