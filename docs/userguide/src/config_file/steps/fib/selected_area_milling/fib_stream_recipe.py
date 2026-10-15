@@ -16,7 +16,7 @@ def process_image(
     with pil_img.open(input_path) as test_img:
         # convert to numpy array
         fib_img = np.asarray(test_img)
-        
+
         # find and apply an Otsu filter
         threshold = filters.threshold_otsu(fib_img)
         segmented = fib_img > threshold

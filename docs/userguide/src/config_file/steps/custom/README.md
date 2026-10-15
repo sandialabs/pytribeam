@@ -10,11 +10,29 @@ Additional information could be included in the `.yml` file upon request for fut
 
 The **Custom** step type takes the following parameters:
 
-- **script_path** (*str*): The path of the script the user intends to run. The file must exist, and does not necessarilly have to a `python` file (see below)
+- **script_path** (*str*): The path of the script the user intends to run. The file must exist, and does not necessarily have to be a `python` file (see below).
 
 - **executable_path** (*str*): The path to any valid executable installed on the machine. The executable must exist, and should be able to run the **script_path** as an argument from the command line. 
 
+- **script_args** (*list[str]*, optional): Additional command-line arguments appended after **script_path**. This is useful for custom scripts that need paths to separate configuration files.
+
+- **environment** (*dict[str, str]*, optional): Additional environment variables supplied to the subprocess. These values are merged with the parent process environment.
+
 As **Custom** scripts were generally designed for `python` scripts using the `subprocess` module, users should expect the following to be executable from the command line while using a **Custom** script:
 ```sh
-path/to/exectuable.exe path/to/script.file_extension
+path/to/executable.exe path/to/script.file_extension [optional script args]
+```
+
+During execution, pytribeam automatically provides these environment variables to custom subprocesses:
+
+```text
+PYTRIBEAM_SLICE_INFO_PATH
+PYTRIBEAM_EXP_DIR
+PYTRIBEAM_SLICE_NUMBER
+```
+
+For Bruker EDS CUSTOM-step fallback usage, see:
+
+```text
+src/pytribeam/external_oem/bruker/tools/docs/bruker_eds_custom_step_main_workflow_guide.md
 ```

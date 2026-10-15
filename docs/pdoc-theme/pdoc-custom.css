@@ -1,0 +1,672 @@
+/* pytribeam pdoc custom theme with VS Code Light Modern / Dark Modern styling */
+
+/* ------------------------------------------------------------------------- */
+/* Theme variables                                                           */
+/* ------------------------------------------------------------------------- */
+
+html[data-theme="light"] {
+  color-scheme: light;
+
+  --pdoc-bg-secondary: #ffffff;
+  --pdoc-bg: #f8f8f8;
+  --pdoc-bg-tertiary: #f3f3f3;
+  --pdoc-fg: #1f1f1f;
+  --pdoc-fg-muted: #5f6a7a;
+  --pdoc-border: #d4d4d4;
+  --pdoc-link: #0969da;
+  --pdoc-link-hover: #0550ae;
+
+  --pdoc-code-bg: #f6f8fa;
+  --pdoc-code-fg: #24292f;
+  --pdoc-code-border: #d0d7de;
+
+  --pdoc-selection-bg: #add6ff;
+  --pdoc-selection-fg: #1f1f1f;
+  --pdoc-mark-bg: #fff4ce;
+  --pdoc-mark-fg: #1f1f1f;
+
+  --pdoc-table-row-alt: #f8fafc;
+
+  /* VS Code Light Modern-ish syntax */
+  --syntax-text: #24292f;
+  --syntax-keyword: #0000ff;
+  --syntax-keyword-import: #af00db;
+  --syntax-name: #001080;
+  --syntax-attribute: #001080;
+  --syntax-function: #795e26;
+  --syntax-class: #267f99;
+  --syntax-string: #a31515;
+  --syntax-docstring: #a31515;
+  --syntax-number: #098658;
+  --syntax-comment: #008000;
+  --syntax-operator: #000000;
+  --syntax-punctuation: #000000;
+  --syntax-builtin: #267f99;
+  --syntax-decorator: #af00db;
+  --syntax-type: #267f99;
+  --syntax-constant: #0000ff;
+  --syntax-self: #001080;
+  --syntax-error: #b00020;
+}
+
+html[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* VS Code Dark Modern-ish */
+  --pdoc-bg-secondary: #1e1e1e;
+  --pdoc-bg: #252526;
+  --pdoc-bg-tertiary: #2d2d30;
+  --pdoc-fg: #d4d4d4;
+  --pdoc-fg-muted: #9da5b4;
+  --pdoc-border: #3c3c3c;
+  --pdoc-link: #4fc1ff;
+  --pdoc-link-hover: #9cdcfe;
+
+  --pdoc-code-bg: #1e1e1e;
+  --pdoc-code-fg: #d4d4d4;
+  --pdoc-code-border: #3c3c3c;
+
+  /* Avoid bright yellow highlight with light text */
+  --pdoc-selection-bg: #264f78;
+  --pdoc-selection-fg: #ffffff;
+  --pdoc-mark-bg: #3a3d41;
+  --pdoc-mark-fg: #ffffff;
+
+  --pdoc-table-row-alt: #252526;
+
+  /* VS Code Dark Modern-ish syntax */
+  --syntax-text: #d4d4d4;
+  --syntax-keyword: #569cd6;
+  --syntax-keyword-import: #c586c0;
+  --syntax-name: #b7e4ff;
+  --syntax-attribute: #9cdcfe;
+  --syntax-function: #dcdcaa;
+  --syntax-class: #6ee7d8;
+  --syntax-string: #ce9178;
+  --syntax-docstring: #ce9178;
+  --syntax-number: #b5cea8;
+  --syntax-comment: #8ccf7e;
+  --syntax-operator: #d4d4d4;
+  --syntax-punctuation: #d4d4d4;
+  --syntax-builtin: #6ee7d8;
+  --syntax-decorator: #c586c0;
+  --syntax-type: #6ee7d8;
+  --syntax-constant: #569cd6;
+  --syntax-self: #b7e4ff;
+  --syntax-error: #f48771;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Base layout                                                               */
+/* ------------------------------------------------------------------------- */
+
+html,
+body {
+  background: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+body,
+main,
+article,
+section,
+nav,
+aside,
+header,
+footer {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+a {
+  color: var(--pdoc-link) !important;
+}
+
+a:hover {
+  color: var(--pdoc-link-hover) !important;
+}
+
+/* pdoc navigation/sidebar/header-ish areas */
+nav,
+aside,
+header,
+.toc,
+.sidebar {
+  background-color: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+main.pdoc,
+.pdoc {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+hr {
+  border-color: var(--pdoc-border) !important;
+}
+
+table,
+th,
+td {
+  border-color: var(--pdoc-border) !important;
+}
+
+th {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+blockquote {
+  border-left-color: var(--pdoc-border) !important;
+  color: var(--pdoc-fg-muted) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Selection / search highlighting                                           */
+/* ------------------------------------------------------------------------- */
+
+::selection {
+  background: var(--pdoc-selection-bg) !important;
+  color: var(--pdoc-selection-fg) !important;
+}
+
+::-moz-selection {
+  background: var(--pdoc-selection-bg) !important;
+  color: var(--pdoc-selection-fg) !important;
+}
+
+mark,
+mark * {
+  background: var(--pdoc-mark-bg) !important;
+  color: var(--pdoc-mark-fg) !important;
+}
+
+/* Browser find/search sometimes uses these in generated docs/themes */
+.search-highlight,
+.search-match,
+.selected,
+.active {
+  background-color: var(--pdoc-mark-bg) !important;
+  color: var(--pdoc-mark-fg) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Code blocks and inline code                                               */
+/* ------------------------------------------------------------------------- */
+
+pre,
+code,
+tt,
+kbd,
+samp {
+  background: var(--pdoc-code-bg) !important;
+  color: var(--pdoc-code-fg) !important;
+  border-color: var(--pdoc-code-border) !important;
+}
+
+pre {
+  border: 1px solid var(--pdoc-code-border) !important;
+  border-radius: 8px !important;
+  padding: 0.85rem 1rem !important;
+  overflow-x: auto !important;
+}
+
+code {
+  border-radius: 4px !important;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* pdoc function/class/variable definition headers                            */
+/* ------------------------------------------------------------------------- */
+
+/* The whole definition header box */
+.attr.function,
+.attr.class,
+.attr.variable,
+.attr.classattr {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+/* The "def", "class", or assignment keyword text */
+.attr > .def {
+  background: transparent !important;
+  color: var(--syntax-keyword) !important;
+  border: none !important;
+  font-weight: 600 !important;
+}
+
+/* Function names */
+.attr.function > .name {
+  background: transparent !important;
+  color: var(--syntax-function) !important;
+  font-weight: 600 !important;
+}
+
+/* Class names */
+.attr.class > .name {
+  background: transparent !important;
+  color: var(--syntax-class) !important;
+  font-weight: 600 !important;
+}
+
+/* Variable/class attribute names */
+.attr.variable > .name,
+.attr.classattr > .name {
+  background: transparent !important;
+  color: var(--syntax-name) !important;
+  font-weight: 600 !important;
+}
+
+/* Signature text inside the definition header should not create its own box */
+.attr .signature,
+.attr .signature.pdoc-code {
+  background: transparent !important;
+  color: var(--syntax-text) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* pdoc sometimes uses non-Pygments classes in signatures */
+.signature .name,
+.signature .ident {
+  color: var(--syntax-name) !important;
+}
+
+.signature .annotation,
+.signature .default_value,
+.signature .return-annotation {
+  color: var(--syntax-type) !important;
+}
+
+.signature .class,
+.signature .module {
+  color: var(--syntax-class) !important;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Pygments / pdoc Python syntax highlighting                                */
+/* ------------------------------------------------------------------------- */
+
+/*
+  pdoc uses Pygments-style token classes in many places.
+
+  Common Python token classes:
+    k   keyword
+    kn  import keyword
+    n   name
+    nf  function name
+    nc  class name
+    nb  builtin
+    bp  builtin pseudo, e.g. self, cls
+    s   string
+    sd  docstring
+    m   number
+    c   comment
+    o   operator
+    p   punctuation
+*/
+
+.attr .signature,
+.attr .signature.pdoc-code {
+  background: transparent !important;
+  color: var(--syntax-text) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+:where(.highlight, .codehilite, .pdoc-code) pre {
+  background: var(--pdoc-code-bg) !important;
+  color: var(--syntax-text) !important;
+  border-color: var(--pdoc-code-border) !important;
+}
+
+/* Whitespace */
+:where(.highlight, .codehilite, .pdoc-code) .w {
+  color: inherit !important;
+}
+
+/* Keywords: def, class, return, if, for, while, try, except, with, etc. */
+:where(.highlight, .codehilite, .pdoc-code) .k,
+:where(.highlight, .codehilite, .pdoc-code) .kc,
+:where(.highlight, .codehilite, .pdoc-code) .kd,
+:where(.highlight, .codehilite, .pdoc-code) .kp,
+:where(.highlight, .codehilite, .pdoc-code) .kr,
+:where(.highlight, .codehilite, .pdoc-code) .kt {
+  color: var(--syntax-keyword) !important;
+}
+
+/* Import keywords: import, from */
+:where(.highlight, .codehilite, .pdoc-code) .kn {
+  color: var(--syntax-keyword-import) !important;
+}
+
+/* Word operators: in, is, and, or, not */
+:where(.highlight, .codehilite, .pdoc-code) .ow {
+  color: var(--syntax-keyword) !important;
+}
+
+/* General names: variables, modules, identifiers */
+:where(.highlight, .codehilite, .pdoc-code) .n,
+:where(.highlight, .codehilite, .pdoc-code) .nx,
+:where(.highlight, .codehilite, .pdoc-code) .py,
+:where(.highlight, .codehilite, .pdoc-code) .nv,
+:where(.highlight, .codehilite, .pdoc-code) .vc,
+:where(.highlight, .codehilite, .pdoc-code) .vg,
+:where(.highlight, .codehilite, .pdoc-code) .vi,
+:where(.highlight, .codehilite, .pdoc-code) .vm {
+  color: var(--syntax-name) !important;
+}
+
+/* Attributes */
+:where(.highlight, .codehilite, .pdoc-code) .na {
+  color: var(--syntax-attribute) !important;
+}
+
+/* Function and method names */
+:where(.highlight, .codehilite, .pdoc-code) .nf,
+:where(.highlight, .codehilite, .pdoc-code) .fm {
+  color: var(--syntax-function) !important;
+}
+
+/* Class names and exception names */
+:where(.highlight, .codehilite, .pdoc-code) .nc,
+:where(.highlight, .codehilite, .pdoc-code) .ne {
+  color: var(--syntax-class) !important;
+}
+
+/* Builtins: str, int, bool, list, dict, print, len, etc. */
+:where(.highlight, .codehilite, .pdoc-code) .nb {
+  color: var(--syntax-builtin) !important;
+}
+
+/* self, cls */
+:where(.highlight, .codehilite, .pdoc-code) .bp {
+  color: var(--syntax-self) !important;
+}
+
+/* Decorators */
+:where(.highlight, .codehilite, .pdoc-code) .nd {
+  color: var(--syntax-decorator) !important;
+}
+
+/* Strings */
+:where(.highlight, .codehilite, .pdoc-code) .s,
+:where(.highlight, .codehilite, .pdoc-code) .sa,
+:where(.highlight, .codehilite, .pdoc-code) .sb,
+:where(.highlight, .codehilite, .pdoc-code) .sc,
+:where(.highlight, .codehilite, .pdoc-code) .dl,
+:where(.highlight, .codehilite, .pdoc-code) .s1,
+:where(.highlight, .codehilite, .pdoc-code) .s2,
+:where(.highlight, .codehilite, .pdoc-code) .se,
+:where(.highlight, .codehilite, .pdoc-code) .sh,
+:where(.highlight, .codehilite, .pdoc-code) .si,
+:where(.highlight, .codehilite, .pdoc-code) .sx,
+:where(.highlight, .codehilite, .pdoc-code) .sr,
+:where(.highlight, .codehilite, .pdoc-code) .ss {
+  color: var(--syntax-string) !important;
+}
+
+/* Python docstrings */
+:where(.highlight, .codehilite, .pdoc-code) .sd {
+  color: var(--syntax-docstring) !important;
+}
+
+/* Numbers */
+:where(.highlight, .codehilite, .pdoc-code) .m,
+:where(.highlight, .codehilite, .pdoc-code) .mb,
+:where(.highlight, .codehilite, .pdoc-code) .mf,
+:where(.highlight, .codehilite, .pdoc-code) .mh,
+:where(.highlight, .codehilite, .pdoc-code) .mi,
+:where(.highlight, .codehilite, .pdoc-code) .mo,
+:where(.highlight, .codehilite, .pdoc-code) .il {
+  color: var(--syntax-number) !important;
+}
+
+/* Comments */
+:where(.highlight, .codehilite, .pdoc-code) .c,
+:where(.highlight, .codehilite, .pdoc-code) .ch,
+:where(.highlight, .codehilite, .pdoc-code) .cm,
+:where(.highlight, .codehilite, .pdoc-code) .cpf,
+:where(.highlight, .codehilite, .pdoc-code) .c1,
+:where(.highlight, .codehilite, .pdoc-code) .cs {
+  color: var(--syntax-comment) !important;
+  font-style: italic !important;
+}
+
+/* Operators */
+:where(.highlight, .codehilite, .pdoc-code) .o {
+  color: var(--syntax-operator) !important;
+}
+
+/* Punctuation */
+:where(.highlight, .codehilite, .pdoc-code) .p {
+  color: var(--syntax-punctuation) !important;
+}
+
+/* Constants */
+:where(.highlight, .codehilite, .pdoc-code) .no,
+:where(.highlight, .codehilite, .pdoc-code) .ni,
+:where(.highlight, .codehilite, .pdoc-code) .nt {
+  color: var(--syntax-constant) !important;
+}
+
+/* Errors */
+:where(.highlight, .codehilite, .pdoc-code) .err {
+  color: var(--syntax-error) !important;
+  background: transparent !important;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* pdoc-specific details                                                     */
+/* ------------------------------------------------------------------------- */
+
+.docstring,
+.docstring *,
+.desc,
+.desc *,
+.inherited,
+.inherited *,
+.variable,
+.variable *,
+.function,
+.function *,
+.class,
+.class *,
+.module,
+.module * {
+  border-color: var(--pdoc-border) !important;
+}
+
+.docstring {
+  color: var(--pdoc-fg) !important;
+}
+
+/* Inputs/buttons */
+input,
+select,
+textarea,
+button {
+  background: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Theme toggle button                                                       */
+/* ------------------------------------------------------------------------- */
+
+#pdoc-theme-toggle {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 9999;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid var(--pdoc-border);
+  background: var(--pdoc-bg-secondary);
+  color: var(--pdoc-fg);
+  cursor: pointer;
+  font-size: 0.85rem;
+  opacity: 0.92;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+
+#pdoc-theme-toggle:hover {
+  opacity: 1;
+}
+
+
+/* ------------------------------------------------------------------------- */
+/* Enhanced docstring formatting                                             */
+/* ------------------------------------------------------------------------- */
+
+/* Docstring section headings */
+html[data-theme="light"] .docstring h1,
+html[data-theme="light"] .docstring h2,
+html[data-theme="light"] .docstring h3,
+html[data-theme="dark"] .docstring h1,
+html[data-theme="dark"] .docstring h2,
+html[data-theme="dark"] .docstring h3 {
+  color: var(--syntax-class) !important;
+  border-bottom: 1px solid var(--pdoc-border) !important;
+  padding-bottom: 0.25rem !important;
+  margin-top: 1.5rem !important;
+}
+
+/* Docstring tables */
+.docstring table {
+  width: 100% !important;
+  border-collapse: collapse !important;
+  margin: 0.75rem 0 1.25rem 0 !important;
+  overflow: hidden !important;
+  border: 1px solid var(--pdoc-border) !important;
+  border-radius: 8px !important;
+}
+
+.docstring th {
+  background: var(--pdoc-bg-tertiary) !important;
+  color: var(--pdoc-fg) !important;
+  font-weight: 700 !important;
+  text-align: left !important;
+  padding: 0.55rem 0.75rem !important;
+  border: 1px solid var(--pdoc-border) !important;
+}
+
+.docstring td {
+  padding: 0.55rem 0.75rem !important;
+  border: 1px solid var(--pdoc-border) !important;
+  vertical-align: top !important;
+}
+
+/* Alternate table row shading */
+.docstring tr:nth-child(even) td {
+  background: var(--pdoc-table-row-alt) !important;
+}
+
+/* Inline code in docstrings */
+.docstring code {
+  background: var(--pdoc-bg-tertiary) !important;
+  border: 1px solid var(--pdoc-border) !important;
+  border-radius: 4px !important;
+  padding: 0.08rem 0.28rem !important;
+  font-weight: 500 !important;
+}
+
+/* First column: parameter / return names */
+.docstring table td:nth-child(1) code {
+  color: var(--syntax-name) !important;
+  font-weight: 700 !important;
+}
+
+/* Second column: types */
+.docstring table td:nth-child(2) code {
+  color: var(--syntax-type) !important;
+  font-weight: 600 !important;
+}
+
+/* Description text */
+.docstring table td:nth-child(3) {
+  color: var(--pdoc-fg) !important;
+}
+
+/* Strong text in descriptions */
+.docstring strong {
+  color: var(--syntax-function) !important;
+}
+
+/* Lists in docstrings */
+.docstring ul,
+.docstring ol {
+  padding-left: 1.4rem !important;
+}
+
+.docstring li {
+  margin: 0.25rem 0 !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Force page and docstrings to share the same background                     */
+/* ------------------------------------------------------------------------- */
+
+html[data-theme="light"] body,
+html[data-theme="light"] main,
+html[data-theme="light"] article,
+html[data-theme="light"] section,
+html[data-theme="light"] .pdoc,
+html[data-theme="light"] .docstring,
+html[data-theme="dark"] body,
+html[data-theme="dark"] main,
+html[data-theme="dark"] article,
+html[data-theme="dark"] section,
+html[data-theme="dark"] .pdoc,
+html[data-theme="dark"] .docstring {
+  background-color: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Function/class/variable definition headers use the contrasting background  */
+/* ------------------------------------------------------------------------- */
+
+html[data-theme="light"] .attr.function,
+html[data-theme="light"] .attr.class,
+html[data-theme="light"] .attr.variable,
+html[data-theme="light"] .attr.classattr,
+html[data-theme="dark"] .attr.function,
+html[data-theme="dark"] .attr.class,
+html[data-theme="dark"] .attr.variable,
+html[data-theme="dark"] .attr.classattr {
+  background-color: var(--pdoc-bg-secondary) !important;
+  color: var(--pdoc-fg) !important;
+  border-color: var(--pdoc-border) !important;
+}
+
+/* ------------------------------------------------------------------------- */
+/* Module/page title should blend into the main page background               */
+/* ------------------------------------------------------------------------- */
+
+.modulename,
+h1.modulename,
+main.pdoc > h1,
+.pdoc > h1 {
+  background: var(--pdoc-bg) !important;
+  color: var(--pdoc-fg) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.modulename a,
+h1.modulename a,
+main.pdoc > h1 a,
+.pdoc > h1 a {
+  background-color: transparent !important;
+  color: var(--pdoc-fg) !important;
+}

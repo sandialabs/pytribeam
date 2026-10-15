@@ -1,6 +1,6 @@
 # Introduction
 
-![Project Logo](logo_color.png)
+![Project Logo](logos/logo_color.png)
 
 `pytribeam` provides tools for automated acquisition of data on the TriBeam scanning electron microscope using Thermo Fisher Scientific's `autoscript` API, which provides a `python` interface for microscope interactions. `pytribeam` is geared specifically for 3D data collection with the use of an integrated femtosecond laser, but offers many higher-level functionalities applicable to single SEM or dual-beam SEM/FIB (both Gallium and Xenon Plasma) platforms utilizing `autoscript`.
 

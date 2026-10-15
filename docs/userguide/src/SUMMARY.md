@@ -5,6 +5,7 @@
 # User Guide
 
 - [Installation](installation/README.md)
+    - [Running Hardware Tests](installation/running_tests.md)
 - [Reference Frame Conventions](reference_frame/README.md)
 - [Configuration File (.yml)](config_file/README.md)
     - [General Experiment Settings](config_file/general/README.md)
@@ -19,6 +20,7 @@
     - [Example configuration file](config_file/example/README.md)
 - [GUI](gui/README.md)
     - [Configurator](gui/configurator/README.md)
+- [Contributing](contributing.md)
 <!-- - [Command Line Interface](cli/README.md) -->
 
 -----------

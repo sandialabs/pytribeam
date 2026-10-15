@@ -1,0 +1,42 @@
+name: bootstrap-python-ci-package
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create tiny bootstrap image
+        run: |
+          mkdir bootstrap-image
+          cat > bootstrap-image/Dockerfile <<'EOF'
+          FROM alpine:3.20
+
+          LABEL org.opencontainers.image.source="https://github.com/${{ github.repository }}"
+          LABEL org.opencontainers.image.description="Bootstrap image for pytribeam-python-ci GHCR package"
+
+          CMD ["echo", "bootstrap image for pytribeam-python-ci"]
+          EOF
+
+      - name: Build bootstrap image
+        run: |
+          docker build \
+            -t ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:bootstrap \
+            bootstrap-image
+
+      - name: Push bootstrap image
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/pytribeam-python-ci:bootstrap

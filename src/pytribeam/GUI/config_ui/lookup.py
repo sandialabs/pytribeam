@@ -1,21 +1,12 @@
-from typing import Any, Dict, NamedTuple, Optional, Type, Union
-from copy import deepcopy
 import tkinter as tk
-import pytribeam.GUI.CustomTkinterWidgets as ctk
+from copy import deepcopy
+from typing import Any, Dict, NamedTuple, Optional, Type, Union
 
+import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam import types as tbt
 from pytribeam import utilities as ut
-from pytribeam import constants as cs
 
-MAX_VERSION = float(cs.Constants.yml_schema_version)
-MIN_VERSION = 1.0
-increment = 0.1
-
-numbers = [
-    round(MIN_VERSION + i * increment, 1)
-    for i in range(int((MAX_VERSION - MIN_VERSION) / increment) + 1)
-]
-VERSIONS = [str(i) for i in numbers]
+VERSIONS = [version.version for version in tbt.YMLFormatVersion]
 
 # Import options from types
 beam_types = [i.value for i in tbt.BeamType]
@@ -32,7 +23,11 @@ fib_scan_dirs = [i.value for i in tbt.FIBPatternScanDirection]
 fib_scan_types = [i.value for i in tbt.FIBPatternScanType]
 bit_depths = [i.value for i in tbt.ColorDepth]
 rotation_sides = [i.value for i in tbt.RotationSide]
-ebsd_grid_types = [i.value for i in tbt.EBSDGridType]
+# bruker_connection_modes = [i.value for i in tbt.BrukerConnectionMode]
+bruker_connection_modes = [i.name for i in tbt.BrukerConnectionMode]
+ebsd_grid_types = [
+    i.name for i in tbt.EBSDGridType
+]  # Use names for better readability, requires tbt.EBSDGridType[selection] instead of tbt.EBSDGridType(selection)
 
 # Options need empty values
 beam_types.append("")
@@ -58,7 +53,7 @@ class LUTField(NamedTuple):
     widget_kwargs: Dict[str, Any]
     help_text: str
     dtype: Type
-    version_limit: tbt.Limit
+    version: tbt.Limit
 
 
 class LUT:
@@ -108,6 +103,23 @@ class LUT:
 
     def remove_entry(self, name: str):
         return self._entries.pop(name)
+
+    def _prune_empty(self) -> bool:
+        """
+        Recursively remove empty nested LUTs.
+        Returns True if this node is empty after pruning.
+        """
+        to_delete = []
+
+        for name, entry in self._entries.items():
+            if isinstance(entry, LUT):
+                if entry._prune_empty():
+                    to_delete.append(name)
+
+        for name in to_delete:
+            del self._entries[name]
+
+        return len(self._entries) == 0
 
     def flatten(self, separator: str = "/") -> Dict[str, LUTField]:
         """Flatten the LUT into a dictionary of fields with paths as keys."""
@@ -179,7 +191,7 @@ edax_host = LUTField(
     {"dtype": str},
     "The host IP address of the computer that runs the EDAX machines.",
     str,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_port = LUTField(
     "EDAX Port",
@@ -188,7 +200,7 @@ edax_port = LUTField(
     {"dtype": int},
     "The port used to access the computer that runs the EDAX machines.",
     int,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_save_directory = LUTField(
     "Save Folder",
@@ -197,7 +209,7 @@ edax_save_directory = LUTField(
     {"dtype": str},
     "The folder on the EDAX PC where the collected EBSD images should be saved.",
     str,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_project_name = LUTField(
     "Project Name",
@@ -206,7 +218,7 @@ edax_project_name = LUTField(
     {"dtype": str},
     "The name under which to save the EBSD images on the EDAX PC.",
     str,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_connection_lut = LUT("connection")
 edax_connection_lut.add_entry("host", edax_host)
@@ -216,126 +228,34 @@ edax_settings_lut.add_entry("connection", edax_connection_lut)
 edax_settings_lut.add_entry("save_directory", edax_save_directory)
 edax_settings_lut.add_entry("project_name", edax_project_name)
 
-### Email LUT ###
-email_ssh_host = LUTField(
-    "SSH Tunnel Host",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The IP address of the host to tunnel through for the email server.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_ssh_port = LUTField(
-    "SSH Tunnel Port",
-    1025,
-    ctk.Entry,
-    {"dtype": int},
-    "The port to tunnel through for the email server.",
-    int,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_ssh_user = LUTField(
-    "SSH Tunnel User",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The username of the PC hosting the SSH tunnel.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_ssh_key_path = LUTField(
-    "SSH Key Path",
-    "",
-    ctk.PathEntry,
-    {"dtype": str, "directory": False, "operation": "open"},
-    "The path to the SSH private key used for passwordless authentication through tunnel.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_smtp_server = LUTField(
-    "SMTP Server",
-    "smtp.gmail.com",
-    ctk.Entry,
-    {"dtype": str},
-    "The SMTP server to use for sending the email.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_smtp_port = LUTField(
-    "SMTP Port",
-    587,
-    ctk.Entry,
-    {"dtype": int},
-    "The port of the SMTP server to use for sending the email.",
-    int,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_sender = LUTField(
-    "Email User",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The email address used to send the email.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_password = LUTField(
-    "Email Password",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The password for the email address used to send the email. For Gmail, this should be a 'App Password' generated from the Google account settings.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_recipients = LUTField(
-    "Recipients",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "The email addresses to send the email to. Separate multiple addresses with commas.",
-    str,
-    tbt.Limit(min=1.2, max=MAX_VERSION),
-)
-email_lut = LUT("email")
-email_lut.add_entry("ssh_host", email_ssh_host)
-email_lut.add_entry("ssh_port", email_ssh_port)
-email_lut.add_entry("ssh_user", email_ssh_user)
-email_lut.add_entry("ssh_key_path", email_ssh_key_path)
-email_lut.add_entry("smtp_server", email_smtp_server)
-email_lut.add_entry("smtp_port", email_smtp_port)
-email_lut.add_entry("sender", email_sender)
-email_lut.add_entry("sender_password", email_password)
-email_lut.add_entry("recipients", email_recipients)
 
 ### General LUT ###
 slice_thickness_um = LUTField(
     "Slice Thickness (um)",
-    "1.0",
+    "",
     ctk.Entry,
     {"dtype": float},
     "Thickness of the laser cut slice in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 max_slice_num = LUTField(
     "Max Slice Number",
-    "1",
+    "",
     ctk.Entry,
     {"dtype": int},
     "The maximum slice number to cut. The experiment will stop after this slice number is complete.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 pre_tilt_deg = LUTField(
     "Pre-Tilt Angle (deg)",
-    "0.0",
+    "",
     ctk.Entry,
     {"dtype": float},
     "The angle to pre-tilt sample holder used. This angle impacts how stage movements are determined.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 sectioning_axis = LUTField(
     "Sectioning Axis",
@@ -344,7 +264,7 @@ sectioning_axis = LUTField(
     {"options": ["Z", "-Y_FIB"], "dtype": str},
     "The axis that the laser will cut along. Can be Z with laser or -Y for FIB only.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 stage_translational_tol_um = LUTField(
     "Stage Translational Tolerance (um)",
@@ -353,7 +273,7 @@ stage_translational_tol_um = LUTField(
     {"dtype": float},
     "The tolerance for translational stage movements in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 stage_angular_tol_deg = LUTField(
     "Stage Angular Tolerance (deg)",
@@ -362,7 +282,7 @@ stage_angular_tol_deg = LUTField(
     {"dtype": float},
     "The tolerance for angular stage movements in degrees.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 connection_host = LUTField(
     "Connection Host",
@@ -371,7 +291,7 @@ connection_host = LUTField(
     {"dtype": str},
     "The host of the connection to the SEM.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 connection_port = LUTField(
     "Connection Port",
@@ -380,7 +300,7 @@ connection_port = LUTField(
     {"dtype": int},
     "The port of the connection to the SEM.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 ebsd_oem = LUTField(
     "EBSD OEM",
@@ -389,7 +309,7 @@ ebsd_oem = LUTField(
     {"options": ["EDAX", "Oxford", "null"], "dtype": str},
     "The OEM of the EBSD system being used.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 eds_oem = LUTField(
     "EDS OEM",
@@ -398,7 +318,7 @@ eds_oem = LUTField(
     {"options": ["EDAX", "Oxford", "null"], "dtype": str},
     "The OEM of the EDS system being used.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 exp_dir = LUTField(
     "Experiment Directory",
@@ -407,7 +327,7 @@ exp_dir = LUTField(
     {"directory": True},
     "The directory where the experiment data is saved.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 h5_log_name = LUTField(
     "H5 Log Name",
@@ -416,7 +336,7 @@ h5_log_name = LUTField(
     {"dtype": str},
     "The name of the HDF5 log file.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 step_count = LUTField(
     "Step Count",
@@ -425,7 +345,7 @@ step_count = LUTField(
     {"dtype": int},
     "The number of steps in the experiment.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 general_lut = LUT("general")
 general_lut.add_entry("slice_thickness_um", deepcopy(slice_thickness_um))
@@ -442,7 +362,6 @@ general_lut.add_entry("EBSD_OEM", deepcopy(ebsd_oem))
 general_lut.add_entry("EDS_OEM", deepcopy(eds_oem))
 general_lut.add_entry("exp_dir", deepcopy(exp_dir))
 general_lut.add_entry("h5_log_name", deepcopy(h5_log_name))
-general_lut.add_entry("email_update_settings", deepcopy(email_lut))
 general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
 general_lut.add_entry("step_count", deepcopy(step_count))
 
@@ -452,45 +371,45 @@ x_mm = LUTField(
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting X position of the step on slice 1.",
+    "The starting X position of the laser cut.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 y_mm = LUTField(
     "Start Y Position (mm)",
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting Y position of the step on slice 1.",
+    "The starting Y position of the laser cut.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 z_mm = LUTField(
     "Start Z Position (mm)",
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting Z position of the step on slice 1.",
+    "The starting Z position of the laser cut.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 t_deg = LUTField(
     "Start T Position (°)",
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting T position of the step on slice 1.",
+    "The starting T position of the laser cut.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 r_deg = LUTField(
     "Start R Position (°)",
     "",
     ctk.Entry,
     {"dtype": float},
-    "The starting R position of the step on slice 1.",
+    "The starting R position of the laser cut.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 rotation_side = LUTField(
     "Rotation Side",
@@ -499,7 +418,7 @@ rotation_side = LUTField(
     {"options": rotation_sides, "dtype": str},
     "Whether the sample pretilt is in the laser position or the FIB position.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 initial_pos_lut = LUT("initial_position")
 initial_pos_lut.add_entry("x_mm", x_mm)
@@ -519,7 +438,7 @@ step_name = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 step_number = LUTField(
     "Step Number",
@@ -528,7 +447,7 @@ step_number = LUTField(
     {"state": "disabled", "dtype": int},
     "The number of the step in the sequence of steps.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 step_type = LUTField(
     "Step Type",
@@ -537,7 +456,7 @@ step_type = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 frequency = LUTField(
     "Frequency",
@@ -546,7 +465,7 @@ frequency = LUTField(
     {"dtype": int},
     "The frequency that this step is activated (i.e. 1 means every slice, 2 means every other slice, etc.).",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 common_lut = LUT("stage")
 common_lut.add_entry("step_name", step_name)
@@ -563,7 +482,7 @@ left = LUTField(
     {"dtype": float},
     "Fractional position (of the entire image) for the left edge of the reduced area for auto contrast and brightness adjustment. Empty/None/null for all fractions turns off ACB.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 width = LUTField(
     "Width Fraction",
@@ -572,7 +491,7 @@ width = LUTField(
     {"dtype": float},
     "The fractional width (of the entire image) to use for auto contrast and brightness. Empty/None for all fractions turns off ACB.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 top = LUTField(
     "Top Fraction",
@@ -581,7 +500,7 @@ top = LUTField(
     {"dtype": float},
     "Fractional position (of the entire image) for the top edge of the reduced area for auto contrast and brightness adjustment. Empty/None for all fractions turns off ACB.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 height = LUTField(
     "Height Fraction",
@@ -590,7 +509,7 @@ height = LUTField(
     {"dtype": float},
     "The fractional height (of the entire image) to use for auto contrast and brightness. Empty/None for all fractions turns off ACB.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 auto_cb_lut = LUT("auto_cb")
 auto_cb_lut.add_entry("left", left)
@@ -606,7 +525,7 @@ beam_type = LUTField(
     {"options": beam_types, "dtype": str},
     "The type of beam used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 voltage_kv = LUTField(
     "Beam Voltage (kV)",
@@ -615,7 +534,7 @@ voltage_kv = LUTField(
     {"dtype": float},
     "The voltage of the beam in keV.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 voltage_tol_kv = LUTField(
     "Beam Voltage Tolerance (kV)",
@@ -624,7 +543,7 @@ voltage_tol_kv = LUTField(
     {"dtype": float},
     "The tolerance of the beam voltage in kV.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 current_na = LUTField(
     "Beam Current (nA)",
@@ -633,7 +552,7 @@ current_na = LUTField(
     {"dtype": float},
     "The current of the beam in nA.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 current_tol_na = LUTField(
     "Beam Current Tolerance (nA)",
@@ -642,7 +561,7 @@ current_tol_na = LUTField(
     {"dtype": float},
     "The tolerance of the beam current in nA.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 hfw_mm = LUTField(
     "Horizontal Field Width (mm)",
@@ -651,7 +570,7 @@ hfw_mm = LUTField(
     {"dtype": float},
     "The horizontal field width of the image in mm.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 working_dist_mm = LUTField(
     "Working Distance (mm)",
@@ -660,25 +579,25 @@ working_dist_mm = LUTField(
     {"dtype": float},
     "The working distance of the image in mm.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 dynamic_focus = LUTField(
     "Use Dynamic Focus",
-    "False",
+    False,
     ctk.Checkbutton,
-    {"offvalue": "False", "onvalue": "True", "bd": 0, "dtype": bool},
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
     "Whether to use dynamic focusing.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 tilt_correction = LUTField(
     "Use Tilt Correction",
-    "False",
+    False,
     ctk.Checkbutton,
-    {"offvalue": "False", "onvalue": "True", "bd": 0, "dtype": bool},
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
     "Whether to use tilt correction.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 beam_lut = LUT("beam")
 beam_lut.add_entry("type", beam_type)
@@ -699,7 +618,7 @@ laser_pulse_wavelength_nm = LUTField(
     {"options": wavelengths, "dtype": int},
     "The wavelength of the laser.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pulse_divider = LUTField(
     "Pulse Divider",
@@ -708,7 +627,7 @@ laser_pulse_divider = LUTField(
     {"dtype": int},
     "Determines the repetition rate of the laser.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pulse_energy_uj = LUTField(
     "Energy (uJ)",
@@ -717,7 +636,7 @@ laser_pulse_energy_uj = LUTField(
     {"dtype": float},
     "The energy of the laser pulse in microjoules.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pulse_polarization = LUTField(
     "Polarization",
@@ -726,7 +645,7 @@ laser_pulse_polarization = LUTField(
     {"options": polarizations, "dtype": str},
     "The polarization of the laser.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_objective_position_mm = LUTField(
     "Objective Position (mm)",
@@ -735,7 +654,7 @@ laser_objective_position_mm = LUTField(
     {"dtype": float},
     "The position of the objective lens in millimeters.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_passes = LUTField(
     "Passes",
@@ -744,7 +663,7 @@ laser_pattern_passes = LUTField(
     {"dtype": int},
     "The number of passes the laser will make.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_size_x_um = LUTField(
     "Size X (um)",
@@ -753,7 +672,7 @@ laser_pattern_size_x_um = LUTField(
     {"dtype": float},
     "The size of the box in the X direction in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_size_y_um = LUTField(
     "Size Y (um)",
@@ -762,7 +681,7 @@ laser_pattern_size_y_um = LUTField(
     {"dtype": float},
     "The size of the box in the Y direction in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_pitch_x_um = LUTField(
     "Pitch X (um)",
@@ -771,7 +690,7 @@ laser_pattern_pitch_x_um = LUTField(
     {"dtype": float},
     "The pitch of the box in the X direction in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_pitch_y_um = LUTField(
     "Pitch Y (um)",
@@ -780,7 +699,7 @@ laser_pattern_pitch_y_um = LUTField(
     {"dtype": float},
     "The pitch of the box in the Y direction in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_scan_type = LUTField(
     "Scan Type",
@@ -789,7 +708,7 @@ laser_pattern_scan_type = LUTField(
     {"options": laser_scan_types_box, "dtype": str},
     "The type of scan to perform.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_coordinate_ref = LUTField(
     "Coordinate Reference",
@@ -798,7 +717,7 @@ laser_pattern_coordinate_ref = LUTField(
     {"options": coordinate_refs, "dtype": str},
     "The reference coordinate for the scan.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_size_um = LUTField(
     "Size (um)",
@@ -807,7 +726,7 @@ laser_pattern_size_um = LUTField(
     {"dtype": float},
     "The size of the line in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_pitch_um = LUTField(
     "Pitch (um)",
@@ -816,7 +735,7 @@ laser_pattern_pitch_um = LUTField(
     {"dtype": float},
     "The pitch of the line in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_rotation_deg = LUTField(
     "Scan Rotation (deg)",
@@ -825,7 +744,7 @@ laser_pattern_rotation_deg = LUTField(
     {"dtype": float},
     "The rotation of the scan in degrees.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_mode = LUTField(
     "Mode",
@@ -834,7 +753,7 @@ laser_pattern_mode = LUTField(
     {"options": laser_pattern_modes, "dtype": str},
     "The mode of the laser.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_pulses_per_pixel = LUTField(
     "Pulses Per Pixel",
@@ -843,7 +762,7 @@ laser_pattern_pulses_per_pixel = LUTField(
     {"dtype": int},
     "The number of pulses per pixel (only matters for fine).",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pattern_pixel_dwell_ms = LUTField(
     "Pixel Dwell Time (ms)",
@@ -852,25 +771,25 @@ laser_pattern_pixel_dwell_ms = LUTField(
     {"dtype": float},
     "The dwell time of the laser in milliseconds (only matters for coarse).",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_beam_shift_x_um = LUTField(
     "Beam Shift X (um)",
     0.0,
     ctk.Entry,
     {"dtype": float},
-    "The beam shift in the X direction in micrometers. Is applied on top of the hardware shift.",
+    "The beam shift in the X direction in micrometers. Is applied on top of the hardware shift (i.e. it is applied in addition to any 'Beam Centering' values).",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_beam_shift_y_um = LUTField(
     "Beam Shift Y (um)",
     0.0,
     ctk.Entry,
     {"dtype": float},
-    "The beam shift in the Y direction in micrometers. Is applied on top of the hardware shift.",
+    "The beam shift in the Y direction in micrometers. Is applied on top of the hardware shift (i.e. it is applied in addition to any 'Beam Centering' values).",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_pulse_lut = LUT("pulse")
 laser_pulse_lut.add_entry("wavelength_nm", laser_pulse_wavelength_nm)
@@ -918,7 +837,7 @@ detector_type = LUTField(
     {"options": detector_types, "dtype": str},
     "The type of detector used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 detector_mode = LUTField(
     "Detector Mode",
@@ -927,7 +846,7 @@ detector_mode = LUTField(
     {"options": detector_modes, "dtype": str},
     "The mode of the detector used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 brightness_fraction = LUTField(
     "Brightness Fraction",
@@ -936,7 +855,7 @@ brightness_fraction = LUTField(
     {"dtype": float},
     "(If auto contrast/brightness is False) The fractional brightness value to use.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 contrast_fraction = LUTField(
     "Contrast Fraction",
@@ -945,7 +864,7 @@ contrast_fraction = LUTField(
     {"dtype": float},
     "(If auto contrast/brightness is False) The fractional contrast value to use.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_rotation_deg = LUTField(
     "Scan Rotation (deg)",
@@ -954,7 +873,7 @@ image_rotation_deg = LUTField(
     {"dtype": float},
     "The rotation of the scan in degrees.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_dwell_time_us = LUTField(
     "Dwell Time (us)",
@@ -963,7 +882,7 @@ image_dwell_time_us = LUTField(
     {"dtype": float},
     "The dwell time of the image in microseconds.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_resolution = LUTField(
     "Resolution",
@@ -972,7 +891,7 @@ image_resolution = LUTField(
     {"options": resolutions, "dtype": str},
     "The resolution of the image. Can be a present or custom resolution.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_bit_depth = LUTField(
     "Bit Depth",
@@ -981,7 +900,7 @@ image_bit_depth = LUTField(
     {"options": bit_depths, "dtype": int},
     "The bit depth of the image.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 detector_lut = LUT("detector")
 detector_lut.add_entry("type", detector_type)
@@ -1001,6 +920,7 @@ image_lut.add_entry("scan", deepcopy(scan_lut))
 image_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 # Image should have a step type and name of image
 
+
 ### EDS ###
 eds_lut = LUT("eds")
 eds_lut.add_entry("step_general", deepcopy(common_lut))
@@ -1010,15 +930,172 @@ eds_lut.add_entry("scan", deepcopy(scan_lut))
 eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 # EDS should be electron beam types only, and should have a step type and name of eds
 
+
+### EDS ###
+bruker_connection_mode = LUTField(
+    "Connection Mode",
+    bruker_connection_modes[-1],
+    ctk.MenuButton,
+    {"options": bruker_connection_modes, "dtype": str},
+    "The connection type to the computer running the Bruker collection software.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_dll_dir = LUTField(
+    "DLL Directory",
+    "C:/Users/User/Documents/Esprit API",
+    ctk.PathEntry,
+    {"directory": True},
+    "The directory where the Bruker API DLLs are stored.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_output_path = LUTField(
+    "Output Directory",
+    "./",
+    ctk.PathEntry,
+    {"directory": True},
+    "The directory where to save the EDS data.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_connection_host = LUTField(
+    "Connection Host",
+    "192.168.0.3",
+    ctk.Entry,
+    {"dtype": str},
+    "The host of the connection to the PC running the Bruker software.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_connection_port = LUTField(
+    "Connection Port",
+    5328,
+    ctk.Entry,
+    {"dtype": int},
+    "The port of the connection to the PC running the Bruker software.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_detector_index = LUTField(
+    "Detector Index",
+    1,
+    ctk.Entry,
+    {"dtype": int},
+    "The index of the Bruker detector. Almost always '1' unless you have mutliple detectors.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_move_detector = LUTField(
+    "Enable Detector Movement",
+    True,
+    ctk.Checkbutton,
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
+    "Whether or not to enable detector movement. If False, the detector will stay in the current position during the experiment.",
+    bool,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_x_start_px = LUTField(
+    "ROI X Start (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The x coordinate of the left-most pixel of the bounding box.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_y_start_px = LUTField(
+    "ROI Y Start (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The y coordinate of the top-most pixel of the bounding box.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_width_px = LUTField(
+    "ROI Width (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The horizontal span of the bounding box in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_roi_height_px = LUTField(
+    "ROI Height (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The vertical span of the bounding box in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_width_px = LUTField(
+    "Map Width (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The width of the map in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_height_px = LUTField(
+    "Map Height (px)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The height of the map in pixels.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_dwell_us = LUTField(
+    "Dwell Time (us)",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The dwell time for each point in the EDS map.",
+    int,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_map_roi = LUT("roi")
+bruker_map_roi.add_entry("x_start_px", bruker_roi_x_start_px)
+bruker_map_roi.add_entry("y_start_px", bruker_roi_y_start_px)
+bruker_map_roi.add_entry("width_px", bruker_roi_width_px)
+bruker_map_roi.add_entry("height_px", bruker_roi_height_px)
+bruker_map = LUT("map")
+bruker_map.add_entry("width_px", bruker_map_width_px)
+bruker_map.add_entry("height_px", bruker_map_height_px)
+bruker_map.add_entry("dwell_us", bruker_map_dwell_us)
+bruker_map.add_entry("roi", bruker_map_roi)
+bruker_eds_settings_lut = LUT("bruker_settings")
+bruker_eds_settings_lut.add_entry("dll_dir", deepcopy(bruker_dll_dir))
+bruker_eds_settings_lut.add_entry("connection_mode", deepcopy(bruker_connection_mode))
+bruker_eds_settings_lut.add_entry("output_path", deepcopy(bruker_output_path))
+bruker_eds_settings_lut.add_entry("map", deepcopy(bruker_map))
+bruker_eds_settings_lut.add_entry("host", deepcopy(bruker_connection_host))
+bruker_eds_settings_lut.add_entry("port", deepcopy(bruker_connection_port))
+bruker_eds_settings_lut.add_entry("detector_index", deepcopy(bruker_detector_index))
+bruker_eds_settings_lut.add_entry("move_detector", deepcopy(bruker_move_detector))
+bruker_eds_lut = LUT("bruker_eds")
+bruker_eds_lut.add_entry("step_general", deepcopy(common_lut))
+bruker_eds_lut.add_entry("beam", deepcopy(beam_lut))
+bruker_eds_lut.add_entry("detector", deepcopy(detector_lut))
+bruker_eds_lut.add_entry("scan", deepcopy(scan_lut))
+bruker_eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
+bruker_eds_lut.add_entry("bruker_settings", deepcopy(bruker_eds_settings_lut))
+# EDS should be electron beam types only, and should have a step type and name of eds
+
+
 ### EBSD ###
 ebsd_concurrent_eds = LUTField(
     "Concurrent EDS",
-    "False",
+    False,
     ctk.Checkbutton,
-    {"offvalue": "False", "onvalue": "True", "bd": 0, "dtype": bool},
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
     "Whether to acquire EDS data concurrently with the EBSD data.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 edax_x_start_um = LUTField(
     "X Start (um)",
@@ -1027,7 +1104,7 @@ edax_x_start_um = LUTField(
     {"dtype": float},
     "The starting X position of the EBSD scan in micrometers.",
     float,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_y_start_um = LUTField(
     "Y Start (um)",
@@ -1036,7 +1113,7 @@ edax_y_start_um = LUTField(
     {"dtype": float},
     "The starting Y position of the EBSD scan in micrometers.",
     float,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_x_size_um = LUTField(
     "X Size (um)",
@@ -1045,7 +1122,7 @@ edax_x_size_um = LUTField(
     {"dtype": float},
     "The horizontal span of the EBSD scan in micrometers.",
     float,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_y_size_um = LUTField(
     "Y Size (um)",
@@ -1054,7 +1131,7 @@ edax_y_size_um = LUTField(
     {"dtype": float},
     "The vertical span of the EBSD scan in micrometers.",
     float,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_step_size_um = LUTField(
     "Step Size (um)",
@@ -1063,7 +1140,7 @@ edax_step_size_um = LUTField(
     {"dtype": float},
     "The step size of the EBSD scan in micrometers.",
     float,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_grid_type = LUTField(
     "Grid Type",
@@ -1072,16 +1149,16 @@ edax_grid_type = LUTField(
     {"dtype": str, "options": ebsd_grid_types},
     "The type of grid to use for the EBSD scan. 0 is hexagonal, 1 is square.",
     str,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_save_patterns = LUTField(
     "Save Patterns",
-    "False",
+    False,
     ctk.Checkbutton,
-    {"offvalue": "False", "onvalue": "True", "bd": 0, "dtype": bool},
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
     "Whether to save the patterns.",
     bool,
-    tbt.Limit(min=1.1, max=MAX_VERSION),
+    tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
 edax_scan_box_lut = LUT("scan_box")
 edax_scan_box_lut.add_entry("x_start_um", edax_x_start_um)
@@ -1112,7 +1189,7 @@ center_x_um = LUTField(
     {"dtype": float},
     "The X coordinate of the center of the milling pattern.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 center_y_um = LUTField(
     "Center Y (um)",
@@ -1121,7 +1198,7 @@ center_y_um = LUTField(
     {"dtype": float},
     "The Y coordinate of the center of the milling pattern.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 width_um = LUTField(
     "Width (um)",
@@ -1130,7 +1207,7 @@ width_um = LUTField(
     {"dtype": float},
     "The width of the rectangle in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 height_um = LUTField(
     "Height (um)",
@@ -1139,7 +1216,7 @@ height_um = LUTField(
     {"dtype": float},
     "The height of the rectangle in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 depth_um = LUTField(
     "Depth (um)",
@@ -1148,7 +1225,7 @@ depth_um = LUTField(
     {"dtype": float},
     "The depth of the rectangle in micrometers.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 scan_direction = LUTField(
     "Scan Direction",
@@ -1157,7 +1234,7 @@ scan_direction = LUTField(
     {"options": fib_scan_dirs, "dtype": str},
     "The direction of the scan.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 scan_type = LUTField(
     "Scan Type",
@@ -1166,7 +1243,7 @@ scan_type = LUTField(
     {"options": fib_scan_types, "dtype": str},
     "The type of scan to perform.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 dwell_us = LUTField(
     "Mill Dwell Time (us)",
@@ -1175,7 +1252,7 @@ dwell_us = LUTField(
     {"dtype": float},
     "The dwell time of the mill in microseconds.",
     float,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 repeats = LUTField(
     "Pattern Repeats",
@@ -1184,7 +1261,7 @@ repeats = LUTField(
     {"dtype": int},
     "The number of times to repeat the pattern.",
     int,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 recipe_file = LUTField(
     "Image Processing Recipe",
@@ -1193,7 +1270,7 @@ recipe_file = LUTField(
     {"directory": False, "defaultextension": ".py"},
     "The recipe to use for image processing. Must be a python (.py) file.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 mask_file = LUTField(
     "Mask File",
@@ -1202,16 +1279,25 @@ mask_file = LUTField(
     {"directory": False, "defaultextension": ".tif"},
     "During this step, the mask file to use for milling will be saved (and overwritten) in this location. Should be a tiff (.tif) file. All masks will be saved automatically during the experiment.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 application_file = LUTField(
-    "Application File",
+    "Mill Pattern Preset",
     "",
     ctk.Entry,
     {"dtype": str},
-    "The application file preset to use for milling.",
+    "The preset to use for milling.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+shutter_control = LUTField(
+    "E-Column Shutter Control",
+    "Off",
+    ctk.MenuButton,
+    {"options": ["Off", "Automatic"], "dtype": str},
+    "The preset to use for milling.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_center_lut = LUT("center")
 fib_center_lut.add_entry("x_um", center_x_um)
@@ -1248,6 +1334,7 @@ fib_lut = LUT("fib")
 fib_lut.add_entry("step_general", deepcopy(common_lut))
 fib_lut.add_entry("image", deepcopy(fib_image_lut))
 fib_lut.add_entry("mill", deepcopy(fib_mill_lut))
+fib_lut.add_entry("shutter_control", shutter_control)
 # FIB should be ion beam types only, dynamic focus should be off, and tilt correction should be off, and step type and name should be fib
 
 ### Custom step ###
@@ -1258,7 +1345,7 @@ custom_executable_path = LUTField(
     {"directory": False, "operation": "open"},
     "The path to the executable to run. For python, this would be the location of the python executable.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 custom_script_path = LUTField(
     "Custom Script Path",
@@ -1267,13 +1354,14 @@ custom_script_path = LUTField(
     {"directory": False, "operation": "open"},
     "The path to the custom script to run.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 custom_lut = LUT("custom")
 custom_lut.add_entry("step_general", deepcopy(common_lut))
 custom_lut.add_entry("executable_path", deepcopy(custom_executable_path))
 custom_lut.add_entry("script_path", deepcopy(custom_script_path))
 # Custom should have a step type and name of custom
+
 
 # Apply edits to luts based on step type (enforce names/types, disable/enable fields, etc.)
 laser_lut["step_general"]["step_type"] = LUTField(
@@ -1283,7 +1371,7 @@ laser_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 laser_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1292,7 +1380,7 @@ laser_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1301,7 +1389,7 @@ image_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 image_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1310,7 +1398,7 @@ image_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 eds_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1319,7 +1407,7 @@ eds_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 eds_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1328,7 +1416,7 @@ eds_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 eds_lut["beam"]["type"] = LUTField(
     "Beam Type",
@@ -1337,7 +1425,34 @@ eds_lut["beam"]["type"] = LUTField(
     {"options": beam_types, "dtype": str, "state": "disabled"},
     "The type of beam used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["step_general"]["step_type"] = LUTField(
+    "Step Type",
+    "bruker_eds",
+    ctk.Entry,
+    {"state": "disabled", "dtype": str},
+    "The step type.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["step_general"]["step_name"] = LUTField(
+    "Step Name",
+    "eds",
+    ctk.Entry,
+    {"dtype": str},
+    "The name of the step.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
+)
+bruker_eds_lut["beam"]["type"] = LUTField(
+    "Beam Type",
+    beam_types[0],
+    ctk.MenuButton,
+    {"options": beam_types, "dtype": str, "state": "disabled"},
+    "The type of beam used to acquire the image.",
+    str,
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 ebsd_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1346,7 +1461,7 @@ ebsd_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 ebsd_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1355,7 +1470,7 @@ ebsd_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 ebsd_lut["beam"]["type"] = LUTField(
     "Beam Type",
@@ -1364,7 +1479,7 @@ ebsd_lut["beam"]["type"] = LUTField(
     {"options": beam_types, "dtype": str, "state": "disabled"},
     "The type of beam used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1373,7 +1488,7 @@ fib_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1382,7 +1497,7 @@ fib_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["image"]["beam"]["type"] = LUTField(
     "Beam Type",
@@ -1391,37 +1506,37 @@ fib_lut["image"]["beam"]["type"] = LUTField(
     {"options": beam_types, "dtype": str, "state": "disabled"},
     "The type of beam used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["image"]["beam"]["dynamic_focus"] = LUTField(
     "Use Dynamic Focus",
-    "False",
+    False,
     ctk.Checkbutton,
     {
-        "offvalue": "False",
-        "onvalue": "True",
+        "offvalue": False,
+        "onvalue": True,
         "bd": 0,
         "dtype": bool,
         "state": "disabled",
     },
     "Whether to use dynamic focusing.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["image"]["beam"]["tilt_correction"] = LUTField(
     "Use Tilt Correction",
-    "False",
+    False,
     ctk.Checkbutton,
     {
-        "offvalue": "False",
-        "onvalue": "True",
+        "offvalue": False,
+        "onvalue": True,
         "bd": 0,
         "dtype": bool,
         "state": "disabled",
     },
     "Whether to use tilt correction.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["mill"]["beam"]["type"] = LUTField(
     "Beam Type",
@@ -1430,37 +1545,37 @@ fib_lut["mill"]["beam"]["type"] = LUTField(
     {"options": beam_types, "dtype": str, "state": "disabled"},
     "The type of beam used to acquire the image.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["mill"]["beam"]["dynamic_focus"] = LUTField(
     "Use Dynamic Focus",
-    "False",
+    False,
     ctk.Checkbutton,
     {
-        "offvalue": "False",
-        "onvalue": "True",
+        "offvalue": False,
+        "onvalue": True,
         "bd": 0,
         "dtype": bool,
         "state": "disabled",
     },
     "Whether to use dynamic focusing.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 fib_lut["mill"]["beam"]["tilt_correction"] = LUTField(
     "Use Tilt Correction",
-    "False",
+    False,
     ctk.Checkbutton,
     {
-        "offvalue": "False",
-        "onvalue": "True",
+        "offvalue": False,
+        "onvalue": True,
         "bd": 0,
         "dtype": bool,
         "state": "disabled",
     },
     "Whether to use tilt correction.",
     bool,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 custom_lut["step_general"]["step_type"] = LUTField(
     "Step Type",
@@ -1469,7 +1584,7 @@ custom_lut["step_general"]["step_type"] = LUTField(
     {"state": "disabled", "dtype": str},
     "The step type.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 custom_lut["step_general"]["step_name"] = LUTField(
     "Step Name",
@@ -1478,7 +1593,7 @@ custom_lut["step_general"]["step_name"] = LUTField(
     {"dtype": str},
     "The name of the step.",
     str,
-    tbt.Limit(min=1.0, max=MAX_VERSION),
+    tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
 
 
@@ -1490,12 +1605,14 @@ LUTs = {
     "eds": eds_lut,
     "ebsd": ebsd_lut,
     "custom": custom_lut,
+    "bruker_eds": bruker_eds_lut,
 }
 
 
 class VersionedLUT:
     def __init__(self):
-        self._default_version = MAX_VERSION
+        self.versions = VERSIONS
+        self._default_version = max(VERSIONS)
         self.LUTs = deepcopy(LUTs)
 
     def get_lut(self, step_type: str, version: Optional[str] = None) -> LUT:
@@ -1505,9 +1622,9 @@ class VersionedLUT:
         """
         if version is None:
             version = self._default_version
-        if float(version) > MAX_VERSION:
+        if not any(version == v for v in self.versions):
             raise ValueError(
-                f'YML version "{version}" is not supported. Max supported version is "{MAX_VERSION}"'
+                f"Version {version} is not in the list of versions: {self.versions}"
             )
         if step_type.lower() not in self.LUTs:
             raise ValueError(
@@ -1518,11 +1635,10 @@ class VersionedLUT:
         lut.flatten()
         items = list(lut.entries.items())
         for name, entry in items:
-            if not ut.in_interval(
-                version, entry.version_limit, tbt.IntervalType.CLOSED
-            ):
+            if not ut.in_interval(version, entry.version, tbt.IntervalType.CLOSED):
                 lut.remove_entry(name)
         lut.unflatten()
+        lut._prune_empty()
         return lut
 
 

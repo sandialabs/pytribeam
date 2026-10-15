@@ -1,0 +1,51 @@
+[2026-08-26T13:47:41] === Bruker EDS safe standalone workflow start ===
+[2026-08-26T13:47:41] Config: C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\tools\templates\bruker_eds_safe_workflow_carbon.yml
+[2026-08-26T13:47:41] Log path: C:\Users\apolon\Codebases\pytribeam\src\pytribeam\external_oem\bruker\tools\templates\bruker_eds_safe_workflow_carbon_safe_workflow_20260826_134741.log
+[2026-08-26T13:47:41] Using standalone Bruker YAML workflow; no AutoScript or TFS Laser API
+[2026-08-26T13:47:41] Reminder: do not interact with ESPRIT GUI during API acquisition
+[2026-08-26T13:47:41] Bruker YAML loaded and validated
+[2026-08-26T13:47:41] Session mode: local
+[2026-08-26T13:47:41] DLL directory: C:/Program Files/Bruker/Esprit API
+[2026-08-26T13:47:41] Output root: C:/Users/apolon/Downloads/EDS
+[2026-08-26T13:47:41] Run name: carbon_eds_map
+[2026-08-26T13:47:41] Map: carbon_map, 64x48, pixel_time=1024 us
+[2026-08-26T13:47:41] ROI: x=5, y=5, w=20, h=30
+[2026-08-26T13:47:41] Detector index: 1
+[2026-08-26T13:47:41] Detector motion settings: verify_park_before=False, move_to_acquire_before=False, park_after=False
+[2026-08-26T13:47:41] Detector motion disabled; final detector confirmation will be skipped
+[2026-08-26T13:47:41] Readback: disabled for safe CLI run
+[2026-08-26T13:47:41] Validating Bruker runtime DLL environment
+[2026-08-26T13:47:41] DLL directory found: C:\Program Files\Bruker\Esprit API
+[2026-08-26T13:47:41] Required ESPRIT DLL found: C:\Program Files\Bruker\Esprit API\Bruker.API.Esprit64.dll
+[2026-08-26T13:47:41] Optional Bruker logging DLL found: C:\Program Files\Bruker\Esprit API\Bruker.API.Logging64.dll
+[2026-08-26T13:47:41] Creating Bruker session
+[2026-08-26T13:47:42] Connected Bruker session CID=19530230
+[2026-08-26T13:47:42] Starting Bruker EDS workflow
+[2026-08-26T13:47:42] === Bruker EDS workflow start ===
+[2026-08-26T13:47:42] Run dir: C:\Users\apolon\Downloads\EDS\carbon_eds_map_20260826_134742
+[2026-08-26T13:47:42] Using provided session
+[2026-08-26T13:47:42] [pre-acquisition] Spectrometer status: version=1, status=3, ready=True
+[2026-08-26T13:47:42] [pre-acquisition]   Detector 0: status=0, count_rate=61160 cps, temp=-20 C, cooling=1
+[2026-08-26T13:47:42] [pre-acquisition]   Detector 1: status=1, count_rate=79787 cps, temp=-20 C, cooling=1
+[2026-08-26T13:47:42] detector.verify_park_before=false; skipping pre-acquisition park check
+[2026-08-26T13:47:42] detector.move_to_acquire_before=false; leaving Bruker detector motion disabled before acquisition
+[2026-08-26T13:47:42] Image config comparison: width=64->16 (MISMATCH), height=48->12 (MISMATCH), average/pixel_time=1024->1024 (OK), ch1=True, ch2=False
+[2026-08-26T13:47:42] WARNING: Accepted image dimensions differ from requested. This may indicate hardware limitations or unsupported resolution.
+[2026-08-26T13:47:42] Acquiring profile EDS map: carbon_map
+[2026-08-26T13:47:42] Using ROI: x=5, y=5, w=20, h=30
+[2026-08-26T13:47:42] Profile map acquisition started: 64x48, pixel_time=1024 us, 1 elements
+[2026-08-26T13:47:42] Map progress: 46.9%, line=7, elapsed=0.0s, ETA=0.0s
+[2026-08-26T13:47:43] Profile map acquisition complete: elapsed=0.5s
+[2026-08-26T13:47:44] BCF saved: C:\Users\apolon\Downloads\EDS\carbon_eds_map_20260826_134742\carbon_eds_map.bcf (1114392 bytes)
+[2026-08-26T13:47:44] [post-acquisition] Spectrometer status: version=1, status=3, ready=True
+[2026-08-26T13:47:44] [post-acquisition]   Detector 0: status=0, count_rate=61160 cps, temp=-20 C, cooling=1
+[2026-08-26T13:47:44] [post-acquisition]   Detector 1: status=1, count_rate=79922 cps, temp=-20 C, cooling=1
+[2026-08-26T13:47:44] detector.park_after=false; skipping post-acquisition detector park
+[2026-08-26T13:47:44] === Bruker EDS workflow SUCCESS (2.7s) ===
+[2026-08-26T13:47:44] Result: success=True, elapsed=2.7s
+[2026-08-26T13:47:44] BCF path: C:\Users\apolon\Downloads\EDS\carbon_eds_map_20260826_134742\carbon_eds_map.bcf
+[2026-08-26T13:47:44] Image path: C:\Users\apolon\Downloads\EDS\carbon_eds_map_20260826_134742\carbon_eds_map.bmp
+[2026-08-26T13:47:44] Detector motion disabled; final detector position check skipped
+[2026-08-26T13:47:44] BCF validated: C:\Users\apolon\Downloads\EDS\carbon_eds_map_20260826_134742\carbon_eds_map.bcf (1114392 bytes)
+[2026-08-26T13:47:44] === Bruker EDS safe standalone workflow SUCCESS ===
+[2026-08-26T13:47:44] Process exit code: 0
