@@ -1014,10 +1014,10 @@ class SectioningAxis(Enum):
     - `Z` (`str`): Z direction.
     """
 
-    X_POS: str = "X+"
-    X_NEG: str = "X-"
-    Y_POS: str = "Y+"
-    Y_NEG: str = "Y-"
+    # X_POS: str = "X+"
+    # X_NEG: str = "X-"
+    # Y_POS: str = "Y+"
+    # Y_NEG: str = "Y-"
     NEG_Y_FIB: str = "-Y_FIB"
     Z: str = "Z"
 

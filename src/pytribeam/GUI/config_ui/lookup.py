@@ -261,8 +261,8 @@ sectioning_axis = LUTField(
     "Sectioning Axis",
     "Z",
     ctk.MenuButton,
-    {"options": ["Z", "-Y_FIB"], "dtype": str},  # "state": "disabled"},
-    "The axis that the milling device will cut along. Can be Z with laser or -Y for FIB only.",
+    {"options": ["Z", "-Y_FIB"], "dtype": str},
+    "The axis that the laser will cut along. Can be Z with laser or -Y for FIB only.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
 )
