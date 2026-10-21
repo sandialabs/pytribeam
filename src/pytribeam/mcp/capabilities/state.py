@@ -25,6 +25,7 @@ from typing import Any, Dict, Tuple
 from mcp.server.mcpserver.exceptions import ToolError
 
 from pytribeam.mcp import state
+from pytribeam.mcp.capabilities._helpers import snapshot
 from pytribeam.mcp.state.condense import condense
 from pytribeam.mcp.state.diff import diff
 
@@ -33,32 +34,13 @@ TIER = 0
 _STATE_ID = re.compile(r"^s\d+$")
 
 
-def _capture(microscope, description: str) -> Dict[str, Any]:
-    """Read the current state from a connected microscope."""
-    from pytribeam.mcp.state.capture import capture
-
-    return capture(microscope, description=description)
-
-
 def register(add, config, connection) -> None:
     """Register this module's tools."""
     states_dir = config.states_dir
 
     def read_state(description: str) -> Tuple[str, Dict[str, Any]]:
         """Capture and save a state, returning its id and contents."""
-        with connection.use() as microscope:
-            captured = _capture(microscope, description)
-
-            if not captured["values"]:
-                # Every read failed, so the connection is likely gone.
-                connection.reset()
-                raise ToolError(
-                    "Could not read anything from the microscope; the connection "
-                    "may have dropped and will be reopened on the next call."
-                )
-
-            path = state.save(captured, state.next_path(states_dir))
-            return path.stem, captured
+        return snapshot(connection, states_dir, description)
 
     def load(state_id: str) -> Dict[str, Any]:
         path = states_dir / f"{state_id}.yml"
@@ -130,4 +112,4 @@ def register(add, config, connection) -> None:
 
     add(get_state, read_only=True)
     add(compare_states, read_only=True)
-    add(list_states, read_only=True)
+    add(list_states, read_only=True, uses_microscope=False)

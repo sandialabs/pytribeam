@@ -37,8 +37,6 @@ import yaml
 
 SCHEMA_VERSION = 2
 
-_RECORD_NAME = re.compile(r"^s(\d+)\.yml$")
-
 
 def save(state: Dict[str, Any], path: Path) -> Path:
     """Write *state* to *path* as YAML, replacing any existing file atomically.
@@ -68,17 +66,19 @@ def load(path: Path) -> Dict[str, Any]:
     return state
 
 
-def next_path(directory: Path) -> Path:
-    """Return the path for the next ``sNNNN.yml`` record in *directory*.
+def next_path(directory: Path, prefix: str = "s", suffix: str = ".yml") -> Path:
+    """Return the path for the next ``<prefix>NNNN<suffix>`` file in *directory*.
 
-    The number is one past the highest already present. Other files are
-    ignored, and the directory need not exist yet.
+    The number is one past the highest already present with the same prefix
+    and suffix, e.g. ``s0001.yml`` for states and ``i0001.tif`` for images.
+    Other files are ignored, and the directory need not exist yet.
     """
     directory = Path(directory)
+    pattern = re.compile(rf"^{re.escape(prefix)}(\d+){re.escape(suffix)}$")
     numbers = [0]
     if directory.is_dir():
         for path in directory.iterdir():
-            match = _RECORD_NAME.match(path.name)
+            match = pattern.match(path.name)
             if match:
                 numbers.append(int(match.group(1)))
-    return directory / f"s{max(numbers) + 1:04d}.yml"
+    return directory / f"{prefix}{max(numbers) + 1:04d}{suffix}"

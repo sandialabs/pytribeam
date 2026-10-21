@@ -101,6 +101,8 @@ async def test_server_info_does_not_connect(server, scope, config):
     assert info["states_dir"] == str(config.states_dir)
     assert (info["microscope_host"], info["microscope_port"]) == ("scope-pc", 7520)
     assert "autoscript_version" in info and info["python_version"]
+    assert (info["max_frame_s"], info["hard_max_frame_s"]) == (300.0, 1800.0)
+    assert info["busy"] is None
 
 
 async def test_check_connection_reports_the_microscope(server, scope):

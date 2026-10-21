@@ -60,6 +60,10 @@ DEFAULT_HTTP_HOST = "127.0.0.1"  # loopback only unless explicitly widened
 DEFAULT_HTTP_PORT = 8765
 MIN_TOKEN_LENGTH = 32  # secrets.token_urlsafe(32) yields ~43 characters
 
+# --- Acquisition time limits -------------------------------------------------
+DEFAULT_MAX_FRAME_S = 300.0  # longer frames need confirm_long=True
+DEFAULT_HARD_MAX_FRAME_S = 1800.0  # longer frames are always refused
+
 
 def default_project_dir() -> Path:
     """Used when no project directory is configured."""
@@ -122,7 +126,7 @@ class ServerConfig:
         project_dir/
             logs/       server.log, audit.jsonl
             states/     s0001.yml, s0002.yml, ...  (see pytribeam.mcp.state)
-            images/     i0001.tif, i0002.tif, ...
+            images/     i0001.tif + i0001.yml (sidecar), i0002.tif, ...
     """
 
     max_tier: int = 0
@@ -130,6 +134,11 @@ class ServerConfig:
     microscope_port: Optional[int] = None
     project_dir: Path = field(default_factory=default_project_dir)
     log_level: str = "INFO"
+
+    # Estimated frame times above max_frame_s need the agent to confirm;
+    # above hard_max_frame_s they are refused whatever the agent says.
+    max_frame_s: float = DEFAULT_MAX_FRAME_S
+    hard_max_frame_s: float = DEFAULT_HARD_MAX_FRAME_S
 
     # Transport. stdio: launched as a subprocess by the agent host.
     # http: runs standalone; agents connect to http://<http_host>:<http_port>/mcp
@@ -161,6 +170,11 @@ class ServerConfig:
             raise ValueError(f"microscope_port out of range: {self.microscope_port}")
         if not isinstance(logging.getLevelName(self.log_level.upper()), int):
             raise ValueError(f"Unknown log level: {self.log_level}")
+        if not 0 < self.max_frame_s <= self.hard_max_frame_s:
+            raise ValueError(
+                "need 0 < max_frame_s <= hard_max_frame_s, got "
+                f"{self.max_frame_s} and {self.hard_max_frame_s}"
+            )
 
         # Transport checks. argparse 'choices' does not validate defaults that
         # come from the environment, so the transport is checked here as well.
@@ -239,6 +253,20 @@ class ServerConfig:
             default=_env("LOG_LEVEL", "INFO"),
             help="Level for the server log file (default: INFO).",
         )
+        p.add_argument(
+            "--max-frame-s",
+            type=float,
+            default=float(_env("MAX_FRAME_S", DEFAULT_MAX_FRAME_S)),
+            help="Estimated frame time above which the agent must confirm "
+            f"(default: {DEFAULT_MAX_FRAME_S:.0f} s).",
+        )
+        p.add_argument(
+            "--hard-max-frame-s",
+            type=float,
+            default=float(_env("HARD_MAX_FRAME_S", DEFAULT_HARD_MAX_FRAME_S)),
+            help="Estimated frame time above which a frame is always refused "
+            f"(default: {DEFAULT_HARD_MAX_FRAME_S:.0f} s).",
+        )
 
         # --- Transport flags ---
         p.add_argument(
@@ -285,6 +313,8 @@ class ServerConfig:
                 microscope_port=a.microscope_port,
                 project_dir=Path(a.project_dir) if a.project_dir else default_project_dir(),
                 log_level=a.log_level.upper(),
+                max_frame_s=a.max_frame_s,
+                hard_max_frame_s=a.hard_max_frame_s,
                 transport=str(a.transport).strip().lower(),
                 http_host=a.http_host,
                 http_port=a.http_port,
@@ -304,6 +334,8 @@ class ServerConfig:
             "microscope_port": self.microscope_port,
             "project_dir": str(self.project_dir),
             "log_level": self.log_level,
+            "max_frame_s": self.max_frame_s,
+            "hard_max_frame_s": self.hard_max_frame_s,
             "transport": self.transport,
             "http_host": self.http_host,
             "http_port": self.http_port,

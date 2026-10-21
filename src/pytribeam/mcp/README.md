@@ -25,6 +25,8 @@ The server is configured through environment variables:
 | `PYTRIBEAM_MCP_MICROSCOPE_PORT` | AutoScript port | AutoScript default |
 | `PYTRIBEAM_MCP_MAX_TIER` | Highest tier exposed to the agent (0–4, see [Tiers](#tiers)) | `0` |
 | `PYTRIBEAM_MCP_PROJECT_DIR` | Folder for this project's logs and saved states | `%LOCALAPPDATA%/pytribeam/mcp` |
+| `PYTRIBEAM_MCP_MAX_FRAME_S` | Estimated image time above which the agent must pass `confirm_long` | `300` |
+| `PYTRIBEAM_MCP_HARD_MAX_FRAME_S` | Estimated image time above which an image is always refused | `1800` |
 
 Settings can also live in a file of `KEY=VALUE` lines. The server reads
 `%LOCALAPPDATA%/pytribeam/mcp.env` if it exists, or the file named by `--env-file`
@@ -42,7 +44,7 @@ at an experiment's folder keeps that experiment's record in one place:
 ├── states/
 │   ├── s0001.yml        # every state the agent reads, saved in full
 │   └── ...
-└── images/              # planned, see stage 3
+└── images/              # written by collect_single_image
     ├── i0001.tif        # the image
     ├── i0001.yml        # its settings, stats, and stage position
     └── ...
@@ -79,6 +81,13 @@ claude mcp add pytribeam -- pytribeam_mcp
 codex mcp add pytribeam -- pytribeam_mcp
 ```
 
+Images can take minutes, and clients give up on a tool call after their own
+timeout. Set it to at least 10 minutes. For Claude Code, set
+`MCP_TOOL_TIMEOUT=600000` (milliseconds) in the environment Claude Code runs
+in. In the Inspector, raise the request timeout under Configuration (and, if
+your version has it, the option to reset the timeout on progress). The server sends progress about
+every 5 s while an image acquires.
+
 For other MCP clients, most clients that use a JSON config (Claude Desktop, Cursor, and others) accept this format:
 
 ```json
@@ -107,7 +116,10 @@ The server is built out in stages:
    detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
    and an Inspector pass against the simulator are still to do.
 3. **Tier 1 and 2 tools:** imaging, image previews, and handling long
-   acquisitions.
+   acquisitions. Implemented with detached tests; the simulator tests
+   (`tests/mcp/test_imaging_simulated.py`) and an Inspector pass are still to
+   do. Not done from 3.0: marking a call that finished after it was cancelled
+   in the audit log.
 4. **Tier 3 tools:** stage motion.
 5. **Tier 4:** not yet designed.
 
@@ -399,10 +411,13 @@ tool that can run long:
   without `after` reads the microscope and keeps the lock.
 - **Say what the server is busy with.** While a tool holds the lock, record its
   name, its start time, and its expected duration if it gave one (3.4). A call
-  that cannot get the lock fails immediately rather than after 60 s, with
-  e.g. "collect_single_image is running, about 140 s left; wait and retry".
-  Waiting quietly for minutes is worse: the client may time out with no
-  explanation.
+  that cannot get the lock waits only while the running call is expected to
+  finish within `BUSY_GRACE_S` (15 s), so parallel quick reads queue instead
+  of failing. Otherwise it fails at once with e.g. "collect_single_image has
+  been running for 12 s, about 140 s left". Waiting quietly for minutes is
+  worse: the client may time out with no explanation.
+  *As built:* the lock lives on the shared `MicroscopeConnection`
+  (`hold()`, `expect()`, `busy`), and `get_server_info` reports `busy`.
 - **Cancellation only stops the client waiting.** If the user cancels, the
   client stops waiting, but the worker thread finishes the scan and saves the
   image, and the lock is held until then. This is deliberate for now; calling
@@ -583,9 +598,12 @@ parameters:
     copy it.
   - Check the acquisition time (3.4) before anything moves or scans.
   - Save to `next_path(config.images_dir, "i", ".tif")`.
-  - Call `image.collect_single_image(save_path, settings)`. It calls
-    `set_view` to the beam's default quad and `prepare_imaging`, so the step 3.3
-    guardrails must run before it.
+  - Apply the settings as in 3.3, then grab with
+    `image.grab_preset_resolution_frame` or `image.grab_custom_resolution_frame`.
+    *As built:* this does not call `image.collect_single_image`, which would
+    run `prepare_imaging` a second time: another ~5 s of voltage and current
+    checks, and with `auto_cb`, a second auto contrast/brightness scan, which
+    removes material with the ion beam.
   - Preset resolutions grab in memory and save with metadata. Any other
     resolution is written by AutoScript straight to disk and is forced to
     8-bit; turn that warning into a `warnings` entry.

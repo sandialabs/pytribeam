@@ -13,6 +13,7 @@ from mcp import Client  # noqa: E402
 
 # local libraries
 from pytribeam.mcp import connection, state  # noqa: E402
+from pytribeam.mcp.capabilities import _helpers  # noqa: E402
 from pytribeam.mcp.capabilities import state as state_tools  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.server import build_server  # noqa: E402
@@ -45,7 +46,7 @@ def scope(monkeypatch):
         return captured
 
     monkeypatch.setattr(connection, "_connect", connect)
-    monkeypatch.setattr(state_tools, "_capture", capture)
+    monkeypatch.setattr(_helpers, "_capture", capture)
     return fake
 
 

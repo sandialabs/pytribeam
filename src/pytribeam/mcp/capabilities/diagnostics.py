@@ -86,7 +86,9 @@ def register(add, config, connection) -> None:
         ``tiers`` lists every tier and whether this session exposes it; tools
         above ``max_tier`` are not available, and only the operator can raise
         it. ``connected`` says whether a microscope connection is currently
-        open. Touches no hardware and never connects; use
+        open, and ``busy`` names the tool using the microscope, if any.
+        ``max_frame_s`` and ``hard_max_frame_s`` are the image time limits
+        (see ``collect_single_image``). Touches no hardware and never connects; use
         ``check_connection`` to test the microscope.
         """
         return {
@@ -105,6 +107,9 @@ def register(add, config, connection) -> None:
             "microscope_host": config.microscope_host,
             "microscope_port": config.microscope_port,
             "connected": connection.connected,
+            "max_frame_s": config.max_frame_s,
+            "hard_max_frame_s": config.hard_max_frame_s,
+            "busy": connection.busy.describe() if connection.busy else None,
         }
 
     def check_connection() -> dict:
@@ -176,8 +181,8 @@ def register(add, config, connection) -> None:
                 records.append({"unreadable": line.strip()})
         return {"total": total, "records": records}
 
-    add(ping, read_only=True)
-    add(get_server_info, read_only=True)
+    add(ping, read_only=True, uses_microscope=False)
+    add(get_server_info, read_only=True, uses_microscope=False)
     add(check_connection, read_only=True)
     add(reconnect, read_only=True)
-    add(get_recent_activity, read_only=True)
+    add(get_recent_activity, read_only=True, uses_microscope=False)

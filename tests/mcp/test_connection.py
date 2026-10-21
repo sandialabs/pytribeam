@@ -170,3 +170,11 @@ def test_collect_warnings_survives_an_exception():
             warnings.warn("before failing")
             raise ValueError
     assert found == ["before failing"]
+
+
+def test_frame_limits(tmp_path, monkeypatch):
+    with pytest.raises(ValueError):
+        ServerConfig(max_frame_s=100, hard_max_frame_s=50)
+    monkeypatch.setenv("PYTRIBEAM_MCP_MAX_FRAME_S", "60")
+    cfg = ServerConfig.from_args(["--project-dir", str(tmp_path), "--hard-max-frame-s", "600"])
+    assert (cfg.max_frame_s, cfg.hard_max_frame_s) == (60.0, 600.0)

@@ -39,24 +39,23 @@ import inspect
 import json
 import logging
 import sys
-import threading
 import time
 from logging.handlers import RotatingFileHandler
 from typing import Callable, Optional, Sequence
 
-from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse  # starlette ships with the mcp SDK
 
 from pytribeam import __version__
-from pytribeam.mcp.capabilities import diagnostics, hardware, state
+from pytribeam.mcp.capabilities import diagnostics, hardware, images, imaging, state
 from pytribeam.mcp.config import ServerConfig
 from pytribeam.mcp.connection import MicroscopeConnection
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics, state, hardware)
+CAPABILITY_MODULES = (diagnostics, state, hardware, images, imaging)
 
 INSTRUCTIONS = (
     "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
@@ -72,13 +71,6 @@ INSTRUCTIONS = (
 MCP_PATH = "/mcp"  # SDK default Streamable HTTP endpoint path
 HEALTH_PATH = "/healthz"  # unauthenticated liveness check, returns no data
 LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
-
-# --- Hardware serialization ------------------------------------------------
-# One tool call touches the microscope at a time, regardless of transport or
-# how many clients are connected. A second call waits up to this long, then is
-# refused with a ToolError the agent can read.
-TOOL_LOCK_TIMEOUT_S = 60.0
-_TOOL_LOCK = threading.Lock()
 
 log = logging.getLogger("pytribeam.mcp")
 audit = logging.getLogger("pytribeam.mcp.audit")
@@ -118,7 +110,11 @@ def setup_logging(config: ServerConfig) -> None:
     root.propagate = False  # keep our records out of any handlers the SDK installs
 
 
-def _audited(fn: Callable, tier: int) -> Callable:
+def _audited(
+    fn: Callable,
+    tier: int,
+    connection: Optional[MicroscopeConnection] = None,
+) -> Callable:
     """Wrap a tool so every call writes one audit record, success or failure.
 
     Error contract for capabilities:
@@ -129,9 +125,11 @@ def _audited(fn: Callable, tier: int) -> Callable:
     * Any other exception is a bug or a hardware fault. The SDK reports it to
       the agent only as a generic failure; the traceback goes to server.log.
 
-    Calls are serialized through ``_TOOL_LOCK``. If the SDK runs sync tools in
-    worker threads, the lock queues concurrent calls; if it runs them inline on
-    the event loop, calls are already serial and the lock is never contended.
+    Tools that use the microscope are serialized with ``connection.hold``,
+    one call at a time across every transport and client. The SDK runs sync
+    tools in worker threads, so a tool given ``connection=None`` (one that
+    reads only files or config) runs alongside them, even during a
+    minutes-long acquisition.
     """
 
     @functools.wraps(fn)
@@ -140,21 +138,20 @@ def _audited(fn: Callable, tier: int) -> Callable:
             "time": datetime.datetime.now().astimezone().isoformat(),
             "tool": fn.__name__,
             "tier": tier,
-            "args": kwargs,
+        }
+        # The SDK passes the request Context in by keyword; it is not an
+        # argument the agent chose, and does not serialize.
+        record["args"] = {
+            k: v for k, v in kwargs.items() if not isinstance(v, Context)
         }
         start = time.perf_counter()
-        acquired = False
         try:
-            # Wait for any in-flight hardware call to finish before starting
-            acquired = _TOOL_LOCK.acquire(timeout=TOOL_LOCK_TIMEOUT_S)
-            record["wait_ms"] = round((time.perf_counter() - start) * 1000, 1)
-            if not acquired:
-                raise ToolError(
-                    "The microscope is busy with another tool call that has not "
-                    f"finished after {TOOL_LOCK_TIMEOUT_S:.0f} s. Wait and try "
-                    "again, and tell the user if this persists."
-                )
-            result = fn(*args, **kwargs)
+            if connection is None:
+                result = fn(*args, **kwargs)
+            else:
+                with connection.hold(fn.__name__) as waited_s:
+                    record["wait_ms"] = round(waited_s * 1000, 1)
+                    result = fn(*args, **kwargs)
         except ToolError as exc:
             record.update(ok=False, refused=True, error=str(exc))
             raise
@@ -166,8 +163,6 @@ def _audited(fn: Callable, tier: int) -> Callable:
             record["ok"] = True
             return result
         finally:
-            if acquired:
-                _TOOL_LOCK.release()
             record["ms"] = round((time.perf_counter() - start) * 1000, 1)
             level = logging.INFO if record.get("ok") else logging.WARNING
             audit.log(level, json.dumps(record, default=str))
@@ -178,14 +173,24 @@ def _audited(fn: Callable, tier: int) -> Callable:
 # ---------------------------------------------------------------------------
 # Server construction
 # ---------------------------------------------------------------------------
-def _adder(server: MCPServer, tier: int) -> Callable:
-    """The ``add`` function handed to one capability module's ``register``."""
+def _adder(
+    server: MCPServer, tier: int, connection: MicroscopeConnection
+) -> Callable:
+    """The ``add`` function handed to one capability module's ``register``.
+
+    Pass ``uses_microscope=False`` for a tool that never touches the hardware,
+    so it does not wait behind (or block) tools that do.
+    """
 
     def add(
-        fn: Callable, *, read_only: bool = False, destructive: bool = False
+        fn: Callable,
+        *,
+        read_only: bool = False,
+        destructive: bool = False,
+        uses_microscope: bool = True,
     ) -> None:
         server.add_tool(
-            _audited(fn, tier),
+            _audited(fn, tier, connection if uses_microscope else None),
             description=inspect.cleandoc(fn.__doc__ or ""),
             annotations=ToolAnnotations(
                 read_only_hint=read_only, destructive_hint=destructive
@@ -213,7 +218,7 @@ def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
                 config.max_tier,
             )
             continue
-        module.register(_adder(server, module.TIER), config, connection)
+        module.register(_adder(server, module.TIER, connection), config, connection)
     return server
 
 
