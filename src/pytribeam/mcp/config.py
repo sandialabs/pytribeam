@@ -46,10 +46,10 @@ from typing import Optional, Sequence
 # Tier number -> one-line meaning, reported by get_server_info.
 TIERS = {
     0: "Observe: reads the microscope; never changes what it is doing.",
-    1: "Imaging: changes beam, detector, and scan settings and acquires images.",
-    2: "Reserved: nothing assigned yet.",
+    1: "Imaging: changes beam, detector, and scan settings and acquires images. Can use auto functions (ACB/AF). Only non-insertable detectors allowed.",
+    2: "Imaging as in Tier1, but with insertable detectors allowed.",
     3: "Stage motion.",
-    4: "Material removal and other high-risk operations. Not yet designed.",
+    4: "Material removal and other high-risk operations. Not yet implemented.",
 }
 MAX_TIER = 4
 ENV_PREFIX = "PYTRIBEAM_MCP_"
