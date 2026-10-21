@@ -63,6 +63,12 @@ _AT_REST = ("Stationary",)
 _INSERTED = "Inserted"
 _FULL_FRAME_CB = {"left": 0.0, "top": 0.0, "width": 1.0, "height": 1.0}
 
+# Preset scan resolutions (tbt.PresetResolution), as (width, height).
+_PRESET_SIZES = {
+    (512, 442), (768, 512), (1024, 884), (1536, 1024),
+    (2048, 1768), (3072, 2048), (4096, 3536), (6144, 4096),
+}
+
 # Smallest brightness/contrast used in place of an out-of-range current value;
 # pytribeam rejects exactly 0.
 LEVEL_MIN = 0.001
@@ -649,6 +655,12 @@ def register(add, config, connection) -> None:
             log.exception("could not read back %s", path)
             found.append(f"The image was saved but could not be read back for a preview: {exc}")
             image_stats, info, picture, preview = {"bit_depth": bit_depth}, None, None, False
+        saved_bits = image_stats["bit_depth"]
+        if saved_bits != bit_depth and parse_resolution(merged["resolution"]) in _PRESET_SIZES:
+            # Non-preset resolutions already warn that they are saved at 8 bits.
+            found.append(
+                f"Requested {bit_depth}-bit, but the saved image is {saved_bits}-bit."
+            )
         result = {
             "image_id": path.stem,
             "path": str(path),
@@ -656,7 +668,8 @@ def register(add, config, connection) -> None:
             "detector": merged["detector"],
             "detector_mode": merged["detector_mode"],
             "resolution": merged["resolution"],
-            "bit_depth": image_stats["bit_depth"],
+            "bit_depth": saved_bits,
+            "requested_bit_depth": bit_depth,
             "dwell_us": merged["dwell_us"],
             "hfw_mm": merged["hfw_mm"],
             "pixel_size_nm": round(merged["hfw_mm"] * 1e6 / width, 4),

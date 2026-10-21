@@ -91,6 +91,43 @@ def test_snapshot_refuses_an_empty_capture(tmp_path, monkeypatch):
     assert not conn.connected and not list(tmp_path.glob("s*.yml"))
 
 
+# --- load --------------------------------------------------------------------
+tifffile = pytest.importorskip("tifffile")  # a scikit-image dependency
+
+
+@pytest.mark.parametrize(
+    "layout",
+    ["gray", "rgb", "big_endian", "pages"],
+)
+def test_load_keeps_16_bit_depth(tmp_path, layout):
+    """Pillow opens a 16-bit RGB TIFF as 8-bit "RGB"; the loader must not."""
+    gray = (np.arange(48 * 64, dtype=np.uint16).reshape(48, 64) * 20)
+    data = {
+        "gray": gray,
+        "rgb": np.stack([gray, gray, gray], axis=-1),
+        "big_endian": gray.astype(">u2"),
+        "pages": np.stack([gray, gray]),
+    }[layout]
+    tifffile.imwrite(tmp_path / "i0001.tif", data)
+    loaded, bits = _images.load(tmp_path / "i0001.tif")
+    assert bits == 16 and loaded.shape == (48, 64)
+    assert loaded.max() == gray.max()
+
+
+def test_load_8_bit(tmp_path):
+    gray = (np.arange(48 * 64) % 256).astype(np.uint8).reshape(48, 64)
+    Image.fromarray(gray).save(tmp_path / "i0001.tif")
+    loaded, bits = _images.load(tmp_path / "i0001.tif")
+    assert bits == 8 and (loaded == gray).all()
+
+
+def test_load_falls_back_to_pillow(tmp_path):
+    gray = np.full((20, 30), 77, np.uint8)
+    Image.fromarray(gray).save(tmp_path / "i0001.png")  # not a TIFF
+    loaded, bits = _images.load(tmp_path / "i0001.png")
+    assert bits == 8 and loaded.shape == (20, 30)
+
+
 # --- statistics ------------------------------------------------------------
 def test_stats_8bit_clipping():
     data = np.full((100, 100), 128, np.uint8)

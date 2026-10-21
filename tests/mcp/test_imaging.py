@@ -690,6 +690,16 @@ async def test_16bit_stats(server, scope):
     async with Client(server) as client:
         _, data = await _call(client, "collect_single_image", {"beam": "electron", "bit_depth": 16})
     assert data["bit_depth"] == 16 and data["stats"]["bit_depth"] == 16
+    assert data["requested_bit_depth"] == 16 and data["warnings"] == []
+
+
+async def test_saved_depth_differs_from_requested(server, scope):
+    """If the microscope saves 8 bits when 16 were asked for, say so."""
+    scope.bit_depth = 8
+    async with Client(server) as client:
+        _, data = await _call(client, "collect_single_image", {"beam": "electron", "bit_depth": 16})
+    assert (data["bit_depth"], data["requested_bit_depth"]) == (8, 16)
+    assert any("Requested 16-bit, but the saved image is 8-bit" in w for w in data["warnings"])
 
 
 async def test_collected_images_are_listed(server, scope):

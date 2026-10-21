@@ -33,15 +33,32 @@ Region = Dict[str, float]  # {"left", "top", "width", "height"}, fractions 0-1
 
 
 def load(path: Path) -> Tuple[np.ndarray, int]:
-    """Read a grayscale image as a 2-D array, with its bit depth (8 or 16)."""
-    with PILImage.open(path) as img:
-        if img.mode in ("I;16", "I;16B", "I;16L", "I;16N"):
-            data, bits = np.array(img, dtype=np.uint16), 16
-        elif img.mode == "I":  # 32-bit integer; seen for some 16-bit TIFFs
-            data, bits = np.clip(np.array(img), 0, 65535).astype(np.uint16), 16
-        else:
-            data, bits = np.array(img.convert("L"), dtype=np.uint8), 8
-    return data, bits
+    """Read a grayscale image as a 2-D array, with its bit depth (8 or 16).
+
+    TIFFs are read with tifffile (a scikit-image dependency), which keeps the
+    sample type stored in the file. Pillow opens a 16-bit RGB TIFF as 8-bit
+    "RGB" and would report it as 8 bits. Multi-channel images are reduced to
+    their first channel; microscope images are gray in every channel.
+    """
+    try:
+        import tifffile
+
+        data = tifffile.imread(path)
+    except Exception:  # not a TIFF tifffile can read; fall back to Pillow
+        with PILImage.open(path) as img:
+            if img.mode.startswith("I;16"):
+                data = np.array(img, dtype=np.uint16)
+            elif img.mode == "I":  # 32-bit integer; seen for some 16-bit TIFFs
+                data = np.clip(np.array(img), 0, 65535).astype(np.uint16)
+            else:
+                data = np.array(img.convert("L"), dtype=np.uint8)
+
+    data = np.asarray(data)
+    while data.ndim > 2:  # (rows, cols, channels) or (pages, rows, cols)
+        data = data[..., 0] if data.shape[-1] <= 4 else data[0]
+    if data.dtype.itemsize > 1:
+        return np.clip(data, 0, 65535).astype(np.uint16), 16
+    return data.astype(np.uint8), 8
 
 
 def stats(data: np.ndarray, bits: int) -> Dict[str, float]:

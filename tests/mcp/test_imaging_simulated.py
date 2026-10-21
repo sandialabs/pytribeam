@@ -89,7 +89,14 @@ async def test_collect_two_images(server, config):
         with Image.open(config.images_dir / f"{name}.tif") as img:
             assert img.size == (768, 512)
         assert (config.images_dir / f"{name}.yml").is_file()
-    assert (a["bit_depth"], b["bit_depth"]) == (8, 16)
+    with Image.open(config.images_dir / "i0002.tif") as img:
+        pil_mode = img.mode  # e.g. "I;16" for 16-bit gray, "RGB" for 8-bit or 16-bit RGB
+    assert a["bit_depth"] == 8
+    assert b["requested_bit_depth"] == 16
+    assert b["bit_depth"] == 16, (
+        f"16-bit grab saved as {b['bit_depth']}-bit (PIL mode {pil_mode!r}); "
+        f"warnings: {b['warnings']}"
+    )
     assert a["acquisition_s"] > 0 and a["stats"]["max"] > a["stats"]["min"]
     assert a["stats"]["sharpness"] > 0
     preview = Image.open(io.BytesIO(base64.b64decode(first.content[1].data)))
