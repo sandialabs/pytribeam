@@ -13,16 +13,13 @@ the only record: states from earlier sessions, or from the GUI state
 recorder pointed at the same folder, can be compared like any other. States
 are plain dictionaries; see :mod:`pytribeam.mcp.state`.
 
-The microscope connection is opened on first use and reused. AutoScript is
-imported only then, so the server still starts on a machine without it.
+The microscope connection is the shared one from
+:mod:`pytribeam.mcp.connection`, opened on first use.
 """
 
 from __future__ import annotations
 
-import contextlib
 import re
-import sys
-import threading
 from typing import Any, Dict, Tuple
 
 from mcp.server.mcpserver.exceptions import ToolError
@@ -36,21 +33,6 @@ TIER = 0
 _STATE_ID = re.compile(r"^s\d+$")
 
 
-def _connect(config) -> Any:
-    """Return a connected microscope."""
-    from pytribeam import types as tbt
-    from pytribeam import utilities
-
-    microscope = tbt.Microscope()
-    utilities.connect_microscope(
-        microscope,
-        quiet_output=True,
-        connection_host=config.microscope_host,
-        connection_port=config.microscope_port,
-    )
-    return microscope
-
-
 def _capture(microscope, description: str) -> Dict[str, Any]:
     """Read the current state from a connected microscope."""
     from pytribeam.mcp.state.capture import capture
@@ -58,30 +40,18 @@ def _capture(microscope, description: str) -> Dict[str, Any]:
     return capture(microscope, description=description)
 
 
-def register(add, config) -> None:
+def register(add, config, connection) -> None:
     """Register this module's tools."""
-    lock = threading.Lock()
-    session: Dict[str, Any] = {"microscope": None}
     states_dir = config.states_dir
 
     def read_state(description: str) -> Tuple[str, Dict[str, Any]]:
         """Capture and save a state, returning its id and contents."""
-        with lock:
-            # stdout carries the MCP protocol, and AutoScript prints to it.
-            with contextlib.redirect_stdout(sys.stderr):
-                if session["microscope"] is None:
-                    try:
-                        session["microscope"] = _connect(config)
-                    except Exception as exc:
-                        raise ToolError(
-                            f"Could not connect to the microscope at "
-                            f"{config.microscope_host or 'the default host'}: {exc}"
-                        ) from exc
-                captured = _capture(session["microscope"], description)
+        with connection.use() as microscope:
+            captured = _capture(microscope, description)
 
             if not captured["values"]:
                 # Every read failed, so the connection is likely gone.
-                session["microscope"] = None
+                connection.reset()
                 raise ToolError(
                     "Could not read anything from the microscope; the connection "
                     "may have dropped and will be reopened on the next call."

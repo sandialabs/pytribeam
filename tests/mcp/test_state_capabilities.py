@@ -12,7 +12,7 @@ mcp = pytest.importorskip("mcp")  # the mcp extra needs Python >= 3.10
 from mcp import Client  # noqa: E402
 
 # local libraries
-from pytribeam.mcp import state  # noqa: E402
+from pytribeam.mcp import connection, state  # noqa: E402
 from pytribeam.mcp.capabilities import state as state_tools  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.server import build_server  # noqa: E402
@@ -44,7 +44,7 @@ def scope(monkeypatch):
         captured["description"] = description
         return captured
 
-    monkeypatch.setattr(state_tools, "_connect", connect)
+    monkeypatch.setattr(connection, "_connect", connect)
     monkeypatch.setattr(state_tools, "_capture", capture)
     return fake
 
@@ -147,7 +147,7 @@ async def test_connection_failure_is_reported(server, monkeypatch):
     def refuse(config):
         raise ConnectionError("no route to host")
 
-    monkeypatch.setattr(state_tools, "_connect", refuse)
+    monkeypatch.setattr(connection, "_connect", refuse)
     async with Client(server) as client:
         result = await client.call_tool("get_state", {})
     assert result.is_error and "no route to host" in result.content[0].text
@@ -169,7 +169,7 @@ async def test_autoscript_output_is_kept_off_stdout(server, scope, monkeypatch, 
         print("Client connecting to [localhost:7520]...")
         return object()
 
-    monkeypatch.setattr(state_tools, "_connect", chatty_connect)
+    monkeypatch.setattr(connection, "_connect", chatty_connect)
     async with Client(server) as client:
         await _call(client, "get_state")
     out, err = capsys.readouterr()

@@ -50,18 +50,22 @@ from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse  # starlette ships with the mcp SDK
 
 from pytribeam import __version__
-from pytribeam.mcp.capabilities import diagnostics, state
+from pytribeam.mcp.capabilities import diagnostics, hardware, state
 from pytribeam.mcp.config import ServerConfig
+from pytribeam.mcp.connection import MicroscopeConnection
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics, state)
+CAPABILITY_MODULES = (diagnostics, state, hardware)
 
 INSTRUCTIONS = (
     "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
     "tools you can see are permitted in this session. When a tool refuses a "
     "request, report the reason to the user; do not try to reach the same "
-    "result another way."
+    "result another way. Tools are grouped into tiers (0 observe, 1 imaging, "
+    "3 stage motion, 4 high-risk), and the operator sets the highest tier "
+    "this server exposes; if a task needs a tool from a higher tier, ask the "
+    "user to raise it rather than working around the limit."
 )
 
 # --- HTTP transport constants ----------------------------------------------
@@ -193,8 +197,13 @@ def _adder(server: MCPServer, tier: int) -> Callable:
 
 
 def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
-    """Create the server and register every module at or below ``config.max_tier``."""
+    """Create the server and register every module at or below ``config.max_tier``.
+
+    Every module receives the same :class:`MicroscopeConnection`, so all tools
+    share one microscope connection.
+    """
     server = MCPServer(name="pytribeam", version=__version__, instructions=INSTRUCTIONS)
+    connection = MicroscopeConnection(config)
     for module in modules:
         if module.TIER > config.max_tier:
             log.info(
@@ -204,7 +213,7 @@ def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
                 config.max_tier,
             )
             continue
-        module.register(_adder(server, module.TIER), config)
+        module.register(_adder(server, module.TIER), config, connection)
     return server
 
 

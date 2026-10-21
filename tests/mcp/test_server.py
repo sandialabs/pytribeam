@@ -28,7 +28,7 @@ def config(tmp_path):
 def _fake_module(tier):
     """A stand-in capability module at an arbitrary tier."""
 
-    def register(add, config):
+    def register(add, config, connection):
         def poke() -> str:
             """Pretend to touch hardware."""
             return "poked"
@@ -86,7 +86,7 @@ def test_config_from_args(tmp_path):
 
 
 def _failing_module(exc):
-    def register(add, config):
+    def register(add, config, connection):
         def fail() -> str:
             """Always fails."""
             raise exc

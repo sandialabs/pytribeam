@@ -98,8 +98,13 @@ For other MCP clients, most clients that use a JSON config (Claude Desktop, Curs
 
 The server is built out in stages:
 
-1. **Shared infrastructure** that every later tool depends on.
-2. **Tier 0 tools:** diagnostics and hardware queries.
+1. **Shared infrastructure** that every later tool depends on. Steps 1.1 and
+   1.2 are done. In 1.3, `agent_errors` and `collect_warnings` are done;
+   `snapshot`, `acted`, and the generalized `next_path` are left for stage 3,
+   which is the first stage to use them.
+2. **Tier 0 tools:** diagnostics and hardware queries. Implemented with
+   detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
+   and an Inspector pass against the simulator are still to do.
 3. **Tier 1 tools:** imaging.
 4. **Tier 3 tools:** stage motion.
 5. **Tier 4:** not yet designed.
@@ -156,7 +161,7 @@ All tools go in the `capabilities/` directory, in a module corresponding to thei
 TIER = 0
 
 # Register the tools provided by this module.
-def register(add, config):
+def register(add, config, connection):
     """Register the tools provided by this module."""
 
     # Define a simple hello world tool.
@@ -168,7 +173,14 @@ def register(add, config):
     add(hello_world)
 ```
 
-TODO: Add a few notes about stdout redirect for pytribeam functions and handling microscope connections (see `capabilities/state.py`).
+Tools that need the microscope use the shared connection, which connects on first use, takes the lock, and sends stdout to stderr for the duration:
+
+```python
+with connection.use() as microscope, agent_errors():
+    return _stage_position(microscope)
+```
+
+Put each pytribeam call in a small module-level function that imports pytribeam itself (see `capabilities/hardware.py`). The server then starts without AutoScript, and detached tests can replace that one function with a fake.
 
 A few implementation notes:
 

@@ -27,10 +27,11 @@ and ``summary()``.
 
 Tiers
 -----
-0. Observe: read state, compare states. Issues no commands.
-1. Reversible parameters (contrast/brightness, HFW, view quad, ...).
-2. Image acquisition, motion, device insertion/retraction.
-3. Material removal.
+0. Observe: reads the microscope; never changes what it is doing.
+1. Imaging: changes beam, detector, and scan settings and acquires images.
+2. Reserved: nothing assigned yet.
+3. Stage motion.
+4. Material removal and other high-risk operations. Not yet designed.
 """
 
 from __future__ import annotations
@@ -42,7 +43,15 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Sequence
 
-MAX_TIER = 3
+# Tier number -> one-line meaning, reported by get_server_info.
+TIERS = {
+    0: "Observe: reads the microscope; never changes what it is doing.",
+    1: "Imaging: changes beam, detector, and scan settings and acquires images.",
+    2: "Reserved: nothing assigned yet.",
+    3: "Stage motion.",
+    4: "Material removal and other high-risk operations. Not yet designed.",
+}
+MAX_TIER = 4
 ENV_PREFIX = "PYTRIBEAM_MCP_"
 
 # --- Transport ---------------------------------------------------------------
@@ -113,6 +122,7 @@ class ServerConfig:
         project_dir/
             logs/       server.log, audit.jsonl
             states/     s0001.yml, s0002.yml, ...  (see pytribeam.mcp.state)
+            images/     i0001.tif, i0002.tif, ...
     """
 
     max_tier: int = 0
@@ -139,6 +149,10 @@ class ServerConfig:
     @property
     def states_dir(self) -> Path:
         return self.project_dir / "states"
+
+    @property
+    def images_dir(self) -> Path:
+        return self.project_dir / "images"
 
     def __post_init__(self) -> None:
         if not 0 <= self.max_tier <= MAX_TIER:
