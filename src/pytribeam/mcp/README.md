@@ -42,8 +42,9 @@ at an experiment's folder keeps that experiment's record in one place:
 ├── states/
 │   ├── s0001.yml        # every state the agent reads, saved in full
 │   └── ...
-└── images/              # planned, see step 3.3
-    ├── i0001.tif
+└── images/              # planned, see stage 3
+    ├── i0001.tif        # the image
+    ├── i0001.yml        # its settings, stats, and stage position
     └── ...
 ```
 
@@ -105,7 +106,8 @@ The server is built out in stages:
 2. **Tier 0 tools:** diagnostics and hardware queries. Implemented with
    detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
    and an Inspector pass against the simulator are still to do.
-3. **Tier 1 tools:** imaging.
+3. **Tier 1 and 2 tools:** imaging, image previews, and handling long
+   acquisitions.
 4. **Tier 3 tools:** stage motion.
 5. **Tier 4:** not yet designed.
 
@@ -134,7 +136,9 @@ src/pytribeam/mcp/
     ├── diagnostics.py     # tier 0, step 2.1
     ├── state.py           # tier 0, done
     ├── hardware.py        # tier 0, step 2.2
-    ├── imaging.py         # tier 1, steps 3.1–3.3
+    ├── images.py          # tier 0, step 3.6: list_images, view_image
+    ├── _images.py         # step 3.7: previews and image statistics
+    ├── imaging.py         # tier 1 (and 2), steps 3.1–3.5
     └── stage.py           # tier 3, stage 4
 ```
 
@@ -146,9 +150,9 @@ different modules.
 
 | Tier | Meaning | Modules | Tools |
 |---|---|---|---|
-| 0 | Observe. Reads the microscope; never changes what it is doing. | `diagnostics`, `state`, `hardware` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `get_state`, `compare_states`, `list_states`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_imaging_limits`, `get_stage_position`, `get_stage_limits` |
+| 0 | Observe. Reads the microscope; never changes what it is doing. | `diagnostics`, `state`, `hardware`, `images` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `get_state`, `compare_states`, `list_states`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_imaging_limits`, `get_stage_position`, `get_stage_limits`, `list_images`, `view_image` |
 | 1 | Imaging. Changes beam, detector, and scan settings and acquires images. Can use auto functions (ACB/AF). Only non-insertable detectors allowed. | `imaging` | `set_view`, `prepare_imaging`, `collect_single_image` |
-| 2 | Same as Tier 1 except with insertable detectors. | `imaging` | `collect_single_image` |
+| 2 | Same as Tier 1 except with insertable detectors, which are inserted if needed. | `imaging` (no new tools; see [Stage 3](#stage-3-tier-1-and-2-imaging-tools-capabilitiesimagingpy)) | `prepare_imaging`, `collect_single_image` |
 | 3 | Stage motion. | `stage` | `move_to_position` |
 | 4 | Material removal and other high-risk operations. | `TBD` | `TBD` |
 
@@ -373,7 +377,45 @@ Notes:
 **Done when** each tool has detached tests (including the restore-on-failure
 path), a simulator test, and has been run once in the Inspector.
 
-### Stage 3: Tier 1 imaging tools (`capabilities/imaging.py`)
+### Stage 3: Tier 1 and 2 imaging tools (`capabilities/imaging.py`)
+
+All imaging tools live in one module at `TIER = 1`. Tier 2 does not add tools;
+it lifts the detector-insertion guardrail on the tier 1 tools (step 3.3). Read
+the tier with `config.max_tier` inside the tool. This is the one exception to
+"one module, one tier"; the alternative is two copies of every imaging tool.
+
+#### 3.0 Long calls
+
+A high-resolution frame with a long dwell takes minutes. The SDK runs sync
+tools in a worker thread, so the server stays responsive, but every tool call
+currently waits on `_TOOL_LOCK` for at most 60 s. Fix that before adding any
+tool that can run long:
+
+- **Only hardware tools take the lock.** Add `uses_microscope: bool = True` to
+  `add(...)` and skip `_TOOL_LOCK` when it is false. Pass
+  `uses_microscope=False` for `ping`, `get_server_info`,
+  `get_recent_activity`, `list_states`, `list_images`, and `view_image`, so the
+  agent can still look around while an image is acquiring. `compare_states`
+  without `after` reads the microscope and keeps the lock.
+- **Say what the server is busy with.** While a tool holds the lock, record its
+  name, its start time, and its expected duration if it gave one (3.4). A call
+  that cannot get the lock fails immediately rather than after 60 s, with
+  e.g. "collect_single_image is running, about 140 s left; wait and retry".
+  Waiting quietly for minutes is worse: the client may time out with no
+  explanation.
+- **Cancellation only stops the client waiting.** If the user cancels, the
+  client stops waiting, but the worker thread finishes the scan and saves the
+  image, and the lock is held until then. This is deliberate for now; calling
+  `stop_acquisition` on cancel can come later if clients start reporting
+  cancellation reliably. Put a sentence on this in the docstring of every tool
+  that can run long, and log a completed-after-cancel call in the audit record
+  (`"cancelled": true`) if the SDK reports it.
+- **Client timeouts.** Clients set their own tool timeout (Claude Code:
+  `MCP_TOOL_TIMEOUT`; the Inspector's request-timeout setting). List both under
+  [Agentic usage](#agentic-usage) with a recommended value of at least 10 min.
+- **Done when** a detached test holds a slow fake hardware tool in one task
+  and shows that `get_server_info` answers meanwhile and that a second hardware
+  tool is refused at once with the running tool's name.
 
 #### 3.1 `set_view`
 
@@ -390,7 +432,18 @@ path), a simulator test, and has been run once in the Inspector.
     they will change when the view changes.
 - Snapshot before and after (convention 10). Not destructive.
 
-#### 3.2 `prepare_imaging`
+#### 3.2 Shared helpers (rest of step 1.3)
+
+Finish the helpers left over from step 1.3, which imaging is the first to use:
+
+- `snapshot(connection, states_dir, description)` and `acted(before, after)`.
+  Time `get_state` on the simulator first; if a capture takes more than about
+  3 s, make snapshots optional (`record_states: bool = True`) rather than
+  adding that to every image.
+- `next_path(directory, prefix="s", suffix=".yml")`, with today's behavior as
+  the default.
+
+#### 3.3 `prepare_imaging`
 
 **Signature**
 
@@ -407,6 +460,7 @@ def prepare_imaging(
     detector_mode: Optional[str] = None,      # tbt.DetectorMode value
     brightness: Optional[float] = None,       # 0 to 1
     contrast: Optional[float] = None,         # 0 to 1
+    auto_cb: bool = False,                    # auto contrast/brightness
     rotation_deg: Optional[float] = None,
     dwell_us: Optional[float] = None,
     resolution: Optional[str] = None,         # "WIDTHxHEIGHT", e.g. "1536x1024"
@@ -430,29 +484,42 @@ def prepare_imaging(
    - Every field must end up filled in. In particular, fill
      `dynamic_focus` and `tilt_correction` from the current values:
      `image.beam_angular_correction` treats `None` as "turn off".
+   - `auto_cb=True` fills the `auto_cb` sub-dictionary with the full frame
+     (`left: 0, top: 0, width: 1, height: 1`) and leaves `brightness` and
+     `contrast` unset. Refuse `auto_cb` together with `brightness` or
+     `contrast`; `factory.image` rejects that too, but with a message written
+     for YAML authors.
    - Use `step_general: {step_type: image, ...}` as in the example.
 4. Validate by calling `factory.image(microscope, step_settings,
    step_name="mcp", yml_format=tbt.YMLFormatVersion.V_1_0)`. This reuses all
    the range and schema checks the experiment workflow already has. Convert
    its `KeyError`, `ValueError`, and `NotImplementedError` into `ToolError`.
-5. Apply the tier 1 guardrails (below).
+5. Apply the guardrails (below).
 6. Call `image.prepare_imaging(settings)`. Then, if `resolution` was given and
    is a preset, call `image.beam_scan_resolution(...)`: `prepare_imaging`
    does not set the resolution.
 7. Return the applied settings (re-read with
-   `factory.active_image_settings`), `warnings`, and the before/after record.
+   `factory.active_image_settings`), `estimated_frame_s` (3.4), `warnings`,
+   and the before/after record. With `auto_cb`, the re-read brightness and
+   contrast are the values the auto function chose.
 
-**Tier 1 guardrails.** Refuse with a `ToolError` instead of letting
+**Guardrails.** Refuse with a `ToolError` instead of letting
 `prepare_imaging` do these, because they go beyond changing imaging
 parameters:
 
 - **Turning a beam on.** `image.beam_ready` turns the beam on if it is off.
   If `beams.<beam>.is_on` is false, refuse: "The ion beam is off; ask the
   operator to turn it on." Unblanking is allowed.
-- **Inserting a detector.** `image.imaging_detector` inserts a retractable
-  detector if it is not already inserted. That is physical motion, which this
-  scheme puts above tier 1. Check with `devices.detector_state` and refuse
-  unless the state is `STATIONARY` or `INSERTED`.
+- **Inserting a detector (tier 1 only).** `image.imaging_detector` inserts a
+  retractable detector if it is not already inserted. Check with
+  `devices.detector_state`:
+  - `STATIONARY`: allowed at tier 1.
+  - Any retractable detector: refused at tier 1, even if it is already
+    inserted, with "<detector> is retractable; using it needs tier 2."
+  - At tier 2 and above, allowed; pytribeam inserts it if needed. The result
+    says `detector_inserted: true` when that happened (state before was not
+    `INSERTED`). The tool does not retract it afterwards; retracting is left
+    to the operator or a later tier 4 tool.
 - **Vacuum.** `beam_ready` already raises if the chamber is not pumped. Make
   sure its message reaches the agent.
 
@@ -464,52 +531,171 @@ parameters:
   together with dynamic focus or tilt correction.
 - Ion beam currents are discrete. Pick a value from `get_imaging_limits`.
   A value off the list is matched within 5% or refused.
+- `auto_cb` scans the sample to choose brightness and contrast. With the ion
+  beam that removes material (see 3.5).
+- At tier 2, a retractable detector may be inserted (physical motion).
 
 **Done when**
 
 - Detached tests cover:
   - only-overrides-are-changed;
-  - each guardrail;
+  - each guardrail, including tier 1 refusing and tier 2 allowing a
+    retractable detector;
+  - `auto_cb` together with `brightness`/`contrast` refused;
   - invalid detector and resolution messages;
   - `dynamic_focus`/`tilt_correction` preserved when not passed.
 - A simulator test changes HFW and dwell time and the after-state shows
   exactly those changes.
 
-#### 3.3 `collect_single_image`
+#### 3.4 Acquisition time
+
+- **Estimate before scanning.** `estimated_frame_s = width * height *
+  dwell_us * 1e-6`, plus a fixed overhead of about 1 s for line flyback and
+  setup. Calibrate the overhead on the simulator by timing a few frames, and
+  report the real time (`acquisition_s`) in the result so it can be checked
+  against the estimate later.
+- **A configured maximum.** Add `PYTRIBEAM_MCP_MAX_FRAME_S` (default 300) to
+  `ServerConfig`. Refuse a frame whose estimate is longer, unless the call
+  passes `confirm_long: bool = True`. The refusal gives the estimate and
+  suggests a shorter dwell or smaller resolution, so a 20-minute frame never
+  starts by accident. A second limit, `PYTRIBEAM_MCP_HARD_MAX_FRAME_S`
+  (default 1800), cannot be overridden by the agent at all.
+- **Progress.** Take a `ctx: Context` argument (the SDK injects it and it does
+  not appear in the schema) and call `ctx.report_progress(elapsed, estimate,
+  message)` about every 5 s while the frame is acquiring, from a small
+  background thread using `anyio.from_thread.run`. Clients that support it
+  show a progress bar, and some reset their timeout on each notification.
+  Progress must never fail the tool: catch and log any error from reporting it.
+  Check that `ctx` passes through `_audited`'s `functools.wraps` wrapper; if
+  the SDK cannot find it, the wrapper has to declare it explicitly.
+- **Done when** a detached test shows the refusal above the limit, the
+  `confirm_long` override, the hard limit, and that progress notifications
+  arrive at a client during a slow fake acquisition.
+
+#### 3.5 `collect_single_image`
 
 - **Signature.** The same arguments as `prepare_imaging`, plus
-  `bit_depth: Literal[8, 16] = 8` and `description: str = ""`.
+  `bit_depth: Literal[8, 16] = 8`, `description: str = ""`,
+  `confirm_long: bool = False`, `preview: bool = True`, and
+  `preview_px: int = 768`.
 - **Implementation.**
-  - Build and validate the settings exactly as in step 3.2, sharing the code; don't
+  - Build and validate the settings exactly as in step 3.3, sharing the code; don't
     copy it.
+  - Check the acquisition time (3.4) before anything moves or scans.
   - Save to `next_path(config.images_dir, "i", ".tif")`.
   - Call `image.collect_single_image(save_path, settings)`. It calls
-    `set_view` to the beam's default quad and `prepare_imaging`, so the step 3.2
+    `set_view` to the beam's default quad and `prepare_imaging`, so the step 3.3
     guardrails must run before it.
   - Preset resolutions grab in memory and save with metadata. Any other
     resolution is written by AutoScript straight to disk and is forced to
     8-bit; turn that warning into a `warnings` entry.
+  - Write a sidecar `i0001.yml` next to the image (3.6) after the image is
+    saved. If the call fails, write neither.
 - **Annotate `destructive=True`.** Ion-beam imaging sputters the surface it
   scans, so every ion image removes some material. The docstring must say so
   and recommend the electron beam unless the ion beam is needed. *Open
   question: ion imaging may belong in a higher tier.*
-- **Returns:**
+- **Returns** a list: the result dict as JSON text, then (if `preview`) the
+  preview as MCP image content via the SDK's `Image(data=..., format="png")`.
+  The dict holds:
   - `image_id` (the file stem), `path`;
   - `beam`, `detector`, `detector_mode`, `resolution`, `bit_depth`,
     `dwell_us`, `hfw_mm`;
   - `pixel_size_nm` (`hfw_mm * 1e6 / width`);
+  - `estimated_frame_s`, `acquisition_s`;
+  - `stats` (3.7);
+  - `preview` (`{"width", "height", "scale"}`, or null);
+  - `detector_inserted` (tier 2 only);
+  - `dynamic_focus`, `tilt_correction` as left after imaging;
   - `description`, `warnings`, and the before/after record.
 - **Leave angular correction as it is after imaging.** The experiment
   workflow (`image.image_operation`) turns dynamic focus and tilt correction
   off after each image; this tool should not. Report the final values in the
   result instead.
-- **Stretch goal, after the rest is done:** also return a small preview as MCP
-  image content, so the agent can see the image. Downsample to at most 512 px
-  on the long edge and send it as PNG. It costs tokens on every call, so make
-  it an argument (`preview: bool = False`).
-- **Done when** detached tests cover file naming and the result shape, and a
-  simulator test produces `images/i0001.tif` and `i0002.tif` in a temporary
-  project directory, both readable.
+- **Done when** detached tests cover file naming, the result shape with and
+  without a preview, and that a failed acquisition leaves no image or sidecar;
+  and a simulator test produces `images/i0001.tif` and `i0002.tif` in a
+  temporary project directory, both readable, each with a sidecar.
+
+#### 3.6 Image records: `list_images` and `view_image`
+
+These are tier 0 tools in a new `capabilities/images.py`: they only read files
+the server wrote, never the microscope, and take no hardware lock (3.0).
+
+- **Sidecar.** `<image_id>.yml` next to each image, written by
+  `collect_single_image`: the returned dict minus `warnings` and the preview,
+  plus `recorded_at` and the stage position in RAW mm/deg
+  (`get_stage_position`'s format) at the time of the image. It is what
+  `list_images` reads, so TIFFs are never parsed for metadata. An image without
+  a sidecar (e.g. copied in by hand) is listed with only its id and size.
+- **`list_images(limit=20)`**: oldest first, newest last, like `list_states`.
+  Each entry has `image_id`, `recorded_at`, `description`, `beam`, `detector`,
+  `resolution`, `hfw_mm`, `pixel_size_nm`, the stage position, and the
+  before/after state ids. `total` is how many exist.
+- **`view_image(image_id, region=None, max_px=1024, grid=False)`**: re-reads a
+  saved image and returns it like `collect_single_image` does, a dict then
+  image content. Use it to look at an earlier image again or to zoom in.
+  - `region` is `{"left", "top", "width", "height"}` as fractions 0–1 of the
+    full image, the same convention as pytribeam's `ScanArea`. Crop at full
+    resolution first, then downsample to `max_px`, so a small region is seen at
+    up to full detail without taking a new image.
+  - Cap `max_px` at 1568 (the long edge Claude uses without rescaling) and
+    refuse a region smaller than 16 px on a side.
+  - `grid=True` draws a labelled grid (columns A, B, ..., rows 1, 2, ...) over
+    the preview and returns each cell's bounds in full-image pixels, so the
+    agent can refer to "the particle in C4". The grid is drawn on the preview
+    only, never on the saved image.
+  - `image_id` must match `^i\d+$` and exist, like state ids; never build a
+    path from anything else.
+- **Done when** detached tests cover listing order and `limit`, a missing
+  sidecar, crop coordinates, the `max_px` cap, the grid cell bounds, and
+  malformed ids, using small synthetic TIFFs written in the test.
+
+#### 3.7 Previews and image statistics
+
+Shared code in `capabilities/_images.py`, used by `collect_single_image` and
+`view_image`. It needs only numpy and Pillow (already dependencies), so it is
+fully testable without AutoScript.
+
+- **Preview.** Downsample so the long edge is at most `preview_px` (default
+  768, about 800 image tokens at Claude's rate of roughly width × height / 750;
+  1024 px is about 1,400). Encode as 8-bit grayscale PNG.
+- **No auto-stretch.** Convert 16-bit images to 8 bits by a fixed linear
+  shift (`>> 8`), never by stretching each image to fill the range. A
+  stretched preview would hide exactly the problems the agent is looking for:
+  a dark, washed-out, or clipped image would look fine. State the mapping in
+  `preview.mapping`.
+- **Statistics** (`stats`), computed on the full-resolution image, not the
+  preview, in the image's own bit depth:
+  - `min`, `max`, `mean`, `std`, and the 1st, 50th and 99th percentiles;
+  - `clipped_low_frac` and `clipped_high_frac`: fractions of pixels at the
+    lowest and highest possible value;
+  - `sharpness`: variance of a 3×3 Laplacian, normalized by the image's mean
+    squared intensity, so it compares across brightness. It is only
+    meaningful relative to other images of the same area at the same settings;
+    say so in the docstring.
+- **Docstring guidance for the agent:** use the preview to see what is in the
+  image, and the statistics to judge brightness, contrast, and focus. E.g.
+  `clipped_high_frac > 0.01` means lower the contrast or brightness; when
+  focusing, compare `sharpness` across images.
+- **Done when** unit tests cover 8- and 16-bit inputs, the fixed mapping
+  (a dark 16-bit image stays dark), clipping fractions, sharpness rising for a
+  sharper synthetic image, and the downsampled size.
+
+#### Tools added in stage 3
+
+| Tool | Module | Tier | Lock |
+|---|---|---|---|
+| `set_view` | `imaging` | 1 | yes |
+| `prepare_imaging` | `imaging` | 1 (retractable detectors at 2) | yes |
+| `collect_single_image` | `imaging` | 1 (retractable detectors at 2) | yes |
+| `list_images` | `images` | 0 | no |
+| `view_image` | `images` | 0 | no |
+
+Not in this stage: autofocus (needs a direct AutoScript call, since pytribeam
+has no wrapper, and its behavior on the simulator checked first), stopping a
+scan on cancel, and moving to a point picked in an image (tier 3, after
+stage 4).
 
 ### Stage 4: Tier 3 stage motion (`capabilities/stage.py`)
 
