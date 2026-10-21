@@ -116,10 +116,20 @@ The server is built out in stages:
    detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
    and an Inspector pass against the simulator are still to do.
 3. **Tier 1 and 2 tools:** imaging, image previews, and handling long
-   acquisitions. Implemented with detached tests; the simulator tests
-   (`tests/mcp/test_imaging_simulated.py`) and an Inspector pass are still to
-   do. Not done from 3.0: marking a call that finished after it was cancelled
-   in the audit log.
+   acquisitions. Detached and simulator tests pass; an Inspector pass is
+   still to do. Not done from 3.0: marking a call that finished after it was
+   cancelled in the audit log. Two things the simulator cannot check, to
+   verify on the microscope before relying on them:
+   - **Frame time.** The simulator returns every frame in about 0.2 s
+     whatever the pixel count and dwell, so the estimate in step 3.4 (pixels x
+     dwell + `FRAME_OVERHEAD_S`) is still uncalibrated. Compare
+     `estimated_frame_s` with `acquisition_s` on real frames and adjust
+     `FRAME_OVERHEAD_S`, or the formula, in `capabilities/imaging.py`.
+   - **16-bit images.** The simulator saves 16-bit grabs as 8-bit files, and
+     the tool then warns "Requested 16-bit, but the saved image is 8-bit."
+     If that warning appears on the microscope, look for a second warning,
+     "AutoScript returned a N-bit frame": present means the grab itself
+     returned 8 bits; absent means the grab was 16-bit and saving lost it.
 4. **Tier 3 tools:** stage motion.
 5. **Tier 4:** not yet designed.
 

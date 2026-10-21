@@ -229,6 +229,14 @@ def _grab(microscope, settings, path: Path) -> None:
 
     if isinstance(settings.scan.resolution, tbt.PresetResolution):
         frame = image.grab_preset_resolution_frame(settings)
+        # AdornedImage reports its own depth; comparing it with the request
+        # tells a grab that returned 8 bits from a save that lost them.
+        grabbed_bits = getattr(frame, "bit_depth", None)
+        if grabbed_bits is not None and int(grabbed_bits) != int(settings.bit_depth):
+            warnings.warn(
+                f"AutoScript returned a {int(grabbed_bits)}-bit frame for a "
+                f"{int(settings.bit_depth)}-bit request."
+            )
         frame.save(str(path))
         return
     warnings.warn(
