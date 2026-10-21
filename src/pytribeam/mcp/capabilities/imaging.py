@@ -41,6 +41,7 @@ from pytribeam.mcp.capabilities._helpers import (
     acted,
     agent_errors,
     collect_warnings,
+    is_agent_error,
     snapshot,
 )
 from pytribeam.mcp.capabilities.images import image_content, sidecar_path
@@ -61,6 +62,11 @@ PROGRESS_INTERVAL_S = 5.0
 _AT_REST = ("Stationary",)
 _INSERTED = "Inserted"
 _FULL_FRAME_CB = {"left": 0.0, "top": 0.0, "width": 1.0, "height": 1.0}
+
+# Smallest brightness/contrast used in place of an out-of-range current value;
+# pytribeam rejects exactly 0.
+LEVEL_MIN = 0.001
+
 
 
 # ---------------------------------------------------------------------------
@@ -371,10 +377,17 @@ def register(add, config, connection) -> None:
             merged["tilt_correction"] = bool(merged["tilt_correction"])
         if overrides.get("detector_mode") is None:
             choose_mode(microscope, merged)
+        if not auto_cb:
+            for key in ("brightness", "contrast"):
+                if overrides.get(key) is None:
+                    clamp_level(merged, key)
 
         try:
             settings = _validate(microscope, build_step(beam, merged, auto_cb, bit_depth))
-        except (KeyError, ValueError, NotImplementedError) as exc:
+        except Exception as exc:
+            # factory.image also raises KeyError for a missing setting.
+            if not (isinstance(exc, KeyError) or is_agent_error(exc)):
+                raise
             message = str(exc).strip("'\"") or type(exc).__name__
             raise ToolError(f"Invalid imaging settings: {message}") from exc
 
@@ -403,6 +416,23 @@ def register(add, config, connection) -> None:
 
         _prepare(microscope, settings)
         return {"merged": merged, "settings": settings, "detector_inserted": inserted}
+
+    def clamp_level(merged: Dict[str, Any], key: str) -> None:
+        """Move a carried-over brightness or contrast into (0, 1].
+
+        pytribeam accepts only 0 < value <= 1, but the microscope can report
+        0.0 (the simulator does). Only a value the agent did not ask for is
+        moved; an explicit one is checked by ``_check_overrides``.
+        """
+        value = merged.get(key)
+        if value is None or 0 < value <= 1:
+            return
+        new = min(max(value, LEVEL_MIN), 1.0)
+        warnings.warn(
+            f"Current {key} of {value} is outside the accepted range "
+            f"(0 < {key} <= 1); using {new}. Pass {key}, or auto_cb, to set it."
+        )
+        merged[key] = new
 
     def choose_mode(microscope, merged: Dict[str, Any]) -> None:
         """Replace a carried-over detector mode the detector does not offer.

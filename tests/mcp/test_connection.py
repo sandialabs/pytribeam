@@ -147,6 +147,15 @@ def test_agent_errors_become_tool_errors(exc):
             raise exc("out of range")
 
 
+def test_agent_errors_convert_schema_errors():
+    class SchemaError(Exception):  # schema.SchemaError is not a ValueError
+        pass
+
+    with pytest.raises(ToolError, match="not within limits"):
+        with agent_errors():
+            raise SchemaError("brightness of '0.0' is not within limits")
+
+
 def test_agent_errors_pass_others_through():
     with pytest.raises(ToolError, match="refused"):
         with agent_errors():

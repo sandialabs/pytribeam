@@ -69,6 +69,11 @@ DEVICE = {"electron": "ELECTRON_BEAM", "ion": "ION_BEAM"}
 QUAD = {"electron": 1, "ion": 2}
 
 
+class SchemaError(Exception):
+    """Same name and base as schema.SchemaError, which pytribeam's range
+    checks raise; it is not a ValueError."""
+
+
 class FakeScope:
     """Just enough microscope for the imaging tools."""
 
@@ -155,6 +160,13 @@ def scope(monkeypatch):
                 f"Requested detector of {detector} is unavailable on this tool. "
                 f"Available detectors are: {sorted(DETECTORS[beam])}"
             )
+        for key in ("brightness", "contrast"):
+            level = step["detector"][key]
+            if level is not None and not 0 < level <= 1:
+                raise SchemaError(
+                    f"In step 'mcp', requested fixed {key} of '{level}'. This is "
+                    "not within limits of '>0.0' and '<=1.0'."
+                )
         mode = step["detector"]["mode"]
         if mode not in MODES[detector]:
             raise ValueError(
@@ -375,6 +387,48 @@ async def test_explicit_invalid_mode_is_refused_not_replaced(server, scope):
         )
     assert "Requested mode of None for TLD detector is invalid" in message
     assert "SecondaryElectrons" in message
+
+
+@pytest.mark.parametrize("key", ["brightness", "contrast"])
+async def test_invalid_current_level_is_moved_into_range(server, scope, key):
+    """The simulator reports brightness 0.0, which pytribeam rejects."""
+    scope.settings["electron"][key] = 0.0
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
+    assert _validated_step(scope)["detector"][key] == imaging.LEVEL_MIN
+    assert any(f"Current {key} of 0.0 is outside" in w for w in result["warnings"])
+
+
+async def test_small_valid_level_is_kept(server, scope):
+    scope.settings["electron"]["brightness"] = 0.0005
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron"})
+    assert _validated_step(scope)["detector"]["brightness"] == 0.0005
+    assert result["warnings"] == []
+
+
+async def test_auto_cb_does_not_clamp(server, scope):
+    scope.settings["electron"]["brightness"] = 0.0
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
+    assert _validated_step(scope)["detector"]["brightness"] is None
+    assert result["warnings"] == []
+
+
+async def test_schema_errors_reach_the_agent(server, scope, monkeypatch):
+    """pytribeam's SchemaError is not a ValueError; its message must still
+    reach the agent rather than a bare "Error executing tool"."""
+    original = imaging._validate
+
+    def strict(microscope, step):
+        step["detector"]["brightness"] = 0.0  # as if the check below were missed
+        return original(microscope, step)
+
+    monkeypatch.setattr(imaging, "_validate", strict)
+    async with Client(server) as client:
+        message = await _refused(client, "prepare_imaging", {"beam": "electron"})
+    assert "Invalid imaging settings" in message
+    assert "requested fixed brightness of '0.0'" in message
 
 
 @pytest.mark.parametrize("value", [0, 1.5, -0.2])

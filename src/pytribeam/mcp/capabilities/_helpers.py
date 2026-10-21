@@ -30,10 +30,20 @@ from pytribeam.mcp.state.diff import diff
 # messages are written for a person and are safe to show the agent.
 AGENT_ERRORS = (ValueError, SystemError, NotImplementedError)
 
+# pytribeam's range checks also raise schema.SchemaError, which subclasses only
+# Exception. It is matched by name so this module does not import schema.
+AGENT_ERROR_NAMES = ("SchemaError",)
+
+
+def is_agent_error(exc: BaseException) -> bool:
+    """Whether *exc* is a refusal whose message the agent should read."""
+    return isinstance(exc, AGENT_ERRORS) or type(exc).__name__ in AGENT_ERROR_NAMES
+
 
 @contextlib.contextmanager
 def agent_errors() -> Iterator[None]:
-    """Re-raise :data:`AGENT_ERRORS` as ``ToolError`` with the same message.
+    """Re-raise refusals (:func:`is_agent_error`) as ``ToolError`` with the
+    same message.
 
     ``ToolError`` passes through unchanged, and anything else propagates as a
     bug or hardware fault.
@@ -42,7 +52,9 @@ def agent_errors() -> Iterator[None]:
         yield
     except ToolError:
         raise
-    except AGENT_ERRORS as exc:
+    except Exception as exc:
+        if not is_agent_error(exc):
+            raise
         raise ToolError(str(exc) or type(exc).__name__) from exc
 
 

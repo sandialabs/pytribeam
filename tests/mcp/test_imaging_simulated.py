@@ -112,8 +112,10 @@ async def test_custom_resolution_is_8_bit(server, config):
 async def test_auto_cb_reports_chosen_values(server):
     async with Client(server) as client:
         _, result = await _call(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
-    assert 0 < result["settings"]["brightness"] <= 1
-    assert 0 < result["settings"]["contrast"] <= 1
+    # The simulator's auto CB can choose 0.0, so only the range is checked.
+    assert 0 <= result["settings"]["brightness"] <= 1
+    assert 0 <= result["settings"]["contrast"] <= 1
+    assert result["auto_cb"] is True
 
 
 async def test_retractable_detector_refused_at_tier_1(server):
