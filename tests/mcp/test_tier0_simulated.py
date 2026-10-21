@@ -70,10 +70,18 @@ async def test_detector_queries_restore_the_view(server, beam):
 
 
 async def test_invalid_detector_mode_query_is_refused(server):
+    # Which detectors work depends on the system, so pick one this beam
+    # does not list rather than assuming one.
+    candidates = ["ICE", "CDEM", "ETD", "TLD", "TLD2", "CBS", "MD", "ABS"]
     async with Client(server) as client:
-        result = await client.call_tool(
-            "get_available_detector_modes", {"beam": "electron", "detector": "ICE"}
-        )
+        available = (await _call(client, "get_available_detector_types"))["detector_types"]
+        unusable = next((d for d in candidates if d not in available), None)
+        if unusable is not None:
+            result = await client.call_tool(
+                "get_available_detector_modes", {"beam": "electron", "detector": unusable}
+            )
+    if unusable is None:
+        pytest.skip("every candidate detector works with the electron beam")
     assert result.is_error and "Available detector types" in result.content[0].text
 
 

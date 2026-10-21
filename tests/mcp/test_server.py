@@ -2,6 +2,7 @@
 
 ## python standard libraries
 import json
+import os
 import types
 
 # 3rd party libraries
@@ -117,6 +118,10 @@ async def test_unexpected_errors_are_not_leaked(config):
 
 
 def test_env_file_precedence(tmp_path, monkeypatch):
+    # A developer's own PYTRIBEAM_MCP_* settings would beat the file, as they
+    # should, and break the test.
+    for key in [k for k in os.environ if k.startswith("PYTRIBEAM_MCP_")]:
+        monkeypatch.delenv(key)
     env_file = tmp_path / "mcp.env"
     env_file.write_text(
         "# microscope settings\n"

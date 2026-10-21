@@ -117,14 +117,18 @@ async def test_auto_cb_reports_chosen_values(server):
 
 
 async def test_retractable_detector_refused_at_tier_1(server):
+    # pytest.skip must be called outside "async with Client": inside, the SDK's
+    # task group wraps it in an exception group and pytest reports a failure.
+    result = None
     async with Client(server) as client:
         _, insertable = await _call(client, "get_available_insertable_detectors")
-        if not insertable["detectors"]:
-            pytest.skip("simulator has no retractable detectors")
-        detector = insertable["detectors"][0]["detector"]
-        result = await client.call_tool(
-            "prepare_imaging", {"beam": "electron", "detector": detector}
-        )
+        if insertable["detectors"]:
+            detector = insertable["detectors"][0]["detector"]
+            result = await client.call_tool(
+                "prepare_imaging", {"beam": "electron", "detector": detector}
+            )
+    if result is None:
+        pytest.skip("simulator has no retractable detectors")
     assert result.is_error and "needs tier 2" in result.content[0].text
 
 

@@ -59,6 +59,12 @@ ION = {
 }
 PRESETS = {"512x442", "768x512", "1024x884", "1536x1024", "2048x1768", "3072x2048"}
 DETECTORS = {"electron": {"ETD", "TLD", "CBS"}, "ion": {"ETD", "ICE"}}
+MODES = {
+    "ETD": ["SecondaryElectrons", "BackscatterElectrons"],
+    "TLD": ["SecondaryElectrons"],
+    "CBS": ["All", "ABCD"],
+    "ICE": ["SecondaryIons", "SecondaryElectrons"],
+}
 DEVICE = {"electron": "ELECTRON_BEAM", "ion": "ION_BEAM"}
 QUAD = {"electron": 1, "ion": 2}
 
@@ -127,6 +133,10 @@ def scope(monkeypatch):
         s = fake.settings[beam]
         return {"resolution": s["resolution"], "dwell_us": s["dwell_us"]}
 
+    def detector_modes(microscope, detector):
+        beam = fake.active_beam
+        return list(MODES[detector]) if beam and detector in DETECTORS[beam] else None
+
     def detector_state(microscope, detector):
         return fake.detector_states.get(detector, "Stationary")
 
@@ -144,6 +154,12 @@ def scope(monkeypatch):
             raise ValueError(
                 f"Requested detector of {detector} is unavailable on this tool. "
                 f"Available detectors are: {sorted(DETECTORS[beam])}"
+            )
+        mode = step["detector"]["mode"]
+        if mode not in MODES[detector]:
+            raise ValueError(
+                f"Requested mode of {mode} for {detector} detector is invalid. "
+                f"Valid mode types are: {MODES[detector]}"
             )
         if not isinstance(step["scan"]["dwell_time_us"], float):
             raise KeyError("dwell_time_us must be a float")
@@ -204,6 +220,7 @@ def scope(monkeypatch):
     monkeypatch.setattr(imaging, "_scan", scan)
     monkeypatch.setattr(imaging, "_beam_is_on", lambda m, beam: fake.beam_on[beam])
     monkeypatch.setattr(imaging, "_detector_state", detector_state)
+    monkeypatch.setattr(imaging, "_detector_modes", detector_modes)
     monkeypatch.setattr(imaging, "_validate", validate)
     monkeypatch.setattr(imaging, "_prepare", prepare)
     monkeypatch.setattr(imaging, "_grab", grab)
@@ -324,6 +341,40 @@ async def test_auto_cb(server, scope):
     assert step["detector"]["brightness"] is None and step["detector"]["contrast"] is None
     assert (result["settings"]["brightness"], result["settings"]["contrast"]) == (0.61, 0.37)
     assert "either auto_cb or fixed brightness/contrast" in refused
+
+
+async def test_invalid_current_mode_is_replaced(server, scope):
+    """The simulator reports TLD2's mode as "None", which TLD2 rejects."""
+    scope.settings["electron"].update(detector="TLD", detector_mode="None")
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
+    assert _validated_step(scope)["detector"]["mode"] == "SecondaryElectrons"
+    assert any("'None' is not available on TLD" in w for w in result["warnings"])
+
+
+async def test_new_detector_does_not_inherit_the_old_mode(server, scope):
+    scope.settings["electron"]["detector_mode"] = "BackscatterElectrons"  # ETD only
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "TLD"})
+    assert result["settings"]["detector_mode"] == "SecondaryElectrons"
+    assert result["warnings"]
+
+
+async def test_valid_current_mode_is_kept_without_warning(server, scope):
+    scope.settings["electron"]["detector_mode"] = "BackscatterElectrons"
+    async with Client(server) as client:
+        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
+    assert _validated_step(scope)["detector"]["mode"] == "BackscatterElectrons"
+    assert result["warnings"] == []
+
+
+async def test_explicit_invalid_mode_is_refused_not_replaced(server, scope):
+    async with Client(server) as client:
+        message = await _refused(
+            client, "prepare_imaging", {"beam": "electron", "detector": "TLD", "detector_mode": "None"}
+        )
+    assert "Requested mode of None for TLD detector is invalid" in message
+    assert "SecondaryElectrons" in message
 
 
 @pytest.mark.parametrize("value", [0, 1.5, -0.2])

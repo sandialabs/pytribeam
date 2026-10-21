@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import warnings
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
@@ -139,6 +140,22 @@ def _beam_is_on(microscope, beam: str) -> bool:
     return bool(ut.beam_type(_beam(beam), microscope).is_on)
 
 
+def _detector_modes(microscope, detector: str) -> Optional[List[str]]:
+    """The modes *detector* offers on the active device, or None if it cannot
+    be selected there (validation then reports why).
+
+    Leaves *detector* as the active detector type on the active device.
+    """
+    from pytribeam import image
+    from pytribeam import types as tbt
+
+    try:
+        image.detector_type(microscope, tbt.DetectorType(detector))
+    except Exception:
+        return None
+    return [str(mode) for mode in microscope.detector.mode.available_values]
+
+
 def _detector_state(microscope, detector: str) -> str:
     """The detector's ``RetractableDeviceState`` value, e.g. "Stationary".
 
@@ -190,8 +207,6 @@ def _grab(microscope, settings, path: Path) -> None:
     Preset resolutions grab in memory and save with metadata. Others are
     written straight to disk by AutoScript, always at 8 bits.
     """
-    import warnings
-
     from pytribeam import image
     from pytribeam import types as tbt
 
@@ -354,6 +369,8 @@ def register(add, config, connection) -> None:
             # Off unless set: a camera or the ion beam may report None.
             merged["dynamic_focus"] = bool(merged["dynamic_focus"])
             merged["tilt_correction"] = bool(merged["tilt_correction"])
+        if overrides.get("detector_mode") is None:
+            choose_mode(microscope, merged)
 
         try:
             settings = _validate(microscope, build_step(beam, merged, auto_cb, bit_depth))
@@ -386,6 +403,25 @@ def register(add, config, connection) -> None:
 
         _prepare(microscope, settings)
         return {"merged": merged, "settings": settings, "detector_inserted": inserted}
+
+    def choose_mode(microscope, merged: Dict[str, Any]) -> None:
+        """Replace a carried-over detector mode the detector does not offer.
+
+        The microscope can report a mode such as "None" that its own detector
+        does not accept (the simulator's TLD2 does), and a new ``detector``
+        without a ``detector_mode`` would otherwise inherit the old
+        detector's mode. Only a mode the agent did not ask for is replaced;
+        an explicit one is left for validation to accept or refuse.
+        """
+        modes = _detector_modes(microscope, merged["detector"])
+        if not modes or merged["detector_mode"] in modes:
+            return
+        warnings.warn(
+            f"Detector mode {merged['detector_mode']!r} is not available on "
+            f"{merged['detector']}; using {modes[0]!r} (available: "
+            f"{', '.join(modes)}). Pass detector_mode to choose another."
+        )
+        merged["detector_mode"] = modes[0]
 
     def set_view(quad: Literal[1, 2, 3, 4]) -> dict:
         """Make one of the four imaging quadrants in the microscope UI active.
@@ -637,8 +673,6 @@ def _acquire(ctx: Optional[Context], estimate_s: float, grab) -> None:
     Warnings are recorded per thread, so those raised by *grab* are collected
     in the helper thread and re-issued here, where the tool collects them.
     """
-    import warnings
-
     outcome: Dict[str, Any] = {"warnings": []}
 
     def run() -> None:
