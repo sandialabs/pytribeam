@@ -147,10 +147,10 @@ different modules.
 | Tier | Meaning | Modules | Tools |
 |---|---|---|---|
 | 0 | Observe. Reads the microscope; never changes what it is doing. | `diagnostics`, `state`, `hardware` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `get_state`, `compare_states`, `list_states`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_imaging_limits`, `get_stage_position`, `get_stage_limits` |
-| 1 | Imaging. Changes beam, detector, and scan settings and acquires images. | `imaging` | `set_view`, `prepare_imaging`, `collect_single_image` |
-| 2 | Reserved. Nothing assigned yet. | | |
+| 1 | Imaging. Changes beam, detector, and scan settings and acquires images. Can use auto functions (ACB/AF). Only non-insertable detectors allowed. | `imaging` | `set_view`, `prepare_imaging`, `collect_single_image` |
+| 2 | Same as Tier 1 except with insertable detectors. | `imaging` | `collect_single_image` |
 | 3 | Stage motion. | `stage` | `move_to_position` |
-| 4 | TODO: material removal and other high-risk operations. See [Stage 5](#stage-5-tier-4-todo). | | |
+| 4 | Material removal and other high-risk operations. | `TBD` | `TBD` |
 
 ### How to add a tool
 
