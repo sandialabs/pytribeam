@@ -63,13 +63,18 @@ def pytribeam_stubs(monkeypatch):
     tbt.YMLFormatVersion = types.SimpleNamespace(V_1_0="1.0")
 
     class Frame:
+        def __init__(self, bit_depth):
+            self.bit_depth = bit_depth
+
         def save(self, path):
             calls["saved"] = path
 
     image = types.ModuleType("pytribeam.image")
     image.set_view = lambda *args: calls.setdefault("restored", []).append(args[1])
     image.set_beam_device = lambda *args: calls.setdefault("restored", []).append(args[1])
-    image.grab_preset_resolution_frame = lambda s: calls.update(preset=s.bit_depth) or Frame()
+    image.grab_preset_resolution_frame = lambda s: calls.update(preset=s.bit_depth) or Frame(
+        calls.get("frame_bits", int(s.bit_depth))
+    )
     image.grab_custom_resolution_frame = lambda s, path: calls.update(custom=s.bit_depth)
 
     factory = types.ModuleType("pytribeam.factory")
@@ -135,3 +140,17 @@ def test_custom_grab_with_a_plain_int_depth(imaging, pytribeam_stubs, tmp_path):
         warnings.simplefilter("always")
         imaging._grab(None, settings, tmp_path / "i0001.tif")
     assert any("Requested 16-bit" in str(w.message) for w in caught)
+
+
+def test_preset_grab_reports_a_frame_with_a_different_depth(imaging, pytribeam_stubs, tmp_path):
+    """Says whether AutoScript itself returned fewer bits than requested."""
+    pytribeam_stubs["frame_bits"] = 8
+    settings = imaging._validate(
+        None, {"resolution": PresetResolution.PRESET_768X512, "bit_depth": 16}
+    )
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        imaging._grab(None, settings, tmp_path / "i0001.tif")
+    assert [str(w.message) for w in caught] == [
+        "AutoScript returned a 8-bit frame for a 16-bit request."
+    ]
