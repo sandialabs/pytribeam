@@ -184,9 +184,14 @@ def _validate(microscope, step: Dict[str, Any]):
     from pytribeam import types as tbt
 
     try:
-        return factory.image(
+        settings = factory.image(
             microscope, step, step_name="mcp", yml_format=tbt.YMLFormatVersion.V_1_0
         )
+        # factory.image checks bit_depth but passes the int through unchanged.
+        # AutoScript's GrabFrameSettings needs the ColorDepth member (a plain
+        # 16 gave an 8-bit image on the simulator), and pytribeam reads
+        # bit_depth.value, so convert it here.
+        return settings._replace(bit_depth=tbt.ColorDepth(settings.bit_depth))
     finally:
         # Validation selects quad 1 and then the requested beam's device, so
         # an ion step leaves the ion beam in quad 1. Put the electron beam back.
@@ -226,7 +231,7 @@ def _grab(microscope, settings, path: Path) -> None:
     )
     if settings.bit_depth != tbt.ColorDepth.BITS_8:
         warnings.warn(
-            f"Requested {settings.bit_depth.value}-bit depth was ignored; "
+            f"Requested {int(settings.bit_depth)}-bit depth was ignored; "
             "non-preset resolutions are always saved at 8 bits."
         )
     image.grab_custom_resolution_frame(settings, path)
