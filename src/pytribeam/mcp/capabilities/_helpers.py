@@ -23,7 +23,7 @@ from typing import Any, Dict, Iterator, List, Tuple
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from pytribeam.mcp import state
+from pytribeam.mcp import audit, state
 from pytribeam.mcp.state.diff import diff
 
 # pytribeam raises these for invalid settings and refused operations. Their
@@ -98,6 +98,9 @@ def snapshot(connection, states_dir: Path, description: str) -> Tuple[str, Dict]
             "may have dropped and will be reopened on the next call."
         )
 
+    # Which tool call took it, so a half-finished action can be traced from
+    # its states to the audit log.
+    captured["op_id"] = audit.current_op_id()
     path = state.save(captured, state.next_path(states_dir))
     return path.stem, captured
 

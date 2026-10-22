@@ -49,31 +49,41 @@ from mcp.types import ToolAnnotations
 from starlette.responses import JSONResponse  # starlette ships with the mcp SDK
 
 from pytribeam import __version__
-from pytribeam.mcp.capabilities import diagnostics, hardware, images, imaging, state
-from pytribeam.mcp.config import ServerConfig
+from pytribeam.mcp import audit as audit_log
+from pytribeam.mcp import project_lock
+from pytribeam.mcp.capabilities import (
+    diagnostics,
+    hardware,
+    imaging,
+    records,
+    state,
+    views,
+)
+from pytribeam.mcp.config import LOOPBACK_HOSTS, ServerConfig
 from pytribeam.mcp.connection import MicroscopeConnection
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics, state, hardware, images, imaging)
+CAPABILITY_MODULES = (diagnostics, records, state, hardware, views, imaging)
 
 INSTRUCTIONS = (
     "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
     "tools you can see are permitted in this session. When a tool refuses a "
     "request, report the reason to the user; do not try to reach the same "
-    "result another way. Tools are grouped into tiers (0 observe, 1 imaging, "
-    "3 stage motion, 4 high-risk), and the operator sets the highest tier "
-    "this server exposes; if a task needs a tool from a higher tier, ask the "
-    "user to raise it rather than working around the limit."
+    "result another way. Tools are grouped into tiers: 0 diagnostics, 1 UI "
+    "changes, 2 electron-beam exposure, 3 insertable detectors, 4 stage "
+    "movement, 5 ion beam and material removal. The operator sets the highest "
+    "tier this server exposes; if a task needs a higher tier, ask the user to "
+    "raise it rather than working around the limit."
 )
 
 # --- HTTP transport constants ----------------------------------------------
 MCP_PATH = "/mcp"  # SDK default Streamable HTTP endpoint path
 HEALTH_PATH = "/healthz"  # unauthenticated liveness check, returns no data
-LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
 
 log = logging.getLogger("pytribeam.mcp")
 audit = logging.getLogger("pytribeam.mcp.audit")
+
 
 
 # ---------------------------------------------------------------------------
@@ -110,10 +120,16 @@ def setup_logging(config: ServerConfig) -> None:
     root.propagate = False  # keep our records out of any handlers the SDK installs
 
 
+# Tools that run even while the connection has a fault: they are how the
+# operator clears it. Everything else above tier 0 is refused.
+FAULT_EXEMPT = ("clear_fault",)
+
+
 def _audited(
     fn: Callable,
     tier: int,
     connection: Optional[MicroscopeConnection] = None,
+    serialize: bool = True,
 ) -> Callable:
     """Wrap a tool so every call writes one audit record, success or failure.
 
@@ -127,15 +143,21 @@ def _audited(
 
     Tools that use the microscope are serialized with ``connection.hold``,
     one call at a time across every transport and client. The SDK runs sync
-    tools in worker threads, so a tool given ``connection=None`` (one that
-    reads only files or config) runs alongside them, even during a
+    tools in worker threads, so a tool registered with ``serialize=False`` (one
+    that reads only files or config) runs alongside them, even during a
     minutes-long acquisition.
+
+    While ``connection.fault`` is set, every tool above tier 0 except those in
+    :data:`FAULT_EXEMPT` is refused before it runs. The check is here, not in
+    each tool, so no tool can forget it.
     """
 
     @functools.wraps(fn)
     def wrapper(*args, **kwargs):
+        op_id = audit_log.new_op_id()
         record = {
             "time": datetime.datetime.now().astimezone().isoformat(),
+            "op_id": op_id,
             "tool": fn.__name__,
             "tier": tier,
         }
@@ -144,9 +166,21 @@ def _audited(
         record["args"] = {
             k: v for k, v in kwargs.items() if not isinstance(v, Context)
         }
+        if tier > 0:
+            # Written before the tool runs: if the process dies mid-action,
+            # this is the record that it started.
+            audit.info(json.dumps({**record, "event": "started"}, default=str))
+        audit_log.set_current_op_id(op_id)
         start = time.perf_counter()
         try:
-            if connection is None:
+            fault = connection.fault if connection is not None else None
+            if fault and tier > 0 and fn.__name__ not in FAULT_EXEMPT:
+                raise ToolError(
+                    f"Refused: the microscope may not be in the state this server "
+                    f"left it in ({fault}). Ask the operator to check the "
+                    "microscope, then call clear_fault. Tier 0 tools still work."
+                )
+            if connection is None or not serialize:
                 result = fn(*args, **kwargs)
             else:
                 with connection.hold(fn.__name__) as waited_s:
@@ -161,8 +195,13 @@ def _audited(
             raise
         else:
             record["ok"] = True
+            if fn.__name__ == "clear_fault" and isinstance(result, dict):
+                # The operator's decision to resume is part of the record.
+                record["cleared_fault"] = result.get("fault")
             return result
         finally:
+            audit_log.set_current_op_id(None)
+            record["event"] = "ended"
             record["ms"] = round((time.perf_counter() - start) * 1000, 1)
             level = logging.INFO if record.get("ok") else logging.WARNING
             audit.log(level, json.dumps(record, default=str))
@@ -190,7 +229,7 @@ def _adder(
         uses_microscope: bool = True,
     ) -> None:
         server.add_tool(
-            _audited(fn, tier, connection if uses_microscope else None),
+            _audited(fn, tier, connection, serialize=uses_microscope),
             description=inspect.cleandoc(fn.__doc__ or ""),
             annotations=ToolAnnotations(
                 read_only_hint=read_only, destructive_hint=destructive
@@ -271,7 +310,7 @@ class BearerTokenASGI:
 def _allowed_host_patterns(config: ServerConfig) -> list[str]:
     """Host-header patterns accepted by the SDK's DNS-rebinding protection."""
     patterns = ["127.0.0.1:*", "localhost:*", "[::1]:*"]
-    if config.http_host not in (*LOOPBACK_HOSTS, "0.0.0.0", "::"):
+    if config.http_host not in LOOPBACK_HOSTS:  # wildcards are refused by ServerConfig
         patterns.append(f"{config.http_host}:*")  # e.g. the vEthernet (WSL) adapter IP
     for host in config.http_allowed_hosts:
         patterns.append(host if ":" in host else f"{host}:*")  # add any-port wildcard
@@ -315,14 +354,15 @@ def serve_http(server: MCPServer, config: ServerConfig) -> None:
     if not config.http_token:
         raise SystemExit("refusing to serve HTTP without PYTRIBEAM_MCP_HTTP_TOKEN")
 
-    if config.http_host in ("0.0.0.0", "::"):
+    # ServerConfig refuses wildcard binds, and non-loopback ones without the
+    # operator's host-only opt-in; record that opt-in when it was given.
+    if config.http_host not in LOOPBACK_HOSTS:
         log.warning(
-            "binding to ALL interfaces (%s): restrict access with a firewall rule "
-            "scoped to the WSL subnet and port %d",
-            config.http_host, config.http_port,
+            "binding to non-loopback address %s on the operator's statement "
+            "(--allow-host-only-http) that it is a host-only adapter; the bearer "
+            "token is sent in plain text",
+            config.http_host,
         )
-    elif config.http_host not in LOOPBACK_HOSTS:
-        log.warning("binding to non-loopback address %s", config.http_host)
 
     app = BearerTokenASGI(_build_http_app(server, config), config.http_token)
     url = f"http://{config.http_host}:{config.http_port}{MCP_PATH}"
@@ -342,8 +382,23 @@ def serve_http(server: MCPServer, config: ServerConfig) -> None:
 def main(argv: Optional[Sequence[str]] = None) -> None:
     """Console entry point: parse config, set up logging, serve over stdio or HTTP."""
     config = ServerConfig.from_args(argv)  # all settings, incl. transport, in one place
+    try:
+        # One server per project directory. Keep this reference for the life
+        # of the process: if the file object is dropped, it closes and the
+        # lock is released.
+        lock = project_lock.acquire(config.project_dir)  # noqa: F841 (held, not read)
+    except project_lock.ProjectLocked as exc:
+        raise SystemExit(str(exc)) from exc
     setup_logging(config)
     log.info("starting pytribeam MCP server %s with %s", __version__, config.summary())
+    log.info("session %s; any fault from an earlier session is cleared by this restart",
+             audit_log.SESSION_ID)
+    for op in audit_log.interrupted(audit_log.read(config.log_dir / "audit.jsonl")):
+        log.warning(
+            "an earlier session stopped during %s (op %s, %s); the microscope may "
+            "be part way through it",
+            op.get("tool"), op.get("op_id"), op.get("time"),
+        )
     server = build_server(config)
     try:
         if config.transport == "http":

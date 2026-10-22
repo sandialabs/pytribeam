@@ -21,15 +21,14 @@ rather than exposed as a tool argument the agent could set.
 
 from __future__ import annotations
 
-import collections
 import datetime
-import json
 import platform
 import sys
 import time
 from typing import Any, Dict, Optional
 
 from pytribeam import __version__
+from pytribeam.mcp import audit as audit_log
 from pytribeam._package_metadata import get_autoscript_version
 from pytribeam.mcp.config import TIERS
 
@@ -157,29 +156,23 @@ def register(add, config, connection) -> None:
         """Return the most recent tool calls from this project's audit log.
 
         Includes calls from earlier sessions, so use it to recover what was
-        done before. Records are oldest first, newest last; each has the
-        tool, its arguments, whether it succeeded, and any error. ``limit``
-        is capped at 200; ``total`` is how many records the log holds. This
-        call itself is not included. Touches no hardware.
+        done before. One entry per call, oldest first, newest last; each has
+        the tool, its arguments, whether it succeeded, and any error.
+
+        ``"outcome": "interrupted"`` marks a call from an earlier session
+        that started but never finished: the server stopped part way through,
+        so the microscope may be in an unexpected state. Tell the user about
+        any of these. ``"running"`` is a call still in progress now.
+        ``limit`` is capped at 200; ``total`` is how many calls the log
+        holds. This call itself is not included. Touches no hardware.
         """
         limit = max(0, min(limit, MAX_ACTIVITY_RECORDS))
-        path = config.log_dir / "audit.jsonl"
-        total = 0
-        recent: collections.deque = collections.deque(maxlen=limit)
-        if path.is_file():
-            with open(path, "r", encoding="utf-8") as f:
-                for line in f:
-                    if line.strip():
-                        total += 1
-                        recent.append(line)
-
-        records = []
-        for line in recent:
-            try:
-                records.append(json.loads(line))
-            except json.JSONDecodeError:
-                records.append({"unreadable": line.strip()})
-        return {"total": total, "records": records}
+        calls = audit_log.summarize(audit_log.read(config.log_dir / "audit.jsonl"))
+        return {
+            "total": len(calls),
+            "records": calls[-limit:] if limit else [],
+            "interrupted": sum(1 for c in calls if c.get("outcome") == "interrupted"),
+        }
 
     add(ping, read_only=True, uses_microscope=False)
     add(get_server_info, read_only=True, uses_microscope=False)

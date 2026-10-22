@@ -17,6 +17,14 @@ around every tool that uses the microscope, so one such call runs at a time.
 While it runs, :attr:`busy` says which tool it is and, if the tool called
 :meth:`expect`, when it should finish, so a call that has to wait can tell the
 agent what it is waiting for.
+
+It fails closed. When a tool cannot put the microscope back the way it found
+it (a UI restore fails, or an acquisition never finishes), it calls
+:meth:`set_fault`. Until the operator checks the microscope and
+``clear_fault`` is called, the server refuses every tool that can change
+anything; tier 0 tools keep working so the agent can still report. Dropping or
+reopening the connection does not clear a fault: a new connection does not
+undo a changed UI.
 """
 
 from __future__ import annotations
@@ -59,6 +67,9 @@ class Busy:
     tool: str
     started: float  # time.monotonic()
     expected_s: Optional[float] = None
+    # Work nothing is waiting on any more (see hand_off); it may never end, so
+    # callers are refused at once rather than allowed the grace period.
+    abandoned: bool = False
 
     def remaining_s(self) -> Optional[float]:
         if self.expected_s is None:
@@ -90,7 +101,11 @@ class MicroscopeConnection:
         self._lock = threading.RLock()
         # One tool call at a time; see hold().
         self._tool_lock = threading.Lock()
+        self._handed_off = False
         self.busy: Optional[Busy] = None
+        # Set when the microscope may not be as the server left it; see
+        # set_fault(). Survives reset() on purpose.
+        self.fault: Optional[str] = None
 
     @property
     def host(self) -> str:
@@ -116,7 +131,8 @@ class MicroscopeConnection:
             waited = time.monotonic() - start
             remaining = busy.remaining_s() if busy else None
             too_long = remaining is not None and remaining > grace_s - waited
-            if too_long or waited >= grace_s:
+            abandoned = busy is not None and busy.abandoned
+            if abandoned or too_long or waited >= grace_s:
                 raise ToolError(
                     "The microscope is busy: "
                     f"{busy.describe() if busy else 'another tool call is running'}. "
@@ -124,17 +140,50 @@ class MicroscopeConnection:
                     "microscope (e.g. list_images, get_server_info) still work."
                 )
         self.busy = Busy(tool=tool, started=time.monotonic())
+        self._handed_off = False
         try:
             yield time.monotonic() - start
         finally:
+            if not self._handed_off:
+                self.busy = None
+                self._tool_lock.release()
+
+    def hand_off(self, description: str):
+        """Keep the microscope held after the running tool returns.
+
+        For work the tool started but cannot stop, such as an abandoned grab
+        still running in another thread. Returns a function the owner of that
+        work calls when it ends, which releases the hold. Until then every tool
+        that uses the microscope is refused with *description*.
+        """
+        self._handed_off = True
+        self.busy = Busy(tool=description, started=time.monotonic(), abandoned=True)
+
+        def release() -> None:
             self.busy = None
             self._tool_lock.release()
+
+        return release
 
     def expect(self, seconds: float) -> None:
         """Declare how long the running tool call should take from now."""
         busy = self.busy
         if busy is not None:
             busy.expected_s = (time.monotonic() - busy.started) + seconds
+
+    def set_fault(self, reason: str) -> None:
+        """Block state-changing tools until the operator clears *reason*.
+
+        The first fault is kept if several occur, since it is the one that
+        explains the rest.
+        """
+        if self.fault is None:
+            self.fault = reason
+
+    def clear_fault(self) -> Optional[str]:
+        """Clear the fault; returns what it was."""
+        fault, self.fault = self.fault, None
+        return fault
 
     def reset(self) -> None:
         """Drop the connection and the cache; the next use reconnects."""

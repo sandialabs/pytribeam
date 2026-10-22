@@ -27,11 +27,14 @@ and ``summary()``.
 
 Tiers
 -----
-0. Observe: reads the microscope; never changes what it is doing.
-1. Imaging: changes beam, detector, and scan settings and acquires images.
-2. Reserved: nothing assigned yet.
-3. Stage motion.
-4. Material removal and other high-risk operations. Not yet designed.
+Each tier adds one kind of physical effect to the one below (see ``TIERS``):
+
+0. Diagnostics: the server, the connection, and files it saved.
+1. UI: reads the microscope and may change the UI, never hardware or sample.
+2. Electron exposure: scans the sample with the electron beam.
+3. Insertable detectors: tier 2 plus retractable detectors.
+4. Stage movement.
+5. Ion beam, milling, and other operations that remove material.
 """
 
 from __future__ import annotations
@@ -45,18 +48,28 @@ from typing import Optional, Sequence
 
 # Tier number -> one-line meaning, reported by get_server_info.
 TIERS = {
-    0: "Observe: reads the microscope; never changes what it is doing.",
-    1: "Imaging: changes beam, detector, and scan settings and acquires images. Can use auto functions (ACB/AF). Only non-insertable detectors allowed.",
-    2: "Imaging as in Tier1, but with insertable detectors allowed.",
-    3: "Stage motion.",
-    4: "Material removal and other high-risk operations. Not yet implemented.",
+    0: "Diagnostics: the server, its connection, and files it saved. "
+    "Touches nothing on the microscope.",
+    1: "UI: reads the microscope and may change the view, device, detector "
+    "selection, or coordinate system. Never moves hardware or exposes the sample.",
+    2: "Electron exposure: scans the sample with the electron beam (imaging, "
+    "auto contrast/brightness). Fixed detectors only. No hardware movement.",
+    3: "Insertable detectors: tier 2 plus retractable detectors, inserted if "
+    "needed. No stage movement.",
+    4: "Stage movement.",
+    5: "Ion beam and high-risk: anything on the ion beam, milling, and other "
+    "operations that remove material.",
 }
-MAX_TIER = 4
+MAX_TIER = 5
 ENV_PREFIX = "PYTRIBEAM_MCP_"
 
 # --- Transport ---------------------------------------------------------------
 TRANSPORTS = ("stdio", "http")
 DEFAULT_HTTP_HOST = "127.0.0.1"  # loopback only unless explicitly widened
+LOOPBACK_HOSTS = ("127.0.0.1", "localhost", "::1")
+# Binding these exposes the bearer token, sent in plain text, on every network
+# the PC is on. Never allowed; use loopback, a host-only adapter, or a tunnel.
+WILDCARD_HOSTS = ("0.0.0.0", "::", "")
 DEFAULT_HTTP_PORT = 8765
 MIN_TOKEN_LENGTH = 32  # secrets.token_urlsafe(32) yields ~43 characters
 
@@ -148,6 +161,9 @@ class ServerConfig:
     # Extra Host-header values accepted by the SDK's DNS-rebinding protection,
     # e.g. "host.containers.internal". Loopback names are always accepted.
     http_allowed_hosts: tuple[str, ...] = ()
+    # The operator's statement that a non-loopback http_host is a host-only
+    # virtual adapter (e.g. the WSL vEthernet), reachable only from this PC.
+    allow_host_only_http: bool = False
     # Secret: kept out of repr() and summary(); not used for equality.
     http_token: Optional[str] = field(default=None, repr=False, compare=False)
 
@@ -184,6 +200,8 @@ class ServerConfig:
             )
         if not 0 < self.http_port < 65536:
             raise ValueError(f"http_port out of range: {self.http_port}")
+        if self.transport == "http":
+            self._check_http_host()
         if self.transport == "http" and (
             not self.http_token or len(self.http_token) < MIN_TOKEN_LENGTH
         ):
@@ -192,6 +210,33 @@ class ServerConfig:
                 f"{ENV_PREFIX}HTTP_TOKEN must be set (at least {MIN_TOKEN_LENGTH} "
                 "characters) when transport is 'http'. Generate one with: "
                 'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+
+    def _check_http_host(self) -> None:
+        """Refuse HTTP binds that would expose the plain-text bearer token.
+
+        Loopback is always allowed. Wildcards never are. Any other address
+        needs ``allow_host_only_http``: the server cannot tell a host-only
+        virtual adapter from a real network, so the operator has to say so.
+        """
+        host = self.http_host.strip().strip("[]")
+        if host in LOOPBACK_HOSTS:
+            return
+        if host in WILDCARD_HOSTS:
+            raise ValueError(
+                f"Refusing to bind HTTP to {self.http_host!r}: that listens on every "
+                "network this PC is on, and the bearer token travels in plain text. "
+                "Use 127.0.0.1, a host-only adapter address with "
+                "--allow-host-only-http, or an SSH tunnel / TLS proxy."
+            )
+        if not self.allow_host_only_http:
+            raise ValueError(
+                f"Refusing to bind HTTP to non-loopback address {self.http_host!r} "
+                "without --allow-host-only-http "
+                f"({ENV_PREFIX}ALLOW_HOST_ONLY_HTTP=1). Pass it only if this address "
+                "belongs to a virtual adapter reachable from this PC alone, such as "
+                "the WSL or Podman vEthernet adapter. The bearer token travels in "
+                "plain text; across a real network use an SSH tunnel or TLS proxy."
             )
 
     @classmethod
@@ -297,6 +342,14 @@ class ServerConfig:
             help="Extra Host header to accept, e.g. host.containers.internal. "
             "Repeatable; replaces PYTRIBEAM_MCP_HTTP_ALLOWED_HOSTS (comma-separated).",
         )
+        p.add_argument(
+            "--allow-host-only-http",
+            action="store_true",
+            default=_env("ALLOW_HOST_ONLY_HTTP", "").strip().lower() in ("1", "true", "yes"),
+            help="Allow --http-host to be a non-loopback address. Only for a "
+            "host-only virtual adapter (e.g. WSL vEthernet): the bearer token is "
+            "sent in plain text.",
+        )
         a = p.parse_args(argv)
 
         allowed = (
@@ -319,6 +372,7 @@ class ServerConfig:
                 http_host=a.http_host,
                 http_port=a.http_port,
                 http_allowed_hosts=tuple(allowed),
+                allow_host_only_http=a.allow_host_only_http,
                 http_token=token.strip() if token else None,
             )
         except ValueError as exc:
@@ -340,5 +394,6 @@ class ServerConfig:
             "http_host": self.http_host,
             "http_port": self.http_port,
             "http_allowed_hosts": list(self.http_allowed_hosts),
+            "allow_host_only_http": self.allow_host_only_http,
             "http_token_set": bool(self.http_token),
         }

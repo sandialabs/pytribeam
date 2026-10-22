@@ -1,11 +1,12 @@
 #!/usr/bin/python3
 """
-Image Record Capabilities
-=========================
+Record Capabilities
+===================
 
-Tier 0 tools for looking back at images the server has already taken. They
-read only files under ``<project_dir>/images``, never the microscope, so they
-take no hardware lock and answer even while an acquisition is running.
+Tier 0 tools for looking back at what the server has already saved: states
+and images. They read only files under ``<project_dir>``, never the
+microscope, so they take no hardware lock and answer even while an
+acquisition is running or the microscope is unreachable.
 
 Every image ``iNNNN.tif`` has a sidecar ``iNNNN.yml`` written by
 ``collect_single_image``, holding its settings, statistics, and stage
@@ -22,7 +23,9 @@ import yaml
 from mcp.server.mcpserver import Image
 from mcp.server.mcpserver.exceptions import ToolError
 
+from pytribeam.mcp import state
 from pytribeam.mcp.capabilities import _images
+from pytribeam.mcp.capabilities.state import _STATE_ID
 
 TIER = 0
 
@@ -93,6 +96,30 @@ def image_content(
 def register(add, config, connection) -> None:
     """Register this module's tools."""
     images_dir = config.images_dir
+    states_dir = config.states_dir
+
+    def list_states(limit: int = 20) -> dict:
+        """List the most recent saved states, oldest first.
+
+        Includes states from earlier sessions in this project. ``limit`` caps
+        how many are returned; ``total`` is how many exist. Pass ids to
+        ``compare_states``. Reads files only; touches no hardware.
+        """
+        ids = sorted(
+            (p.stem for p in states_dir.glob("s*.yml") if _STATE_ID.match(p.stem)),
+            key=lambda state_id: int(state_id[1:]),
+        )
+        recent = []
+        for state_id in ids[-limit:] if limit > 0 else []:
+            saved = state.load(states_dir / f"{state_id}.yml")
+            recent.append(
+                {
+                    "state_id": state_id,
+                    "recorded_at": saved["recorded_at"],
+                    "description": saved.get("description") or "",
+                }
+            )
+        return {"total": len(ids), "states": recent}
 
     def locate(image_id: str) -> Path:
         path = images_dir / f"{image_id}.tif"
@@ -167,5 +194,6 @@ def register(add, config, connection) -> None:
             picture,
         ]
 
+    add(list_states, read_only=True, uses_microscope=False)
     add(list_images, read_only=True, uses_microscope=False)
     add(view_image, read_only=True, uses_microscope=False)

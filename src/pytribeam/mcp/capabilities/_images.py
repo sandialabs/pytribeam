@@ -29,23 +29,71 @@ from PIL import ImageDraw
 MAX_PREVIEW_PX = 1568
 MIN_REGION_PX = 16
 
+# Decoding limits, checked from the header before any pixel is read. The
+# largest preset scan is 6144x4096; twice that leaves room for custom ones.
+MAX_IMAGE_PIXELS = 6144 * 4096 * 2
+MAX_FILE_BYTES = 512 * 1024 * 1024
+# Above this, statistics use every 2nd pixel in each direction.
+STATS_SUBSAMPLE_PIXELS = 16_000_000
+
+# Pillow has its own decompression-bomb check; make it agree with ours.
+PILImage.MAX_IMAGE_PIXELS = MAX_IMAGE_PIXELS
+
 Region = Dict[str, float]  # {"left", "top", "width", "height"}, fractions 0-1
+
+
+class ImageTooLarge(ValueError):
+    """An image is refused before decoding because it exceeds the limits."""
+
+
+def _check_size(width: int, height: int, pages: int, path: Path) -> None:
+    if pages > 1:
+        raise ImageTooLarge(
+            f"{Path(path).name} has {pages} pages; only single-image files are supported."
+        )
+    if width * height > MAX_IMAGE_PIXELS:
+        raise ImageTooLarge(
+            f"{Path(path).name} is {width}x{height} px, more than the "
+            f"{MAX_IMAGE_PIXELS:,} px this server will decode."
+        )
 
 
 def load(path: Path) -> Tuple[np.ndarray, int]:
     """Read a grayscale image as a 2-D array, with its bit depth (8 or 16).
+
+    Sizes are checked from the file header before any pixels are decoded:
+    files over :data:`MAX_FILE_BYTES`, images over :data:`MAX_IMAGE_PIXELS`,
+    and multi-page files raise :class:`ImageTooLarge`.
 
     TIFFs are read with tifffile (a scikit-image dependency), which keeps the
     sample type stored in the file. Pillow opens a 16-bit RGB TIFF as 8-bit
     "RGB" and would report it as 8 bits. Multi-channel images are reduced to
     their first channel; microscope images are gray in every channel.
     """
+    size = Path(path).stat().st_size
+    if size > MAX_FILE_BYTES:
+        raise ImageTooLarge(
+            f"{Path(path).name} is {size / 1e6:.0f} MB, more than the "
+            f"{MAX_FILE_BYTES / 1e6:.0f} MB this server will read."
+        )
+
+    data = None
     try:
         import tifffile
 
-        data = tifffile.imread(path)
+        with tifffile.TiffFile(path) as tif:  # parses tags only
+            page = tif.pages[0]
+            height, width = page.shape[:2] if page.ndim >= 2 else (1, page.shape[0])
+            _check_size(width, height, len(tif.pages), path)
+            data = page.asarray()
+    except ImageTooLarge:
+        raise
     except Exception:  # not a TIFF tifffile can read; fall back to Pillow
-        with PILImage.open(path) as img:
+        data = None
+
+    if data is None:
+        with PILImage.open(path) as img:  # header only, until pixels are used
+            _check_size(img.size[0], img.size[1], getattr(img, "n_frames", 1), path)
             if img.mode.startswith("I;16"):
                 data = np.array(img, dtype=np.uint16)
             elif img.mode == "I":  # 32-bit integer; seen for some 16-bit TIFFs
@@ -54,8 +102,8 @@ def load(path: Path) -> Tuple[np.ndarray, int]:
                 data = np.array(img.convert("L"), dtype=np.uint8)
 
     data = np.asarray(data)
-    while data.ndim > 2:  # (rows, cols, channels) or (pages, rows, cols)
-        data = data[..., 0] if data.shape[-1] <= 4 else data[0]
+    while data.ndim > 2:  # (rows, cols, channels)
+        data = data[..., 0]
     if data.dtype.itemsize > 1:
         return np.clip(data, 0, 65535).astype(np.uint16), 16
     return data.astype(np.uint8), 8
@@ -69,7 +117,15 @@ def stats(data: np.ndarray, bits: int) -> Dict[str, float]:
     ``sharpness`` is the variance of a 3x3 Laplacian divided by the mean
     squared intensity, so it does not change with brightness; it only means
     something compared with other images of the same area.
+
+    Images over :data:`STATS_SUBSAMPLE_PIXELS` use every 2nd pixel each way,
+    to bound memory, and say so in ``subsampled``. Their ``sharpness`` is then
+    measured at half the resolution: compare it only with other subsampled
+    images.
     """
+    subsampled = data.size > STATS_SUBSAMPLE_PIXELS
+    if subsampled:
+        data = data[::2, ::2]
     top = (1 << bits) - 1
     flat = data.ravel()
     p1, p50, p99 = np.percentile(flat, [1, 50, 99])
@@ -94,6 +150,7 @@ def stats(data: np.ndarray, bits: int) -> Dict[str, float]:
         "clipped_low_frac": round(float(np.mean(flat == 0)), 6),
         "clipped_high_frac": round(float(np.mean(flat == top)), 6),
         "sharpness": round(float(lap.var()) / mean_sq, 6) if mean_sq and lap.size else 0.0,
+        "subsampled": subsampled,
     }
 
 
