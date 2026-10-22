@@ -21,8 +21,13 @@ format and passing it to ``factory.image``, so the agent gets the same range
 and schema checks as an experiment file. Every tool snapshots the microscope
 state before and after it acts and returns what changed.
 
+Imaging itself is pytribeam's: ``collect_single_image`` calls
+``image.collect_single_image``, as the experiment workflow does, and
+``prepare_imaging`` calls ``image.prepare_imaging``. This module checks the
+request first (tier, scan time, guardrails, validation) and records the result.
+
 Each pytribeam call sits in a small module-level function (``_validate``,
-``_grab`` and so on) that imports pytribeam itself, so the server starts
+``_collect`` and so on) that imports pytribeam itself, so the server starts
 without AutoScript and tests can replace the hardware.
 """
 
@@ -50,6 +55,7 @@ from pytribeam.mcp.capabilities._helpers import (
     snapshot,
 )
 from pytribeam.mcp.capabilities.records import image_content, sidecar_path
+from pytribeam.mcp.capabilities.hardware import _beam  # one definition
 
 TIER = 2
 INSERT_TIER = 3  # lowest tier that may use (and insert) a retractable detector
@@ -64,6 +70,11 @@ Beam = Literal["electron", "ion"]
 FRAME_OVERHEAD_S = 1.0
 PROGRESS_INTERVAL_S = 5.0
 
+# collect_single_image applies the settings before it grabs: voltage and
+# current changes wait about 5 s each, and auto contrast/brightness is a scan of
+# its own. Added to the frame estimate for progress and the time limit.
+SETTINGS_ALLOWANCE_S = 30.0
+
 # A grab still running after estimate + max(60 s, 50 % of estimate) is
 # abandoned and the fault set: see grab_limit_s().
 GRAB_GRACE_MIN_S = 60.0
@@ -74,12 +85,6 @@ _AT_REST = ("Stationary",)
 _INSERTED = "Inserted"
 _FULL_FRAME_CB = {"left": 0.0, "top": 0.0, "width": 1.0, "height": 1.0}
 
-# Preset scan resolutions (tbt.PresetResolution), as (width, height).
-_PRESET_SIZES = {
-    (512, 442), (768, 512), (1024, 884), (1536, 1024),
-    (2048, 1768), (3072, 2048), (4096, 3536), (6144, 4096),
-}
-
 # Smallest brightness/contrast used in place of an out-of-range current value;
 # pytribeam rejects exactly 0.
 LEVEL_MIN = 0.001
@@ -89,14 +94,6 @@ LEVEL_MIN = 0.001
 # ---------------------------------------------------------------------------
 # pytribeam calls. Tests replace these.
 # ---------------------------------------------------------------------------
-def _beam(beam: str):
-    from pytribeam import types as tbt
-
-    if beam == "electron":
-        return tbt.ElectronBeam(settings=tbt.BeamSettings())
-    return tbt.IonBeam(settings=tbt.BeamSettings())
-
-
 def _select_beam(microscope, beam: str) -> None:
     """Switch to the beam's default quad and device."""
     from pytribeam import image
@@ -126,18 +123,6 @@ def _current(microscope) -> Dict[str, Any]:
         "rotation_deg": s.rotation_deg,
         "dwell_us": s.dwell_time_us,
         "resolution": f"{s.resolution.width}x{s.resolution.height}",
-    }
-
-
-def _scan(microscope, beam: str) -> Dict[str, Any]:
-    """The beam's current resolution and dwell, read without changing the view."""
-    from pytribeam import utilities as ut
-    from pytribeam.constants import Conversions
-
-    scanning = ut.beam_type(_beam(beam), microscope).scanning
-    return {
-        "resolution": str(scanning.resolution.value),
-        "dwell_us": scanning.dwell_time.value * Conversions.S_TO_US,
     }
 
 
@@ -211,7 +196,13 @@ def _validate(microscope, step: Dict[str, Any]):
 
 
 def _prepare(microscope, settings) -> None:
-    """Apply validated settings, including a preset resolution."""
+    """Apply validated settings without imaging: ``image.prepare_imaging``.
+
+    ``prepare_imaging`` applies every setting except the scan resolution,
+    which pytribeam otherwise sets only when it grabs a frame. A preset
+    resolution is applied here with pytribeam's ``beam_scan_resolution``, so
+    the tool leaves the microscope with all the settings it reports.
+    """
     from pytribeam import image
     from pytribeam import types as tbt
 
@@ -223,37 +214,12 @@ def _prepare(microscope, settings) -> None:
         )
 
 
-def _grab(microscope, settings, path: Path) -> None:
-    """Acquire one frame with already-applied *settings* and save it to *path*.
-
-    Preset resolutions grab in memory and save with metadata. Others are
-    written straight to disk by AutoScript, always at 8 bits.
-    """
+def _collect(settings, path: Path) -> None:
+    """``image.collect_single_image``: set the view, apply the settings (and
+    run auto contrast/brightness if requested), grab, and save to *path*."""
     from pytribeam import image
-    from pytribeam import types as tbt
 
-    if isinstance(settings.scan.resolution, tbt.PresetResolution):
-        frame = image.grab_preset_resolution_frame(settings)
-        # AdornedImage reports its own depth; comparing it with the request
-        # tells a grab that returned 8 bits from a save that lost them.
-        grabbed_bits = getattr(frame, "bit_depth", None)
-        if grabbed_bits is not None and int(grabbed_bits) != int(settings.bit_depth):
-            warnings.warn(
-                f"AutoScript returned a {int(grabbed_bits)}-bit frame for a "
-                f"{int(settings.bit_depth)}-bit request."
-            )
-        frame.save(str(path))
-        return
-    warnings.warn(
-        f"Non-preset resolution {settings.scan.resolution.value}: AutoScript "
-        "writes it straight to disk at 8-bit depth."
-    )
-    if settings.bit_depth != tbt.ColorDepth.BITS_8:
-        warnings.warn(
-            f"Requested {int(settings.bit_depth)}-bit depth was ignored; "
-            "non-preset resolutions are always saved at 8 bits."
-        )
-    image.grab_custom_resolution_frame(settings, path)
+    image.collect_single_image(save_path=path, img_settings=settings)
 
 
 def _stage_position(microscope) -> Optional[Dict[str, Any]]:
@@ -271,14 +237,17 @@ def _stage_position(microscope) -> Optional[Dict[str, Any]]:
 # Plain logic
 # ---------------------------------------------------------------------------
 def parse_resolution(resolution: str) -> Tuple[int, int]:
+    """``factory.string_to_res``, with its error rewritten for the agent."""
+    from pytribeam import factory
+
     try:
-        width, height = (int(v) for v in resolution.lower().split("x"))
+        res = factory.string_to_res(resolution)
     except (AttributeError, ValueError):
         raise ToolError(
             f"Resolution {resolution!r} is not in the form WIDTHxHEIGHT, e.g. "
             "\"1536x1024\". get_imaging_limits lists the preset resolutions."
         ) from None
-    return width, height
+    return res.width, res.height
 
 
 def frame_seconds(resolution: str, dwell_us: float) -> float:
@@ -311,14 +280,26 @@ def merge(current: Dict[str, Any], overrides: Dict[str, Any]) -> Dict[str, Any]:
     return merged
 
 
-def build_step(beam: str, s: Dict[str, Any], auto_cb: bool, bit_depth: int) -> Dict:
+def build_step(
+    beam: str, s: Dict[str, Any], auto_cb: bool, bit_depth: int, explicit=frozenset()
+) -> Dict:
     """An ``image`` step in the experiment config format (YML version 1.0).
 
     ``factory.image`` accepts only Python floats for these values, so numbers
     are cast here, and ints from the agent (``1`` for ``1.0``) are accepted.
+
+    Settings carried over from the microscope are left out where they do not
+    apply (brightness and contrast with ``auto_cb``; angular correction on
+    the ion beam). Settings the agent asked for (*explicit*) are always passed
+    on, so pytribeam's own validation refuses a conflicting request.
     """
     def num(value):
         return None if value is None else float(value)
+
+    def given(key, carried):
+        return s[key] if key in explicit else carried
+
+    on_ion = beam != "electron"
 
     return {
         "step_general": {"step_type": "image", "frequency": 1, "step_number": 1},
@@ -331,14 +312,14 @@ def build_step(beam: str, s: Dict[str, Any], auto_cb: bool, bit_depth: int) -> D
             "hfw_mm": num(s["hfw_mm"]),
             "working_dist_mm": num(s["working_dist_mm"]),
             # beam_angular_correction treats None as "off", so always fill.
-            "dynamic_focus": bool(s["dynamic_focus"]) if beam == "electron" else None,
-            "tilt_correction": bool(s["tilt_correction"]) if beam == "electron" else None,
+            "dynamic_focus": given("dynamic_focus", None) if on_ion else bool(s["dynamic_focus"]),
+            "tilt_correction": given("tilt_correction", None) if on_ion else bool(s["tilt_correction"]),
         },
         "detector": {
             "type": s["detector"],
             "mode": s["detector_mode"],
-            "brightness": None if auto_cb else num(s["brightness"]),
-            "contrast": None if auto_cb else num(s["contrast"]),
+            "brightness": num(given("brightness", None) if auto_cb else s["brightness"]),
+            "contrast": num(given("contrast", None) if auto_cb else s["contrast"]),
             "auto_cb": dict(_FULL_FRAME_CB) if auto_cb else {
                 "left": None, "top": None, "width": None, "height": None
             },
@@ -350,28 +331,6 @@ def build_step(beam: str, s: Dict[str, Any], auto_cb: bool, bit_depth: int) -> D
         },
         "bit_depth": bit_depth,
     }
-
-
-def _check_overrides(beam: str, overrides: Dict[str, Any], auto_cb: bool) -> None:
-    if auto_cb and (
-        overrides.get("brightness") is not None or overrides.get("contrast") is not None
-    ):
-        raise ToolError(
-            "Use either auto_cb or fixed brightness/contrast, not both: "
-            "auto_cb chooses brightness and contrast itself."
-        )
-    if beam == "ion":
-        electron_only = [
-            k for k in ("dynamic_focus", "tilt_correction") if overrides.get(k) is not None
-        ]
-        if electron_only:
-            raise ToolError(
-                f"{' and '.join(electron_only)} apply only to the electron beam."
-            )
-    for key in ("brightness", "contrast"):
-        value = overrides.get(key)
-        if value is not None and not 0 < value <= 1:
-            raise ToolError(f"{key} must be greater than 0 and at most 1, got {value}.")
 
 
 def register(add, config, connection) -> None:
@@ -393,23 +352,6 @@ def register(add, config, connection) -> None:
 
         return on_late_finish
 
-    def check_scan_time(
-        beam: str, resolution: Optional[str], dwell_us: Optional[float], confirm_long: bool
-    ) -> float:
-        """Estimate a scan and refuse it if too long, before anything changes.
-
-        Every path that scans the sample calls this (the image, and auto
-        contrast/brightness). Settings left out are read, without switching
-        the view, to complete the estimate. Returns the estimate in s.
-        """
-        planned = {"resolution": resolution, "dwell_us": dwell_us}
-        if resolution is None or dwell_us is None:
-            with connection.use() as microscope, agent_errors():
-                planned = merge(_scan(microscope, beam), planned)
-        estimate_s = frame_seconds(planned["resolution"], planned["dwell_us"])
-        check_frame_time(estimate_s, config, confirm_long)
-        return estimate_s
-
     def check_beam(beam: str) -> None:
         """Refuse the ion beam below its tier, before anything changes."""
         if beam == "ion" and not may_use_ion:
@@ -419,17 +361,26 @@ def register(add, config, connection) -> None:
                 "user to raise the tier."
             )
 
-    def apply(
-        microscope, beam: str, overrides: Dict[str, Any], auto_cb: bool, bit_depth: int
+    def plan(
+        microscope,
+        beam: str,
+        overrides: Dict[str, Any],
+        auto_cb: bool,
+        bit_depth: int,
+        scans: bool,
+        confirm_long: bool,
     ) -> Dict[str, Any]:
-        """Validate the request, enforce the guardrails, and apply the settings.
+        """Check a request completely without applying any setting.
 
-        Returns the merged settings, the validated ``ImageSettings``, and
-        whether a detector was inserted. Nothing is changed on the microscope
-        before validation and the guardrails pass, except that validation
-        itself selects views and detectors.
+        Selects the beam, merges the agent's values into its current settings,
+        checks the scan time if the call will scan (*scans*), validates with
+        ``factory.image``, and enforces the guardrails. Returns the merged
+        settings, the validated ``ImageSettings``, the scan estimate, and
+        whether a detector will be inserted. The caller then hands the
+        settings to pytribeam. Selecting the beam and validating change the
+        view and detector selection, but no setting is applied before every
+        check has passed.
         """
-        _check_overrides(beam, overrides, auto_cb)
         if overrides.get("resolution") is not None:
             parse_resolution(overrides["resolution"])
 
@@ -446,8 +397,16 @@ def register(add, config, connection) -> None:
                 if overrides.get(key) is None:
                     clamp_level(merged, key)
 
+        # Every scan is time-limited (an image, or auto contrast/brightness),
+        # using the beam's own current settings for anything not given.
+        estimate_s = frame_seconds(merged["resolution"], merged["dwell_us"])
+        if scans:
+            check_frame_time(estimate_s, config, confirm_long)
+
         try:
-            settings = _validate(microscope, build_step(beam, merged, auto_cb, bit_depth))
+            explicit = {key for key, value in overrides.items() if value is not None}
+            step = build_step(beam, merged, auto_cb, bit_depth, explicit)
+            settings = _validate(microscope, step)
         except RestoreFailed as exc:
             connection.set_fault(str(exc))
             raise ToolError(
@@ -458,7 +417,9 @@ def register(add, config, connection) -> None:
             # factory.image also raises KeyError for a missing setting.
             if not (isinstance(exc, KeyError) or is_agent_error(exc)):
                 raise
-            message = str(exc).strip("'\"") or type(exc).__name__
+            # KeyError's str() wraps its message in quotes; use the message itself.
+            message = (exc.args[0] if isinstance(exc, KeyError) and exc.args else str(exc))
+            message = str(message) or type(exc).__name__
             raise ToolError(f"Invalid imaging settings: {message}") from exc
 
         # Guardrails, checked after validation (which also confirms the
@@ -484,15 +445,19 @@ def register(add, config, connection) -> None:
                 )
             inserted = detector_state != _INSERTED
 
-        _prepare(microscope, settings)
-        return {"merged": merged, "settings": settings, "detector_inserted": inserted}
+        return {
+            "merged": merged,
+            "settings": settings,
+            "estimate_s": estimate_s,
+            "detector_inserted": inserted,
+        }
 
     def clamp_level(merged: Dict[str, Any], key: str) -> None:
         """Move a carried-over brightness or contrast into (0, 1].
 
         pytribeam accepts only 0 < value <= 1, but the microscope can report
         0.0 (the simulator does). Only a value the agent did not ask for is
-        moved; an explicit one is checked by ``_check_overrides``.
+        moved; an explicit one goes to pytribeam's validation as given.
         """
         value = merged.get(key)
         if value is None or 0 < value <= 1:
@@ -583,12 +548,14 @@ def register(add, config, connection) -> None:
             "contrast": contrast, "rotation_deg": rotation_deg,
             "dwell_us": dwell_us, "resolution": resolution,
         }
-        if auto_cb:  # the one scan prepare_imaging starts
-            check_scan_time(beam, resolution, dwell_us, confirm_long)
         before = snapshot(connection, states_dir, f"before prepare_imaging({beam})")
         with connection.use() as microscope, collect_warnings() as found:
             with agent_errors():
-                applied = apply(microscope, beam, overrides, auto_cb, 8)
+                # auto_cb is the one scan prepare_imaging starts.
+                applied = plan(
+                    microscope, beam, overrides, auto_cb, 8, scans=auto_cb, confirm_long=confirm_long
+                )
+                _prepare(microscope, applied["settings"])
                 now = _current(microscope)
         after = snapshot(connection, states_dir, f"after prepare_imaging({beam})")
         return {
@@ -666,24 +633,24 @@ def register(add, config, connection) -> None:
             "dwell_us": dwell_us, "resolution": resolution,
         }
 
-        estimate_s = check_scan_time(beam, resolution, dwell_us, confirm_long)
-
         before = snapshot(connection, states_dir, f"before collect_single_image({beam})")
         path = state.next_path(images_dir, "i", ".tif")
         path.parent.mkdir(parents=True, exist_ok=True)
 
         with connection.use() as microscope, collect_warnings() as found:
             with agent_errors():
-                applied = apply(microscope, beam, overrides, auto_cb, bit_depth)
-                merged = applied["merged"]
-                estimate_s = frame_seconds(merged["resolution"], merged["dwell_us"])
-                connection.expect(estimate_s + 5.0)  # + saving and the after-state
+                applied = plan(
+                    microscope, beam, overrides, auto_cb, bit_depth, scans=True, confirm_long=confirm_long
+                )
+                merged, estimate_s = applied["merged"], applied["estimate_s"]
+                # pytribeam applies the settings, then grabs; allow for both.
+                connection.expect(estimate_s + SETTINGS_ALLOWANCE_S)
                 start = time.monotonic()
                 try:
                     _acquire(
                         ctx,
-                        estimate_s,
-                        lambda: _grab(microscope, applied["settings"], path),
+                        estimate_s + SETTINGS_ALLOWANCE_S,
+                        lambda: _collect(applied["settings"], path),
                         abandon=lambda: abandon_grab(path),
                     )
                 except AcquisitionTimeout as exc:
@@ -713,8 +680,10 @@ def register(add, config, connection) -> None:
             found.append(f"The image was saved but could not be read back for a preview: {exc}")
             image_stats, info, picture, preview = {"bit_depth": bit_depth}, None, None, False
         saved_bits = image_stats["bit_depth"]
-        if saved_bits != bit_depth and parse_resolution(merged["resolution"]) in _PRESET_SIZES:
-            # Non-preset resolutions already warn that they are saved at 8 bits.
+        # pytribeam already warns that a non-preset resolution is saved at 8
+        # bits; only report a mismatch it did not explain.
+        explained = any("non-preset resolution" in w.lower() for w in found)
+        if saved_bits != bit_depth and not explained:
             found.append(
                 f"Requested {bit_depth}-bit, but the saved image is {saved_bits}-bit."
             )

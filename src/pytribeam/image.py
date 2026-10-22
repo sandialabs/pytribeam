@@ -1609,7 +1609,7 @@ def collect_single_image(
     )
     if img_settings.bit_depth != tbt.ColorDepth.BITS_8:
         warnings.warn(
-            f"Warning, non-preset resolution necessitates images be stored at 8-bit color depth, requested bit-depth of {img_settings.bit_depth.value} will be ignored."
+            f"Warning, non-preset resolution necessitates images be stored at 8-bit color depth, requested bit-depth of {int(img_settings.bit_depth)} will be ignored."
         )
     grab_custom_resolution_frame(
         img_settings=img_settings,

@@ -69,6 +69,29 @@ DEVICE = {"electron": "ELECTRON_BEAM", "ion": "ION_BEAM"}
 QUAD = {"electron": 1, "ion": 2}
 
 
+def _stub_factory(monkeypatch):
+    """A stand-in pytribeam.factory with string_to_res, which raises
+    ValueError on bad input as the real one does."""
+    import sys
+    import types
+
+    import pytribeam
+
+    res = types.SimpleNamespace
+    factory = types.ModuleType("pytribeam.factory")
+
+    def string_to_res(text):
+        try:
+            width, height = (int(v) for v in text.lower().split("x"))
+        except Exception:
+            raise ValueError(f'Invalid string format: "{text}"') from None
+        return res(width=width, height=height)
+
+    factory.string_to_res = string_to_res
+    monkeypatch.setitem(sys.modules, "pytribeam.factory", factory)
+    monkeypatch.setattr(pytribeam, "factory", factory, raising=False)
+
+
 class SchemaError(Exception):
     """Same name and base as schema.SchemaError, which pytribeam's range
     checks raise; it is not a ValueError."""
@@ -134,10 +157,6 @@ def scope(monkeypatch):
             raise ValueError("Currently selected device is a camera")
         return dict(fake.settings[beam])
 
-    def scan(microscope, beam):
-        s = fake.settings[beam]
-        return {"resolution": s["resolution"], "dwell_us": s["dwell_us"]}
-
     def detector_modes(microscope, detector):
         beam = fake.active_beam
         return list(MODES[detector]) if beam and detector in DETECTORS[beam] else None
@@ -159,6 +178,19 @@ def scope(monkeypatch):
             raise ValueError(
                 f"Requested detector of {detector} is unavailable on this tool. "
                 f"Available detectors are: {sorted(DETECTORS[beam])}"
+            )
+        det, bm = step["detector"], step["beam"]
+        if det["auto_cb"]["left"] is not None and (
+            det["brightness"] is not None or det["contrast"] is not None
+        ):
+            raise KeyError(  # as factory.validate_detector_settings
+                "Users may use either fixed brightness/contrast values or auto "
+                "contrast/brightness settings, but not both."
+            )
+        if bm["type"] == "ion" and (bm["dynamic_focus"] or bm["tilt_correction"]):
+            raise SchemaError(  # as factory.validate_beam_settings
+                "In step 'mcp' with 'ion' beam imaging, 'dynamic_focus' must be "
+                "'False' or 'None'"
             )
         for key in ("brightness", "contrast"):
             level = step["detector"][key]
@@ -210,7 +242,9 @@ def scope(monkeypatch):
         if d["type"] in fake.detector_states:
             fake.detector_states[d["type"]] = "Inserted"
 
-    def grab(microscope, settings, path):
+    def collect(settings, path):
+        """As image.collect_single_image: apply the settings, then grab."""
+        prepare(fake, settings)
         fake.calls.append(("grab", str(path)))
         time.sleep(fake.grab_s)
         if fake.grab_error:
@@ -229,13 +263,15 @@ def scope(monkeypatch):
     monkeypatch.setattr(_helpers, "_capture", capture)
     monkeypatch.setattr(imaging, "_select_beam", select_beam)
     monkeypatch.setattr(imaging, "_current", current)
-    monkeypatch.setattr(imaging, "_scan", scan)
     monkeypatch.setattr(imaging, "_beam_is_on", lambda m, beam: fake.beam_on[beam])
     monkeypatch.setattr(imaging, "_detector_state", detector_state)
     monkeypatch.setattr(imaging, "_detector_modes", detector_modes)
     monkeypatch.setattr(imaging, "_validate", validate)
     monkeypatch.setattr(imaging, "_prepare", prepare)
-    monkeypatch.setattr(imaging, "_grab", grab)
+    monkeypatch.setattr(imaging, "_collect", collect)
+    # parse_resolution uses pytribeam's factory.string_to_res; stand in for it
+    # so the plain-Python checks run without pytribeam's dependencies.
+    _stub_factory(monkeypatch)
     monkeypatch.setattr(imaging, "_stage_position", lambda m: {"x_mm": 1.5, "y_mm": -2.0})
     monkeypatch.setattr(
         views,
@@ -376,24 +412,26 @@ async def test_step_uses_floats_and_full_settings(server, scope):
 async def test_ion_beam_leaves_angular_correction_unset(server, scope):
     async with Client(server) as client:
         _, result = await _call(client, "prepare_imaging", {"beam": "ion", "hfw_mm": 0.05})
+        step = _validated_step(scope)  # carried over: angular correction left out
         refused = await _refused(client, "prepare_imaging", {"beam": "ion", "dynamic_focus": True})
-    step = _validated_step(scope)
     assert step["beam"]["dynamic_focus"] is None and step["beam"]["type"] == "ion"
+    assert _validated_step(scope)["beam"]["dynamic_focus"] is True  # explicit: passed on
     assert set(result["changes"]) >= {"beams.ion.hfw_mm"}
-    assert "only to the electron beam" in refused
+    assert "must be 'False' or 'None'" in refused  # pytribeam's message
 
 
 async def test_auto_cb(server, scope):
     async with Client(server) as client:
         _, result = await _call(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
+        step = _validated_step(scope)  # carried-over levels left out for auto_cb
         refused = await _refused(
             client, "prepare_imaging", {"beam": "electron", "auto_cb": True, "contrast": 0.5}
         )
-    step = _validated_step(scope)
+    assert _validated_step(scope)["detector"]["contrast"] == 0.5  # explicit: passed on
     assert step["detector"]["auto_cb"] == {"left": 0.0, "top": 0.0, "width": 1.0, "height": 1.0}
     assert step["detector"]["brightness"] is None and step["detector"]["contrast"] is None
     assert (result["settings"]["brightness"], result["settings"]["contrast"]) == (0.61, 0.37)
-    assert "either auto_cb or fixed brightness/contrast" in refused
+    assert "either fixed brightness/contrast values or auto" in refused  # pytribeam's
 
 
 async def test_invalid_current_mode_is_replaced(server, scope):
@@ -476,7 +514,7 @@ async def test_schema_errors_reach_the_agent(server, scope, monkeypatch):
 async def test_brightness_out_of_range(server, scope, value):
     async with Client(server) as client:
         message = await _refused(client, "prepare_imaging", {"beam": "electron", "brightness": value})
-    assert "greater than 0 and at most 1" in message
+    assert "not within limits of '>0.0' and '<=1.0'" in message  # pytribeam's
     assert not any(c[0] == "prepare" for c in scope.calls)
 
 
@@ -588,16 +626,22 @@ async def test_hard_limit_cannot_be_overridden(tmp_path, scope):
 
 
 async def test_time_check_uses_current_settings_without_changing_anything(tmp_path, scope):
+    """The beam is selected so its own current settings are read
+    (factory.active_image_settings reads the active device); nothing is
+    validated, applied, or scanned before the refusal."""
     scope.settings["electron"].update(resolution="3072x2048", dwell_us=10.0)  # ~64 s
+    before = dict(scope.settings["electron"])
     _, server = _server(tmp_path, max_frame_s=30)
     async with Client(server) as client:
         message = await _refused(client, "collect_single_image", {"beam": "electron"})
     assert "about 64 s" in message
-    assert scope.calls == []  # refused before selecting, validating, or snapshotting
-    assert not list(tmp_path.glob("states/*.yml"))
+    assert scope.calls == [("select", "electron")]
+    assert scope.settings["electron"] == before
+    assert not list(tmp_path.glob("images/*"))
 
 
-def test_frame_seconds():
+def test_frame_seconds(monkeypatch):
+    _stub_factory(monkeypatch)
     assert imaging.frame_seconds("1000x1000", 2.0) == pytest.approx(2.0 + imaging.FRAME_OVERHEAD_S)
 
 
@@ -612,7 +656,8 @@ async def test_progress_is_reported_during_acquisition(server, scope, monkeypatc
     async with Client(server) as client:
         await _call(client, "collect_single_image", {"beam": "electron"}, progress_callback=on_progress)
     assert len(seen) >= 3
-    assert all(total == pytest.approx(768 * 512 * 1e-6 + 1, abs=0.1) for _, total, _ in seen)
+    expected = 768 * 512 * 1e-6 + 1 + imaging.SETTINGS_ALLOWANCE_S  # frame + settings
+    assert all(total == pytest.approx(expected, abs=0.1) for _, total, _ in seen)
     assert "acquiring frame" in seen[0][2]
     assert [p for p, _, _ in seen] == sorted(p for p, _, _ in seen)
 
@@ -765,14 +810,15 @@ async def test_hung_grab_is_abandoned_and_fails_closed(tmp_path, scope, monkeypa
 
     monkeypatch.setattr(imaging, "GRAB_GRACE_MIN_S", 0.2)  # give up after estimate + 0.2 s
     monkeypatch.setattr(imaging, "FRAME_OVERHEAD_S", 0.0)
+    monkeypatch.setattr(imaging, "SETTINGS_ALLOWANCE_S", 0.0)
     release = threading.Event()
-    original = imaging._grab
+    original = imaging._collect
 
-    def hung(microscope, settings, path):
-        original(microscope, settings, path)  # writes the file, then hangs
+    def hung(settings, path):
+        original(settings, path)  # writes the file, then hangs
         release.wait(10)
 
-    monkeypatch.setattr(imaging, "_grab", hung)
+    monkeypatch.setattr(imaging, "_collect", hung)
     config = ServerConfig(max_tier=2, project_dir=tmp_path)
     server = build_server(config, modules=(diagnostics, imaging, records, views))
     frame = {"beam": "electron", "resolution": "768x512", "dwell_us": 0.1}
@@ -837,7 +883,7 @@ async def test_auto_cb_is_time_limited(tmp_path, scope):
     _, server = _server(tmp_path, max_tier=2, max_frame_s=30)
     async with Client(server) as client:
         refused = await _refused(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
-        assert scope.calls == [] and not list(tmp_path.glob("states/*.yml"))
+        assert scope.calls == [("select", "electron")]  # read, not changed
         _, confirmed = await _call(
             client, "prepare_imaging", {"beam": "electron", "auto_cb": True, "confirm_long": True}
         )
