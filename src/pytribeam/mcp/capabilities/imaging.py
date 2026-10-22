@@ -3,13 +3,18 @@
 Imaging Capabilities
 ====================
 
-Tier 1 tools that change beam, detector, and scan settings and take images.
+Tier 2 tools that change beam, detector, and scan settings and take images.
+Every one of them scans the sample (an image, or auto contrast/brightness),
+so all are annotated destructive.
 
-Tier 2 adds no tools. It lifts one guardrail on these: at tier 1 a retractable
-detector is refused, and at tier 2 and above it may be used and is inserted if
-needed. This module reads ``config.max_tier`` to decide, the one exception to
-"one module, one tier", because the alternative is a second copy of every
-imaging tool.
+Higher tiers add no tools; they lift guardrails on these:
+
+* tier 3 allows retractable detectors, which are inserted if needed;
+* tier 5 allows the ion beam, which removes material from whatever it scans.
+
+This module reads ``config.max_tier`` to decide, the one exception to "one
+module, one tier", because the alternative is three copies of every imaging
+tool.
 
 Settings are validated by building an ``image`` step in the experiment config
 format and passing it to ``factory.image``, so the agent gets the same range
@@ -35,7 +40,7 @@ import yaml
 from mcp.server.mcpserver import Context, Image
 from mcp.server.mcpserver.exceptions import ToolError
 
-from pytribeam.mcp import state
+from pytribeam.mcp import audit, state
 from pytribeam.mcp.capabilities import _images
 from pytribeam.mcp.capabilities._helpers import (
     acted,
@@ -44,10 +49,11 @@ from pytribeam.mcp.capabilities._helpers import (
     is_agent_error,
     snapshot,
 )
-from pytribeam.mcp.capabilities.images import image_content, sidecar_path
+from pytribeam.mcp.capabilities.records import image_content, sidecar_path
 
-TIER = 1
-INSERT_TIER = 2  # lowest tier that may use (and insert) a retractable detector
+TIER = 2
+INSERT_TIER = 3  # lowest tier that may use (and insert) a retractable detector
+ION_TIER = 5  # lowest tier that may use the ion beam
 
 log = logging.getLogger("pytribeam.mcp.imaging")
 
@@ -57,6 +63,11 @@ Beam = Literal["electron", "ion"]
 # Calibrate on the simulator against the acquisition_s each image reports.
 FRAME_OVERHEAD_S = 1.0
 PROGRESS_INTERVAL_S = 5.0
+
+# A grab still running after estimate + max(60 s, 50 % of estimate) is
+# abandoned and the fault set: see grab_limit_s().
+GRAB_GRACE_MIN_S = 60.0
+GRAB_GRACE_FRACTION = 0.5
 
 # Retractable detector states in which pytribeam will not move it.
 _AT_REST = ("Stationary",)
@@ -84,22 +95,6 @@ def _beam(beam: str):
     if beam == "electron":
         return tbt.ElectronBeam(settings=tbt.BeamSettings())
     return tbt.IonBeam(settings=tbt.BeamSettings())
-
-
-def _read_view(microscope) -> Dict[str, Any]:
-    from pytribeam import types as tbt
-
-    return {
-        "active_view": int(microscope.imaging.get_active_view()),
-        "active_device": tbt.Device(microscope.imaging.get_active_device()).name,
-    }
-
-
-def _set_view(microscope, quad: int) -> None:
-    from pytribeam import image
-    from pytribeam import types as tbt
-
-    image.set_view(microscope, tbt.ViewQuad(quad))
 
 
 def _select_beam(microscope, beam: str) -> None:
@@ -179,6 +174,10 @@ def _detector_state(microscope, detector: str) -> str:
     return devices.detector_state(microscope, tbt.DetectorType(detector)).value
 
 
+class RestoreFailed(Exception):
+    """A temporary UI change could not be undone; the caller sets the fault."""
+
+
 def _validate(microscope, step: Dict[str, Any]):
     """Validated ``ImageSettings`` for an ``image`` step.
 
@@ -201,8 +200,14 @@ def _validate(microscope, step: Dict[str, Any]):
     finally:
         # Validation selects quad 1 and then the requested beam's device, so
         # an ion step leaves the ion beam in quad 1. Put the electron beam back.
-        image.set_view(microscope, tbt.ViewQuad.UPPER_LEFT)
-        image.set_beam_device(microscope, tbt.Device.ELECTRON_BEAM)
+        try:
+            image.set_view(microscope, tbt.ViewQuad.UPPER_LEFT)
+            image.set_beam_device(microscope, tbt.Device.ELECTRON_BEAM)
+        except Exception as exc:
+            raise RestoreFailed(
+                f"after validating settings, could not put the electron beam "
+                f"back in quad 1 ({exc})"
+            ) from exc
 
 
 def _prepare(microscope, settings) -> None:
@@ -373,6 +378,46 @@ def register(add, config, connection) -> None:
     """Register this module's tools."""
     states_dir, images_dir = config.states_dir, config.images_dir
     may_insert = config.max_tier >= INSERT_TIER
+    may_use_ion = config.max_tier >= ION_TIER
+
+    def abandon_grab(path: Path):
+        """Hand the microscope to an abandoned grab until it ends, then delete
+        whatever it wrote. Returns what the grab thread runs when it ends."""
+        release = connection.hand_off(
+            "an abandoned image acquisition that may still be running"
+        )
+
+        def on_late_finish() -> None:
+            path.unlink(missing_ok=True)
+            release()
+
+        return on_late_finish
+
+    def check_scan_time(
+        beam: str, resolution: Optional[str], dwell_us: Optional[float], confirm_long: bool
+    ) -> float:
+        """Estimate a scan and refuse it if too long, before anything changes.
+
+        Every path that scans the sample calls this (the image, and auto
+        contrast/brightness). Settings left out are read, without switching
+        the view, to complete the estimate. Returns the estimate in s.
+        """
+        planned = {"resolution": resolution, "dwell_us": dwell_us}
+        if resolution is None or dwell_us is None:
+            with connection.use() as microscope, agent_errors():
+                planned = merge(_scan(microscope, beam), planned)
+        estimate_s = frame_seconds(planned["resolution"], planned["dwell_us"])
+        check_frame_time(estimate_s, config, confirm_long)
+        return estimate_s
+
+    def check_beam(beam: str) -> None:
+        """Refuse the ion beam below its tier, before anything changes."""
+        if beam == "ion" and not may_use_ion:
+            raise ToolError(
+                "The ion beam removes material from every area it scans; using "
+                f"it needs tier {ION_TIER}. Use the electron beam, or ask the "
+                "user to raise the tier."
+            )
 
     def apply(
         microscope, beam: str, overrides: Dict[str, Any], auto_cb: bool, bit_depth: int
@@ -403,6 +448,12 @@ def register(add, config, connection) -> None:
 
         try:
             settings = _validate(microscope, build_step(beam, merged, auto_cb, bit_depth))
+        except RestoreFailed as exc:
+            connection.set_fault(str(exc))
+            raise ToolError(
+                f"Stopped: {exc}. The microscope UI may not be as expected; ask "
+                "the operator to check it, then call clear_fault."
+            ) from exc
         except Exception as exc:
             # factory.image also raises KeyError for a missing setting.
             if not (isinstance(exc, KeyError) or is_agent_error(exc)):
@@ -472,22 +523,6 @@ def register(add, config, connection) -> None:
         )
         merged["detector_mode"] = modes[0]
 
-    def set_view(quad: Literal[1, 2, 3, 4]) -> dict:
-        """Make one of the four imaging quadrants in the microscope UI active.
-
-        Quads are 1 = upper left, 2 = upper right, 3 = lower left, 4 = lower
-        right. By pytribeam convention the electron beam is in quad 1 and the
-        ion beam in quad 2. Detector settings in ``get_state`` belong to the
-        active quad, so they change when the view changes. Returns the new
-        ``active_view`` and ``active_device`` and what changed. Moves nothing.
-        """
-        before = snapshot(connection, states_dir, f"before set_view({quad})")
-        with connection.use() as microscope, agent_errors():
-            _set_view(microscope, quad)
-            view = _read_view(microscope)
-        after = snapshot(connection, states_dir, f"after set_view({quad})")
-        return {**view, **acted(before, after)}
-
     def prepare_imaging(
         beam: Beam,
         voltage_kv: Optional[float] = None,
@@ -504,6 +539,7 @@ def register(add, config, connection) -> None:
         rotation_deg: Optional[float] = None,
         dwell_us: Optional[float] = None,
         resolution: Optional[str] = None,
+        confirm_long: bool = False,
     ) -> dict:
         """Apply imaging settings to a beam without taking an image.
 
@@ -524,17 +560,21 @@ def register(add, config, connection) -> None:
 
         ``auto_cb`` runs auto contrast/brightness over the whole frame and
         reports the values it chose; it cannot be combined with
-        ``brightness``/``contrast``. It scans the sample, and with the ion
-        beam that removes material.
+        ``brightness``/``contrast``. It scans the sample, so it is checked
+        against the same time limits as an image (see
+        ``collect_single_image``; ``confirm_long`` applies), and with the ion
+        beam it removes material.
 
         Refused if the beam is off (this server never turns a beam on), if
-        the chamber is not pumped, or if the detector is retractable and
-        this session is below tier 2. At tier 2 a retractable detector is
-        inserted if needed (``detector_inserted``) and left inserted.
+        the chamber is not pumped, if the detector is retractable and this
+        session is below tier 3, or for the ion beam below tier 5. At tier 3
+        a retractable detector is inserted if needed (``detector_inserted``)
+        and left inserted.
 
         Returns the settings now applied, ``estimated_frame_s`` for one image
         at these settings, warnings, and what changed (state ids and diff).
         """
+        check_beam(beam)
         overrides = {
             "voltage_kv": voltage_kv, "current_na": current_na, "hfw_mm": hfw_mm,
             "working_dist_mm": working_dist_mm, "dynamic_focus": dynamic_focus,
@@ -543,6 +583,8 @@ def register(add, config, connection) -> None:
             "contrast": contrast, "rotation_deg": rotation_deg,
             "dwell_us": dwell_us, "resolution": resolution,
         }
+        if auto_cb:  # the one scan prepare_imaging starts
+            check_scan_time(beam, resolution, dwell_us, confirm_long)
         before = snapshot(connection, states_dir, f"before prepare_imaging({beam})")
         with connection.use() as microscope, collect_warnings() as found:
             with agent_errors():
@@ -590,7 +632,8 @@ def register(add, config, connection) -> None:
         how it was taken; ``list_images`` and ``view_image`` show it later.
 
         ION BEAM IMAGING REMOVES MATERIAL: the ion beam sputters every area
-        it scans. Use the electron beam unless the ion beam is needed.
+        it scans, so it needs tier 5. Use the electron beam unless the ion
+        beam is needed.
 
         Time: about width x height x dwell_us plus ~1 s. The estimate is
         checked before anything changes. Frames over the server's limit
@@ -613,6 +656,7 @@ def register(add, config, connection) -> None:
         ``sharpness`` between images of the same area at the same settings
         (higher is sharper; it means nothing on its own).
         """
+        check_beam(beam)
         overrides = {
             "voltage_kv": voltage_kv, "current_na": current_na, "hfw_mm": hfw_mm,
             "working_dist_mm": working_dist_mm, "dynamic_focus": dynamic_focus,
@@ -622,14 +666,7 @@ def register(add, config, connection) -> None:
             "dwell_us": dwell_us, "resolution": resolution,
         }
 
-        # Check the time before anything changes. Settings left out are read,
-        # without switching the view, to complete the estimate.
-        planned = {"resolution": resolution, "dwell_us": dwell_us}
-        if resolution is None or dwell_us is None:
-            with connection.use() as microscope, agent_errors():
-                planned = merge(_scan(microscope, beam), planned)
-        estimate_s = frame_seconds(planned["resolution"], planned["dwell_us"])
-        check_frame_time(estimate_s, config, confirm_long)
+        estimate_s = check_scan_time(beam, resolution, dwell_us, confirm_long)
 
         before = snapshot(connection, states_dir, f"before collect_single_image({beam})")
         path = state.next_path(images_dir, "i", ".tif")
@@ -644,8 +681,20 @@ def register(add, config, connection) -> None:
                 start = time.monotonic()
                 try:
                     _acquire(
-                        ctx, estimate_s, lambda: _grab(microscope, applied["settings"], path)
+                        ctx,
+                        estimate_s,
+                        lambda: _grab(microscope, applied["settings"], path),
+                        abandon=lambda: abandon_grab(path),
                     )
+                except AcquisitionTimeout as exc:
+                    path.unlink(missing_ok=True)
+                    connection.set_fault(f"an image acquisition did not finish: {exc}")
+                    raise ToolError(
+                        f"Stopped waiting: {exc}. The microscope may still be "
+                        "scanning, so its state is unknown. No image was saved. "
+                        "Ask the operator to check the microscope, then call "
+                        "clear_fault."
+                    ) from exc
                 except BaseException:
                     path.unlink(missing_ok=True)  # never leave a partial image
                     raise
@@ -698,8 +747,8 @@ def register(add, config, connection) -> None:
         result["preview"] = info if preview else None
         return [result, picture] if preview else [result]
 
-    add(set_view)
-    add(prepare_imaging)
+    # Both scan the sample (auto_cb, or the image itself).
+    add(prepare_imaging, destructive=True)
     add(collect_single_image, destructive=True)
 
 
@@ -708,6 +757,7 @@ def _write_sidecar(path: Path, result: Dict[str, Any], stage) -> None:
 
     record = {
         "recorded_at": datetime.datetime.now().astimezone().isoformat(timespec="milliseconds"),
+        "op_id": audit.current_op_id(),
         **{k: v for k, v in result.items() if k not in ("changes", "path")},
         "stage_position": stage,
     }
@@ -718,7 +768,20 @@ def _write_sidecar(path: Path, result: Dict[str, Any], stage) -> None:
     tmp.replace(side)
 
 
-def _acquire(ctx: Optional[Context], estimate_s: float, grab) -> None:
+class AcquisitionTimeout(Exception):
+    """A grab ran past its time limit and was abandoned; the caller sets the
+    fault, since the microscope may still be scanning."""
+
+
+def grab_limit_s(estimate_s: float) -> float:
+    """How long a grab may run before it is abandoned: the estimate, plus
+    the larger of 60 s and half the estimate."""
+    return estimate_s + max(GRAB_GRACE_MIN_S, GRAB_GRACE_FRACTION * estimate_s)
+
+
+def _acquire(
+    ctx: Optional[Context], estimate_s: float, grab, abandon=lambda: None
+) -> None:
     """Run *grab* while reporting progress to the client every few seconds.
 
     The grab runs in a helper thread and this (the tool's worker) thread waits
@@ -728,8 +791,17 @@ def _acquire(ctx: Optional[Context], estimate_s: float, grab) -> None:
 
     Warnings are recorded per thread, so those raised by *grab* are collected
     in the helper thread and re-issued here, where the tool collects them.
+
+    If the grab is still running after :func:`grab_limit_s`, raise
+    :class:`AcquisitionTimeout` and stop waiting. Python cannot kill the
+    thread; it is left to finish or hang on its own. ``abandon()`` is called
+    now and returns a function the thread runs if it ever finishes, so a late
+    result is discarded and anything the caller still holds (the microscope)
+    is released only then.
     """
     outcome: Dict[str, Any] = {"warnings": []}
+    lock = threading.Lock()  # orders "finished" against "abandoned"
+    state = {"finished": False, "on_late_finish": None}
 
     def run() -> None:
         with collect_warnings() as found:
@@ -738,14 +810,32 @@ def _acquire(ctx: Optional[Context], estimate_s: float, grab) -> None:
             except BaseException as exc:  # re-raised in the tool's thread
                 outcome["error"] = exc
         outcome["warnings"] = found
+        with lock:
+            state["finished"] = True
+            late = state["on_late_finish"]
+        if late is not None:
+            try:
+                late()
+            except Exception as exc:
+                log.warning("cleaning up an abandoned grab failed: %r", exc)
 
     thread = threading.Thread(target=run, name="pytribeam-mcp-grab", daemon=True)
     start = time.monotonic()
+    deadline = start + grab_limit_s(estimate_s)
     thread.start()
     while True:
-        thread.join(timeout=PROGRESS_INTERVAL_S)
+        thread.join(timeout=max(0.0, min(PROGRESS_INTERVAL_S, deadline - time.monotonic())))
         if not thread.is_alive():
             break
+        if time.monotonic() >= deadline:
+            with lock:
+                if state["finished"]:  # finished just now: use the result
+                    break
+                state["on_late_finish"] = abandon()
+            raise AcquisitionTimeout(
+                f"the frame was expected to take about {estimate_s:.1f} s but had "
+                f"not finished after {time.monotonic() - start:.1f} s"
+            )
         if ctx is not None:
             elapsed = time.monotonic() - start
             try:

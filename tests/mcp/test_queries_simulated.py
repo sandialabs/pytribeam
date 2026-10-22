@@ -1,4 +1,5 @@
-"""Tier 0 tools against the AutoScript simulator, through ``build_server``.
+"""Diagnostics and hardware queries against the AutoScript simulator, through
+``build_server``.
 
 Runs only on machines listed in ``Constants.offline_machines``.
 """
@@ -26,7 +27,8 @@ def anyio_backend():
 
 @pytest.fixture
 def server(tmp_path):
-    config = ServerConfig(max_tier=0, microscope_host="localhost", project_dir=tmp_path)
+    # Tier 5: these cover ion-beam probing too, which needs the ion beam's tier.
+    config = ServerConfig(max_tier=5, microscope_host="localhost", project_dir=tmp_path)
     return build_server(config)
 
 

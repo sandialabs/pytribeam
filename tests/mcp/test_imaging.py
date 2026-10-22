@@ -27,7 +27,7 @@ from mcp import Client  # noqa: E402
 
 # local libraries
 from pytribeam.mcp import connection  # noqa: E402
-from pytribeam.mcp.capabilities import _helpers, images, imaging  # noqa: E402
+from pytribeam.mcp.capabilities import _helpers, imaging, records, views  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.server import build_server  # noqa: E402
 
@@ -238,17 +238,19 @@ def scope(monkeypatch):
     monkeypatch.setattr(imaging, "_grab", grab)
     monkeypatch.setattr(imaging, "_stage_position", lambda m: {"x_mm": 1.5, "y_mm": -2.0})
     monkeypatch.setattr(
-        imaging,
+        views,
         "_read_view",
         lambda m: {"active_view": fake.view, "active_device": fake.devices[fake.view]},
     )
-    monkeypatch.setattr(imaging, "_set_view", lambda m, quad: setattr(fake, "view", quad))
+    monkeypatch.setattr(views, "_set_view", lambda m, quad: setattr(fake, "view", quad))
     return fake
 
 
-def _server(tmp_path, max_tier=1, **config):
+def _server(tmp_path, max_tier=5, **config):
+    """Tier 5 by default, so ion-beam behavior can be tested; the tier gates
+    have their own tests below."""
     config = ServerConfig(max_tier=max_tier, project_dir=tmp_path, **config)
-    return config, build_server(config, modules=(imaging, images))
+    return config, build_server(config, modules=(imaging, records, views))
 
 
 @pytest.fixture
@@ -277,19 +279,22 @@ async def test_registration_and_annotations(server):
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
     assert {"set_view", "prepare_imaging", "collect_single_image"} <= set(tools)
+    # Both scan the sample (auto_cb or the image), so both are destructive.
     assert tools["collect_single_image"].annotations.destructive_hint is True
-    assert not tools["prepare_imaging"].annotations.destructive_hint
+    assert tools["prepare_imaging"].annotations.destructive_hint is True
     assert not tools["set_view"].annotations.read_only_hint
+    assert not tools["set_view"].annotations.destructive_hint
     assert "ctx" not in tools["collect_single_image"].input_schema["properties"]
 
 
-async def test_imaging_is_hidden_at_tier_0(tmp_path):
-    config = ServerConfig(max_tier=0, project_dir=tmp_path)
+@pytest.mark.parametrize("max_tier", [0, 1])
+async def test_imaging_needs_tier_2(tmp_path, max_tier):
+    config = ServerConfig(max_tier=max_tier, project_dir=tmp_path)
     async with Client(build_server(config, modules=(imaging,))) as client:
         assert (await client.list_tools()).tools == []
 
 
-# --- set_view --------------------------------------------------------------
+# --- set_view (views module, tier 1) ----------------------------------------
 async def test_set_view(server, scope):
     async with Client(server) as client:
         _, result = await _call(client, "set_view", {"quad": 2})
@@ -298,6 +303,42 @@ async def test_set_view(server, scope):
     assert result["changes"] == {"imaging.active_view": [1, 2], "imaging.active_device": ["ELECTRON_BEAM", "ION_BEAM"]}
     assert result["before_state_id"] == "s0001" and result["after_state_id"] == "s0002"
     assert bad.is_error
+
+
+# --- ion beam needs tier 5 (security review P0) ------------------------------
+@pytest.mark.parametrize("max_tier", [2, 3, 4])
+@pytest.mark.parametrize(
+    "tool, args",
+    [
+        ("prepare_imaging", {"beam": "ion"}),
+        ("prepare_imaging", {"beam": "ion", "auto_cb": True}),
+        ("collect_single_image", {"beam": "ion"}),
+        ("collect_single_image", {"beam": "ion", "resolution": "768x512", "dwell_us": 1}),
+    ],
+)
+async def test_ion_beam_needs_tier_5(tmp_path, scope, max_tier, tool, args):
+    _, server = _server(tmp_path, max_tier=max_tier)
+    before = scope.values()
+    async with Client(server) as client:
+        message = await _refused(client, tool, args)
+    assert "removes material" in message and "needs tier 5" in message
+    assert scope.calls == []  # no select, validate, prepare, or grab
+    assert scope.values() == before
+    assert not list(tmp_path.glob("states/*.yml"))  # refused before any snapshot
+
+
+async def test_ion_beam_works_at_tier_5(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=5)
+    async with Client(server) as client:
+        _, result = await _call(client, "collect_single_image", {"beam": "ion"})
+    assert result["beam"] == "ion"
+
+
+async def test_electron_beam_works_at_tier_2(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=2)
+    async with Client(server) as client:
+        _, result = await _call(client, "collect_single_image", {"beam": "electron"})
+    assert result["image_id"] == "i0001"
 
 
 # --- prepare_imaging -------------------------------------------------------
@@ -486,17 +527,18 @@ async def test_beam_off_is_refused(server, scope, beam):
     assert not any(c[0] == "prepare" for c in scope.calls)
 
 
-async def test_tier1_refuses_retractable_detectors(server, scope):
+async def test_tier2_refuses_retractable_detectors(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=2)
     scope.detector_states["CBS"] = "Inserted"  # even when already inserted
     async with Client(server) as client:
         message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
     assert "CBS is a retractable detector (currently Inserted)" in message
-    assert "needs tier 2" in message
+    assert "needs tier 3" in message
     assert not any(c[0] == "prepare" for c in scope.calls)
 
 
-async def test_tier2_inserts_retractable_detectors(tmp_path, scope):
-    _, server = _server(tmp_path, max_tier=2)
+async def test_tier3_inserts_retractable_detectors(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=3)
     async with Client(server) as client:
         _, first = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
         _, second = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
@@ -578,8 +620,8 @@ async def test_progress_is_reported_during_acquisition(server, scope, monkeypatc
 async def test_busy_refusal_names_the_running_acquisition(tmp_path, scope):
     """While one image acquires, a second hardware call is refused at once
     with the expected remaining time, and file-only tools still answer."""
-    config = ServerConfig(max_tier=1, project_dir=tmp_path, max_frame_s=1000)
-    server = build_server(config, modules=(imaging, images))
+    config = ServerConfig(max_tier=2, project_dir=tmp_path, max_frame_s=1000)
+    server = build_server(config, modules=(imaging, records))
     scope.grab_s = 1.0
     long_frame = {"beam": "electron", "resolution": "6144x4096", "dwell_us": 2}  # ~51 s estimate
     out = {}
@@ -635,6 +677,10 @@ async def test_collect_result_shape_and_files(server, scope, tmp_path):
 
     sidecar = yaml.safe_load((images_dir / "i0001.yml").read_text())
     assert sidecar["description"] == "grain A"
+    # The image and both states trace back to the same audited call.
+    before = yaml.safe_load((tmp_path / "states" / "s0001.yml").read_text())
+    after = yaml.safe_load((tmp_path / "states" / "s0002.yml").read_text())
+    assert sidecar["op_id"] and sidecar["op_id"] == before["op_id"] == after["op_id"]
     assert sidecar["stage_position"] == {"x_mm": 1.5, "y_mm": -2.0}
     assert sidecar["before_state_id"] == "s0001"
     assert "changes" not in sidecar and "path" not in sidecar
@@ -711,3 +757,102 @@ async def test_collected_images_are_listed(server, scope):
     assert [i["description"] for i in listing["images"]] == ["one", "two"]
     assert listing["images"][1]["beam"] == "ion"
     assert record["detector"] == "ICE" and viewed.content[1].type == "image"
+
+
+# --- fail closed: abandoned acquisitions and failed restores (3.5.4) ---------
+async def test_hung_grab_is_abandoned_and_fails_closed(tmp_path, scope, monkeypatch):
+    from pytribeam.mcp.capabilities import diagnostics
+
+    monkeypatch.setattr(imaging, "GRAB_GRACE_MIN_S", 0.2)  # give up after estimate + 0.2 s
+    monkeypatch.setattr(imaging, "FRAME_OVERHEAD_S", 0.0)
+    release = threading.Event()
+    original = imaging._grab
+
+    def hung(microscope, settings, path):
+        original(microscope, settings, path)  # writes the file, then hangs
+        release.wait(10)
+
+    monkeypatch.setattr(imaging, "_grab", hung)
+    config = ServerConfig(max_tier=2, project_dir=tmp_path)
+    server = build_server(config, modules=(diagnostics, imaging, records, views))
+    frame = {"beam": "electron", "resolution": "768x512", "dwell_us": 0.1}
+
+    async with Client(server) as client:
+        t0 = time.monotonic()
+        stuck = await client.call_tool("collect_single_image", frame)
+        elapsed = time.monotonic() - t0
+        busy_check = await client.call_tool("check_connection", {})  # uses the microscope
+        early_clear = await client.call_tool("clear_fault", {})
+        listing = await client.call_tool("list_images", {})  # files only
+        info = json.loads((await client.call_tool("get_server_info", {})).content[0].text)
+        files_while_hung = list(tmp_path.glob("images/*.tif"))
+
+        release.set()  # the orphaned grab finally returns
+        for _ in range(100):
+            if json.loads((await client.call_tool("get_server_info", {})).content[0].text)["busy"] is None:
+                break
+            await anyio.sleep(0.02)
+        files_after_late_finish = list(tmp_path.glob("images/*.tif"))
+        blocked = await client.call_tool("prepare_imaging", {"beam": "electron"})
+        cleared = await client.call_tool("clear_fault", {})
+        retry = await client.call_tool("collect_single_image", frame)
+
+    assert stuck.is_error and elapsed < 3
+    assert "Stopped waiting" in stuck.content[0].text and "No image was saved" in stuck.content[0].text
+    assert busy_check.is_error and "abandoned image acquisition" in busy_check.content[0].text
+    assert early_clear.is_error and "Cannot clear the fault while" in early_clear.content[0].text
+    assert not listing.is_error
+    assert "abandoned" in info["busy"]
+    assert files_while_hung == []  # deleted when the tool gave up
+    assert files_after_late_finish == []  # nothing kept from the late finish
+    assert blocked.is_error and "did not finish" in blocked.content[0].text
+    assert not cleared.is_error
+    assert not retry.is_error and json.loads(retry.content[0].text)["image_id"] == "i0001"
+
+
+def test_grab_limit():
+    assert imaging.grab_limit_s(10) == 70  # at least 60 s of grace
+    assert imaging.grab_limit_s(1000) == 1500  # or half the estimate
+
+
+async def test_failed_validation_restore_sets_the_fault(tmp_path, scope, monkeypatch):
+    def broken_restore(microscope, step):
+        raise imaging.RestoreFailed(
+            "after validating settings, could not put the electron beam back in quad 1 (busy)"
+        )
+
+    monkeypatch.setattr(imaging, "_validate", broken_restore)
+    config, server = _server(tmp_path, max_tier=2)
+    async with Client(server) as client:
+        first = await _refused(client, "prepare_imaging", {"beam": "electron"})
+        second = await _refused(client, "set_view", {"quad": 1})
+    assert "could not put the electron beam back" in first and "clear_fault" in first
+    assert "may not be in the state" in second
+    assert not any(c[0] == "prepare" for c in scope.calls)
+
+
+# --- every scan is time-limited (3.5.3) ---------------------------------------
+async def test_auto_cb_is_time_limited(tmp_path, scope):
+    scope.settings["electron"].update(resolution="3072x2048", dwell_us=10.0)  # ~64 s
+    _, server = _server(tmp_path, max_tier=2, max_frame_s=30)
+    async with Client(server) as client:
+        refused = await _refused(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
+        assert scope.calls == [] and not list(tmp_path.glob("states/*.yml"))
+        _, confirmed = await _call(
+            client, "prepare_imaging", {"beam": "electron", "auto_cb": True, "confirm_long": True}
+        )
+        _, no_scan = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
+    assert "about 64 s" in refused and "confirm_long=true" in refused
+    assert confirmed["auto_cb"] is True
+    assert no_scan["auto_cb"] is False  # no scan, so no time check
+
+
+async def test_auto_cb_hard_limit(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=2, max_frame_s=10, hard_max_frame_s=20)
+    async with Client(server) as client:
+        message = await _refused(
+            client,
+            "prepare_imaging",
+            {"beam": "electron", "auto_cb": True, "resolution": "1536x1024", "dwell_us": 20, "confirm_long": True},
+        )
+    assert "more than this server's limit of 20 s" in message

@@ -145,7 +145,7 @@ def scope(monkeypatch):
 def server(tmp_path):
     from pytribeam.mcp.capabilities import diagnostics
 
-    config = ServerConfig(project_dir=tmp_path)
+    config = ServerConfig(max_tier=5, project_dir=tmp_path)  # ion probes need 5
     return build_server(config, modules=(diagnostics, hardware))
 
 
@@ -161,19 +161,47 @@ async def _refused(client, tool, args=None):
     return result.content[0].text
 
 
-async def test_tools_are_read_only(server):
+async def test_annotations_are_honest(server):
+    """Probes change the UI and stage tools the coordinate system, so they are
+    not read-only; nothing here moves hardware, so nothing is destructive."""
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    hardware_tools = {
+    changes_ui = {
         "get_available_detector_types",
         "get_available_detector_modes",
         "get_available_insertable_detectors",
-        "get_imaging_limits",
         "get_stage_position",
         "get_stage_limits",
     }
-    assert hardware_tools <= set(tools)
-    assert all(tools[name].annotations.read_only_hint for name in hardware_tools)
+    assert changes_ui | {"get_imaging_limits"} <= set(tools)
+    assert not any(tools[name].annotations.read_only_hint for name in changes_ui)
+    assert tools["get_imaging_limits"].annotations.read_only_hint is True
+    assert not any(tools[name].annotations.destructive_hint for name in changes_ui)
+
+
+@pytest.mark.parametrize(
+    "tool, args",
+    [
+        ("get_available_detector_types", {"beam": "ion"}),
+        ("get_available_detector_modes", {"beam": "ion", "detector": "ICE"}),
+    ],
+)
+async def test_ion_probes_need_tier_5(tmp_path, scope, monkeypatch, tool, args):
+    monkeypatch.setattr(hardware, "_imaging_limits", lambda m, beam: {"hfw_mm": {"min": 0, "max": 1}})
+    config = ServerConfig(max_tier=4, project_dir=tmp_path)
+    before = scope.snapshot()
+    async with Client(build_server(config, modules=(hardware,))) as client:
+        message = await _refused(client, tool, args)
+        limits = await _call(client, "get_imaging_limits", {"beam": "ion"})
+    assert "needs tier 5" in message
+    assert scope.calls == {} and scope.snapshot() == before  # nothing touched
+    assert limits["beam"] == "ion"  # reading ion limits is not gated
+
+
+async def test_hardware_tools_need_tier_1(tmp_path):
+    config = ServerConfig(max_tier=0, project_dir=tmp_path)
+    async with Client(build_server(config, modules=(hardware,))) as client:
+        assert (await client.list_tools()).tools == []
 
 
 async def test_beam_must_be_electron_or_ion(server, scope):
@@ -253,6 +281,7 @@ async def test_detector_modes(server, scope):
         "detector": "ETD",
         "modes": MODES["ETD"],
         "cached": False,
+        "restored": True,
         "warnings": [],
     }
     assert second["cached"] is True
@@ -362,3 +391,73 @@ def test_round_strips_conversion_noise():
         "min": 0.003,
         "max": 30.0,
     }
+
+
+# --- fail closed (security review P2) ----------------------------------------
+async def test_failed_restore_sets_the_fault_and_blocks(tmp_path, scope, monkeypatch):
+    from pytribeam.mcp.capabilities import diagnostics, records, views
+
+    monkeypatch.setattr(hardware, "_imaging_limits", lambda m, beam: {})
+    config = ServerConfig(max_tier=5, project_dir=tmp_path)
+    server = build_server(config, modules=(diagnostics, records, hardware, views))
+    scope.imaging.view = 2
+    scope.imaging.fail_set_view = True
+    async with Client(server) as client:
+        probe = await _call(client, "get_available_detector_types", {"beam": "ion"})
+        scope.imaging.fail_set_view = False
+        blocked = await _refused(client, "get_available_detector_types")
+        blocked_read = await _refused(client, "get_imaging_limits")
+        info = await _call(client, "get_server_info")  # tier 0 still works
+        listing = await _call(client, "list_images")
+        cleared = await _call(client, "clear_fault")
+        again = await _call(client, "get_available_detector_types")
+
+    assert probe["restored"] is False and probe["cached"] is False
+    assert "could not restore the view" in blocked
+    assert "clear_fault" in blocked and "Tier 0 tools still work" in blocked
+    assert "could not restore" in blocked_read  # even read-only tier 1 tools
+    assert info["pytribeam_version"] and listing["total"] == 0
+    assert cleared == {"cleared": True, "fault": probe_fault(cleared)}
+    assert again["restored"] is True
+
+
+def probe_fault(cleared):
+    assert "after probing detectors, could not restore the view" in cleared["fault"]
+    return cleared["fault"]
+
+
+async def test_reconnect_does_not_clear_the_fault(tmp_path, scope):
+    from pytribeam.mcp.capabilities import diagnostics, views
+
+    config = ServerConfig(max_tier=5, project_dir=tmp_path)
+    server = build_server(config, modules=(diagnostics, hardware, views))
+    scope.imaging.fail_set_view = True
+    scope.imaging.view = 2
+    async with Client(server) as client:
+        await _call(client, "get_available_detector_types", {"beam": "ion"})
+        scope.imaging.fail_set_view = False
+        await client.call_tool("reconnect", {})
+        message = await _refused(client, "get_available_detector_types")
+    assert "could not restore" in message
+
+
+async def test_clear_fault_is_audited(tmp_path, scope, caplog):
+    from pytribeam.mcp.capabilities import views
+
+    caplog.set_level("INFO", logger="pytribeam.mcp.audit")
+    config = ServerConfig(max_tier=1, project_dir=tmp_path)
+    server = build_server(config, modules=(hardware, views))
+    scope.imaging.fail_set_view = True
+    scope.imaging.view = 2
+    async with Client(server) as client:
+        await _call(client, "get_available_detector_types")
+        await _call(client, "clear_fault")
+        nothing = await _call(client, "clear_fault")
+    audit = [
+        json.loads(r.getMessage()) for r in caplog.records if r.name == "pytribeam.mcp.audit"
+    ]
+    cleared = [r for r in audit if r["tool"] == "clear_fault" and r["event"] == "ended"]
+    assert len(cleared) == 2 and all(r["ok"] for r in cleared)
+    assert "could not restore the view" in cleared[0]["cleared_fault"]  # which fault
+    assert cleared[1]["cleared_fault"] is None
+    assert nothing == {"cleared": False, "fault": None}

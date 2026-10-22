@@ -22,7 +22,7 @@ from mcp.server.mcpserver.exceptions import ToolError  # noqa: E402
 # local libraries
 from pytribeam.mcp import connection as connection_module  # noqa: E402
 from pytribeam.mcp import state  # noqa: E402
-from pytribeam.mcp.capabilities import _helpers, _images, images  # noqa: E402
+from pytribeam.mcp.capabilities import _helpers, _images, records  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.connection import MicroscopeConnection  # noqa: E402
 from pytribeam.mcp.server import build_server  # noqa: E402
@@ -97,7 +97,7 @@ tifffile = pytest.importorskip("tifffile")  # a scikit-image dependency
 
 @pytest.mark.parametrize(
     "layout",
-    ["gray", "rgb", "big_endian", "pages"],
+    ["gray", "rgb", "big_endian"],
 )
 def test_load_keeps_16_bit_depth(tmp_path, layout):
     """Pillow opens a 16-bit RGB TIFF as 8-bit "RGB"; the loader must not."""
@@ -106,12 +106,69 @@ def test_load_keeps_16_bit_depth(tmp_path, layout):
         "gray": gray,
         "rgb": np.stack([gray, gray, gray], axis=-1),
         "big_endian": gray.astype(">u2"),
-        "pages": np.stack([gray, gray]),
     }[layout]
     tifffile.imwrite(tmp_path / "i0001.tif", data)
     loaded, bits = _images.load(tmp_path / "i0001.tif")
     assert bits == 16 and loaded.shape == (48, 64)
     assert loaded.max() == gray.max()
+
+
+def test_load_refuses_multi_page_files(tmp_path):
+    gray = np.zeros((48, 64), np.uint16)
+    tifffile.imwrite(tmp_path / "i0001.tif", np.stack([gray, gray]))
+    with pytest.raises(_images.ImageTooLarge, match="2 pages"):
+        _images.load(tmp_path / "i0001.tif")
+
+
+def test_oversized_image_is_refused_before_decoding(tmp_path, monkeypatch):
+    """The size comes from the header; no pixel data is read."""
+    monkeypatch.setattr(_images, "MAX_IMAGE_PIXELS", 100 * 100)
+    tifffile.imwrite(tmp_path / "i0001.tif", np.zeros((200, 200), np.uint8))
+
+    decoded = []
+    real = tifffile.TiffPage.asarray
+
+    def record_decode(self, *args, **kwargs):
+        decoded.append(self)  # recorded, not raised: a raise would be caught
+        return real(self, *args, **kwargs)  # by the Pillow fallback and hidden
+
+    monkeypatch.setattr(tifffile.TiffPage, "asarray", record_decode)
+    with pytest.raises(_images.ImageTooLarge, match="200x200 px"):
+        _images.load(tmp_path / "i0001.tif")
+    assert decoded == []
+
+
+def test_oversized_pillow_image_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(_images, "MAX_IMAGE_PIXELS", 100 * 100)
+    Image.fromarray(np.zeros((200, 200), np.uint8)).save(tmp_path / "i0001.png")
+    with pytest.raises(_images.ImageTooLarge, match="200x200 px"):
+        _images.load(tmp_path / "i0001.png")
+
+
+def test_oversized_file_is_refused(tmp_path, monkeypatch):
+    monkeypatch.setattr(_images, "MAX_FILE_BYTES", 1000)
+    tifffile.imwrite(tmp_path / "i0001.tif", np.zeros((100, 100), np.uint8))
+    with pytest.raises(_images.ImageTooLarge, match="MB"):
+        _images.load(tmp_path / "i0001.tif")
+
+
+def test_size_refusal_is_not_retried_with_pillow(tmp_path, monkeypatch):
+    """The Pillow fallback must not catch a size refusal and decode anyway."""
+    monkeypatch.setattr(_images, "MAX_IMAGE_PIXELS", 100 * 100)
+    tifffile.imwrite(tmp_path / "i0001.tif", np.zeros((200, 200), np.uint8))
+    opened = []
+    monkeypatch.setattr(_images.PILImage, "open", lambda *a: opened.append(a) or 1 / 0)
+    with pytest.raises(_images.ImageTooLarge):
+        _images.load(tmp_path / "i0001.tif")
+    assert opened == []
+
+
+def test_large_image_stats_are_subsampled(monkeypatch):
+    monkeypatch.setattr(_images, "STATS_SUBSAMPLE_PIXELS", 1000)
+    small, large = np.full((20, 20), 50, np.uint8), np.full((100, 100), 50, np.uint8)
+    assert _images.stats(small, 8)["subsampled"] is False
+    assert _images.stats(large, 8)["subsampled"] is True
+    assert _images.stats(large, 8)["mean"] == 50
 
 
 def test_load_8_bit(tmp_path):
@@ -253,7 +310,7 @@ def project(tmp_path):
 
 @pytest.fixture
 def server(project):
-    return build_server(project, modules=(images,))
+    return build_server(project, modules=(records,))
 
 
 async def _call(client, tool, args=None):
@@ -266,7 +323,7 @@ async def _call(client, tool, args=None):
 async def test_image_tools_are_read_only(server):
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    assert set(tools) == {"list_images", "view_image"}
+    assert set(tools) == {"list_states", "list_images", "view_image"}
     assert all(t.annotations.read_only_hint for t in tools.values())
 
 

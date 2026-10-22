@@ -131,9 +131,9 @@ async def test_modules_share_one_connection(config, connects):
 
 
 def test_tier_range():
-    assert ServerConfig(max_tier=4).max_tier == 4
+    assert ServerConfig(max_tier=5).max_tier == 5
     with pytest.raises(ValueError):
-        ServerConfig(max_tier=5)
+        ServerConfig(max_tier=6)
 
 
 def test_images_dir(tmp_path):
@@ -187,3 +187,56 @@ def test_frame_limits(tmp_path, monkeypatch):
     monkeypatch.setenv("PYTRIBEAM_MCP_MAX_FRAME_S", "60")
     cfg = ServerConfig.from_args(["--project-dir", str(tmp_path), "--hard-max-frame-s", "600"])
     assert (cfg.max_frame_s, cfg.hard_max_frame_s) == (60.0, 600.0)
+
+
+# --- HTTP binding (security review P1) ---------------------------------------
+TOKEN = "x" * 40
+
+
+@pytest.mark.parametrize("host", ["127.0.0.1", "localhost", "::1"])
+def test_http_loopback_needs_no_opt_in(tmp_path, host):
+    cfg = ServerConfig(project_dir=tmp_path, transport="http", http_host=host, http_token=TOKEN)
+    assert cfg.http_host == host
+
+
+@pytest.mark.parametrize("host", ["0.0.0.0", "::", "[::]"])
+@pytest.mark.parametrize("opt_in", [False, True])
+def test_http_wildcard_is_always_refused(tmp_path, host, opt_in):
+    with pytest.raises(ValueError, match="every network"):
+        ServerConfig(
+            project_dir=tmp_path,
+            transport="http",
+            http_host=host,
+            http_token=TOKEN,
+            allow_host_only_http=opt_in,
+        )
+
+
+def test_http_non_loopback_needs_the_opt_in(tmp_path):
+    with pytest.raises(ValueError, match="allow-host-only-http"):
+        ServerConfig(project_dir=tmp_path, transport="http", http_host="172.20.80.1", http_token=TOKEN)
+    cfg = ServerConfig(
+        project_dir=tmp_path,
+        transport="http",
+        http_host="172.20.80.1",
+        http_token=TOKEN,
+        allow_host_only_http=True,
+    )
+    assert cfg.summary()["allow_host_only_http"] is True
+
+
+def test_http_host_is_not_checked_for_stdio(tmp_path):
+    """A stray HTTP setting must not stop a stdio server from starting."""
+    assert ServerConfig(project_dir=tmp_path, http_host="0.0.0.0").transport == "stdio"
+
+
+def test_http_opt_in_from_env_and_flag(tmp_path, monkeypatch):
+    for key in [k for k in __import__("os").environ if k.startswith("PYTRIBEAM_MCP_")]:
+        monkeypatch.delenv(key)
+    monkeypatch.setenv("PYTRIBEAM_MCP_HTTP_TOKEN", TOKEN)
+    base = ["--project-dir", str(tmp_path), "--transport", "http", "--http-host", "172.20.80.1"]
+    with pytest.raises(SystemExit):  # argparse error: refused without the opt-in
+        ServerConfig.from_args(base)
+    assert ServerConfig.from_args([*base, "--allow-host-only-http"]).allow_host_only_http
+    monkeypatch.setenv("PYTRIBEAM_MCP_ALLOW_HOST_ONLY_HTTP", "1")
+    assert ServerConfig.from_args(base).allow_host_only_http

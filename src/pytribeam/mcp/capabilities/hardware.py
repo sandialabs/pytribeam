@@ -3,18 +3,18 @@
 Hardware Capabilities
 =====================
 
-Tier 0 tools that answer "what can this microscope do, and where is it?"
-before the agent asks a higher-tier tool to act.
-
-Two kinds of query live here:
+Tier 1 tools that answer "what can this microscope do, and where is it?"
+before the agent asks a higher-tier tool to act. None of them moves hardware
+or exposes the sample, but most change the UI, which is why they are tier 1:
 
 * ``get_available_*`` find out which detectors and modes work by trying them.
   They switch the active quadrant's device and detector, so the operator sees
   the screen change for a few seconds. Everything they change is put back in a
   ``finally`` block, and their results are cached on the connection until
-  ``reconnect``, since the hardware does not change during a session.
-* Limits and stage position are plain reads, except that the stage tools set
-  the stage's default coordinate system to RAW.
+  ``reconnect``, since the hardware does not change during a session. Probing
+  the ion device needs tier 5, like everything else on the ion beam.
+* The stage tools set the stage's default coordinate system to RAW.
+* ``get_imaging_limits`` only reads, and is annotated read-only.
 
 Each pytribeam call sits in a small module-level function (``_detector_types``
 and so on) that imports pytribeam itself, so the server starts without
@@ -32,7 +32,8 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from pytribeam.mcp.capabilities._helpers import agent_errors, collect_warnings
 
-TIER = 0
+TIER = 1
+ION_TIER = 5  # probing the ion device needs the ion beam's tier
 
 log = logging.getLogger("pytribeam.mcp.hardware")
 
@@ -167,7 +168,7 @@ def _set_if_changed(setting, value) -> None:
 
 
 @contextlib.contextmanager
-def _restoring(microscope, device) -> Iterator[Any]:
+def _restoring(microscope, device, on_fault=None) -> Iterator[Any]:
     """Put the active view, device, and detector back afterwards, however the
     block exits.
 
@@ -176,6 +177,9 @@ def _restoring(microscope, device) -> Iterator[Any]:
     the detector type active on *device* before probing. A setting that cannot
     be put back is reported as a warning rather than raised, so the remaining
     ones are still restored and the block's own exception is not masked.
+
+    If anything could not be put back, ``on_fault(reason)`` is called, which
+    blocks state-changing tools until the operator clears it (fail closed).
     """
     imaging = microscope.imaging
     view = imaging.get_active_view()
@@ -200,6 +204,7 @@ def _restoring(microscope, device) -> Iterator[Any]:
                     lambda m=det_mode: _set_if_changed(microscope.detector.mode, m),
                 ),
             ]
+        failed = []
         for name, step in steps:
             try:
                 step()
@@ -211,6 +216,12 @@ def _restoring(microscope, device) -> Iterator[Any]:
                     f"Could not restore the {name} after probing ({exc}); the "
                     "operator should check the active quadrant in the microscope UI."
                 )
+                failed.append(name)
+        if failed and on_fault is not None:
+            on_fault(
+                "after probing detectors, could not restore the "
+                + ", ".join(dict.fromkeys(failed))
+            )
 
 
 def _stage_errors(exc: Exception) -> None:
@@ -224,15 +235,32 @@ def register(add, config, connection) -> None:
     """Register this module's tools."""
     cache = connection.cache
 
+    def check_beam(beam: str) -> None:
+        """Refuse probing the ion device below its tier, before anything changes."""
+        if beam == "ion" and config.max_tier < ION_TIER:
+            raise ToolError(
+                "Probing the ion beam selects the ion device and its detectors; "
+                f"anything on the ion beam needs tier {ION_TIER}. Ask the user "
+                "to raise the tier. get_imaging_limits(beam=\"ion\") works at "
+                "this tier: it only reads."
+            )
+
     def probe(key, run) -> Dict[str, Any]:
-        """Run *run* once per connection, returning its result with warnings."""
+        """Run *run* once per connection, returning its result with warnings.
+
+        ``restored`` says whether everything the probe changed was put back.
+        A probe that could not restore is not cached, and has set the fault.
+        """
         if key in cache:
-            return {**cache[key], "cached": True, "warnings": []}
+            return {**cache[key], "cached": True, "restored": True, "warnings": []}
+        fault_before = connection.fault
         with connection.use() as microscope, collect_warnings() as found:
             with agent_errors():
                 result = run(microscope)
-        cache[key] = result
-        return {**result, "cached": False, "warnings": found}
+        restored = connection.fault == fault_before
+        if restored:
+            cache[key] = result
+        return {**result, "cached": False, "restored": restored, "warnings": found}
 
     def get_available_detector_types(beam: Beam = "electron") -> dict:
         """List the detector types that work with a beam, e.g. ["ETD", "TLD"].
@@ -242,11 +270,12 @@ def register(add, config, connection) -> None:
         see the screen change for a few seconds. The view, device, and
         detector are restored afterwards, even on failure. The result is
         cached until ``reconnect``, so later calls are instant and touch
-        nothing (``cached: true``).
+        nothing (``cached: true``). Probing the ion beam needs tier 5.
         """
+        check_beam(beam)
 
         def run(microscope):
-            with _restoring(microscope, _device(beam)):
+            with _restoring(microscope, _device(beam), connection.set_fault):
                 return {"beam": beam, "detector_types": _detector_types(microscope, beam)}
 
         return probe(("detector_types", beam), run)
@@ -265,15 +294,18 @@ def register(add, config, connection) -> None:
         Not a passive read: it switches the active quadrant to the beam's
         device and detector, so the operator will see the screen change
         briefly. Everything is restored afterwards, even on failure. Results
-        are cached per beam and detector until ``reconnect``.
+        are cached per beam and detector until ``reconnect``. Probing the ion
+        beam needs tier 5.
         """
+        check_beam(beam)
         key = ("detector_modes", beam, detector)
         if detector is not None and key in cache:
-            return {**cache[key], "cached": True, "warnings": []}
+            return {**cache[key], "cached": True, "restored": True, "warnings": []}
+        fault_before = connection.fault
 
         invalid = False
         with connection.use() as microscope, collect_warnings() as found:
-            with agent_errors(), _restoring(microscope, _device(beam)) as current:
+            with agent_errors(), _restoring(microscope, _device(beam), connection.set_fault) as current:
                 detector = detector or current
                 try:
                     modes = _detector_modes(microscope, beam, detector)
@@ -288,8 +320,10 @@ def register(add, config, connection) -> None:
                 )
 
         result = {"beam": beam, "detector": detector, "modes": modes}
-        cache[("detector_modes", beam, detector)] = result
-        return {**result, "cached": False, "warnings": found}
+        restored = connection.fault == fault_before
+        if restored:
+            cache[("detector_modes", beam, detector)] = result
+        return {**result, "cached": False, "restored": restored, "warnings": found}
 
     def get_available_insertable_detectors() -> dict:
         """List the retractable detectors and the state of each.
@@ -307,7 +341,7 @@ def register(add, config, connection) -> None:
         """
 
         def run(microscope):
-            with _restoring(microscope, _device("electron")):
+            with _restoring(microscope, _device("electron"), connection.set_fault):
                 found = _insertable_detectors(microscope)
             return {
                 "detectors": [
@@ -366,9 +400,11 @@ def register(add, config, connection) -> None:
                 _stage_errors(exc)
                 raise
 
-    add(get_available_detector_types, read_only=True)
-    add(get_available_detector_modes, read_only=True)
-    add(get_available_insertable_detectors, read_only=True)
+    # Not read-only: the probes switch the UI, and the stage tools set the
+    # coordinate system. None moves hardware, so none is destructive.
+    add(get_available_detector_types)
+    add(get_available_detector_modes)
+    add(get_available_insertable_detectors)
     add(get_imaging_limits, read_only=True)
-    add(get_stage_position, read_only=True)
-    add(get_stage_limits, read_only=True)
+    add(get_stage_position)
+    add(get_stage_limits)

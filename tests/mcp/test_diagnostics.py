@@ -96,6 +96,7 @@ async def test_server_info_does_not_connect(server, scope, config):
         (2, False),
         (3, False),
         (4, False),
+        (5, False),
     ]
     assert info["images_dir"] == str(config.images_dir)
     assert info["states_dir"] == str(config.states_dir)
@@ -181,7 +182,7 @@ async def test_recent_activity_limit_is_capped(server, config):
 async def test_recent_activity_without_a_log(server):
     async with Client(server) as client:
         result = await _call(client, "get_recent_activity")
-    assert result == {"total": 0, "records": []}
+    assert result == {"total": 0, "records": [], "interrupted": 0}
 
 
 async def test_recent_activity_survives_a_torn_line(server, config):
@@ -192,3 +193,62 @@ async def test_recent_activity_survives_a_torn_line(server, config):
         result = await _call(client, "get_recent_activity")
     assert result["total"] == 3
     assert result["records"][-1] == {"unreadable": '{"tool": "get_st'}
+
+
+# --- operation records (security review P2) ----------------------------------
+def _write_ops(config, records):
+    config.log_dir.mkdir(parents=True, exist_ok=True)
+    with open(config.log_dir / "audit.jsonl", "w", encoding="utf-8") as f:
+        for record in records:
+            f.write(json.dumps(record) + "\n")
+
+
+async def test_interrupted_call_from_an_earlier_session(server, config):
+    from pytribeam.mcp import audit
+
+    _write_ops(
+        config,
+        [
+            {"op_id": "old.0001", "event": "started", "tool": "set_view", "tier": 1},
+            {"op_id": "old.0001", "event": "ended", "tool": "set_view", "tier": 1, "ok": True},
+            {"op_id": "old.0002", "event": "started", "tool": "collect_single_image", "tier": 2},
+            {"op_id": f"{audit.SESSION_ID}.9999", "event": "started", "tool": "prepare_imaging", "tier": 2},
+        ],
+    )
+    async with Client(server) as client:
+        result = await _call(client, "get_recent_activity")
+    by_op = {r["op_id"]: r for r in result["records"]}
+    assert result["total"] == 3  # one entry per call, not per record
+    assert by_op["old.0001"]["event"] == "ended" and "outcome" not in by_op["old.0001"]
+    assert by_op["old.0002"]["outcome"] == "interrupted"
+    assert by_op[f"{audit.SESSION_ID}.9999"]["outcome"] == "running"
+    assert result["interrupted"] == 1
+
+
+async def test_tool_calls_write_started_and_ended(tmp_path, scope, caplog):
+    import types
+
+    caplog.set_level("INFO", logger="pytribeam.mcp.audit")
+    seen = {}
+
+    def register(add, config, connection):
+        def act() -> str:
+            """A tier 1 action."""
+            from pytribeam.mcp import audit
+
+            seen["op_id"] = audit.current_op_id()
+            return "done"
+
+        add(act)
+
+    module = types.SimpleNamespace(__name__="act", TIER=1, register=register)
+    cfg = ServerConfig(max_tier=1, project_dir=tmp_path)
+    async with Client(build_server(cfg, modules=(diagnostics, module))) as client:
+        await client.call_tool("act", {})
+        await client.call_tool("ping", {})
+    records = [json.loads(r.getMessage()) for r in caplog.records if r.name == "pytribeam.mcp.audit"]
+    act = [r for r in records if r["tool"] == "act"]
+    ping = [r for r in records if r["tool"] == "ping"]
+    assert [r["event"] for r in act] == ["started", "ended"]
+    assert act[0]["op_id"] == act[1]["op_id"] == seen["op_id"]
+    assert [r["event"] for r in ping] == ["ended"]  # tier 0: no started record

@@ -3,9 +3,11 @@
 State Capabilities
 ==================
 
-Tier 0 tools for reading the microscope state and comparing states over
-time. They read the microscope but never change it; in particular they do
-not sweep the imaging quadrants, which would switch the operator's view.
+Tier 1 tools for reading the microscope state and comparing states over
+time. They read the microscope but never change it: they do not sweep the
+imaging quadrants, which would switch the operator's view, so they are
+annotated read-only. They are tier 1 rather than tier 0 because tier 0 never
+talks to the microscope. Listing saved states is in ``records``.
 
 Every capture is saved in full to ``<project_dir>/states`` as ``s0001.yml``,
 ``s0002.yml``, ..., and the file name is the id the agent sees. The files are
@@ -29,7 +31,7 @@ from pytribeam.mcp.capabilities._helpers import snapshot
 from pytribeam.mcp.state.condense import condense
 from pytribeam.mcp.state.diff import diff
 
-TIER = 0
+TIER = 1
 
 _STATE_ID = re.compile(r"^s\d+$")
 
@@ -88,28 +90,5 @@ def register(add, config, connection) -> None:
             after, new = read_state("")
         return {"before_id": before, "after_id": after, **diff(old, new)}
 
-    def list_states(limit: int = 20) -> dict:
-        """List the most recent saved states, oldest first.
-
-        Includes states from earlier sessions in this project. ``limit`` caps
-        how many are returned; ``total`` is how many exist.
-        """
-        ids = sorted(
-            (p.stem for p in states_dir.glob("s*.yml") if _STATE_ID.match(p.stem)),
-            key=lambda state_id: int(state_id[1:]),
-        )
-        recent = []
-        for state_id in ids[-limit:] if limit > 0 else []:
-            saved = state.load(states_dir / f"{state_id}.yml")
-            recent.append(
-                {
-                    "state_id": state_id,
-                    "recorded_at": saved["recorded_at"],
-                    "description": saved.get("description") or "",
-                }
-            )
-        return {"total": len(ids), "states": recent}
-
     add(get_state, read_only=True)
     add(compare_states, read_only=True)
-    add(list_states, read_only=True, uses_microscope=False)

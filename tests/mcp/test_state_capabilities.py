@@ -14,6 +14,7 @@ from mcp import Client  # noqa: E402
 # local libraries
 from pytribeam.mcp import connection, state  # noqa: E402
 from pytribeam.mcp.capabilities import _helpers  # noqa: E402
+from pytribeam.mcp.capabilities import records  # noqa: E402
 from pytribeam.mcp.capabilities import state as state_tools  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.server import build_server  # noqa: E402
@@ -52,12 +53,12 @@ def scope(monkeypatch):
 
 @pytest.fixture
 def config(tmp_path):
-    return ServerConfig(max_tier=0, project_dir=tmp_path)
+    return ServerConfig(max_tier=1, project_dir=tmp_path)
 
 
 @pytest.fixture
 def server(config):
-    return build_server(config, modules=(state_tools,))
+    return build_server(config, modules=(state_tools, records))
 
 
 async def _call(client, tool, args=None):
@@ -69,8 +70,18 @@ async def _call(client, tool, args=None):
 async def test_tools_are_read_only(server):
     async with Client(server) as client:
         tools = {t.name: t for t in (await client.list_tools()).tools}
-    assert set(tools) == {"get_state", "compare_states", "list_states"}
-    assert all(t.annotations.read_only_hint for t in tools.values())
+    assert {"get_state", "compare_states", "list_states"} <= set(tools)
+    # Reading a state changes nothing (no quad sweep), so these are read-only
+    # even though get_state and compare_states are tier 1.
+    assert all(tools[n].annotations.read_only_hint for n in ("get_state", "compare_states", "list_states"))
+
+
+async def test_state_tools_need_tier_1(tmp_path):
+    config = ServerConfig(max_tier=0, project_dir=tmp_path)
+    async with Client(build_server(config, modules=(state_tools, records))) as client:
+        names = {t.name for t in (await client.list_tools()).tools}
+    assert "list_states" in names  # files only: tier 0
+    assert not names & {"get_state", "compare_states"}
 
 
 async def test_get_state_saves_full_state_and_returns_condensed(server, scope, config):
