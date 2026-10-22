@@ -11,8 +11,13 @@ microscope.
 :func:`acquire` takes an exclusive lock on ``<project_dir>/.lock`` and keeps the
 file open for the life of the process. The operating system releases the lock
 when the process exits, however it exits, so a crash never leaves a stale lock
-behind. The file holds the owner's pid and start time, for the error message
-a second server shows.
+behind.
+
+The lock file is never written. On Windows, ``msvcrt.locking`` locks one byte
+at the current position, and the lock is mandatory: no other handle may read
+or write that byte. So every process locks byte 0 of an empty file, and the
+owner's pid and start time go in a separate ``.lock.owner`` file that a second
+server can read for its error message.
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ class ProjectLocked(RuntimeError):
 
 
 def _try_lock(f: IO) -> bool:
+    f.seek(0)  # Windows locks the byte at the current position: always byte 0
     if sys.platform == "win32":
         import msvcrt
 
@@ -55,20 +61,20 @@ def acquire(project_dir: Path) -> IO:
     """
     project_dir = Path(project_dir)
     project_dir.mkdir(parents=True, exist_ok=True)
-    path = project_dir / ".lock"
-    # "a+" so opening never truncates the owner's details before we hold it.
-    f = open(path, "a+", encoding="utf-8")
+    owner_path = project_dir / ".lock.owner"
+    # "a" creates the file without truncating it, and it is never written.
+    f = open(project_dir / ".lock", "a", encoding="utf-8")
     if not _try_lock(f):
-        f.seek(0)
-        owner = f.read().strip() or "unknown process"
         f.close()
+        try:
+            owner = owner_path.read_text(encoding="utf-8").strip()
+        except OSError:
+            owner = ""
         raise ProjectLocked(
-            f"Another pytribeam MCP server is using {project_dir} ({owner}). "
-            "Stop it, or give this server its own --project-dir."
+            f"Another pytribeam MCP server is using {project_dir} "
+            f"({owner or 'unknown process'}). Stop it, or give this server its "
+            "own --project-dir."
         )
-    f.seek(0)
-    f.truncate()
     started = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    f.write(f"pid {os.getpid()}, started {started}\n")
-    f.flush()
+    owner_path.write_text(f"pid {os.getpid()}, started {started}\n", encoding="utf-8")
     return f

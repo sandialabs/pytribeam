@@ -56,7 +56,10 @@ def test_lock_is_released_when_the_owner_exits(tmp_path):
 def test_lock_file_names_its_owner(tmp_path):
     held = project_lock.acquire(tmp_path)
     try:
-        assert "pid" in (tmp_path / ".lock").read_text()
+        assert "pid" in (tmp_path / ".lock.owner").read_text()
+        # The locked file itself stays empty, so a mandatory (Windows) byte
+        # lock never covers anything another process reads or writes.
+        assert (tmp_path / ".lock").stat().st_size == 0  # stat, not read: the byte is locked
     finally:
         held.close()
 
