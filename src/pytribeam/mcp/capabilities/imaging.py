@@ -90,11 +90,11 @@ LEVEL_MIN = 0.001
 # pytribeam calls. Tests replace these.
 # ---------------------------------------------------------------------------
 def _beam(beam: str):
+    """The pytribeam beam object for "electron" or "ion"."""
+    from pytribeam import factory
     from pytribeam import types as tbt
 
-    if beam == "electron":
-        return tbt.ElectronBeam(settings=tbt.BeamSettings())
-    return tbt.IonBeam(settings=tbt.BeamSettings())
+    return factory.beam_object_type(tbt.BeamType(beam))(settings=tbt.BeamSettings())
 
 
 def _select_beam(microscope, beam: str) -> None:
@@ -130,7 +130,11 @@ def _current(microscope) -> Dict[str, Any]:
 
 
 def _scan(microscope, beam: str) -> Dict[str, Any]:
-    """The beam's current resolution and dwell, read without changing the view."""
+    """The beam's current resolution and dwell, read without changing the view.
+
+    Not ``factory.active_scan_settings``: that reads the *active* device, so it
+    would need the view switched first, and this runs before anything changes.
+    """
     from pytribeam import utilities as ut
     from pytribeam.constants import Conversions
 
@@ -228,6 +232,11 @@ def _grab(microscope, settings, path: Path) -> None:
 
     Preset resolutions grab in memory and save with metadata. Others are
     written straight to disk by AutoScript, always at 8 bits.
+
+    This is the grab half of ``image.collect_single_image``, which would first
+    run ``prepare_imaging`` again: settings are applied (and auto
+    contrast/brightness run) once, in ``apply``, so that the scan-time check
+    and progress cover exactly one scan, and an ion image is not exposed twice.
     """
     from pytribeam import image
     from pytribeam import types as tbt
@@ -271,6 +280,8 @@ def _stage_position(microscope) -> Optional[Dict[str, Any]]:
 # Plain logic
 # ---------------------------------------------------------------------------
 def parse_resolution(resolution: str) -> Tuple[int, int]:
+    """``factory.string_to_res``, but importable without AutoScript: it runs in
+    the plain-Python checks that happen before the microscope is touched."""
     try:
         width, height = (int(v) for v in resolution.lower().split("x"))
     except (AttributeError, ValueError):

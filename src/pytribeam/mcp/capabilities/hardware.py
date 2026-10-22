@@ -56,11 +56,10 @@ def _limit(limit) -> Dict[str, float]:
 # ---------------------------------------------------------------------------
 def _beam(beam: str):
     """The pytribeam beam object for "electron" or "ion"."""
+    from pytribeam import factory
     from pytribeam import types as tbt
 
-    if beam == "electron":
-        return tbt.ElectronBeam(settings=tbt.BeamSettings())
-    return tbt.IonBeam(settings=tbt.BeamSettings())
+    return factory.beam_object_type(tbt.BeamType(beam))(settings=tbt.BeamSettings())
 
 
 def _device(beam: str):

@@ -152,7 +152,9 @@ The server is built out in stages:
    5, honest annotations, a time limit on every scan, fail closed, HTTP
    binding rules, per-action records, and image size limits. Detached and
    simulator tests pass, including the project lock on Windows.
-4. **Tier 4 tools:** stage motion.
+4. **Tier 4 tools:** stage motion. `move_to_position` is done with detached
+   tests, as a wrapper on `retract_all_devices` and `stage.move_to_position`.
+   The simulator test is still to run.
 5. **Tier 5:** ion beam, milling, and other high-risk operations. Not yet
    designed, apart from the ion imaging already written (gated here).
 
@@ -188,7 +190,7 @@ src/pytribeam/mcp/
     ├── hardware.py        # tier 1, step 2.2: probes, limits, stage reads
     ├── views.py           # tier 1: set_view, clear_fault
     ├── imaging.py         # tier 2 (3 and 5 inside), steps 3.3–3.5
-    └── stage.py           # tier 4, stage 4
+    └── stage.py           # tier 4: move_to_position
 ```
 
 ### Tiers
@@ -251,7 +253,9 @@ with connection.use() as microscope, agent_errors():
     return _stage_position(microscope)
 ```
 
-Put each pytribeam call in a small module-level function that imports pytribeam itself (see `capabilities/hardware.py`). The server then starts without AutoScript, and detached tests can replace that one function with a fake.
+Put each pytribeam call in a small module-level function that imports pytribeam itself (see `capabilities/hardware.py`). The server then starts without AutoScript, and detached tests can replace that one function with a fake. Detached tests that replace these functions never run them, so also test the functions themselves against stand-in pytribeam modules (see `tests/mcp/test_imaging_wrappers.py`).
+
+**The MCP server is a wrapper on pytribeam, not a second implementation.** A tool exposes a pytribeam function and adds only what an agent needs around it: argument conversion, refusals for the tier, before/after records, and readable errors. Do not re-check what the pytribeam function already checks (for example, stage limits in `stage.move_to_position`), and do not reimplement its logic. If a tool needs behavior pytribeam lacks, such as a new safety check, add it to pytribeam so the experiment workflow gets it too. The few exceptions are small pieces that must run before AutoScript is imported or before the microscope is touched, such as parsing a `"WIDTHxHEIGHT"` string for the scan-time check. Each says so in its docstring.
 
 A few implementation notes:
 
@@ -1012,33 +1016,40 @@ All values are in the **RAW** coordinate system, the same one
 `get_stage_position` reports. `None` keeps an axis where it is. At least one
 axis must be given.
 
-**Implementation**
+**Implementation: a wrapper on pytribeam**
 
-1. Read the current position with `factory.active_stage_position_settings`.
-   Fill in any `None` axes from it and build a `tbt.StagePositionUser`.
-2. Run the safety checks below. Refuse on any failure.
-3. Call `stage.move_to_position(microscope, target)` with the default
-   tolerance (`Constants.default_stage_tolerance`).
-4. Return the position before and after (mm/deg), the elapsed time, warnings,
-   and the before/after state record.
+The tool does what pytribeam's experiment workflow does before each slice, and
+nothing more:
 
-**Safety checks before moving**
+1. Read the current position (`hardware._stage_position`, which wraps
+   `factory.active_stage_position_settings`) and fill in any `None` axes.
+2. `insertable_devices.retract_all_devices(microscope, enable_EBSD=False,
+   enable_EDS=False)`, as `workflow` does before every stage move. EBSD and EDS
+   are Laser API devices, enabled per experiment, and are left to tier 5.
+3. `stage.move_to_position(microscope, StagePositionUser(..., RAW))` with the
+   default tolerance. pytribeam checks the target against the stage limits
+   (`stage.safe`), moves the axes in its safety order, and verifies the result.
+4. Return the position before and after, the elapsed time, warnings, and the
+   before/after state record.
 
-- **Limits.** `stage.move_to_position` already refuses targets outside the
-  stage limits by raising `ValueError`. Make sure the message, which includes
-  the limits, reaches the agent.
-- **Inserted detectors.** Refuse if any insertable detector is not
-  `RETRACTED`. Use the step 2.2 insertable-detector query, without the cache, since
-  states change.
-- **Fault.** Refused while `connection.fault` is set (3.5.4). A move that ends
-  with `SystemError` sets it.
-- **Manipulator.** Refuse if `microscope.specimen.manipulator.state` is not
-  `Retracted`.
-- **Bulk stage.** Refuse if the bulk stage is not active (the compustage is
-  in): reading `specimen.stage.current_position` raises, as in
-  `tests/mcp/state_records/s0009.yml`.
-- Do not retract anything automatically. Retracting is itself motion. Tell
-  the agent what is in the way so it can ask the operator.
+The position is **not** validated in the MCP layer: `stage.move_to_position`
+already does that, and its `ValueError` (with the limits) reaches the agent
+unchanged.
+
+**What is checked, and by whom**
+
+| Condition | Handled by |
+|---|---|
+| Target outside the stage limits | `stage.move_to_position` (`ValueError`, passed on) |
+| Inserted detectors | `retract_all_devices`, before the move, as in the workflow |
+| Bulk stage not active (compustage in) | Reading the position raises; `hardware._stage_errors` makes it readable |
+| A move that still misses after a retry | `stage.move_to_position` (`SystemError`); the tool sets the fault (3.5.4) |
+| Fault already set | The audit wrapper, before the tool runs (3.5.4) |
+
+*Decided against:* refusing while a detector is inserted (the earlier plan),
+since the workflow retracts instead; and a manipulator check, which pytribeam
+does not have. If one is wanted, add it to `stage.py` so the workflow gets it
+too.
 
 **What `stage.move_to_position` does, for the docstring**
 
@@ -1048,9 +1059,9 @@ axis must be given.
 - Moves axes one at a time in the order R, X, Y, Z, T. Before a rotation, it
   first returns the tilt to 0° to reduce collision risk.
 - Checks the final position and retries once.
-- A move that still misses raises `SystemError` with the per-axis error.
-  Convert it to a `ToolError` that tells the agent to stop and report to the
-  operator rather than retry.
+- A move that still misses raises `SystemError` with the per-axis error. The
+  tool converts it to a `ToolError` that tells the agent to stop and report to
+  the operator rather than retry, and sets the fault.
 
 **Other requirements**
 
@@ -1058,10 +1069,13 @@ axis must be given.
 - **Never expose `stage.stop()`.** It disconnects the microscope and raises.
   An emergency-stop tool needs its own design.
 - **Done when**
-  - Detached tests cover partial-axis targets, each refusal, and the
-    `SystemError` path.
-  - A simulator test moves X and Y and back, and `compare_states` shows only
-    the stage axes changing.
+  - Detached tests (`tests/mcp/test_stage.py`) cover partial-axis targets,
+    retract-before-move, the limit refusal, the bulk-stage refusal, and the
+    `SystemError` path. *Done.*
+  - A simulator test (`tests/mcp/test_stage_simulated.py`) moves X and Y and
+    back, and `compare_states` shows the stage axes changing and nothing
+    outside the stage, detectors, and view (what the retract and the CCD view
+    touch). *Written; to be run on the simulator.*
 
 ### Stage 5: Tier 5 ion beam and high-risk operations (TODO)
 

@@ -46,7 +46,7 @@ ADDED = {
     },
     2: {"prepare_imaging", "collect_single_image"},
     3: set(),  # lifts the retractable-detector guardrail
-    4: set(),  # stage movement: move_to_position, stage 4
+    4: {"move_to_position"},
     5: set(),  # lifts the ion-beam guardrail
 }
 

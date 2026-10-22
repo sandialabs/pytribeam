@@ -56,6 +56,7 @@ from pytribeam.mcp.capabilities import (
     hardware,
     imaging,
     records,
+    stage,
     state,
     views,
 )
@@ -64,7 +65,7 @@ from pytribeam.mcp.connection import MicroscopeConnection
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics, records, state, hardware, views, imaging)
+CAPABILITY_MODULES = (diagnostics, records, state, hardware, views, imaging, stage)
 
 INSTRUCTIONS = (
     "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
