@@ -657,6 +657,41 @@ class TestCollectImage:
             assert stnd_img.width == 400
             assert stnd_img.height == 800
 
+    @pytest.mark.simulated
+    def test_collect_single_image_custom_resolution_16_bit(
+        self, config_factory, microscope
+    ):
+        """A 16-bit request at a custom resolution warns that it is saved at 8
+        bits, rather than failing while formatting that warning."""
+        test_file = config_factory("image_config_custom_resolution.yml")
+        temp_image_path = test_file.parent.joinpath("test_image_custom_16bit.tif")
+        yml_version = 1.0
+        yml_format = ut.yml_format(version=yml_version)
+        db = ut.yml_to_dict(
+            yml_path_file=test_file,
+            version=yml_version,
+            required_keys=("general", "config_file_version"),
+        )
+        image_step_name, image_step_settings = ut.step_settings(
+            db,
+            step_number_key="step_number",
+            step_number_val=1,
+            yml_format=yml_format,
+        )
+        image_step_settings["bit_depth"] = 16
+        image_object = factory.image(
+            microscope=microscope,
+            step_settings=image_step_settings,
+            yml_format=yml_format,
+            step_name=image_step_name,
+        )
+
+        with pytest.warns(UserWarning, match="requested bit-depth of 16 will be ignored"):
+            img.collect_single_image(save_path=temp_image_path, img_settings=image_object)
+
+        with pil_img.open(str(temp_image_path)) as saved:
+            assert (saved.width, saved.height) == (400, 800)
+
     ### the main methods of the file
     @pytest.mark.hardware
     def test_collect_single_image_insertable(self, config_factory, microscope):

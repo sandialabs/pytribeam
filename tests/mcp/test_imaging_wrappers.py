@@ -1,4 +1,4 @@
-"""The thin pytribeam wrappers in ``imaging`` (``_validate``, ``_grab``),
+"""The thin pytribeam wrappers in ``imaging`` (``_validate``, ``_collect``),
 run against stand-in pytribeam modules. No AutoScript.
 
 ``test_imaging.py`` replaces these wrappers wholesale, so it cannot catch a
@@ -10,7 +10,6 @@ returning ``bit_depth`` as a plain int.
 ## python standard libraries
 import sys
 import types
-import warnings
 from enum import Enum, IntEnum
 from typing import NamedTuple
 
@@ -62,20 +61,12 @@ def pytribeam_stubs(monkeypatch):
     tbt.Device = IntEnum("Device", {"ELECTRON_BEAM": 1})
     tbt.YMLFormatVersion = types.SimpleNamespace(V_1_0="1.0")
 
-    class Frame:
-        def __init__(self, bit_depth):
-            self.bit_depth = bit_depth
-
-        def save(self, path):
-            calls["saved"] = path
-
     image = types.ModuleType("pytribeam.image")
     image.set_view = lambda *args: calls.setdefault("restored", []).append(args[1])
     image.set_beam_device = lambda *args: calls.setdefault("restored", []).append(args[1])
-    image.grab_preset_resolution_frame = lambda s: calls.update(preset=s.bit_depth) or Frame(
-        calls.get("frame_bits", int(s.bit_depth))
+    image.collect_single_image = lambda save_path, img_settings: calls.update(
+        collected=(save_path, img_settings)
     )
-    image.grab_custom_resolution_frame = lambda s, path: calls.update(custom=s.bit_depth)
 
     factory = types.ModuleType("pytribeam.factory")
 
@@ -112,45 +103,13 @@ def test_validate_restores_quad_1_even_on_failure(imaging, pytribeam_stubs):
     assert pytribeam_stubs["restored"] == [1, 1]  # UPPER_LEFT, ELECTRON_BEAM
 
 
-def test_preset_grab_gets_the_requested_depth(imaging, pytribeam_stubs, tmp_path):
+@pytest.mark.parametrize("bits", [8, 16])
+def test_collect_hands_validated_settings_to_pytribeam(imaging, pytribeam_stubs, tmp_path, bits):
+    """_collect is image.collect_single_image, given the settings _validate
+    returned, ColorDepth included, and the server-chosen path."""
     settings = imaging._validate(
-        None, {"resolution": PresetResolution.PRESET_768X512, "bit_depth": 16}
+        None, {"resolution": PresetResolution.PRESET_768X512, "bit_depth": bits}
     )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        imaging._grab(None, settings, tmp_path / "i0001.tif")
-    assert pytribeam_stubs["preset"] is ColorDepth.BITS_16
-    assert not caught
-
-
-def test_custom_grab_warns_instead_of_crashing_on_16_bit(imaging, pytribeam_stubs, tmp_path):
-    settings = imaging._validate(None, {"resolution": Resolution(640, 480), "bit_depth": 16})
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        imaging._grab(None, settings, tmp_path / "i0001.tif")
-    messages = [str(w.message) for w in caught]
-    assert "custom" in pytribeam_stubs
-    assert any("Requested 16-bit depth was ignored" in m for m in messages)
-
-
-def test_custom_grab_with_a_plain_int_depth(imaging, pytribeam_stubs, tmp_path):
-    """The warning must not assume an enum even if a caller skips _validate."""
-    settings = ImageSettings(Scan(Resolution(640, 480)), 16)
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        imaging._grab(None, settings, tmp_path / "i0001.tif")
-    assert any("Requested 16-bit" in str(w.message) for w in caught)
-
-
-def test_preset_grab_reports_a_frame_with_a_different_depth(imaging, pytribeam_stubs, tmp_path):
-    """Says whether AutoScript itself returned fewer bits than requested."""
-    pytribeam_stubs["frame_bits"] = 8
-    settings = imaging._validate(
-        None, {"resolution": PresetResolution.PRESET_768X512, "bit_depth": 16}
-    )
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        imaging._grab(None, settings, tmp_path / "i0001.tif")
-    assert [str(w.message) for w in caught] == [
-        "AutoScript returned a 8-bit frame for a 16-bit request."
-    ]
+    imaging._collect(settings, tmp_path / "i0001.tif")
+    assert pytribeam_stubs["collected"] == (tmp_path / "i0001.tif", settings)
+    assert pytribeam_stubs["collected"][1].bit_depth is ColorDepth(bits)

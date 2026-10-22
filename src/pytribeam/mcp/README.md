@@ -255,7 +255,13 @@ with connection.use() as microscope, agent_errors():
 
 Put each pytribeam call in a small module-level function that imports pytribeam itself (see `capabilities/hardware.py`). The server then starts without AutoScript, and detached tests can replace that one function with a fake. Detached tests that replace these functions never run them, so also test the functions themselves against stand-in pytribeam modules (see `tests/mcp/test_imaging_wrappers.py`).
 
-**The MCP server is a wrapper on pytribeam, not a second implementation.** A tool exposes a pytribeam function and adds only what an agent needs around it: argument conversion, refusals for the tier, before/after records, and readable errors. Do not re-check what the pytribeam function already checks (for example, stage limits in `stage.move_to_position`), and do not reimplement its logic. If a tool needs behavior pytribeam lacks, such as a new safety check, add it to pytribeam so the experiment workflow gets it too. The few exceptions are small pieces that must run before AutoScript is imported or before the microscope is touched, such as parsing a `"WIDTHxHEIGHT"` string for the scan-time check. Each says so in its docstring.
+**The MCP server is a wrapper on pytribeam, not a second implementation.** A tool exposes a pytribeam function and adds only what an agent needs around it: argument conversion, refusals for the tier, before/after records, and readable errors. Do not re-check what the pytribeam function already checks (for example, stage limits in `stage.move_to_position`), and do not reimplement its logic. If a tool needs behavior pytribeam lacks, such as a new safety check, add it to pytribeam so the experiment workflow gets it too. Importing pytribeam (and so AutoScript) is fine: it does not connect to anything. Detached tests stand in for the pytribeam functions a tool calls (see `tests/mcp/test_imaging.py`) rather than the tool avoiding them.
+
+What the MCP layer still adds, and why it is not a duplicate:
+
+- *Restoring the UI after a probe* (`hardware._restoring`): pytribeam's `get_available_*` functions restore the device and detector only if nothing fails. Better fixed in pytribeam with `try`/`finally`.
+- *Replacing carried-over values pytribeam then rejects* (`imaging.clamp_level`, `choose_mode`): the microscope can report a brightness of 0 or a detector mode of `"None"`, which `factory.active_image_settings` returns and `factory.image` refuses. Better fixed in pytribeam, by making the two agree.
+- *Applying a preset resolution in `prepare_imaging`* (`imaging._prepare`): `image.prepare_imaging` applies every setting but the resolution. `_prepare` calls pytribeam's `beam_scan_resolution` for it.
 
 A few implementation notes:
 
@@ -572,10 +578,12 @@ def prepare_imaging(
      `dynamic_focus` and `tilt_correction` from the current values:
      `image.beam_angular_correction` treats `None` as "turn off".
    - `auto_cb=True` fills the `auto_cb` sub-dictionary with the full frame
-     (`left: 0, top: 0, width: 1, height: 1`) and leaves `brightness` and
-     `contrast` unset. Refuse `auto_cb` together with `brightness` or
-     `contrast`; `factory.image` rejects that too, but with a message written
-     for YAML authors.
+     (`left: 0, top: 0, width: 1, height: 1`) and leaves the *current*
+     `brightness` and `contrast` unset. Ones the agent passes are kept, so
+     `factory.image` refuses `auto_cb` together with them, with its own
+     message. *As built:* the MCP layer does not re-check this, nor
+     brightness/contrast ranges or angular correction on the ion beam;
+     pytribeam's validation does, and its message reaches the agent.
    - Use `step_general: {step_type: image, ...}` as in the example.
 4. Validate by calling `factory.image(microscope, step_settings,
    step_name="mcp", yml_format=tbt.YMLFormatVersion.V_1_0)`. This reuses all
@@ -670,12 +678,14 @@ parameters:
     copy it.
   - Check the acquisition time (3.4) before anything moves or scans.
   - Save to `next_path(config.images_dir, "i", ".tif")`.
-  - Apply the settings as in 3.3, then grab with
-    `image.grab_preset_resolution_frame` or `image.grab_custom_resolution_frame`.
-    *As built:* this does not call `image.collect_single_image`, which would
-    run `prepare_imaging` a second time: another ~5 s of voltage and current
-    checks, and with `auto_cb`, a second auto contrast/brightness scan, which
-    removes material with the ion beam.
+  - Call `image.collect_single_image(save_path, settings)`, as the workflow's
+    `image_operation` does. It sets the view, applies the settings (and runs
+    auto contrast/brightness), grabs, and saves. The checks in 3.3 run before
+    it, without applying anything, so settings are applied once.
+    *As built:* an earlier version applied the settings itself and grabbed
+    with a copy of pytribeam's grab code; that copy is gone. The scan-time
+    estimate passed to progress and to the hung-call limit adds
+    `SETTINGS_ALLOWANCE_S` (30 s) for the settings changes.
   - Preset resolutions grab in memory and save with metadata. Any other
     resolution is written by AutoScript straight to disk and is forced to
     8-bit; turn that warning into a `warnings` entry.
