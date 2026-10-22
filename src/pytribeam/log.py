@@ -300,11 +300,11 @@ def position(
                 Constants.position_dtype,
                 maxshape=(None,),
             )
-            position.attrs["X Units"] = np.string_("[mm]")
-            position.attrs["Y Units"] = np.string_("[mm]")
-            position.attrs["Z Units"] = np.string_("[mm]")
-            position.attrs["T Units"] = np.string_("[degrees]")
-            position.attrs["R Units"] = np.string_("[degrees]")
+            position.attrs["X Units"] = np.bytes_("[mm]")
+            position.attrs["Y Units"] = np.bytes_("[mm]")
+            position.attrs["Z Units"] = np.bytes_("[mm]")
+            position.attrs["T Units"] = np.bytes_("[degrees]")
+            position.attrs["R Units"] = np.bytes_("[degrees]")
 
         dataset = file[dataset_location]
         position_data = np.array(
@@ -367,7 +367,7 @@ def laser_power(
                 Constants.laser_power_dtype,
                 maxshape=(None,),
             )
-            laser_power.attrs["Units"] = np.string_("[W]")
+            laser_power.attrs["Units"] = np.bytes_("[W]")
 
         dataset = file[dataset_location]
         laser_power_data = np.array(
@@ -426,7 +426,7 @@ def specimen_current(
                 Constants.specimen_current_dtype,
                 maxshape=(None,),
             )
-            specimen_current.attrs["Units"] = np.string_("[nA]")
+            specimen_current.attrs["Units"] = np.bytes_("[nA]")
 
         dataset = file[dataset_location]
         specimen_current_data = np.array(
