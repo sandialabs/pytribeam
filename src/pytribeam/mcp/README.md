@@ -150,8 +150,8 @@ The server is built out in stages:
 3.5. **Security review and re-tiering.** Done, with detached tests. Acts on
    `pytribeam_mcp_security_review.md`: the six-tier scheme, ion beam at tier
    5, honest annotations, a time limit on every scan, fail closed, HTTP
-   binding rules, per-action records, and image size limits. The simulator
-   tests were updated to the new tiers but not yet re-run.
+   binding rules, per-action records, and image size limits. Detached and
+   simulator tests pass, including the project lock on Windows.
 4. **Tier 4 tools:** stage motion.
 5. **Tier 5:** ion beam, milling, and other high-risk operations. Not yet
    designed, apart from the ion imaging already written (gated here).
