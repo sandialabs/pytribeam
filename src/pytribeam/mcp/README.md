@@ -4,7 +4,7 @@ This describes the usage, structure, and roadmap for MCP development within the 
 
 ## Installation
 
-pytribeam includes an MCP server, `pytribeam_mcp`, that lets an AI agent work with the microscope. Which tools the agent can see depends on the configured tier, and the default is tier 0 (read-only). Install it with the `mcp` extra:
+pytribeam includes an MCP server, `pytribeam_mcp`, that lets an AI agent work with the microscope. Which tools the agent can see depends on the configured tier, and the default is tier 0 (diagnostics only: the server and its saved files, never the microscope). Install it with the `mcp` extra:
 
 ```bash
 # with pip
@@ -23,7 +23,7 @@ The server is configured through environment variables:
 |---|---|---|
 | `PYTRIBEAM_MCP_MICROSCOPE_HOST` | Host name or IP of the microscope PC | none |
 | `PYTRIBEAM_MCP_MICROSCOPE_PORT` | AutoScript port | AutoScript default |
-| `PYTRIBEAM_MCP_MAX_TIER` | Highest tier exposed to the agent (0–4, see [Tiers](#tiers)) | `0` |
+| `PYTRIBEAM_MCP_MAX_TIER` | Highest tier exposed to the agent (0–5, see [Tiers](#tiers)) | `0` |
 | `PYTRIBEAM_MCP_PROJECT_DIR` | Folder for this project's logs and saved states | `%LOCALAPPDATA%/pytribeam/mcp` |
 | `PYTRIBEAM_MCP_MAX_FRAME_S` | Estimated image time above which the agent must pass `confirm_long` | `300` |
 | `PYTRIBEAM_MCP_HARD_MAX_FRAME_S` | Estimated image time above which an image is always refused | `1800` |
@@ -101,6 +101,22 @@ For other MCP clients, most clients that use a JSON config (Claude Desktop, Curs
 }
 ```
 
+### Remote access (HTTP)
+
+With `--transport http`, the bearer token travels in plain text. So:
+
+- The default bind is `127.0.0.1`. Wildcard binds (`0.0.0.0`, `::`) are
+  always refused.
+- Any other address needs `--allow-host-only-http`
+  (`PYTRIBEAM_MCP_ALLOW_HOST_ONLY_HTTP=1`). Pass it only for a virtual adapter
+  that this PC alone can reach, such as the WSL or Podman `vEthernet` adapter.
+  The server cannot check that, so the flag is the operator's word for it.
+- With WSL, mirrored networking (`networkingMode=mirrored` in `.wslconfig`)
+  makes `localhost` inside WSL reach the Windows loopback, and needs no
+  opt-in.
+- Across a real network, never bind directly: use an SSH tunnel to the
+  loopback port, or a TLS reverse proxy.
+
 
 
 
@@ -112,12 +128,13 @@ The server is built out in stages:
    1.2 are done. In 1.3, `agent_errors` and `collect_warnings` are done;
    `snapshot`, `acted`, and the generalized `next_path` are left for stage 3,
    which is the first stage to use them.
-2. **Tier 0 tools:** diagnostics and hardware queries. Implemented with
+2. **Diagnostics and hardware queries** (tiers 0 and 1 after 3.5.1). Implemented with
    detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
    and an Inspector pass against the simulator are still to do.
-3. **Tier 1 and 2 tools:** imaging, image previews, and handling long
-   acquisitions. Detached and simulator tests pass; an Inspector pass is
-   still to do. Not done from 3.0: marking a call that finished after it was
+3. **Imaging tools:** imaging, image previews, and handling long
+   acquisitions. Built when imaging was tier 1 and 2; [Stage 3.5](#stage-35-security-review-and-re-tiering)
+   moves these tools to the new tiers. Detached and simulator tests pass; an
+   Inspector pass is still to do. Not done from 3.0: marking a call that finished after it was
    cancelled in the audit log. Two things the simulator cannot check, to
    verify on the microscope before relying on them:
    - **Frame time.** The simulator returns every frame in about 0.2 s
@@ -130,12 +147,18 @@ The server is built out in stages:
      If that warning appears on the microscope, look for a second warning,
      "AutoScript returned a N-bit frame": present means the grab itself
      returned 8 bits; absent means the grab was 16-bit and saving lost it.
-4. **Tier 3 tools:** stage motion.
-5. **Tier 4:** not yet designed.
+3.5. **Security review and re-tiering.** Done, with detached tests. Acts on
+   `pytribeam_mcp_security_review.md`: the six-tier scheme, ion beam at tier
+   5, honest annotations, a time limit on every scan, fail closed, HTTP
+   binding rules, per-action records, and image size limits. The simulator
+   tests were updated to the new tiers but not yet re-run.
+4. **Tier 4 tools:** stage motion.
+5. **Tier 5:** ion beam, milling, and other high-risk operations. Not yet
+   designed, apart from the ion imaging already written (gated here).
 
-Read [Conventions](#conventions-for-every-tool) and
-[Working on the simulator](#working-on-the-simulator) first; they apply to
-every stage. Each step lists what to build, what to watch out for, and what
+Read [How to add a tool](#how-to-add-a-tool) and
+[Python environment](#python-environment) first; they apply to every
+stage. Each step lists what to build, what to watch out for, and what
 "done" means.
 
 All development and testing is against the AutoScript **simulator** for now.
@@ -153,30 +176,52 @@ src/pytribeam/mcp/
 │
 ├── state/                 # done: capture, condense, diff (no MCP code)
 │
+├── audit.py               # step 3.5.6: op ids, started/ended records
+├── project_lock.py        # step 3.5.6: one server per project directory
+│
 └── capabilities/
     ├── _helpers.py        # step 1.3: error mapping, warnings, snapshots
     ├── diagnostics.py     # tier 0, step 2.1
-    ├── state.py           # tier 0, done
-    ├── hardware.py        # tier 0, step 2.2
-    ├── images.py          # tier 0, step 3.6: list_images, view_image
-    ├── _images.py         # step 3.7: previews and image statistics
-    ├── imaging.py         # tier 1 (and 2), steps 3.1–3.5
-    └── stage.py           # tier 3, stage 4
+    ├── records.py         # tier 0: list_states, list_images, view_image
+    ├── _images.py         # step 3.7: previews, statistics, size limits
+    ├── state.py           # tier 1: get_state, compare_states
+    ├── hardware.py        # tier 1, step 2.2: probes, limits, stage reads
+    ├── views.py           # tier 1: set_view, clear_fault
+    ├── imaging.py         # tier 2 (3 and 5 inside), steps 3.3–3.5
+    └── stage.py           # tier 4, stage 4
 ```
 
 ### Tiers
 
 A capability module declares one `TIER`, and the server only loads modules at
 or below `PYTRIBEAM_MCP_MAX_TIER`. Tools that need different tiers go in
-different modules.
+different modules. The tier is the only control on what the agent may do; there
+is no separate per-call operator approval (see [Stage 3.5](#stage-35-security-review-and-re-tiering)).
+
+Each tier adds one kind of physical effect to the tier below. A tool belongs to
+the lowest tier that covers *everything* it can do, including what it does
+briefly and then undoes.
 
 | Tier | Meaning | Modules | Tools |
 |---|---|---|---|
-| 0 | Observe. Reads the microscope; never changes what it is doing. | `diagnostics`, `state`, `hardware`, `images` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `get_state`, `compare_states`, `list_states`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_imaging_limits`, `get_stage_position`, `get_stage_limits`, `list_images`, `view_image` |
-| 1 | Imaging. Changes beam, detector, and scan settings and acquires images. Can use auto functions (ACB/AF). Only non-insertable detectors allowed. | `imaging` | `set_view`, `prepare_imaging`, `collect_single_image` |
-| 2 | Same as Tier 1 except with insertable detectors, which are inserted if needed. | `imaging` (no new tools; see [Stage 3](#stage-3-tier-1-and-2-imaging-tools-capabilitiesimagingpy)) | `prepare_imaging`, `collect_single_image` |
-| 3 | Stage motion. | `stage` | `move_to_position` |
-| 4 | Material removal and other high-risk operations. | `TBD` | `TBD` |
+| 0 | **Diagnostics.** The server, its connection, and the files it saved. Never reads or changes the microscope beyond one connection check. | `diagnostics`, `records` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `list_states`, `list_images`, `view_image` |
+| 1 | **Microscope reads and UI.** Reads the microscope, and may change the view, device, detector selection, or coordinate system, but never moves hardware or exposes the sample. | `state`, `hardware`, `views` | `get_state`, `compare_states`, `get_imaging_limits`, `set_view`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_stage_position`, `get_stage_limits`, `clear_fault` |
+| 2 | **Electron exposure.** Scans the sample with the electron beam: imaging and auto functions. Fixed (non-retractable) detectors only. No hardware movement. | `imaging` | `prepare_imaging`, `collect_single_image` (electron beam) |
+| 3 | **Insertable detectors.** Tier 2 plus retractable detectors, which are inserted if needed. No stage movement. | `imaging` (no new tools) | `prepare_imaging`, `collect_single_image` |
+| 4 | **Stage movement.** | `stage` | `move_to_position` |
+| 5 | **Ion beam and high-risk.** Anything that acts on the ion beam (imaging, auto functions, probing the ion device), milling, and other operations that remove material. | `imaging` (ion), TBD | `prepare_imaging`, `collect_single_image` (ion beam); milling TBD |
+
+Tiers 2, 3 and 5 share the imaging tools: they are registered at tier 2, and
+the tool checks `config.max_tier` to refuse retractable detectors below tier 3
+and the ion beam below tier 5. The tier 1 detector probes refuse the ion beam
+below tier 5 the same way. That is the one exception to "one module, one
+tier"; the alternative is three copies of every imaging tool.
+
+Tier and annotation are separate. `get_state`, `compare_states`, and
+`get_imaging_limits` are tier 1, because tier 0 never talks to the microscope,
+but they change nothing, so they keep `read_only`. `tests/mcp/test_tiers.py`
+checks the exact tool set at every tier, and the annotation rules, against
+this table.
 
 ### How to add a tool
 
@@ -218,18 +263,21 @@ A few implementation notes:
 - Always validate inputs and handle edge cases to prevent unexpected behavior and maintain system stability.
 - Use flat, simple data structures for communication with the agent (inputs, results), avoiding nested objects and complex types. Put units in the argument names. `None` should mean "leave this setting as it is".
 - Docstrings should be clear and concise, describing the tool's purpose, side effects, units, and what a refusal means. Avoid NumPy-style parameter sections; the schema already lists the arguments.
-- Pass `read_only=True` for tier 0 tools and `destructive=True` for anything that can damage the sample or hardware.
+- **Annotations must be honest.** Pass `read_only=True` only for tools that change nothing at all, which is exactly tier 0. A tool that changes the UI and puts it back is not read-only. Pass `destructive=True` for anything that exposes the sample to a beam, moves hardware, or can damage either: every tool at tier 2 and above. Clients use these hints to decide what to ask the user about, so a wrong `read_only` can let an action through unprompted.
+- **Every scan has a time limit.** Any tool that scans the sample, including auto functions, estimates the scan time and checks it against the frame limits before it starts (step 3.5.3). Never add a scanning path that skips the check.
+- **Fail closed after a failed restore.** A tool that changes something temporarily and cannot put it back must not report success quietly: it marks the connection as needing the operator, and state-changing tools refuse until that is cleared (step 3.5.4).
 
-
-
-9. **Files.** The server chooses every file path, under the project directory
-   (`config.project_dir`). Never accept a path from the agent: a tool that
-   writes to an agent-chosen path can overwrite anything. Name files the same
-   way as states: a letter prefix and a 4-digit counter (`i0001.tif`).
-10. **Every action leaves a record.** Tools at tier 1 and above take a state
-    snapshot before and after acting, and return both state ids and the diff
-    (step 1.3 helper). The agent sees exactly what its action changed, and the
-    project folder keeps the before/after states next to the audit log.
+- **Files.** The server chooses every file path, under the project directory
+  (`config.project_dir`). Never accept a path from the agent: a tool that
+  writes to an agent-chosen path can overwrite anything. Name files the same
+  way as states: a letter prefix and a 4-digit counter (`i0001.tif`). One
+  server process owns a project directory (step 3.5.6).
+- **Every action leaves a record.** Tools at tier 2 and above, and `set_view`,
+  take a state snapshot before and after acting, and return both state ids and
+  the diff (step 1.3 helper). The agent sees exactly what its action changed,
+  and the project folder keeps the before/after states next to the audit log.
+  Tier 1 probes that restore what they change return whether the restore
+  succeeded instead.
 
 ### Testing
 Every step needs three kinds of check:
@@ -325,7 +373,7 @@ module needs the same one, so move it into `src/pytribeam/mcp/connection.py`.
   part of every action.
 - **Done when** each helper has a detached unit test.
 
-### Stage 2: Tier 0 tools
+### Stage 2: Diagnostics and hardware queries
 
 #### 2.1 Diagnostics (`capabilities/diagnostics.py`)
 
@@ -343,7 +391,12 @@ called in the Inspector against the simulator.
 #### 2.2 Hardware queries (`capabilities/hardware.py`)
 
 These answer "what can this microscope do, and where is it?" before the agent
-asks a tier 1 or tier 3 tool to act.
+asks an imaging or stage tool to act.
+
+> **Superseded tiers.** Built as tier 0. The security review found that the
+> probes and the stage tools change the UI or coordinate system, so
+> [3.5.1](#351-new-tiers-finding-p1-read-only-probes) moves them to tier 1 and
+> leaves only `get_imaging_limits` at tier 0.
 
 **`get_available_*` tools**
 
@@ -388,8 +441,8 @@ Notes:
 | `get_stage_position()` | `factory.active_stage_position_settings` | `x_mm, y_mm, z_mm, r_deg, t_deg` and `coordinate_system`. Note: this sets the stage's default coordinate system to RAW as a side effect, which later `get_state` captures will show. |
 | `get_stage_limits()` | `factory.stage_limits` | min and max per axis, in mm or degrees |
 
-- `get_imaging_limits` lets the agent pick valid values before calling a tier 1
-  tool. Report them in the tier 1 argument units.
+- `get_imaging_limits` lets the agent pick valid values before calling an
+  imaging tool. Report them in the imaging tools' argument units.
 - `get_stage_position` reports in **RAW** coordinates, the system
   `move_to_position` uses. `get_state` reports the stage in whatever
   coordinate system is current (the fixtures show `Specimen`) and in meters,
@@ -399,12 +452,17 @@ Notes:
 **Done when** each tool has detached tests (including the restore-on-failure
 path), a simulator test, and has been run once in the Inspector.
 
-### Stage 3: Tier 1 and 2 imaging tools (`capabilities/imaging.py`)
+### Stage 3: Imaging tools (`capabilities/imaging.py`)
 
-All imaging tools live in one module at `TIER = 1`. Tier 2 does not add tools;
-it lifts the detector-insertion guardrail on the tier 1 tools (step 3.3). Read
-the tier with `config.max_tier` inside the tool. This is the one exception to
-"one module, one tier"; the alternative is two copies of every imaging tool.
+> **Superseded tiers.** This stage was built when imaging was tier 1, and
+> retractable detectors tier 2. [Stage 3.5](#stage-35-security-review-and-re-tiering)
+> re-tiers it: `set_view` moves to tier 1, imaging to tier 2, retractable
+> detectors to tier 3, and the ion beam to tier 5. The tier numbers below are
+> kept as they were built; read "tier 1" as tier 2, and "tier 2" as tier 3.
+
+All imaging tools live in one module. The higher tier does not add tools; it
+lifts the detector-insertion guardrail (step 3.3). Read the tier with
+`config.max_tier` inside the tool.
 
 #### 3.0 Long calls
 
@@ -544,7 +602,7 @@ parameters:
   - At tier 2 and above, allowed; pytribeam inserts it if needed. The result
     says `detector_inserted: true` when that happened (state before was not
     `INSERTED`). The tool does not retract it afterwards; retracting is left
-    to the operator or a later tier 4 tool.
+    to the operator or a later tier 5 tool.
 - **Vacuum.** `beam_ready` already raises if the chamber is not pumped. Make
   sure its message reaches the agent.
 
@@ -621,8 +679,8 @@ parameters:
     saved. If the call fails, write neither.
 - **Annotate `destructive=True`.** Ion-beam imaging sputters the surface it
   scans, so every ion image removes some material. The docstring must say so
-  and recommend the electron beam unless the ion beam is needed. *Open
-  question: ion imaging may belong in a higher tier.*
+  and recommend the electron beam unless the ion beam is needed. *Resolved by
+  the security review: the ion beam needs tier 5 (3.5.2).*
 - **Returns** a list: the result dict as JSON text, then (if `preview`) the
   preview as MCP image content via the SDK's `Image(data=..., format="png")`.
   The dict holds:
@@ -714,18 +772,227 @@ fully testable without AutoScript.
 
 | Tool | Module | Tier | Lock |
 |---|---|---|---|
-| `set_view` | `imaging` | 1 | yes |
-| `prepare_imaging` | `imaging` | 1 (retractable detectors at 2) | yes |
-| `collect_single_image` | `imaging` | 1 (retractable detectors at 2) | yes |
+| `set_view` | `imaging` → `views` (3.5.1) | 1 | yes |
+| `prepare_imaging` | `imaging` | 1 → 2 (retractable detectors 3, ion 5) | yes |
+| `collect_single_image` | `imaging` | 1 → 2 (retractable detectors 3, ion 5) | yes |
 | `list_images` | `images` | 0 | no |
 | `view_image` | `images` | 0 | no |
 
 Not in this stage: autofocus (needs a direct AutoScript call, since pytribeam
 has no wrapper, and its behavior on the simulator checked first), stopping a
-scan on cancel, and moving to a point picked in an image (tier 3, after
+scan on cancel, and moving to a point picked in an image (tier 4, after
 stage 4).
 
-### Stage 4: Tier 3 stage motion (`capabilities/stage.py`)
+### Stage 3.5: Security review and re-tiering
+
+`pytribeam_mcp_security_review.md` (commit `6dddc79`) reviewed the server
+before any stage-motion work. Its findings, and what we decided to do about
+each, are below. Everything here comes before stage 4: stage motion is the
+first tool that can collide with something, and it relies on the tiers,
+annotations, and fail-closed behavior set up here.
+
+| Finding | Priority | Decision |
+|---|---|---|
+| Tier 1 allowed ion imaging, which removes material | P0 | Ion beam moves to tier 5 (3.5.2). |
+| Tier 0 tools change the UI but are marked read-only | P1 | New six-tier scheme; probes move to tier 1 and lose `read_only` (3.5.1). |
+| Plain-HTTP bearer token can be sniffed | P1 | Loopback by default; host-only adapters need an explicit opt-in (3.5.5). |
+| One shared token, no per-action operator approval | P1 | **Deferred.** The tier set by the operator at startup is the control for now. Required before multi-user or unattended use. |
+| `prepare_imaging(auto_cb=True)` scans with no time limit | P1 | Every scan path is time-limited (3.5.3). |
+| Cancellation and SDK hangs are not hardware-enforced | P1 | A hung grab is bounded, and fails closed (3.5.4). Stopping the hardware on cancel stays deferred (3.0). |
+| A failed restore only warns | P2 | Fail closed until the operator clears it (3.5.4). |
+| An action's records are not written as one unit | P2 | Each action gets an id and a started/completed record; one process per project directory (3.5.6). |
+| A large TIFF can exhaust memory | P2 | Size limits checked before decoding (3.5.7). |
+
+Two items stay out of scope: per-client identity and roles, and a dose
+budget. The dose budget only matters once the ion beam is enabled at tier 5,
+and should be designed with tier 5.
+
+#### 3.5.1 New tiers (finding P1, read-only probes)
+
+- **Config.** `MAX_TIER = 5`. `TIERS` and the module docstring in
+  `config.py` match the [Tiers](#tiers) table. `get_server_info` reports the
+  six tiers.
+- **Server.** Update `INSTRUCTIONS` to list the six tiers by name.
+- **Moves:**
+  - `hardware.py` becomes `TIER = 1`: the three `get_available_*` probes (they
+    switch the device and detector, then restore them),
+    `get_stage_position`/`get_stage_limits` (they set the default coordinate
+    system to RAW), and `get_imaging_limits`.
+  - `set_view` from `imaging.py` to a new tier 1 `views.py`.
+  - `imaging.py` becomes `TIER = 2`.
+- *As built, after review:* tier 0 is **diagnostics only**, so it never talks
+  to the microscope beyond `check_connection`. `get_state` and `compare_states`
+  move to tier 1 (`state.py`, `TIER = 1`), and `get_imaging_limits` stays in
+  `hardware.py` rather than a separate tier 0 `limits.py`. `list_states` moves
+  to a new tier 0 `records.py` (the old `images.py`) with `list_images` and
+  `view_image`: all three read only saved files. `get_state` never sweeps the
+  quads (`capture(..., include_quads=False)`), so it stays `read_only`.
+- **Annotations.** `read_only=True` stays only on tier 0 tools. The tier 1
+  tools drop it, without being `destructive`. Every imaging tool, including
+  `prepare_imaging`, is `destructive=True`, because both scan the sample
+  (`auto_cb`) or set up a scan.
+- **Constants in `imaging.py`.** Replace `INSERT_TIER = 2` with
+  `INSERT_TIER = 3`, and add `ION_TIER = 5`. Update every refusal message
+  ("needs tier 3", "needs tier 5").
+- **Passive stage reading (optional).** `get_stage_position` sets the
+  coordinate system, so it is not read-only. If a read-only stage reading is
+  needed, report the position in the current coordinate system without
+  switching it, clearly labelled as not for `move_to_position`. `get_state`
+  already includes it, in meters.
+- **Done when**
+  - a test lists the tools at each `max_tier` from 0 to 5 and matches the
+    table exactly;
+  - a test checks that every tier 0 tool is `read_only`, no tier 1 tool is,
+    and every tier 2+ tool is `destructive`;
+  - `ServerConfig(max_tier=5)` is valid and `max_tier=6` raises.
+
+#### 3.5.2 Ion beam to tier 5 (finding P0)
+
+- `prepare_imaging` and `collect_single_image` refuse `beam="ion"` below tier
+  5, before anything changes, with "The ion beam removes material from every
+  area it scans; using it needs tier 5." That includes `auto_cb` on the ion
+  beam.
+- The tier 1 probes refuse `beam="ion"` below tier 5 too. The rule is that
+  anything acting on the ion beam is tier 5, and probing selects the ion
+  device and its detectors. `get_imaging_limits(beam="ion")` stays at tier 0:
+  it only reads.
+- `get_available_insertable_detectors` stays at tier 1: it only uses the
+  electron device.
+- **Done when** detached tests show each ion refusal at tier 4 with nothing
+  changed (no `select`, no `validate`, no snapshot), and the same calls
+  working at tier 5.
+
+#### 3.5.3 Every scan is time-limited (finding P1, auto_cb)
+
+- `prepare_imaging(auto_cb=True)` runs the frame-time check (3.4) before
+  anything changes, the same as `collect_single_image`, with the same
+  `confirm_long` override and hard limit.
+- `auto_cb` is the only scan `prepare_imaging` starts. Auto CB scans a reduced
+  area in pytribeam, so use the full frame estimate, which is the worst case.
+- Any later scanning tool (autofocus, mosaics) must call the same check. Put
+  it in one helper, `check_scan_time(...)`, that every scan path calls.
+- **Known gap, recorded rather than fixed:** `confirm_long` is set by the
+  agent, so it is not independent approval. The hard limit is the
+  operator-set control. Per-call operator approval is the deferred P1.
+- **Done when** a detached test shows `prepare_imaging(auto_cb=True)` refused
+  above the limit at the current resolution and dwell, before any snapshot.
+
+#### 3.5.4 Fail closed (findings P2, restore; P1, hangs)
+
+- **Needs-operator state.** Add `connection.fault: Optional[str]`. While it is
+  set:
+  - every tool that can change the microscope (tier 1 and above) refuses with
+    the fault message and "ask the operator to check the microscope, then
+    call clear_fault";
+  - tier 0 tools keep working, so the agent can still look and report;
+  - `reconnect` does **not** clear it: a new connection does not undo a
+    changed UI.
+- **What sets it:**
+  - `_restoring` (hardware.py) fails to restore the view, device, or detector;
+  - `_validate` (imaging.py) fails to put quad 1 back on the electron beam;
+  - a grab that outlives its time limit (below);
+  - a stage move that ends with `SystemError` (stage 4).
+- **Clearing it.** `clear_fault()` is a tier 1 tool in `views.py`, not
+  destructive. Its docstring says it is for after the operator has checked the
+  microscope. The audit log records the fault it cleared (`cleared_fault`).
+  It refuses while an abandoned acquisition still holds the microscope. The agent could call it without
+  asking, so its docstring and the refusal message both say to ask the user
+  first. A server restart also clears it, and the startup log says so.
+- **Hung acquisitions.** `_acquire` waits at most `estimate + max(60 s, 50 %
+  of estimate)`. If the grab is still running then:
+  - the tool returns an error saying the frame did not finish and the
+    microscope state is unknown;
+  - the fault is set;
+  - the grab thread is left to finish or die on its own, since Python cannot
+    kill it. A late result is discarded, and its partial file deleted when the
+    thread ends.
+  - *As built:* the microscope stays held by the abandoned grab
+    (`connection.hand_off`) until that thread ends, rather than being released
+    at once. A second AutoScript call alongside a stuck one could hang too, or
+    act on a half-finished scan. Every tool that uses the microscope,
+    `check_connection` included, is refused at once while it is held; the
+    file-only tools keep working.
+- **Done when** detached tests show:
+  - a failed restore sets the fault, and the next `prepare_imaging` is
+    refused while `get_state` still works;
+  - `clear_fault` clears it and is audited;
+  - a fake grab that never returns ends the tool call after the bounded wait,
+    sets the fault, and frees the lock for tier 0 tools.
+
+#### 3.5.5 HTTP binding (finding P1, plaintext token)
+
+- **Default unchanged:** stdio, or HTTP on `127.0.0.1`.
+- **Refuse wildcard binds.** `0.0.0.0` and `::` are refused at startup. They
+  expose the token to every network the PC is on.
+- **Host-only adapters need an opt-in.** Any other non-loopback address needs
+  `--allow-host-only-http` (`PYTRIBEAM_MCP_ALLOW_HOST_ONLY_HTTP=1`). The flag
+  means "this address belongs to a virtual adapter that only this PC can
+  reach", such as the WSL or Podman `vEthernet` adapter. The server cannot
+  check that itself, so the flag is the operator's statement, and the startup
+  log repeats it.
+- **README.** Add a "Remote access" note under [Usage](#usage): the bearer
+  token travels in plain text over HTTP. Across a real network, use an SSH
+  tunnel to the loopback port or a TLS reverse proxy, never a direct bind.
+  With WSL, mirrored networking (`networkingMode=mirrored`) makes `localhost`
+  work from inside WSL and needs no opt-in.
+- **Done when** config tests show `0.0.0.0` refused, a non-loopback address
+  refused without the opt-in and accepted with it, and loopback accepted with
+  no flag.
+
+#### 3.5.6 One record per action (finding P2, persistence)
+
+- **Operation id.** Each audited call gets an `op_id` (a session id made from
+  the process start time and a random suffix, plus a counter; `audit.py`).
+  The audit wrapper writes a `started` record before the tool runs and an
+  `ended` record (with `ok` and `refused`) after. A `started` with no `ended`
+  means the process died mid-action. `get_recent_activity` reports it as
+  `"outcome": "interrupted"`, and the startup log warns about it.
+  *As built:* only calls above tier 0 write a `started` record; tier 0 calls
+  change nothing, so there is nothing to recover. `get_recent_activity`
+  returns one entry per call. One still running in this session is
+  `"running"`.
+- **Records point at the op.** Before/after states and image sidecars record
+  the `op_id`, so a partial action can be traced.
+- **One process per project directory.** At startup, take an exclusive lock
+  on `<project_dir>/.lock`, using `msvcrt.locking` on Windows and `fcntl.flock`
+  elsewhere. Refuse to start if another server holds it. This also removes the
+  numbering race between processes in `next_path`.
+- **Done when** tests show a second server refused on the same project
+  directory, and a simulated crash (a `started` record with no end) reported
+  as interrupted.
+
+#### 3.5.7 Image size limits (finding P2, TIFF decoding)
+
+- **Before decoding,** read only the TIFF header (`tifffile.TiffFile(path)`
+  pages, shape and dtype, no pixel data) and refuse more than
+  `MAX_IMAGE_PIXELS = 6144 * 4096 * 2` (the largest preset, with headroom), or
+  a file over 512 MB.
+- **Pillow fallback:** set `PIL.Image.MAX_IMAGE_PIXELS` to the same value, so
+  Pillow raises its decompression-bomb error instead of decoding.
+- **Multi-page files** are refused.
+- **Statistics:** for images over about 16 Mpx, compute `stats` on a regular
+  subsample (every 2nd pixel), and say so in the result (`stats.subsampled`).
+  A subsampled `sharpness` is measured at half the resolution, so compare it
+  only with other subsampled images.
+- **Done when** tests show an oversized synthetic TIFF refused before its
+  pixels are read, which you can check by monkeypatching `tifffile.imread` to
+  fail.
+
+#### Deferred from the review
+
+Recorded here so they are not lost:
+
+- **Per-call operator approval** for destructive actions, through a channel
+  the agent cannot answer for: MCP elicitation, or a console on the microscope
+  PC. Needed before unattended, multi-user, or remote use.
+- **Per-client identity and roles** in place of the single shared token.
+- **Dose and exposure budget**, especially cumulative ion dose. Design with
+  tier 5.
+- **Stopping the hardware on cancel or disconnect** (`stop_acquisition`), and
+  failure-injection tests for client disconnect, process restart, and network
+  loss on the real microscope.
+
+### Stage 4: Tier 4 stage motion (`capabilities/stage.py`)
 
 #### 4.1 `move_to_position`
 
@@ -763,6 +1030,8 @@ axis must be given.
 - **Inserted detectors.** Refuse if any insertable detector is not
   `RETRACTED`. Use the step 2.2 insertable-detector query, without the cache, since
   states change.
+- **Fault.** Refused while `connection.fault` is set (3.5.4). A move that ends
+  with `SystemError` sets it.
 - **Manipulator.** Refuse if `microscope.specimen.manipulator.state` is not
   `Retracted`.
 - **Bulk stage.** Refuse if the bulk stage is not active (the compustage is
@@ -794,15 +1063,16 @@ axis must be given.
   - A simulator test moves X and Y and back, and `compare_states` shows only
     the stage axes changing.
 
-### Stage 5: Tier 4 (TODO)
+### Stage 5: Tier 5 ion beam and high-risk operations (TODO)
 
-Not yet designed. Candidates from the existing pytribeam modules, each of
+Not yet designed. Ion imaging already exists (stage 3) and is gated to this
+tier by 3.5.2. Before enabling it, design the ion dose budget deferred from the
+security review. Other candidates from the existing pytribeam modules, each of
 which needs its own safety review before it is added:
 
 - FIB milling: `fib.mill_operation`
 - laser milling: `laser.laser_operation`
-- EBSD and EDS mapping: `laser.map_ebsd`, `laser.map_eds`
-- detector insertion and retraction: `insertable_devices`
+- EBSD and EDS mapping: `laser.map_ebsd`, `laser.map_eds`, which may fit
+  tier 3 if they only scan with the electron beam and insert detectors
+- explicit detector insertion and retraction: `insertable_devices`
 - turning beams on and off
-
-Tier 2 is unassigned. Some of these may belong there instead.
