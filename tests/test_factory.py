@@ -3,6 +3,8 @@ from pathlib import Path
 import platform
 import time
 import copy
+from types import SimpleNamespace
+import warnings
 
 # 3rd party libraries
 import pytest
@@ -61,6 +63,71 @@ class TestActiveSettings:
         with pytest.raises(ValueError):
             factory.active_imaging_device(microscope=microscope)
         microscope.imaging.set_active_device(active_device)
+
+    @pytest.mark.simulated
+    def test_zero_brightness_and_contrast_round_trip(self, microscope):
+        """Detector settings read from the microscope pass validation, even at
+        brightness and contrast 0, which the microscope can hold"""
+        microscope.imaging.set_active_device(tbt.Device.ELECTRON_BEAM.value)
+        original = (
+            microscope.detector.brightness.value,
+            microscope.detector.contrast.value,
+        )
+        try:
+            microscope.detector.brightness.value = 0.0
+            microscope.detector.contrast.value = 0.0
+            found = factory.active_detector_settings(microscope=microscope)
+            assert (found.brightness, found.contrast) == (0.0, 0.0)
+
+            settings = {
+                "type": found.type.value,
+                "mode": found.mode.value,
+                "brightness": float(found.brightness),
+                "contrast": float(found.contrast),
+                "auto_cb": {"left": None, "top": None, "width": None, "height": None},
+            }
+            factory.validate_detector_settings(
+                microscope=microscope,
+                beam_type=tbt.BeamType.ELECTRON,
+                settings=settings,
+                yml_format=tbt.YMLFormatVersion.V_1_0,
+                step_name="round_trip",
+            )
+        finally:
+            microscope.detector.brightness.value = original[0]
+            microscope.detector.contrast.value = original[1]
+
+    @pytest.mark.simulated
+    def test_unavailable_detector_mode_is_replaced(self):
+        """A mode the detector does not offer (e.g. "None") is reported as the
+        detector's first available mode, with a warning"""
+
+        def setting(value, available=()):
+            return SimpleNamespace(value=value, available_values=list(available))
+
+        microscope = SimpleNamespace(
+            detector=SimpleNamespace(
+                type=setting(tbt.DetectorType.TLD.value),
+                mode=setting(
+                    tbt.DetectorMode.NONE.value,
+                    [tbt.DetectorMode.SECONDARY_ELECTRONS.value],
+                ),
+                brightness=setting(0.5),
+                contrast=setting(0.4),
+            )
+        )
+        with pytest.warns(UserWarning, match="is not available"):
+            found = factory.active_detector_settings(microscope=microscope)
+        assert found.mode == tbt.DetectorMode.SECONDARY_ELECTRONS
+
+        # an available mode is reported as it is, without a warning
+        microscope.detector.mode.value = tbt.DetectorMode.SECONDARY_ELECTRONS.value
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            assert (
+                factory.active_detector_settings(microscope=microscope).mode
+                == tbt.DetectorMode.SECONDARY_ELECTRONS
+            )
 
     @pytest.mark.simulated
     def test_active_image_settings(self, microscope):
