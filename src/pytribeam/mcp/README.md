@@ -154,7 +154,7 @@ The server is built out in stages:
    simulator tests pass, including the project lock on Windows.
 4. **Tier 4 tools:** stage motion. `move_to_position` is done with detached
    tests, as a wrapper on `retract_all_devices` and `stage.move_to_position`.
-   The simulator test is still to run.
+   Detached and simulator tests pass.
 5. **Tier 5:** ion beam, milling, and other high-risk operations. Not yet
    designed, apart from the ion imaging already written (gated here).
 
@@ -1084,7 +1084,7 @@ too.
   - A simulator test (`tests/mcp/test_stage_simulated.py`) moves X and Y and
     back, and `compare_states` shows the stage axes changing and nothing
     outside the stage, detectors, and view (what the retract and the CCD view
-    touch). *Written; to be run on the simulator.*
+    touch). *Done; passes on the simulator.*
 
 ### Stage 5: Tier 5 ion beam and high-risk operations (TODO)
 
