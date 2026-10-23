@@ -21,7 +21,7 @@ dependencies = [
     "h5py",
     "numpy",
     "pyyaml",
-    "pillow<10.0",
+    "pillow>=9.0",
     "opencv-python",
     "scikit-image",
     "pandas",
