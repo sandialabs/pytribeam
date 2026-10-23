@@ -501,6 +501,71 @@ class TestAvailableDetectors:
             assert isinstance(state, tbt.RetractableDeviceState)
             assert state != tbt.RetractableDeviceState.STATIONARY
 
+    @pytest.mark.simulated
+    def test_detector_settings_restored_after_a_failure(self, microscope):
+        """The device and detector are restored even when the probe raises"""
+        img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        original_state = self._imaging_state(microscope)
+
+        with pytest.raises(RuntimeError, match="probe failed"):
+            with img.detector_settings_restored(microscope, tbt.Device.ION_BEAM):
+                # change what a probe changes, then fail part way through
+                ion_types = microscope.detector.type.available_values
+                img.detector_type(
+                    microscope=microscope, detector=tbt.DetectorType(ion_types[-1])
+                )
+                raise RuntimeError("probe failed")
+
+        assert self._imaging_state(microscope) == original_state
+
+    @pytest.mark.simulated
+    def test_detector_settings_restored_reports_a_failed_restore(
+        self, microscope, monkeypatch
+    ):
+        """A restore that fails raises RestoreError instead of passing silently"""
+        img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        original_state = self._imaging_state(microscope)
+        real_set_beam_device = img.set_beam_device
+        calls = {"n": 0}
+
+        def fail_on_restore(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 2:  # the first call switches; the second restores
+                raise RuntimeError("device busy")
+            return real_set_beam_device(*args, **kwargs)
+
+        monkeypatch.setattr(img, "set_beam_device", fail_on_restore)
+        with pytest.raises(img.RestoreError, match="device busy"):
+            with img.detector_settings_restored(microscope, tbt.Device.ION_BEAM):
+                pass
+        monkeypatch.setattr(img, "set_beam_device", real_set_beam_device)
+        real_set_beam_device(microscope, tbt.Device(original_state[0]))
+
+    @pytest.mark.simulated
+    def test_detector_settings_restored_keeps_the_probe_error(
+        self, microscope, monkeypatch
+    ):
+        """If the probe and the restore both fail, the probe's error is raised
+        and the restore failure is warned about"""
+        img.set_beam_device(microscope=microscope, device=tbt.Device.ELECTRON_BEAM)
+        original_state = self._imaging_state(microscope)
+        real_set_beam_device = img.set_beam_device
+        calls = {"n": 0}
+
+        def fail_on_restore(*args, **kwargs):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise RuntimeError("device busy")
+            return real_set_beam_device(*args, **kwargs)
+
+        monkeypatch.setattr(img, "set_beam_device", fail_on_restore)
+        with pytest.warns(UserWarning, match="Could not restore the device"):
+            with pytest.raises(RuntimeError, match="probe failed"):
+                with img.detector_settings_restored(microscope, tbt.Device.ION_BEAM):
+                    raise RuntimeError("probe failed")
+        monkeypatch.setattr(img, "set_beam_device", real_set_beam_device)
+        real_set_beam_device(microscope, tbt.Device(original_state[0]))
+
     @pytest.mark.hardware
     def test_get_available_insertable_detectors_cbs(self, microscope):
         """Tests that the CBS detector is reported as insertable on hardware"""
