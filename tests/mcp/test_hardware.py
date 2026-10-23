@@ -92,51 +92,85 @@ def anyio_backend():
     return "asyncio"
 
 
+class RestoreError(RuntimeError):
+    """Same name as pytribeam's image.RestoreError, which the tools match."""
+
+
 @pytest.fixture
 def scope(monkeypatch):
     """A fake microscope behind the shared connection.
 
-    ``scope.calls`` counts calls to each pytribeam function; set
-    ``scope.fail`` to an exception to make the next probe raise partway
-    through, after it has already changed the device and detector.
+    The probe fakes behave like pytribeam's: they switch the device and
+    detector, then put them back afterwards even if probing fails, and raise
+    ``RestoreError`` if they cannot (set ``scope.fail_restore``).
+
+    ``scope.calls`` counts calls to each probe; set ``scope.fail`` to an
+    exception to make the next probe raise partway through.
     """
     microscope = FakeMicroscope()
     microscope.calls = {}
     microscope.fail = None
+    microscope.fail_restore = False
 
-    def probing(name):
-        """Count a call, then disturb the microscope as pytribeam does."""
+    import contextlib
+
+    @contextlib.contextmanager
+    def restored(device):
+        """As image.detector_settings_restored."""
+        original = microscope.imaging.get_active_device()
+        microscope.imaging.set_active_device(device)
+        saved = dict(microscope.detectors[device])
+        raised = True
+        try:
+            yield saved["type"]
+            raised = False
+        finally:
+            if microscope.fail_restore:
+                if not raised:
+                    raise RestoreError("Could not restore the device (device busy).")
+            else:
+                microscope.detectors[device].update(saved)
+                microscope.imaging.set_active_device(original)
+
+    def probing(name, device):
+        """Count a call, switch and disturb as pytribeam does, restoring after."""
         microscope.calls[name] = microscope.calls.get(name, 0) + 1
+        return restored(device)
 
-        def disturb(device):
-            microscope.imaging.set_active_device(device)
-            microscope.detector.type.value = "ETD"
-            microscope.detector.mode.value = "BackscatterElectrons"
-            if microscope.fail:
-                raise microscope.fail
-
-        return disturb
+    def disturb():
+        microscope.detector.type.value = "ETD"
+        microscope.detector.mode.value = "BackscatterElectrons"
+        if microscope.fail:
+            raise microscope.fail
 
     def detector_types(scope_, beam):
-        probing("types")(DEVICES[beam])
-        return list(DETECTORS[DEVICES[beam]])
+        with probing("types", DEVICES[beam]):
+            disturb()
+            return list(DETECTORS[DEVICES[beam]])
 
     def detector_modes(scope_, beam, detector):
         if detector not in {"ETD", "TLD", "CBS", "ICE", "EBSD"}:
             raise ValueError(f"'{detector}' is not a valid DetectorType")
-        probing("modes")(DEVICES[beam])
-        if detector not in DETECTORS[DEVICES[beam]]:
-            return None
-        return MODES.get(detector, [])
+        with probing("modes", DEVICES[beam]):
+            disturb()
+            if detector not in DETECTORS[DEVICES[beam]]:
+                return None
+            return MODES.get(detector, [])
+
+    def current_detector(scope_, beam):
+        with restored(DEVICES[beam]) as current:
+            return current
 
     def insertable(scope_):
-        probing("insertable")("ELECTRON_BEAM")
-        return [("CBS", "Retracted")]
+        with probing("insertable", "ELECTRON_BEAM"):
+            disturb()
+            return [("CBS", "Retracted")]
 
     monkeypatch.setattr(connection, "_connect", lambda config: microscope)
     monkeypatch.setattr(hardware, "_device", DEVICES.__getitem__)
     monkeypatch.setattr(hardware, "_detector_types", detector_types)
     monkeypatch.setattr(hardware, "_detector_modes", detector_modes)
+    monkeypatch.setattr(hardware, "_current_detector", current_detector)
     monkeypatch.setattr(hardware, "_insertable_detectors", insertable)
     return microscope
 
@@ -259,15 +293,14 @@ async def test_value_errors_reach_the_agent(server, scope):
     assert scope.snapshot() == before
 
 
-async def test_restore_failure_is_reported_as_a_warning(server, scope):
-    scope.imaging.view = 2
-    scope.imaging.fail_set_view = True
+async def test_restore_failure_is_refused_and_not_cached(server, scope):
+    """pytribeam raises RestoreError if it cannot put the UI back; the call
+    fails, and nothing is cached as if it had worked."""
+    scope.fail_restore = True
     async with Client(server) as client:
-        result = await _call(client, "get_available_detector_types", {"beam": "ion"})
-    assert any("Could not restore the view" in w for w in result["warnings"])
-    # the device and detectors are still put back
-    assert scope.imaging.device == "ELECTRON_BEAM"
-    assert scope.detectors["ION_BEAM"] == {"type": "ICE", "mode": "SecondaryIons"}
+        message = await _refused(client, "get_available_detector_types", {"beam": "ion"})
+    assert "could not restore it" in message and "clear_fault" in message
+    assert scope.calls == {"types": 1}
 
 
 # --- get_available_detector_modes ---------------------------------------
@@ -281,7 +314,6 @@ async def test_detector_modes(server, scope):
         "detector": "ETD",
         "modes": MODES["ETD"],
         "cached": False,
-        "restored": True,
         "warnings": [],
     }
     assert second["cached"] is True
@@ -400,30 +432,24 @@ async def test_failed_restore_sets_the_fault_and_blocks(tmp_path, scope, monkeyp
     monkeypatch.setattr(hardware, "_imaging_limits", lambda m, beam: {})
     config = ServerConfig(max_tier=5, project_dir=tmp_path)
     server = build_server(config, modules=(diagnostics, records, hardware, views))
-    scope.imaging.view = 2
-    scope.imaging.fail_set_view = True
+    scope.fail_restore = True
     async with Client(server) as client:
-        probe = await _call(client, "get_available_detector_types", {"beam": "ion"})
-        scope.imaging.fail_set_view = False
+        failed = await _refused(client, "get_available_detector_types", {"beam": "ion"})
+        scope.fail_restore = False
         blocked = await _refused(client, "get_available_detector_types")
         blocked_read = await _refused(client, "get_imaging_limits")
         info = await _call(client, "get_server_info")  # tier 0 still works
         listing = await _call(client, "list_images")
         cleared = await _call(client, "clear_fault")
-        again = await _call(client, "get_available_detector_types")
+        again = await _call(client, "get_available_detector_types", {"beam": "ion"})
 
-    assert probe["restored"] is False and probe["cached"] is False
-    assert "could not restore the view" in blocked
+    assert "could not restore it" in failed
+    assert "after probing detectors" in blocked and "device busy" in blocked
     assert "clear_fault" in blocked and "Tier 0 tools still work" in blocked
-    assert "could not restore" in blocked_read  # even read-only tier 1 tools
+    assert "after probing detectors" in blocked_read  # even read-only tier 1 tools
     assert info["pytribeam_version"] and listing["total"] == 0
-    assert cleared == {"cleared": True, "fault": probe_fault(cleared)}
-    assert again["restored"] is True
-
-
-def probe_fault(cleared):
-    assert "after probing detectors, could not restore the view" in cleared["fault"]
-    return cleared["fault"]
+    assert cleared["cleared"] is True and "device busy" in cleared["fault"]
+    assert again["cached"] is False  # the failed probe was not cached
 
 
 async def test_reconnect_does_not_clear_the_fault(tmp_path, scope):
@@ -431,14 +457,13 @@ async def test_reconnect_does_not_clear_the_fault(tmp_path, scope):
 
     config = ServerConfig(max_tier=5, project_dir=tmp_path)
     server = build_server(config, modules=(diagnostics, hardware, views))
-    scope.imaging.fail_set_view = True
-    scope.imaging.view = 2
+    scope.fail_restore = True
     async with Client(server) as client:
-        await _call(client, "get_available_detector_types", {"beam": "ion"})
-        scope.imaging.fail_set_view = False
+        await _refused(client, "get_available_detector_types", {"beam": "ion"})
+        scope.fail_restore = False
         await client.call_tool("reconnect", {})
         message = await _refused(client, "get_available_detector_types")
-    assert "could not restore" in message
+    assert "after probing detectors" in message
 
 
 async def test_clear_fault_is_audited(tmp_path, scope, caplog):
@@ -447,10 +472,9 @@ async def test_clear_fault_is_audited(tmp_path, scope, caplog):
     caplog.set_level("INFO", logger="pytribeam.mcp.audit")
     config = ServerConfig(max_tier=1, project_dir=tmp_path)
     server = build_server(config, modules=(hardware, views))
-    scope.imaging.fail_set_view = True
-    scope.imaging.view = 2
+    scope.fail_restore = True
     async with Client(server) as client:
-        await _call(client, "get_available_detector_types")
+        await _refused(client, "get_available_detector_types")
         await _call(client, "clear_fault")
         nothing = await _call(client, "clear_fault")
     audit = [
@@ -458,6 +482,33 @@ async def test_clear_fault_is_audited(tmp_path, scope, caplog):
     ]
     cleared = [r for r in audit if r["tool"] == "clear_fault" and r["event"] == "ended"]
     assert len(cleared) == 2 and all(r["ok"] for r in cleared)
-    assert "could not restore the view" in cleared[0]["cleared_fault"]  # which fault
+    assert "after probing detectors" in cleared[0]["cleared_fault"]  # which fault
     assert cleared[1]["cleared_fault"] is None
     assert nothing == {"cleared": False, "fault": None}
+
+
+# --- the pytribeam wrapper, against a stand-in module -------------------------
+def test_current_detector_uses_pytribeams_restoring_context(monkeypatch):
+    """_current_detector reads the beam's detector inside pytribeam's
+    detector_settings_restored, so selecting the device is undone."""
+    import contextlib
+    import sys
+    import types
+
+    import pytribeam
+
+    entered = []
+
+    @contextlib.contextmanager
+    def detector_settings_restored(microscope, device):
+        entered.append(device)
+        yield types.SimpleNamespace(value="TLD")
+
+    image = types.ModuleType("pytribeam.image")
+    image.detector_settings_restored = detector_settings_restored
+    monkeypatch.setitem(sys.modules, "pytribeam.image", image)
+    monkeypatch.setattr(pytribeam, "image", image, raising=False)
+    monkeypatch.setattr(hardware, "_device", lambda beam: f"device-{beam}")
+
+    assert hardware._current_detector(None, "ion") == "TLD"
+    assert entered == ["device-ion"]

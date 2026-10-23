@@ -257,11 +257,9 @@ Put each pytribeam call in a small module-level function that imports pytribeam 
 
 **The MCP server is a wrapper on pytribeam, not a second implementation.** A tool exposes a pytribeam function and adds only what an agent needs around it: argument conversion, refusals for the tier, before/after records, and readable errors. Do not re-check what the pytribeam function already checks (for example, stage limits in `stage.move_to_position`), and do not reimplement its logic. If a tool needs behavior pytribeam lacks, such as a new safety check, add it to pytribeam so the experiment workflow gets it too. Importing pytribeam (and so AutoScript) is fine: it does not connect to anything. Detached tests stand in for the pytribeam functions a tool calls (see `tests/mcp/test_imaging.py`) rather than the tool avoiding them.
 
-What the MCP layer still adds, and why it is not a duplicate:
+When the right fix for a tool is in pytribeam, make it there. Two earlier MCP workarounds were replaced this way: the detector probes now restore the UI themselves (`image.detector_settings_restored`, which raises `RestoreError` if it cannot; the tools turn that into the fault), and `factory.active_image_settings` now returns settings `factory.image` accepts (brightness and contrast in `[0, 1]`, and an available detector mode).
 
-- *Restoring the UI after a probe* (`hardware._restoring`): pytribeam's `get_available_*` functions restore the device and detector only if nothing fails. Better fixed in pytribeam with `try`/`finally`.
-- *Replacing carried-over values pytribeam then rejects* (`imaging.clamp_level`, `choose_mode`): the microscope can report a brightness of 0 or a detector mode of `"None"`, which `factory.active_image_settings` returns and `factory.image` refuses. Better fixed in pytribeam, by making the two agree.
-- *Applying a preset resolution in `prepare_imaging`* (`imaging._prepare`): `image.prepare_imaging` applies every setting but the resolution. `_prepare` calls pytribeam's `beam_scan_resolution` for it.
+The one composition that remains: *applying a preset resolution in `prepare_imaging`* (`imaging._prepare`). `image.prepare_imaging` applies every setting but the resolution, which pytribeam otherwise sets only when it grabs a frame; `_prepare` calls pytribeam's `beam_scan_resolution` for it.
 
 A few implementation notes:
 
@@ -902,7 +900,8 @@ and should be designed with tier 5.
   - `reconnect` does **not** clear it: a new connection does not undo a
     changed UI.
 - **What sets it:**
-  - `_restoring` (hardware.py) fails to restore the view, device, or detector;
+  - a detector probe raises pytribeam's `RestoreError` (it could not restore
+    the device or detector);
   - `_validate` (imaging.py) fails to put quad 1 back on the electron beam;
   - a grab that outlives its time limit (below);
   - a stage move that ends with `SystemError` (stage 4).

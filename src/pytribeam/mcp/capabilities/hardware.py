@@ -9,8 +9,9 @@ or exposes the sample, but most change the UI, which is why they are tier 1:
 
 * ``get_available_*`` find out which detectors and modes work by trying them.
   They switch the active quadrant's device and detector, so the operator sees
-  the screen change for a few seconds. Everything they change is put back in a
-  ``finally`` block, and their results are cached on the connection until
+  the screen change for a few seconds. pytribeam puts them back afterwards,
+  even if probing fails, and raises ``RestoreError`` if it cannot; that sets
+  the connection's fault. Results are cached on the connection until
   ``reconnect``, since the hardware does not change during a session. Probing
   the ion device needs tier 5, like everything else on the ion beam.
 * The stage tools set the stage's default coordinate system to RAW.
@@ -23,10 +24,8 @@ AutoScript and tests can replace the hardware.
 
 from __future__ import annotations
 
-import contextlib
 import logging
-import warnings
-from typing import Any, Dict, Iterator, List, Literal, Optional, Tuple
+from typing import Any, Dict, List, Literal, Optional, Tuple
 
 from mcp.server.mcpserver.exceptions import ToolError
 
@@ -86,6 +85,15 @@ def _detector_modes(microscope, beam: str, detector: str) -> Optional[List[str]]
         microscope, _device(beam), tbt.DetectorType(detector)
     )
     return None if modes is None else [dm.value for dm in modes]
+
+
+def _current_detector(microscope, beam: str) -> str:
+    """The detector type selected on the beam's device. Selecting the device
+    to read it is undone by pytribeam's ``detector_settings_restored``."""
+    from pytribeam import image
+
+    with image.detector_settings_restored(microscope, _device(beam)) as current:
+        return current.value
 
 
 def _insertable_detectors(microscope) -> List[Tuple[str, str]]:
@@ -149,80 +157,6 @@ def _stage_limits(microscope) -> Dict[str, Dict[str, float]]:
 # ---------------------------------------------------------------------------
 # Restoring the operator's view
 # ---------------------------------------------------------------------------
-def _read_detector(microscope) -> Tuple[Any, Any]:
-    """The active detector type and mode, or None for any that cannot be read
-    (a camera device has no detector)."""
-    values = []
-    for setting in (microscope.detector.type, microscope.detector.mode):
-        try:
-            values.append(setting.value)
-        except Exception:
-            values.append(None)
-    return values[0], values[1]
-
-
-def _set_if_changed(setting, value) -> None:
-    if value is not None and setting.value != value:
-        setting.value = value
-
-
-@contextlib.contextmanager
-def _restoring(microscope, device, on_fault=None) -> Iterator[Any]:
-    """Put the active view, device, and detector back afterwards, however the
-    block exits.
-
-    If *device* is not the active device, switch to it first and record its
-    detector too, since probing changes that device's detector settings. Yields
-    the detector type active on *device* before probing. A setting that cannot
-    be put back is reported as a warning rather than raised, so the remaining
-    ones are still restored and the block's own exception is not masked.
-
-    If anything could not be put back, ``on_fault(reason)`` is called, which
-    blocks state-changing tools until the operator clears it (fail closed).
-    """
-    imaging = microscope.imaging
-    view = imaging.get_active_view()
-    original = imaging.get_active_device()
-    saved = [(original, *_read_detector(microscope))]
-    try:
-        if device != original:
-            imaging.set_active_device(device)
-            saved.append((device, *_read_detector(microscope)))
-        yield saved[-1][1]
-    finally:
-        steps = [("view", lambda: imaging.set_active_view(view))]
-        for dev, det_type, det_mode in reversed(saved):
-            steps += [
-                ("device", lambda dev=dev: imaging.set_active_device(dev)),
-                (
-                    "detector type",
-                    lambda t=det_type: _set_if_changed(microscope.detector.type, t),
-                ),
-                (
-                    "detector mode",
-                    lambda m=det_mode: _set_if_changed(microscope.detector.mode, m),
-                ),
-            ]
-        failed = []
-        for name, step in steps:
-            try:
-                step()
-            except Exception as exc:
-                # Logged as well as warned: if the block failed, the tool
-                # result carrying the warning is never returned.
-                log.warning("could not restore the %s after probing: %r", name, exc)
-                warnings.warn(
-                    f"Could not restore the {name} after probing ({exc}); the "
-                    "operator should check the active quadrant in the microscope UI."
-                )
-                failed.append(name)
-        if failed and on_fault is not None:
-            on_fault(
-                "after probing detectors, could not restore the "
-                + ", ".join(dict.fromkeys(failed))
-            )
-
-
 def _stage_errors(exc: Exception) -> None:
     """Raise a readable ToolError for a stage read refused by the microscope,
     e.g. "Bulk stage is not an active stage" while the compustage is in."""
@@ -244,38 +178,50 @@ def register(add, config, connection) -> None:
                 "this tier: it only reads."
             )
 
+    def restore_failed(exc: Exception) -> ToolError:
+        """pytribeam could not put the UI back after probing: fail closed."""
+        connection.set_fault(f"after probing detectors: {exc}")
+        return ToolError(
+            f"Probing changed the microscope UI and could not restore it ({exc}). "
+            "Ask the operator to check the active quadrant, then call clear_fault."
+        )
+
     def probe(key, run) -> Dict[str, Any]:
         """Run *run* once per connection, returning its result with warnings.
 
-        ``restored`` says whether everything the probe changed was put back.
-        A probe that could not restore is not cached, and has set the fault.
+        The pytribeam probes restore the device and detector themselves, even
+        on failure, and raise ``RestoreError`` if they cannot; that sets the
+        fault, and nothing is cached.
         """
         if key in cache:
-            return {**cache[key], "cached": True, "restored": True, "warnings": []}
-        fault_before = connection.fault
+            return {**cache[key], "cached": True, "warnings": []}
         with connection.use() as microscope, collect_warnings() as found:
             with agent_errors():
-                result = run(microscope)
-        restored = connection.fault == fault_before
-        if restored:
-            cache[key] = result
-        return {**result, "cached": False, "restored": restored, "warnings": found}
+                try:
+                    result = run(microscope)
+                except Exception as exc:
+                    if type(exc).__name__ == "RestoreError":
+                        raise restore_failed(exc) from exc
+                    raise
+        cache[key] = result
+        return {**result, "cached": False, "warnings": found}
 
     def get_available_detector_types(beam: Beam = "electron") -> dict:
         """List the detector types that work with a beam, e.g. ["ETD", "TLD"].
 
         Not a passive read: it switches the active quadrant to the beam's
         device and tries every detector type in turn, so the operator will
-        see the screen change for a few seconds. The view, device, and
-        detector are restored afterwards, even on failure. The result is
+        see the screen change for a few seconds. The device and detector are
+        restored afterwards, even on failure; if they cannot be, the call
+        fails and state-changing tools are blocked until the operator has
+        checked the microscope and called ``clear_fault``. The result is
         cached until ``reconnect``, so later calls are instant and touch
         nothing (``cached: true``). Probing the ion beam needs tier 5.
         """
         check_beam(beam)
 
         def run(microscope):
-            with _restoring(microscope, _device(beam), connection.set_fault):
-                return {"beam": beam, "detector_types": _detector_types(microscope, beam)}
+            return {"beam": beam, "detector_types": _detector_types(microscope, beam)}
 
         return probe(("detector_types", beam), run)
 
@@ -292,24 +238,28 @@ def register(add, config, connection) -> None:
 
         Not a passive read: it switches the active quadrant to the beam's
         device and detector, so the operator will see the screen change
-        briefly. Everything is restored afterwards, even on failure. Results
+        briefly. Everything is restored afterwards, even on failure (see
+        ``get_available_detector_types``). Results
         are cached per beam and detector until ``reconnect``. Probing the ion
         beam needs tier 5.
         """
         check_beam(beam)
         key = ("detector_modes", beam, detector)
         if detector is not None and key in cache:
-            return {**cache[key], "cached": True, "restored": True, "warnings": []}
-        fault_before = connection.fault
+            return {**cache[key], "cached": True, "warnings": []}
 
         invalid = False
         with connection.use() as microscope, collect_warnings() as found:
-            with agent_errors(), _restoring(microscope, _device(beam), connection.set_fault) as current:
-                detector = detector or current
+            with agent_errors():
                 try:
+                    detector = detector or _current_detector(microscope, beam)
                     modes = _detector_modes(microscope, beam, detector)
                 except ValueError:
                     modes, invalid = None, True
+                except Exception as exc:
+                    if type(exc).__name__ == "RestoreError":
+                        raise restore_failed(exc) from exc
+                    raise
             if modes is None:
                 valid = get_available_detector_types(beam)["detector_types"]
                 reason = "is not a detector type" if invalid else "does not work"
@@ -319,10 +269,8 @@ def register(add, config, connection) -> None:
                 )
 
         result = {"beam": beam, "detector": detector, "modes": modes}
-        restored = connection.fault == fault_before
-        if restored:
-            cache[("detector_modes", beam, detector)] = result
-        return {**result, "cached": False, "restored": restored, "warnings": found}
+        cache[("detector_modes", beam, detector)] = result
+        return {**result, "cached": False, "warnings": found}
 
     def get_available_insertable_detectors() -> dict:
         """List the retractable detectors and the state of each.
@@ -334,14 +282,14 @@ def register(add, config, connection) -> None:
         Not a passive read: it switches the active quadrant's device and
         tries every detector type in turn, so the operator will see the
         screen change for a few seconds. Everything is restored afterwards,
-        even on failure. The result is cached until ``reconnect``, so a
-        cached state may be stale if the operator has since inserted or
-        retracted a detector; call ``reconnect`` first if that matters.
+        even on failure (see ``get_available_detector_types``). The result is
+        cached until ``reconnect``, so a cached state may be stale if the
+        operator has since inserted or retracted a detector; call
+        ``reconnect`` first if that matters.
         """
 
         def run(microscope):
-            with _restoring(microscope, _device("electron"), connection.set_fault):
-                found = _insertable_detectors(microscope)
+            found = _insertable_detectors(microscope)
             return {
                 "detectors": [
                     {"detector": detector, "state": state} for detector, state in found

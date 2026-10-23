@@ -1,7 +1,6 @@
 """One server process per project directory. No AutoScript."""
 
 ## python standard libraries
-import json
 import subprocess
 import sys
 import textwrap

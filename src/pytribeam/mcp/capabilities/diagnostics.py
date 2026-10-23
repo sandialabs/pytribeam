@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import datetime
 import platform
-import sys
 import time
 from typing import Any, Dict, Optional
 

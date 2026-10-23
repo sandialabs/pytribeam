@@ -16,7 +16,6 @@ from mcp.server.mcpserver import Context  # noqa: E402
 from mcp.server.mcpserver.exceptions import ToolError  # noqa: E402
 
 # local libraries
-from pytribeam.mcp import connection as connection_module  # noqa: E402
 from pytribeam.mcp.capabilities import diagnostics  # noqa: E402
 from pytribeam.mcp.config import ServerConfig  # noqa: E402
 from pytribeam.mcp.connection import MicroscopeConnection  # noqa: E402

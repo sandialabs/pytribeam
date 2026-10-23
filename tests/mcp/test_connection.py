@@ -1,7 +1,6 @@
 """Shared microscope connection and capability helpers. No AutoScript."""
 
 ## python standard libraries
-import json
 import types
 import warnings
 

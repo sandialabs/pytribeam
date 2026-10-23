@@ -46,7 +46,6 @@ from mcp.server.mcpserver import Context, Image
 from mcp.server.mcpserver.exceptions import ToolError
 
 from pytribeam.mcp import audit, state
-from pytribeam.mcp.capabilities import _images
 from pytribeam.mcp.capabilities._helpers import (
     acted,
     agent_errors,
@@ -84,10 +83,6 @@ GRAB_GRACE_FRACTION = 0.5
 _AT_REST = ("Stationary",)
 _INSERTED = "Inserted"
 _FULL_FRAME_CB = {"left": 0.0, "top": 0.0, "width": 1.0, "height": 1.0}
-
-# Smallest brightness/contrast used in place of an out-of-range current value;
-# pytribeam rejects exactly 0.
-LEVEL_MIN = 0.001
 
 
 
@@ -130,22 +125,6 @@ def _beam_is_on(microscope, beam: str) -> bool:
     from pytribeam import utilities as ut
 
     return bool(ut.beam_type(_beam(beam), microscope).is_on)
-
-
-def _detector_modes(microscope, detector: str) -> Optional[List[str]]:
-    """The modes *detector* offers on the active device, or None if it cannot
-    be selected there (validation then reports why).
-
-    Leaves *detector* as the active detector type on the active device.
-    """
-    from pytribeam import image
-    from pytribeam import types as tbt
-
-    try:
-        image.detector_type(microscope, tbt.DetectorType(detector))
-    except Exception:
-        return None
-    return [str(mode) for mode in microscope.detector.mode.available_values]
 
 
 def _detector_state(microscope, detector: str) -> str:
@@ -390,12 +369,6 @@ def register(add, config, connection) -> None:
             # Off unless set: a camera or the ion beam may report None.
             merged["dynamic_focus"] = bool(merged["dynamic_focus"])
             merged["tilt_correction"] = bool(merged["tilt_correction"])
-        if overrides.get("detector_mode") is None:
-            choose_mode(microscope, merged)
-        if not auto_cb:
-            for key in ("brightness", "contrast"):
-                if overrides.get(key) is None:
-                    clamp_level(merged, key)
 
         # Every scan is time-limited (an image, or auto contrast/brightness),
         # using the beam's own current settings for anything not given.
@@ -451,42 +424,6 @@ def register(add, config, connection) -> None:
             "estimate_s": estimate_s,
             "detector_inserted": inserted,
         }
-
-    def clamp_level(merged: Dict[str, Any], key: str) -> None:
-        """Move a carried-over brightness or contrast into (0, 1].
-
-        pytribeam accepts only 0 < value <= 1, but the microscope can report
-        0.0 (the simulator does). Only a value the agent did not ask for is
-        moved; an explicit one goes to pytribeam's validation as given.
-        """
-        value = merged.get(key)
-        if value is None or 0 < value <= 1:
-            return
-        new = min(max(value, LEVEL_MIN), 1.0)
-        warnings.warn(
-            f"Current {key} of {value} is outside the accepted range "
-            f"(0 < {key} <= 1); using {new}. Pass {key}, or auto_cb, to set it."
-        )
-        merged[key] = new
-
-    def choose_mode(microscope, merged: Dict[str, Any]) -> None:
-        """Replace a carried-over detector mode the detector does not offer.
-
-        The microscope can report a mode such as "None" that its own detector
-        does not accept (the simulator's TLD2 does), and a new ``detector``
-        without a ``detector_mode`` would otherwise inherit the old
-        detector's mode. Only a mode the agent did not ask for is replaced;
-        an explicit one is left for validation to accept or refuse.
-        """
-        modes = _detector_modes(microscope, merged["detector"])
-        if not modes or merged["detector_mode"] in modes:
-            return
-        warnings.warn(
-            f"Detector mode {merged['detector_mode']!r} is not available on "
-            f"{merged['detector']}; using {modes[0]!r} (available: "
-            f"{', '.join(modes)}). Pass detector_mode to choose another."
-        )
-        merged["detector_mode"] = modes[0]
 
     def prepare_imaging(
         beam: Beam,

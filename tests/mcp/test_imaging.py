@@ -157,10 +157,6 @@ def scope(monkeypatch):
             raise ValueError("Currently selected device is a camera")
         return dict(fake.settings[beam])
 
-    def detector_modes(microscope, detector):
-        beam = fake.active_beam
-        return list(MODES[detector]) if beam and detector in DETECTORS[beam] else None
-
     def detector_state(microscope, detector):
         return fake.detector_states.get(detector, "Stationary")
 
@@ -194,10 +190,10 @@ def scope(monkeypatch):
             )
         for key in ("brightness", "contrast"):
             level = step["detector"][key]
-            if level is not None and not 0 < level <= 1:
+            if level is not None and not 0 <= level <= 1:  # as pytribeam: [0, 1]
                 raise SchemaError(
                     f"In step 'mcp', requested fixed {key} of '{level}'. This is "
-                    "not within limits of '>0.0' and '<=1.0'."
+                    "not within limits of '>=0.0' and '<=1.0'."
                 )
         mode = step["detector"]["mode"]
         if mode not in MODES[detector]:
@@ -265,7 +261,6 @@ def scope(monkeypatch):
     monkeypatch.setattr(imaging, "_current", current)
     monkeypatch.setattr(imaging, "_beam_is_on", lambda m, beam: fake.beam_on[beam])
     monkeypatch.setattr(imaging, "_detector_state", detector_state)
-    monkeypatch.setattr(imaging, "_detector_modes", detector_modes)
     monkeypatch.setattr(imaging, "_validate", validate)
     monkeypatch.setattr(imaging, "_prepare", prepare)
     monkeypatch.setattr(imaging, "_collect", collect)
@@ -434,24 +429,9 @@ async def test_auto_cb(server, scope):
     assert "either fixed brightness/contrast values or auto" in refused  # pytribeam's
 
 
-async def test_invalid_current_mode_is_replaced(server, scope):
-    """The simulator reports TLD2's mode as "None", which TLD2 rejects."""
-    scope.settings["electron"].update(detector="TLD", detector_mode="None")
-    async with Client(server) as client:
-        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
-    assert _validated_step(scope)["detector"]["mode"] == "SecondaryElectrons"
-    assert any("'None' is not available on TLD" in w for w in result["warnings"])
-
-
-async def test_new_detector_does_not_inherit_the_old_mode(server, scope):
-    scope.settings["electron"]["detector_mode"] = "BackscatterElectrons"  # ETD only
-    async with Client(server) as client:
-        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "TLD"})
-    assert result["settings"]["detector_mode"] == "SecondaryElectrons"
-    assert result["warnings"]
-
-
-async def test_valid_current_mode_is_kept_without_warning(server, scope):
+async def test_current_mode_is_passed_through(server, scope):
+    """The tool hands pytribeam the detector mode it read; correcting a mode
+    the detector does not offer is factory.active_image_settings' job."""
     scope.settings["electron"]["detector_mode"] = "BackscatterElectrons"
     async with Client(server) as client:
         _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
@@ -459,7 +439,18 @@ async def test_valid_current_mode_is_kept_without_warning(server, scope):
     assert result["warnings"] == []
 
 
-async def test_explicit_invalid_mode_is_refused_not_replaced(server, scope):
+async def test_new_detector_with_an_old_mode_is_refused_by_pytribeam(server, scope):
+    """Switching detector without a mode carries the old detector's mode over;
+    pytribeam refuses it and lists the new detector's modes."""
+    scope.settings["electron"]["detector_mode"] = "BackscatterElectrons"  # ETD only
+    async with Client(server) as client:
+        message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "TLD"})
+    assert "Requested mode of BackscatterElectrons for TLD detector is invalid" in message
+    assert "SecondaryElectrons" in message
+    assert not any(c[0] == "prepare" for c in scope.calls)
+
+
+async def test_explicit_invalid_mode_is_refused(server, scope):
     async with Client(server) as client:
         message = await _refused(
             client, "prepare_imaging", {"beam": "electron", "detector": "TLD", "detector_mode": "None"}
@@ -469,28 +460,13 @@ async def test_explicit_invalid_mode_is_refused_not_replaced(server, scope):
 
 
 @pytest.mark.parametrize("key", ["brightness", "contrast"])
-async def test_invalid_current_level_is_moved_into_range(server, scope, key):
-    """The simulator reports brightness 0.0, which pytribeam rejects."""
+async def test_zero_level_is_passed_through(server, scope, key):
+    """pytribeam accepts 0, which the microscope can hold; the tool does not
+    alter it."""
     scope.settings["electron"][key] = 0.0
     async with Client(server) as client:
         _, result = await _call(client, "prepare_imaging", {"beam": "electron", "hfw_mm": 0.5})
-    assert _validated_step(scope)["detector"][key] == imaging.LEVEL_MIN
-    assert any(f"Current {key} of 0.0 is outside" in w for w in result["warnings"])
-
-
-async def test_small_valid_level_is_kept(server, scope):
-    scope.settings["electron"]["brightness"] = 0.0005
-    async with Client(server) as client:
-        _, result = await _call(client, "prepare_imaging", {"beam": "electron"})
-    assert _validated_step(scope)["detector"]["brightness"] == 0.0005
-    assert result["warnings"] == []
-
-
-async def test_auto_cb_does_not_clamp(server, scope):
-    scope.settings["electron"]["brightness"] = 0.0
-    async with Client(server) as client:
-        _, result = await _call(client, "prepare_imaging", {"beam": "electron", "auto_cb": True})
-    assert _validated_step(scope)["detector"]["brightness"] is None
+    assert _validated_step(scope)["detector"][key] == 0.0
     assert result["warnings"] == []
 
 
@@ -500,21 +476,21 @@ async def test_schema_errors_reach_the_agent(server, scope, monkeypatch):
     original = imaging._validate
 
     def strict(microscope, step):
-        step["detector"]["brightness"] = 0.0  # as if the check below were missed
+        step["detector"]["brightness"] = 1.5  # out of range, as if it came from the agent
         return original(microscope, step)
 
     monkeypatch.setattr(imaging, "_validate", strict)
     async with Client(server) as client:
         message = await _refused(client, "prepare_imaging", {"beam": "electron"})
     assert "Invalid imaging settings" in message
-    assert "requested fixed brightness of '0.0'" in message
+    assert "requested fixed brightness of '1.5'" in message
 
 
-@pytest.mark.parametrize("value", [0, 1.5, -0.2])
+@pytest.mark.parametrize("value", [1.5, -0.2])  # 0 is valid: pytribeam allows [0, 1]
 async def test_brightness_out_of_range(server, scope, value):
     async with Client(server) as client:
         message = await _refused(client, "prepare_imaging", {"beam": "electron", "brightness": value})
-    assert "not within limits of '>0.0' and '<=1.0'" in message  # pytribeam's
+    assert "not within limits of '>=0.0' and '<=1.0'" in message  # pytribeam's
     assert not any(c[0] == "prepare" for c in scope.calls)
 
 
@@ -569,7 +545,7 @@ async def test_tier2_refuses_retractable_detectors(tmp_path, scope):
     _, server = _server(tmp_path, max_tier=2)
     scope.detector_states["CBS"] = "Inserted"  # even when already inserted
     async with Client(server) as client:
-        message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
+        message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
     assert "CBS is a retractable detector (currently Inserted)" in message
     assert "needs tier 3" in message
     assert not any(c[0] == "prepare" for c in scope.calls)
@@ -578,8 +554,8 @@ async def test_tier2_refuses_retractable_detectors(tmp_path, scope):
 async def test_tier3_inserts_retractable_detectors(tmp_path, scope):
     _, server = _server(tmp_path, max_tier=3)
     async with Client(server) as client:
-        _, first = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
-        _, second = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS"})
+        _, first = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
+        _, second = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
     assert first["detector_inserted"] is True
     assert first["changes"]["detectors.CBS.state"] == ["Retracted", "Inserted"]
     assert second["detector_inserted"] is False  # already in
