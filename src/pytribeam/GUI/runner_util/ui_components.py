@@ -77,7 +77,7 @@ class ControlPanel(tk.Frame):
         # Logo
         image = Image.open(self.resources.logo_path)
         image_size = (image.size[0] // 3, image.size[1] // 3)
-        image.thumbnail(image_size, Image.ANTIALIAS)
+        image.thumbnail(image_size, resample=Image.LANCZOS)
         self.logo = ImageTk.PhotoImage(image)
 
         logo_label = tk.Label(

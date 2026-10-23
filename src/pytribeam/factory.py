@@ -241,6 +241,8 @@ def active_detector_settings(
 
     This function grabs the current detector settings on the microscope to make a detector object. These settings fully depend on the currently active detector as determined by xTUI.
 
+    If the microscope reports a detector mode that the detector does not offer (for example "None" for a single-mode detector), the detector's first available mode is used instead and a warning is issued, so that the settings pass `validate_detector_settings`.
+
     ## Parameters
 
     - `microscope` (`tbt.Microscope`): The microscope object from which to retrieve the active detector settings.
@@ -252,6 +254,17 @@ def active_detector_settings(
 
     detector_type = microscope.detector.type.value
     detector_mode = microscope.detector.mode.value
+    # The microscope can report a mode the detector does not offer (e.g. "None"
+    # for a single-mode detector). Report one it does, so these settings pass
+    # validate_detector_settings.
+    available_modes = list(microscope.detector.mode.available_values)
+    if available_modes and detector_mode not in available_modes:
+        warnings.warn(
+            f'Detector mode "{detector_mode}" is not available on the '
+            f'"{detector_type}" detector; using "{available_modes[0]}". '
+            f"Available modes: {available_modes}."
+        )
+        detector_mode = available_modes[0]
     brightness = microscope.detector.brightness.value
     contrast = microscope.detector.contrast.value
     auto_cb_settings = tbt.ScanArea(
@@ -2024,10 +2037,10 @@ def validate_detector_settings(
                         lambda x: ut.in_interval(
                             x,
                             limit=cb_limit,
-                            type=tbt.IntervalType.LEFT_OPEN,
+                            type=tbt.IntervalType.CLOSED,
                         ),
                     ),
-                    error=f"In step '{step_name}', requested fixed brightness of '{settings['brightness']}'. This is not within limits of '>{cb_limit.min}' and '<={cb_limit.max}'.",
+                    error=f"In step '{step_name}', requested fixed brightness of '{settings['brightness']}'. This is not within limits of '>={cb_limit.min}' and '<={cb_limit.max}'.",
                 ),
                 "contrast": Or(
                     None,
@@ -2036,10 +2049,10 @@ def validate_detector_settings(
                         lambda x: ut.in_interval(
                             x,
                             limit=cb_limit,
-                            type=tbt.IntervalType.LEFT_OPEN,
+                            type=tbt.IntervalType.CLOSED,
                         ),
                     ),
-                    error=f"In step '{step_name}', requested fixed contrast of '{settings['contrast']}'. This is either not within limits of '>{cb_limit.min}' and '<={cb_limit.max}'.",
+                    error=f"In step '{step_name}', requested fixed contrast of '{settings['contrast']}'. This is not within limits of '>={cb_limit.min}' and '<={cb_limit.max}'.",
                 ),
             },
             ignore_extra_keys=True,

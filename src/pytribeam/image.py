@@ -93,6 +93,8 @@ API.
 """
 
 __all__ = [
+    "RestoreError",
+    "detector_settings_restored",
     "get_available_detector_types",
     "get_available_detector_modes",
     "get_available_insertable_detector_states",
@@ -128,10 +130,11 @@ __all__ = [
 
 # Default python modules
 # from functools import singledispatch
+import contextlib
 from pathlib import Path
 import time
 import warnings
-from typing import List, Optional
+from typing import Iterator, List, Optional
 import math
 
 # Local scripts
@@ -335,6 +338,74 @@ def get_available_insertable_detectors(
 ######################
 
 
+class RestoreError(RuntimeError):
+    """The device, detector type, or detector mode could not be restored after a
+    temporary change, so the microscope UI may not be as it was."""
+
+
+@contextlib.contextmanager
+def detector_settings_restored(
+    microscope: tbt.Microscope,
+    device: Optional[tbt.Device] = None,
+) -> Iterator[tbt.DetectorType]:
+    """
+    Temporarily switch the active device, and restore the device, detector type,
+    and detector mode afterwards, however the block exits.
+
+    Used by the functions that probe which detectors and modes are available,
+    which change the active detector while they search. The detector type and
+    mode are read after switching to *device*, since detector settings belong
+    to the device, and restored on it before switching back.
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`): The microscope object to use.
+    - `device` (`tbt.Device, optional`): The device to switch to while probing. If None, the active device is used.
+
+    ## Yields
+
+    - `tbt.DetectorType`: The detector type that was active on *device* before the block.
+
+    ## Raises
+
+    - `RestoreError`: If any setting could not be restored. Every setting is still attempted. If the block itself raised, that error propagates unchanged and the restore failure is reported as a warning, so neither is lost.
+    """
+    original_device = tbt.Device(microscope.imaging.get_active_device())
+    if device is None:
+        device = original_device
+    set_beam_device(microscope, device)
+    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
+    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
+    block_raised = True
+    try:
+        yield original_detector_type
+        block_raised = False
+    finally:
+        steps = (
+            (
+                "detector type",
+                lambda: detector_type(microscope, original_detector_type),
+            ),
+            (
+                "detector mode",
+                lambda: detector_mode(microscope, original_detector_mode),
+            ),
+            ("device", lambda: set_beam_device(microscope, original_device)),
+        )
+        failed = []
+        for name, step in steps:
+            try:
+                step()
+            except Exception as error:
+                failed.append(f"{name} ({error})")
+        if failed:
+            message = "Could not restore the " + ", ".join(failed) + "."
+            if block_raised:
+                warnings.warn(message)  # the block's own error is propagating
+            else:
+                raise RestoreError(message)
+
+
 def get_available_detector_types(
     microscope: tbt.Microscope, device: Optional[tbt.Device] = None
 ) -> List[tbt.DetectorType]:
@@ -349,38 +420,26 @@ def get_available_detector_types(
     ## Returns
 
     - `List[DetectorType]`: A sorted list of detector types available on the microscope.
+
+    The active device, detector type, and detector mode are restored afterwards,
+    even if probing fails (see `detector_settings_restored`).
+
+    ## Raises
+
+    - `RestoreError`: If a setting could not be restored afterwards.
     """
-    # Get the original device
-    original_device = tbt.Device(microscope.imaging.get_active_device())
-
-    # Parse device
-    if device is None:
-        device = original_device
-
-    # Set device
-    set_beam_device(microscope, device)
-
-    # Get the original detector type and mode for the target device
-    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
-    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
-
-    # Loop over the modes that autoscript provides and make sure they can actually be set (it lies)
-    available_types = []
-    for dt in microscope.detector.type.available_values:
-        dt = tbt.DetectorType(dt)
-        try:
-            # make requested detector the active detector
-            detector_type(microscope, dt)
-        except:
-            pass
-        else:
-            available_types.append(dt)
-
-    # Clean up
-    detector_type(microscope, original_detector_type)
-    detector_mode(microscope, original_detector_mode)
-    set_beam_device(microscope, original_device)
-
+    with detector_settings_restored(microscope, device):
+        # Make sure each detector type AutoScript lists can actually be set (it lies)
+        available_types = []
+        for dt in microscope.detector.type.available_values:
+            dt = tbt.DetectorType(dt)
+            try:
+                # make requested detector the active detector
+                detector_type(microscope, dt)
+            except:
+                pass
+            else:
+                available_types.append(dt)
     return available_types
 
 
@@ -400,53 +459,36 @@ def get_available_detector_modes(
 
     ## Returns
 
-    - `List[str]`: A sorted list of detector types available on the microscope.
+    - `List[DetectorMode]`: The detector modes available for the detector, or None (with a warning) if the detector cannot be selected on this device.
+
+    The active device, detector type, and detector mode are restored afterwards,
+    even if probing fails (see `detector_settings_restored`).
+
+    ## Raises
+
+    - `RestoreError`: If a setting could not be restored afterwards.
     """
-    # Get the original device
-    original_device = tbt.Device(microscope.imaging.get_active_device())
+    with detector_settings_restored(microscope, device) as original_detector_type:
+        if detector is None:
+            detector = original_detector_type
 
-    # Parse device
-    if device is None:
-        device = original_device
+        # Set the detector to the requested value
+        if original_detector_type != detector:
+            try:
+                # make requested detector the active detector
+                detector_type(microscope, detector)
+            except:
+                warnings.warn(
+                    f"""Warning. Invalid detector type of "{detector.value}" for currently selected device
+                    of "{tbt.Device(microscope.imaging.get_active_device()).value}" or detector not found on this system.
+                    No detector modes will be returned."""
+                )
+                return None
 
-    # Set device
-    set_beam_device(microscope, device)
-
-    # Get the original detector type and mode for the target device
-    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
-    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
-
-    # Parse the detector type
-    if detector is None:
-        detector = original_detector_type
-
-    # Set the detector to the requested value
-    if original_detector_type != detector:
-        try:
-            # make requested detector the active detector
-            detector_type(microscope, detector)
-        except:
-            warnings.warn(
-                f"""Warning. Invalid detector type of "{detector.value}" for currently selected device
-                of "{tbt.Device(microscope.imaging.get_active_device()).value}" or detector not found on this system.
-                No detector modes will be returned."""
-            )
-            # Clean up
-            detector_type(microscope, original_detector_type)
-            detector_mode(microscope, original_detector_mode)
-            set_beam_device(microscope, original_device)
-            return
-
-    # Get the available values of detector mode for this type
-    available_modes = [
-        tbt.DetectorMode(dm) for dm in microscope.detector.mode.available_values
-    ]
-
-    # Clean up
-    detector_type(microscope, original_detector_type)
-    detector_mode(microscope, original_detector_mode)
-    set_beam_device(microscope, original_device)
-
+        # Get the available values of detector mode for this type
+        available_modes = [
+            tbt.DetectorMode(dm) for dm in microscope.detector.mode.available_values
+        ]
     return available_modes
 
 
@@ -462,28 +504,22 @@ def get_available_insertable_detector_states(
 
     ## Returns
 
-    - `List[DetectorType]`: A sorted list of insertable detector types available on the microscope.
+    - `List[Tuple[DetectorType, RetractableDeviceState]]`: Each insertable detector and its state.
+
+    The active device, detector type, and detector mode are restored afterwards,
+    even if probing fails (see `detector_settings_restored`).
+
+    ## Raises
+
+    - `RestoreError`: If a setting could not be restored afterwards.
     """
-    # Get the original device
-    original_device = tbt.Device(microscope.imaging.get_active_device())
     device = tbt.Device.ELECTRON_BEAM
-    set_beam_device(microscope, device)
-
-    # Get the original detector type and mode for the target device
-    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
-    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
-
-    insertable_detector_states = []
-    for dt in get_available_detector_types(microscope, device):
-        if devices.detector_insertable(microscope=microscope, detector=dt):
-            state = devices.detector_state(microscope=microscope, detector=dt)
-            insertable_detector_states.append((dt, state))
-
-    # Clean up
-    detector_type(microscope, original_detector_type)
-    detector_mode(microscope, original_detector_mode)
-    set_beam_device(microscope, original_device)
-
+    with detector_settings_restored(microscope, device):
+        insertable_detector_states = []
+        for dt in get_available_detector_types(microscope, device):
+            if devices.detector_insertable(microscope=microscope, detector=dt):
+                state = devices.detector_state(microscope=microscope, detector=dt)
+                insertable_detector_states.append((dt, state))
     return insertable_detector_states
 
 
@@ -500,30 +536,21 @@ def get_available_insertable_detectors(
     ## Returns
 
     - `List[DetectorType]`: A sorted list of insertable detector types available on the microscope.
+
+    The active device, detector type, and detector mode are restored afterwards,
+    even if probing fails (see `detector_settings_restored`).
+
+    ## Raises
+
+    - `RestoreError`: If a setting could not be restored afterwards.
     """
-    # Get the original device
-    original_device = tbt.Device(microscope.imaging.get_active_device())
     device = tbt.Device.ELECTRON_BEAM
-    set_beam_device(microscope, device)
-
-    # Get the original detector type and mode for the target device
-    original_detector_type = tbt.DetectorType(microscope.detector.type.value)
-    original_detector_mode = tbt.DetectorMode(microscope.detector.mode.value)
-
-    insertable_detectors = []
-    for dt in get_available_detector_types(microscope, device):
-        if devices.detector_insertable(microscope=microscope, detector=dt):
-            insertable_detectors.append(dt)
-
-    # Clean up
-    detector_type(microscope, original_detector_type)
-    detector_mode(microscope, original_detector_mode)
-    set_beam_device(microscope, original_device)
-
+    with detector_settings_restored(microscope, device):
+        insertable_detectors = []
+        for dt in get_available_detector_types(microscope, device):
+            if devices.detector_insertable(microscope=microscope, detector=dt):
+                insertable_detectors.append(dt)
     return insertable_detectors
-
-
-######################
 
 
 def beam_angular_correction(
