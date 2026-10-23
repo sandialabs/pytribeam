@@ -128,14 +128,15 @@ The server is built out in stages:
    1.2 are done. In 1.3, `agent_errors` and `collect_warnings` are done;
    `snapshot`, `acted`, and the generalized `next_path` are left for stage 3,
    which is the first stage to use them.
-2. **Diagnostics and hardware queries** (tiers 0 and 1 after 3.5.1). Implemented with
-   detached tests; the simulator tests (`tests/mcp/test_tier0_simulated.py`)
-   and an Inspector pass against the simulator are still to do.
+2. **Diagnostics and hardware queries** (tiers 0 and 1 after 3.5.1). Detached
+   and simulator tests (`tests/mcp/test_queries_simulated.py`) pass.
 3. **Imaging tools:** imaging, image previews, and handling long
    acquisitions. Built when imaging was tier 1 and 2; [Stage 3.5](#stage-35-security-review-and-re-tiering)
-   moves these tools to the new tiers. Detached and simulator tests pass; an
-   Inspector pass is still to do. Not done from 3.0: marking a call that finished after it was
-   cancelled in the audit log. Two things the simulator cannot check, to
+   moves these tools to the new tiers. Detached and simulator tests pass. A
+   call that finished after the client cancelled it is not marked in the audit
+   log; instead the server instructions tell the agent to check
+   `get_recent_activity` after any cancelled, timed-out, or failed call. Two
+   things the simulator cannot check, to
    verify on the microscope before relying on them:
    - **Frame time.** The simulator returns every frame in about 0.2 s
      whatever the pixel count and dwell, so the estimate in step 3.4 (pixels x
@@ -288,10 +289,32 @@ A few implementation notes:
   succeeded instead.
 
 ### Testing
-Every step needs three kinds of check:
+Every step needs these checks:
 - **Detached tests** in `tests/mcp/`, marked `@pytest.mark.detached`, that drive the tools through an in-process MCP `Client` with a fake microscope. `tests/mcp/test_state_capabilities.py` is the template. They cover argument validation, refusals, and result shape.
+- **Wrapper tests** for the small functions that call pytribeam, run against stand-in pytribeam modules (`tests/mcp/test_imaging_wrappers.py`), since the detached tests replace those functions.
 - **Simulator tests**, marked `@pytest.mark.simulated`, that call the same tools against the real simulator through `build_server`.
-- **A manual pass in the MCP Inspector** (see [Manual usage](#manual-usage)): call each new tool once against the simulator and check its result.
+
+Once per release, or after changing a transport, the entry point, or tool descriptions:
+
+- **Process tests** (`tests/mcp/test_server_process.py`, detached) start `python -m pytribeam.mcp` as an agent host does, over stdio and over HTTP. They check the entry point, logging and the project lock, that stdout carries only the protocol, the bearer-token gate, and that the server instructions reach the client.
+- **An agent session on the simulator** (below), which checks what only a real client shows: how the model reads the tool descriptions, image previews, progress, and long calls against the client's timeout.
+
+#### Agent session on the simulator
+
+With the server added to Claude Code at `PYTRIBEAM_MCP_MAX_TIER=4` and `MCP_TOOL_TIMEOUT=600000` (see [Agentic usage](#agentic-usage)), give the agent this task in a fresh session:
+
+> Check the connection, then take an electron image of the sample at a resolution of 1536x1024. Look at it and adjust brightness or contrast if it is clipped, and image again. Move the stage 0.5 mm in X, take one more image, and move back. Finally, tell me what each call changed.
+
+Check that:
+
+- it starts with `check_connection` or `get_recent_activity`, as the instructions ask;
+- the image previews appear in the conversation, and the agent's comments on clipping match each image's `stats`;
+- progress is shown while each image acquires, and no call times out;
+- it uses `get_stage_position` values (RAW, mm) for the move, not the meters in `get_state`;
+- asking it to image with the ion beam is refused (needs tier 5), and it reports the refusal rather than working around it;
+- `get_recent_activity` at the end lists every call, and `images/` holds each image with its sidecar.
+
+Press Esc once while an image is acquiring, then ask the agent to carry on: it should check `get_recent_activity` before repeating the image.
 
 ### Python environment
 
@@ -393,8 +416,8 @@ module needs the same one, so move it into `src/pytribeam/mcp/connection.py`.
 | `reconnect()` | same as `check_connection` | `connection.reset()`, then `check_connection()`. Use it after the microscope software restarts. |
 | `get_recent_activity(limit=20)` | The last `limit` records from `<log_dir>/audit.jsonl`, newest last | Reads the file directly; no hardware. Lets the agent recover what happened in earlier sessions. Cap `limit` at 200. |
 
-**Done when** each tool has a detached test (fake connection) and has been
-called in the Inspector against the simulator.
+**Done when** each tool has a detached test (fake connection) and a simulator
+test.
 
 #### 2.2 Hardware queries (`capabilities/hardware.py`)
 
@@ -458,7 +481,7 @@ Notes:
   docstrings.
 
 **Done when** each tool has detached tests (including the restore-on-failure
-path), a simulator test, and has been run once in the Inspector.
+path) and a simulator test.
 
 ### Stage 3: Imaging tools (`capabilities/imaging.py`)
 

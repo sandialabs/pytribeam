@@ -75,7 +75,13 @@ INSTRUCTIONS = (
     "changes, 2 electron-beam exposure, 3 insertable detectors, 4 stage "
     "movement, 5 ion beam and material removal. The operator sets the highest "
     "tier this server exposes; if a task needs a higher tier, ask the user to "
-    "raise it rather than working around the limit."
+    "raise it rather than working around the limit. "
+    "A tool call that was cancelled, timed out, or failed unexpectedly may "
+    "still have acted: an image may have been taken or the stage moved. "
+    "Before going on after one, and at the start of a session, call "
+    "get_recent_activity (and list_images if you were imaging) to see what "
+    "actually happened; tell the user about any call marked interrupted. "
+    "Do not repeat an action until you know whether it ran."
 )
 
 # --- HTTP transport constants ----------------------------------------------
