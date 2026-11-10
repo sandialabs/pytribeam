@@ -140,7 +140,7 @@ async def test_retractable_detector_refused_at_tier_2(server):
             )
     if result is None:
         pytest.skip("simulator has no retractable detectors")
-    assert result.is_error and "needs tier 3" in result.content[0].text
+    assert result.is_error and "needs tier 4" in result.content[0].text
 
 
 async def test_long_frame_is_refused_without_confirmation(server):

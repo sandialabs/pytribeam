@@ -59,6 +59,7 @@ from pytribeam.mcp.capabilities import (
     records,
     stage,
     state,
+    userguide,
     views,
 )
 from pytribeam.mcp.config import LOOPBACK_HOSTS, ServerConfig
@@ -66,7 +67,9 @@ from pytribeam.mcp.connection import MicroscopeConnection
 
 # Hand-written and reviewed. A capability module that is not listed here is
 # never loaded, whatever the configuration says. Fail closed.
-CAPABILITY_MODULES = (diagnostics, records, state, hardware, views, imaging, stage)
+CAPABILITY_MODULES = (
+    diagnostics, records, userguide, state, hardware, views, imaging, stage
+)
 
 # Sent to the client once, at initialization. Keep it to what an agent needs
 # in every session; details belong in tool descriptions and the docs resources.
@@ -89,7 +92,8 @@ about any call marked interrupted. Do not repeat an action until you know \
 whether it ran. After any failed call, read the state again rather than \
 assuming nothing changed.
 
-CONVENTIONS (full text: resource pytribeam://docs/reference-frame)
+CONVENTIONS (full text: resource pytribeam://docs/reference-frame, or the \
+read_userguide tool if you cannot read resources)
 Stage positions are in the RAW coordinate system, in mm and degrees, as \
 get_stage_position reports and move_to_position takes. Facing the front \
 chamber door, with the ion column left of the electron column: +X comes out \

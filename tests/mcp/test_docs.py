@@ -87,3 +87,28 @@ async def test_resource_is_served_at_tier_0(tmp_path):
         assert listed[REFERENCE_FRAME.uri].mime_type == "text/markdown"
         result = await client.read_resource(REFERENCE_FRAME.uri)
     assert "Stage Axes" in result.contents[0].text
+
+
+@pytest.mark.anyio
+async def test_read_userguide_tool_returns_the_same_text(tmp_path):
+    """The fallback for clients that cannot read resources."""
+    import json
+
+    config = ServerConfig(max_tier=0, microscope_host="scope-pc", project_dir=tmp_path)
+    async with Client(build_server(config)) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+        result = await client.call_tool("read_userguide", {})
+        resource = await client.read_resource(REFERENCE_FRAME.uri)
+    assert tools["read_userguide"].annotations.read_only_hint is True
+    payload = json.loads(result.content[0].text)
+    assert payload["uri"] == REFERENCE_FRAME.uri
+    assert payload["text"] == resource.contents[0].text
+
+
+@pytest.mark.anyio
+async def test_read_userguide_refuses_unknown_pages(tmp_path):
+    config = ServerConfig(max_tier=0, microscope_host="scope-pc", project_dir=tmp_path)
+    async with Client(build_server(config)) as client:
+        result = await client.call_tool("read_userguide", {"page": "../../secrets"})
+    assert result.is_error
+    assert "Pages: reference_frame" in result.content[0].text

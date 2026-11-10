@@ -31,6 +31,7 @@ ADDED = {
         "list_states",
         "list_images",
         "view_image",
+        "read_userguide",
     },
     1: {
         "get_state",
@@ -45,8 +46,8 @@ ADDED = {
         "clear_fault",
     },
     2: {"prepare_imaging", "collect_single_image"},
-    3: set(),  # lifts the retractable-detector guardrail
-    4: {"move_to_position"},
+    3: {"move_to_position"},
+    4: set(),  # lifts the retractable-detector guardrail
     5: set(),  # lifts the ion-beam guardrail
 }
 

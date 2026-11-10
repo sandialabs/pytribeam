@@ -120,6 +120,26 @@ With `--transport http`, the bearer token travels in plain text. So:
 
 
 
+## Agent documentation
+
+Conventions the agent needs come from the pytribeam userguide
+(`docs/userguide/src`), not from text copied into this folder, so the userguide
+stays the one place to edit them. `docs.py` serves each page listed in
+`docs.PAGES` two ways, at every tier:
+
+- as an MCP resource (e.g. `pytribeam://docs/reference-frame`), for clients
+  that let the model read resources;
+- through the tier 0 tool `read_userguide`, for clients that do not.
+
+Figures become `[Figure: alt text]` and links to other pages keep only their
+text. A short summary of the conventions is also in the server `INSTRUCTIONS`,
+since every client shows those to the model.
+
+To add a page, add a `Page` to `docs.PAGES` and a matching `force-include`
+line in `pyproject.toml`, which copies the page into the wheel. A source
+checkout or editable install reads the page from `docs/` instead.
+`tests/mcp/test_docs.py` checks that each page exists and is packaged.
+
 ## Roadmap
 
 The server is built out in stages:
@@ -153,9 +173,10 @@ The server is built out in stages:
    5, honest annotations, a time limit on every scan, fail closed, HTTP
    binding rules, per-action records, and image size limits. Detached and
    simulator tests pass, including the project lock on Windows.
-4. **Tier 4 tools:** stage motion. `move_to_position` is done with detached
-   tests, as a wrapper on `retract_all_devices` and `stage.move_to_position`.
-   Detached and simulator tests pass.
+4. **Stage motion** (tier 3; built as tier 4, before stage moves and
+   insertable detectors swapped tiers). `move_to_position` is done with
+   detached tests, as a wrapper on `retract_all_devices` and
+   `stage.move_to_position`. Detached and simulator tests pass.
 5. **Tier 5:** ion beam, milling, and other high-risk operations. Not yet
    designed, apart from the ion imaging already written (gated here).
 
@@ -176,6 +197,7 @@ src/pytribeam/mcp/
 ├── server.py              # builds the server; CAPABILITY_MODULES allowlist
 ├── config.py              # ServerConfig, tiers, project directory layout
 ├── connection.py          # step 1.2: the one shared microscope connection
+├── docs.py                # userguide pages served as MCP resources
 │
 ├── state/                 # done: capture, condense, diff (no MCP code)
 │
@@ -186,12 +208,13 @@ src/pytribeam/mcp/
     ├── _helpers.py        # step 1.3: error mapping, warnings, snapshots
     ├── diagnostics.py     # tier 0, step 2.1
     ├── records.py         # tier 0: list_states, list_images, view_image
+    ├── userguide.py       # tier 0: read_userguide (pages from docs.py)
     ├── _images.py         # step 3.7: previews, statistics, size limits
     ├── state.py           # tier 1: get_state, compare_states
     ├── hardware.py        # tier 1, step 2.2: probes, limits, stage reads
     ├── views.py           # tier 1: set_view, clear_fault
-    ├── imaging.py         # tier 2 (3 and 5 inside), steps 3.3–3.5
-    └── stage.py           # tier 4: move_to_position
+    ├── imaging.py         # tier 2 (4 and 5 inside), steps 3.3–3.5
+    └── stage.py           # tier 3: move_to_position
 ```
 
 ### Tiers
@@ -207,15 +230,15 @@ briefly and then undoes.
 
 | Tier | Meaning | Modules | Tools |
 |---|---|---|---|
-| 0 | **Diagnostics.** The server, its connection, and the files it saved. Never reads or changes the microscope beyond one connection check. | `diagnostics`, `records` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `list_states`, `list_images`, `view_image` |
+| 0 | **Diagnostics.** The server, its connection, the files it saved, and the userguide pages it ships. Never reads or changes the microscope beyond one connection check. | `diagnostics`, `records`, `userguide` | `ping`, `get_server_info`, `check_connection`, `reconnect`, `get_recent_activity`, `list_states`, `list_images`, `view_image`, `read_userguide` |
 | 1 | **Microscope reads and UI.** Reads the microscope, and may change the view, device, detector selection, or coordinate system, but never moves hardware or exposes the sample. | `state`, `hardware`, `views` | `get_state`, `compare_states`, `get_imaging_limits`, `set_view`, `get_available_detector_types`, `get_available_detector_modes`, `get_available_insertable_detectors`, `get_stage_position`, `get_stage_limits`, `clear_fault` |
 | 2 | **Electron exposure.** Scans the sample with the electron beam: imaging and auto functions. Fixed (non-retractable) detectors only. No hardware movement. | `imaging` | `prepare_imaging`, `collect_single_image` (electron beam) |
-| 3 | **Insertable detectors.** Tier 2 plus retractable detectors, which are inserted if needed. No stage movement. | `imaging` (no new tools) | `prepare_imaging`, `collect_single_image` |
-| 4 | **Stage movement.** | `stage` | `move_to_position` |
+| 3 | **Stage movement.** Moves the stage, retracting insertable detectors first. Imaging still uses fixed detectors only. | `stage` | `move_to_position` |
+| 4 | **Insertable detectors.** The imaging tools may also use retractable detectors, which are inserted if needed. | `imaging` (no new tools) | `prepare_imaging`, `collect_single_image` |
 | 5 | **Ion beam and high-risk.** Anything that acts on the ion beam (imaging, auto functions, probing the ion device), milling, and other operations that remove material. | `imaging` (ion), TBD | `prepare_imaging`, `collect_single_image` (ion beam); milling TBD |
 
-Tiers 2, 3 and 5 share the imaging tools: they are registered at tier 2, and
-the tool checks `config.max_tier` to refuse retractable detectors below tier 3
+Tiers 2, 4 and 5 share the imaging tools: they are registered at tier 2, and
+the tool checks `config.max_tier` to refuse retractable detectors below tier 4
 and the ion beam below tier 5. The tier 1 detector probes refuse the ion beam
 below tier 5 the same way. That is the one exception to "one module, one
 tier"; the alternative is three copies of every imaging tool.
@@ -301,7 +324,7 @@ Once per release, or after changing a transport, the entry point, or tool descri
 
 #### Agent session on the simulator
 
-With the server added to Claude Code at `PYTRIBEAM_MCP_MAX_TIER=4` and `MCP_TOOL_TIMEOUT=600000` (see [Agentic usage](#agentic-usage)), give the agent this task in a fresh session:
+With the server added to Claude Code at `PYTRIBEAM_MCP_MAX_TIER=3` and `MCP_TOOL_TIMEOUT=600000` (see [Agentic usage](#agentic-usage)), give the agent this task in a fresh session:
 
 > Check the connection, then take an electron image of the sample at a resolution of 1536x1024. Look at it and adjust brightness or contrast if it is clipped, and image again. Move the stage 0.5 mm in X, take one more image, and move back. Finally, tell me what each call changed.
 
@@ -490,6 +513,8 @@ path) and a simulator test.
 > re-tiers it: `set_view` moves to tier 1, imaging to tier 2, retractable
 > detectors to tier 3, and the ion beam to tier 5. The tier numbers below are
 > kept as they were built; read "tier 1" as tier 2, and "tier 2" as tier 3.
+> Later, stage movement and retractable detectors swapped tiers: retractable
+> detectors are now tier 4 (see [Tiers](#tiers)).
 
 All imaging tools live in one module. The higher tier does not add tools; it
 lifts the detector-insertion guardrail (step 3.3). Read the tier with
@@ -815,10 +840,15 @@ fully testable without AutoScript.
 
 Not in this stage: autofocus (needs a direct AutoScript call, since pytribeam
 has no wrapper, and its behavior on the simulator checked first), stopping a
-scan on cancel, and moving to a point picked in an image (tier 4, after
-stage 4).
+scan on cancel, and moving to a point picked in an image (tier 3, with
+stage motion, after stage 4).
 
 ### Stage 3.5: Security review and re-tiering
+
+> **Later change.** This stage set tier 3 to retractable detectors and tier 4
+> to stage movement. The two have since swapped: stage movement is tier 3 and
+> retractable detectors tier 4 (`INSERT_TIER = 4`). The numbers below are kept
+> as decided at the time; the [Tiers](#tiers) table is current.
 
 `pytribeam_mcp_security_review.md` (commit `6dddc79`) reviewed the server
 before any stage-motion work. Its findings, and what we decided to do about
@@ -1028,7 +1058,9 @@ Recorded here so they are not lost:
   failure-injection tests for client disconnect, process restart, and network
   loss on the real microscope.
 
-### Stage 4: Tier 4 stage motion (`capabilities/stage.py`)
+### Stage 4: Stage motion, now tier 3 (`capabilities/stage.py`)
+
+> Built as tier 4; stage movement has since moved to tier 3 (see [Tiers](#tiers)).
 
 #### 4.1 `move_to_position`
 
@@ -1119,6 +1151,6 @@ which needs its own safety review before it is added:
 - FIB milling: `fib.mill_operation`
 - laser milling: `laser.laser_operation`
 - EBSD and EDS mapping: `laser.map_ebsd`, `laser.map_eds`, which may fit
-  tier 3 if they only scan with the electron beam and insert detectors
+  tier 4 if they only scan with the electron beam and insert detectors
 - explicit detector insertion and retraction: `insertable_devices`
 - turning beams on and off

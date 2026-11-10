@@ -79,7 +79,7 @@ async def test_stdio_entry_point(tmp_path, env, monkeypatch):
     # The agent is told how to recover from a call it never saw finish.
     assert "get_recent_activity" in instructions and "interrupted" in instructions
     assert {"ping", "get_server_info", "collect_single_image"} <= tools
-    assert "move_to_position" not in tools  # tier 4, above --max-tier
+    assert "move_to_position" not in tools  # tier 3, above --max-tier
     assert json.loads(result.content[0].text)["echo"] == "over stdio"
     # The real entry point sets up logging and the project lock.
     audit = (project / "logs" / "audit.jsonl").read_text().splitlines()
@@ -147,5 +147,6 @@ async def test_http_transport_and_token_gate(http_server):
     assert tools == {
         "ping", "get_server_info", "check_connection", "reconnect",
         "get_recent_activity", "list_states", "list_images", "view_image",
+        "read_userguide",
     }  # tier 0 by default
     assert json.loads(result.content[0].text)["echo"] == "over http"

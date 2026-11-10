@@ -29,7 +29,7 @@ def anyio_backend():
 
 @pytest.fixture
 def server(tmp_path):
-    config = ServerConfig(max_tier=4, microscope_host="localhost", project_dir=tmp_path)
+    config = ServerConfig(max_tier=3, microscope_host="localhost", project_dir=tmp_path)
     return build_server(config)
 
 

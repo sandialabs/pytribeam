@@ -547,12 +547,22 @@ async def test_tier2_refuses_retractable_detectors(tmp_path, scope):
     async with Client(server) as client:
         message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
     assert "CBS is a retractable detector (currently Inserted)" in message
-    assert "needs tier 3" in message
+    assert "needs tier 4" in message
     assert not any(c[0] == "prepare" for c in scope.calls)
 
 
-async def test_tier3_inserts_retractable_detectors(tmp_path, scope):
-    _, server = _server(tmp_path, max_tier=3)
+@pytest.mark.parametrize("max_tier", [2, 3])
+async def test_below_tier4_refuses_retractable_detectors(tmp_path, scope, max_tier):
+    """Tier 3 moves the stage but still may not insert a detector."""
+    _, server = _server(tmp_path, max_tier=max_tier)
+    async with Client(server) as client:
+        message = await _refused(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
+    assert "needs tier 4" in message
+    assert not any(c[0] == "prepare" for c in scope.calls)
+
+
+async def test_tier4_inserts_retractable_detectors(tmp_path, scope):
+    _, server = _server(tmp_path, max_tier=4)
     async with Client(server) as client:
         _, first = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})
         _, second = await _call(client, "prepare_imaging", {"beam": "electron", "detector": "CBS", "detector_mode": "All"})

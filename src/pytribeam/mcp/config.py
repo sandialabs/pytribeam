@@ -32,8 +32,8 @@ Each tier adds one kind of physical effect to the one below (see ``TIERS``):
 0. Diagnostics: the server, the connection, and files it saved.
 1. UI: reads the microscope and may change the UI, never hardware or sample.
 2. Electron exposure: scans the sample with the electron beam.
-3. Insertable detectors: tier 2 plus retractable detectors.
-4. Stage movement.
+3. Stage movement (insertable detectors are retracted first).
+4. Insertable detectors: the imaging tools may also use retractable detectors.
 5. Ion beam, milling, and other operations that remove material.
 """
 
@@ -54,9 +54,10 @@ TIERS = {
     "selection, or coordinate system. Never moves hardware or exposes the sample.",
     2: "Electron exposure: scans the sample with the electron beam (imaging, "
     "auto contrast/brightness). Fixed detectors only. No hardware movement.",
-    3: "Stage movement.",
-    4: "Insertable detectors: tier 2 plus retractable detectors, inserted if "
-    "needed. No stage movement.",
+    3: "Stage movement: moves the stage, retracting insertable detectors "
+    "first. Imaging still uses fixed detectors only.",
+    4: "Insertable detectors: the imaging tools may also use retractable "
+    "detectors, inserting them if needed.",
     5: "Ion beam and high-risk: anything on the ion beam, milling, and other "
     "operations that remove material.",
 }

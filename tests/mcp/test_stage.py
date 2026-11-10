@@ -72,7 +72,7 @@ def scope(monkeypatch):
 
 @pytest.fixture
 def server(tmp_path):
-    config = ServerConfig(max_tier=4, project_dir=tmp_path)
+    config = ServerConfig(max_tier=3, project_dir=tmp_path)
     return build_server(config, modules=(stage, views))
 
 
@@ -94,8 +94,8 @@ async def test_registration(server):
     assert tools["move_to_position"].annotations.destructive_hint is True
 
 
-@pytest.mark.parametrize("max_tier", [0, 1, 2, 3])
-async def test_needs_tier_4(tmp_path, max_tier):
+@pytest.mark.parametrize("max_tier", [0, 1, 2])
+async def test_needs_tier_3(tmp_path, max_tier):
     config = ServerConfig(max_tier=max_tier, project_dir=tmp_path)
     async with Client(build_server(config, modules=(stage,))) as client:
         assert (await client.list_tools()).tools == []
