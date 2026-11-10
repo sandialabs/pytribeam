@@ -1,0 +1,143 @@
+  1. Context exhaustion ended the session
+
+  This mattered more than anything else. The session died partway through the
+  task, after code 1 (4 5 0 4 4 7) was found and while code 2 was in progress.
+  It couldn't be recovered, and two things combined to cause it:
+
+  - Images went straight into context. /context showed collect_single_image at
+    about 5.1M tokens and view_image at about 2.9M, summed over the session.
+    Each 6144×4096 tile and each crop was a large payload.
+  - The client's context estimate didn't match the backend. /context said 238.8k
+    of 1M was used, but Bedrock (through LiteLLM) rejected the request as too
+    long. So auto-compact never fired. /compact then failed too, because
+    compaction has to send the whole oversized history.
+
+  Lessons for the server:
+  - Don't return full-resolution images by default. Save them to disk and return
+    the image ID, the path, a small downsampled preview and numeric stats
+    (mean, saturation %, a sharpness metric).
+  - Provide a crop/view_region tool that takes coordinates and an output size.
+    The model then pays tokens only for the region it wants, at the resolution
+    it needs.
+  - Provide software rotation and flipping of stored images (see section 3).
+  - Keep findings outside the context. The audit log and state snapshots were
+    already a good start. A record_finding or notes tool, or a session log file,
+    would let a fresh session pick up where the old one died.
+
+  Lesson for the client setup: set the auto-compact window below the backend's
+  real limit, so compaction happens while it still can.
+
+  2. Server bugs found
+
+  Issue: The first calls, including ping, failed with a bare "Error executing
+    tool"
+  Lesson: Report the exception type and message. Several later errors did, and
+    they were what made diagnosis possible. A startup self-check would also
+  help.
+  ────────────────────────────────────────
+  Issue: HFW rejected: 3.226398 against a max of 3.2263976…
+  Lesson: Rounding in the reported state made the current value invalid. Clamp
+    within a tolerance, or report full precision.
+  ────────────────────────────────────────
+  Issue: 'LmABS' is not a valid DetectorType blocked all stage moves
+  Lesson: Real tools report detectors your enum doesn't know about. Handle
+    unknown values without crashing.
+  ────────────────────────────────────────
+  Issue: The fix made unknown detectors "assumed not insertable" (LVD)
+  Lesson: Check this for safety. Treating an unknown detector as not insertable
+    is the risky default before a stage move. Safer options: read its actual
+    inserted/retracted state, or refuse the move if that state is unknown.
+  ────────────────────────────────────────
+  Issue: A failed move left the detector on External, and specimen current went
+    from −116 pA to about 0.2 pA
+  Lesson: Failed calls had side effects. Snapshot the imaging state before a
+    compound operation and restore it on failure. The specimen-current change
+  was
+     never explained. Worth checking what really happened on the tool.
+  ────────────────────────────────────────
+  Issue: Even after the fix, every move leaves the detector on T3 with different
+
+    brightness/contrast
+  Lesson: Moves shouldn't change imaging state. If retracting or switching
+    detectors is needed, restore the previous settings afterwards.
+  ────────────────────────────────────────
+  Issue: prepare_imaging read the current detector's brightness before
+  switching,
+    which deadlocked on External
+  Lesson: Recovery paths mustn't depend on the current state being valid. Add a
+    standalone set_detector that works from any state.
+  ────────────────────────────────────────
+  Issue: Stage coordinates were reported as specimen coordinates at first (z =
+    9.91 mm), later as raw (Z = 57.25 mm)
+  Lesson: Pick one coordinate system, or label both clearly in every response.
+
+  3. Tool design gaps your questions point to
+
+  (1) Focus. There was no autofocus. The agent ran working-distance series and
+  ended up judging by eye, because the sharpness number it was using was
+  dominated by noise. The server should compute a robust focus metric itself
+  (bin or denoise first, then Laplacian variance or FFT high-frequency power).
+  Better still, offer an autofocus or focus_series tool that returns a curve.
+  That would have caught the 9.85 vs 9.91 mm offset much earlier.
+
+  (2) Rotations. The digits were in view from the start. They were misread as
+  "7F4F0U5F" and "GENJ-OO" because they were sideways and upside-down. The agent
+  stuck with one reading of the glyph orientation, and each new orientation
+  cost beam time and a fresh image. A cheap rotate_image(id, 90/180/270) on the
+  stored image would let it check all four orientations of unreadable text for
+  free. A prompting or server-instructions rule fits here too: "if text is
+  unreadable, check all four 90° orientations and mirror images before
+  concluding."
+
+  (3) Beam vs stage rotation. Scan rotation is the sensible default: it's fast,
+  has no mechanical risk, and doesn't move the feature off-centre (stage
+  rotation does, unless it's compucentric). But it changes how image directions
+  map to stage directions, and the agent got the sign wrong once. The server
+  should:
+  - document sign conventions in its instructions;
+  - return the current image-to-stage transform with each image;
+  - ideally provide a "centre the feature at pixel (x, y)" tool that does the
+    rotation math itself.
+
+  (4) Detectors. Only ETD in SE and BSE modes was tried. The in-lens detectors
+  (T1/T2/T3, TLD) were never tried, even though they're the usual choice for
+  high-resolution surface detail at short working distance. Moves kept switching
+  to T3 anyway. The likely cause is that the model doesn't know which detectors
+  this tool has, which ones are insertable, or what each is good for. A
+  list_detectors tool returning type, modes, insertable flag and a one-line use
+  case would fix that.
+
+  4. Agent behaviour lessons (relevant to server instructions)
+
+  - Anchoring. The edge text was labelled "standard die text" early and set
+    aside. It was the only patterned lettering near the edges, which is exactly
+    where the codes were. About 31 minutes and 26 images went into a broad
+    survey before the agent asked for hints.
+  - Ambiguous task wording. "Six-digit codes" suggested something added on top
+    of the die markings. Your clarifications (patterned, near the edge, arranged
+    in a column) unlocked the task within minutes. For test tasks, decide
+    whether hints are part of the test.
+  - Searching before resolving. The agent tiled the whole chip before getting
+    any single candidate to readable quality. "Get candidate X sharp and in the
+    right orientation" would have beaten "survey everything at 73 nm/px".
+
+  5. What worked and is worth keeping
+
+  - The audit log, with checks for interrupted calls, and state snapshots
+    (s0001) both made recovery and verification possible.
+  - The agent re-checked state after each failed call instead of assuming
+    nothing had happened, and that is how the External/T3 side effects were
+    caught.
+  - The Z/T safety locks held, and the agent respected them.
+  - Some error messages were specific (frame-time limits, the HFW limits), and
+    the agent could act on them directly.
+
+  Takeaways in one line each
+
+  1. Keep images out of context by default.
+  2. Make failed and compound operations restore state.
+  3. Handle unknown hardware enums safely, not just without crashing.
+  4. Give the model cheap software operations (crop, rotate, metrics) so it
+     spends less beam time.
+  5. Expose what the hardware can do: detectors, conventions, transforms.
+  6. Persist findings outside the conversation.
