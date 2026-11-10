@@ -9,7 +9,7 @@ so all are annotated destructive.
 
 Higher tiers add no tools; they lift guardrails on these:
 
-* tier 3 allows retractable detectors, which are inserted if needed;
+* tier 4 allows retractable detectors, which are inserted if needed;
 * tier 5 allows the ion beam, which removes material from whatever it scans.
 
 This module reads ``config.max_tier`` to decide, the one exception to "one
@@ -57,7 +57,7 @@ from pytribeam.mcp.capabilities.records import image_content, sidecar_path
 from pytribeam.mcp.capabilities.hardware import _beam  # one definition
 
 TIER = 2
-INSERT_TIER = 3  # lowest tier that may use (and insert) a retractable detector
+INSERT_TIER = 4  # lowest tier that may use (and insert) a retractable detector
 ION_TIER = 5  # lowest tier that may use the ion beam
 
 log = logging.getLogger("pytribeam.mcp.imaging")
@@ -469,7 +469,7 @@ def register(add, config, connection) -> None:
 
         Refused if the beam is off (this server never turns a beam on), if
         the chamber is not pumped, if the detector is retractable and this
-        session is below tier 3, or for the ion beam below tier 5. At tier 3
+        session is below tier 4, or for the ion beam below tier 5. At tier 4
         a retractable detector is inserted if needed (``detector_inserted``)
         and left inserted.
 

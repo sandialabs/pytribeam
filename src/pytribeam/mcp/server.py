@@ -50,6 +50,7 @@ from starlette.responses import JSONResponse  # starlette ships with the mcp SDK
 
 from pytribeam import __version__
 from pytribeam.mcp import audit as audit_log
+from pytribeam.mcp import docs
 from pytribeam.mcp import project_lock
 from pytribeam.mcp.capabilities import (
     diagnostics,
@@ -67,22 +68,57 @@ from pytribeam.mcp.connection import MicroscopeConnection
 # never loaded, whatever the configuration says. Fail closed.
 CAPABILITY_MODULES = (diagnostics, records, state, hardware, views, imaging, stage)
 
-INSTRUCTIONS = (
-    "You are connected to a FIB-SEM (TriBeam) through pytribeam. Only the "
-    "tools you can see are permitted in this session. When a tool refuses a "
-    "request, report the reason to the user; do not try to reach the same "
-    "result another way. Tools are grouped into tiers: 0 diagnostics, 1 UI "
-    "changes, 2 electron-beam exposure, 3 insertable detectors, 4 stage "
-    "movement, 5 ion beam and material removal. The operator sets the highest "
-    "tier this server exposes; if a task needs a higher tier, ask the user to "
-    "raise it rather than working around the limit. "
-    "A tool call that was cancelled, timed out, or failed unexpectedly may "
-    "still have acted: an image may have been taken or the stage moved. "
-    "Before going on after one, and at the start of a session, call "
-    "get_recent_activity (and list_images if you were imaging) to see what "
-    "actually happened; tell the user about any call marked interrupted. "
-    "Do not repeat an action until you know whether it ran."
-)
+# Sent to the client once, at initialization. Keep it to what an agent needs
+# in every session; details belong in tool descriptions and the docs resources.
+INSTRUCTIONS = """\
+You are connected to a FIB-SEM (TriBeam) through pytribeam.
+
+SAFETY
+Only the tools you can see are permitted in this session. When a tool refuses \
+a request, report the reason to the user; do not try to reach the same result \
+another way. Tools are grouped into tiers: 0 diagnostics, 1 UI changes, \
+2 electron-beam exposure, 3 stage movement, 4 insertable detectors, 5 ion beam \
+and material removal. The operator sets the highest tier this server exposes; \
+if a task needs a higher tier, ask the user to raise it rather than working \
+around the limit.
+A tool call that was cancelled, timed out, or failed unexpectedly may still \
+have acted: an image may have been taken or the stage moved. Before going on \
+after one, and at the start of a session, call get_recent_activity (and \
+list_images if you were imaging) to see what actually happened; tell the user \
+about any call marked interrupted. Do not repeat an action until you know \
+whether it ran. After any failed call, read the state again rather than \
+assuming nothing changed.
+
+CONVENTIONS (full text: resource pytribeam://docs/reference-frame)
+Stage positions are in the RAW coordinate system, in mm and degrees, as \
+get_stage_position reports and move_to_position takes. Facing the front \
+chamber door, with the ion column left of the electron column: +X comes out \
+of the door, +Y is to the right (toward the laser), +Z moves the stage up \
+toward the electron pole piece (Z is not the working distance), +T tilts \
+counterclockwise about X, +R rotates clockwise about Z. get_state reports the \
+stage in meters and radians in whatever coordinate system is active; never \
+pass those values to move_to_position.
+Quadrants: 1 top left (electron beam), 2 top right (ion beam), 3 bottom left, \
+4 bottom right (the chamber camera during stage moves). Image regions are \
+fractions 0-1 of the frame, origin (0, 0) at the top left. Patterning \
+positions are lengths from the centre of the field of view. Scan rotation \
+rotates the image relative to the stage axes, so when rotation_deg is not 0, \
+directions in an image do not line up with stage X and Y.
+
+WORKING EFFICIENTLY
+Beam time and dose are the costly resources, and images are the costly part \
+of your context.
+- Look harder at what you already have before taking a new image: \
+view_image can zoom into a region of a saved image at full resolution, and \
+its grid names locations. Keep previews only as large as the question needs.
+- When searching for something, bring the best candidate to a clear, \
+well-focused image at a useful magnification before surveying more widely.
+- Do not set a feature aside on first impression. If a search stalls, \
+revisit what you dismissed and state the assumptions you made.
+- If the goal is ambiguous, ask the user early rather than after a long survey.
+- Report findings to the user as you go, citing image ids and state ids, so \
+the work can be picked up again if the session ends.
+"""
 
 # --- HTTP transport constants ----------------------------------------------
 MCP_PATH = "/mcp"  # SDK default Streamable HTTP endpoint path
@@ -254,6 +290,7 @@ def build_server(config: ServerConfig, modules=CAPABILITY_MODULES) -> MCPServer:
     share one microscope connection.
     """
     server = MCPServer(name="pytribeam", version=__version__, instructions=INSTRUCTIONS)
+    docs.register(server)  # userguide pages, at every tier: files only
     connection = MicroscopeConnection(config)
     for module in modules:
         if module.TIER > config.max_tier:

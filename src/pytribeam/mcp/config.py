@@ -54,9 +54,9 @@ TIERS = {
     "selection, or coordinate system. Never moves hardware or exposes the sample.",
     2: "Electron exposure: scans the sample with the electron beam (imaging, "
     "auto contrast/brightness). Fixed detectors only. No hardware movement.",
-    3: "Insertable detectors: tier 2 plus retractable detectors, inserted if "
+    3: "Stage movement.",
+    4: "Insertable detectors: tier 2 plus retractable detectors, inserted if "
     "needed. No stage movement.",
-    4: "Stage movement.",
     5: "Ion beam and high-risk: anything on the ion beam, milling, and other "
     "operations that remove material.",
 }

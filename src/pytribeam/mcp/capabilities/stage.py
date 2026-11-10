@@ -3,7 +3,7 @@
 Stage Capabilities
 ==================
 
-Tier 4 tools that move the stage.
+Tier 3 tools that move the stage.
 
 This module only wraps pytribeam. ``move_to_position`` does what the
 experiment workflow does before each slice: retract the insertable devices
@@ -33,7 +33,7 @@ from pytribeam.mcp.capabilities._helpers import (
 )
 from pytribeam.mcp.capabilities.hardware import _stage_errors, _stage_position
 
-TIER = 4
+TIER = 3
 
 AXES = ("x_mm", "y_mm", "z_mm", "r_deg", "t_deg")
 
@@ -77,6 +77,13 @@ def register(add, config, connection) -> None:
         ``get_stage_position`` reports; pass its values, never the meters and
         radians in ``get_state``. An axis left out stays where it is; give at
         least one.
+
+        Directions, facing the front chamber door: +X comes out of the door,
+        +Y is to the right (toward the laser), +Z raises the stage toward the
+        electron pole piece (so a larger z_mm is a shorter working distance;
+        Z is not the working distance), +T tilts counterclockwise about X,
+        +R rotates clockwise about Z. The resource
+        ``pytribeam://docs/reference-frame`` has the full conventions.
 
         First retracts every insertable detector (as pytribeam's experiment
         workflow does before each move), then moves with pytribeam's
