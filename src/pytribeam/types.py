@@ -533,6 +533,8 @@ class DetectorType(Enum):
     LFD: str = as_enums.DetectorType.LFD
     LVD: str = as_enums.DetectorType.LVD
     LVSED: str = as_enums.DetectorType.LVSED
+    LMABS: str = "LmABS"
+    LMCBS: str = "LmCBS"
     MD: str = as_enums.DetectorType.MD
     MIX: str = as_enums.DetectorType.MIX
     NONE: str = as_enums.DetectorType.NONE
@@ -542,6 +544,7 @@ class DetectorType(Enum):
     SINGLE_BSD: str = "SingleBSD"
     STEM3: str = as_enums.DetectorType.STEM3
     STEM3_PLUS: str = as_enums.DetectorType.STEM3_PLUS
+    STEM3_GMODE: str = "STEM3_GMode"
     STEM4: str = as_enums.DetectorType.STEM4
     T1: str = as_enums.DetectorType.T1
     T2: str = as_enums.DetectorType.T2
