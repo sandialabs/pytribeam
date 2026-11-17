@@ -3,14 +3,14 @@
 # 3rd party libraries
 import pytest
 
-# Local
-import pytribeam.insertable_devices as devices
 import pytribeam.factory as factory
 import pytribeam.image as img
+
+# Local
+import pytribeam.insertable_devices as devices
+import pytribeam.stage as stage
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
-import pytribeam.stage as stage
-
 
 # ----------------
 # Helper functions
@@ -124,6 +124,12 @@ class TestEBSDEDS:
 
 
 class TestDeviceMovement:
+    @pytest.mark.simulated
+    def test_retract_all_microscope_insertable_detectors(self, microscope):
+        assert devices.retract_all_microscope_insertable_detectors(
+            microscope=microscope,
+        )
+
     @pytest.mark.hardware
     def test_detector_state(self, microscope):
         devices.device_access(microscope=microscope)
@@ -138,7 +144,9 @@ class TestDeviceMovement:
     @pytest.mark.simulated
     def test_stationary_detector_insertable(self, microscope):
         devices.device_access(microscope=microscope)
-        valid_detectors = microscope.detector.type.available_values
+        valid_detectors = img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
         for detector in valid_detectors:
             detector = tbt.DetectorType(detector)  # overwrite
             img.detector_type(
@@ -178,7 +186,9 @@ class TestDeviceMovement:
     @pytest.mark.hardware
     def test_retractable_detector_insertable(self, microscope):
         devices.device_access(microscope=microscope)
-        valid_detectors = microscope.detector.type.available_values
+        valid_detectors = img.get_available_detector_types(
+            microscope=microscope, device=tbt.Device.ELECTRON_BEAM
+        )
         for detector in valid_detectors:
             detector = tbt.DetectorType(detector)  # overwrite
             img.detector_type(
@@ -341,7 +351,7 @@ class TestPreventCollisions:
         assert err.type == SystemError
         assert (
             err.value.args[0]
-            == 'Error. Cannot insert EDS while CBS not in "Retracted" state. \n            CBS detector currently in "Inserted" state.'
+            == 'Error. Cannot insert EDS while CBS not in "Retracted" state.\n            CBS detector currently in "Inserted" state.'
         )
         devices.retract_device(
             microscope=safe_microscope,
@@ -355,3 +365,42 @@ def test_specimen_current(microscope):
     current_na = devices.specimen_current(microscope=microscope)
 
     assert current_na != pytest.approx(0.0)
+
+
+class TestCcdLiveView:
+    """The live chamber view wrapped around detector motion.
+
+    These need AutoScript to import, but not a microscope: the CCD calls are
+    replaced with recorders.
+    """
+
+    @pytest.fixture
+    def ccd_calls(self, monkeypatch):
+        calls = []
+        monkeypatch.setattr(
+            devices, "CCD_view", lambda microscope, quad: calls.append(("view", quad))
+        )
+        monkeypatch.setattr(
+            devices, "CCD_pause", lambda microscope, quad: calls.append(("pause", quad))
+        )
+        return calls
+
+    def test_view_is_live_for_the_body_only(self, ccd_calls):
+        with devices.ccd_live_view(microscope=None):
+            ccd_calls.append(("move", None))
+
+        assert [name for name, _ in ccd_calls] == ["view", "move", "pause"]
+
+    def test_defaults_to_the_lower_right_quadrant(self, ccd_calls):
+        with devices.ccd_live_view(microscope=None):
+            pass
+
+        assert all(quad == tbt.ViewQuad.LOWER_RIGHT for _, quad in ccd_calls)
+
+    def test_pauses_even_when_the_motion_fails(self, ccd_calls):
+        """CCD illumination must not be left on into the map that follows."""
+        with pytest.raises(RuntimeError):
+            with devices.ccd_live_view(microscope=None):
+                raise RuntimeError("slide stalled")
+
+        assert [name for name, _ in ccd_calls] == ["view", "pause"]

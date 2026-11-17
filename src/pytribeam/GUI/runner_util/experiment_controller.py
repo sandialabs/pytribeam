@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Callable, Optional, Dict, Any, Tuple, List
 
 import pytribeam.types as tbt
-from pytribeam import workflow, stage, insertable_devices, utilities
+from pytribeam import workflow, stage, insertable_devices, utilities, factory
 from pytribeam.GUI.common import AppConfig, StoppableThread
 from pytribeam.GUI.common.threading_utils import generate_escape_keypress
 
@@ -51,6 +51,32 @@ class ExperimentState:
     remaining_time_str: str = "-"
 
 
+@dataclass
+class StageMovePlan:
+    """A planned manual stage move to the starting position of a step.
+
+    Created by `ExperimentController.plan_stage_move` so the user can confirm
+    the target before `ExperimentController.move_stage_to_step` moves the stage.
+
+    Attributes:
+        slice_number: Slice to move to
+        step_number: Step to move to (1-based)
+        step_name: Name of the step
+        current_position: Stage position when the move was planned
+        target_position: Starting position of the step for the slice
+        step_runs_on_slice: False if the step frequency skips this slice
+        experiment_settings: Validated settings, holding the microscope connection
+    """
+
+    slice_number: int
+    step_number: int
+    step_name: str
+    current_position: tbt.StagePositionUser
+    target_position: tbt.StagePositionUser
+    step_runs_on_slice: bool
+    experiment_settings: tbt.ExperimentSettings
+
+
 class ExperimentController:
     """Controls experiment execution without UI dependencies.
 
@@ -75,6 +101,8 @@ class ExperimentController:
         self._thread: Optional[StoppableThread] = None
         self._slice_times: List[float] = []
         self.experiment_settings: Optional[tbt.ExperimentSettings] = None
+        # True while a manual stage move is being planned, confirmed, or performed
+        self.is_moving = False
 
     def clear_experiment_settings(self):
         """Clear cached experiment settings and release resources.
@@ -169,6 +197,9 @@ class ExperimentController:
         """
         if self.state.is_running:
             self._notify("error", "Experiment is already running")
+            return False
+        if self.is_moving:
+            self._notify("error", "A stage move is in progress")
             return False
 
         # Validate configuration
@@ -341,7 +372,12 @@ class ExperimentController:
         except Exception as e:
             message = f"Unexpected error in step {step_index} of slice {slice_number}: {e.__class__.__name__}: {e}"
             print(message)
-            self._log_error(e, slice_number, step_index)
+            self._log_error(
+                e,
+                slice_number,
+                step_index,
+                exp_dir=experiment_settings.general_settings.exp_dir,
+            )
             self._try_stop_stage(experiment_settings.microscope)
             return False
 
@@ -357,24 +393,43 @@ class ExperimentController:
         except SystemError:
             print("-----> Stage stop successful")
 
-    def _log_error(self, error: Exception, slice_number: int, step_index: int):
-        """Log error to file.
+    def _log_error(
+        self,
+        error: Exception,
+        slice_number: int,
+        step_index: int,
+        exp_dir: Optional[Path] = None,
+    ):
+        """Log error traceback to file.
+
+        The traceback is saved in the experiment's "errors" folder. If that
+        can't be written (or no experiment directory is given), it is saved
+        in the application log folder instead so it is not lost.
 
         Args:
             error: Exception that occurred
             slice_number: Slice where error occurred
             step_index: Step where error occurred
+            exp_dir: Experiment directory
         """
         app_config = AppConfig.from_env()
-        app_config.ensure_directories()
-        err_path = app_config.get_error_log_path()
+        directories = [app_config.log_dir]
+        if exp_dir is not None:
+            directories.insert(0, Path(exp_dir) / "errors")
 
-        with open(err_path, "w") as f:
-            f.write(f"Error in slice {slice_number}, step {step_index}\n")
-            f.write(f"Exception: {type(error).__name__} - {error}\n\n")
-            traceback.print_exc(file=f)
-
-        print(f"Error details saved to: {err_path}")
+        for directory in directories:
+            try:
+                directory.mkdir(parents=True, exist_ok=True)
+                err_path = app_config.get_error_log_path(directory)
+                with open(err_path, "w") as f:
+                    f.write(f"Error in slice {slice_number}, step {step_index}\n")
+                    f.write(f"Exception: {type(error).__name__} - {error}\n\n")
+                    traceback.print_exc(file=f)
+            except OSError as e:
+                print(f"Warning: Could not save error details to {directory}: {e}")
+                continue
+            print(f"Error details saved to: {err_path}")
+            return
 
     def _update_progress(
         self, slice_num: int, step_num: int, total_slices: int, total_steps: int
@@ -474,6 +529,156 @@ class ExperimentController:
             final_step_name = experiment_settings.step_sequence[final_step].name
             self._notify("experiment_stopped", final_slice, final_step_name)
 
+    # -------- Manual stage moves -------- #
+
+    def plan_stage_move(self, slice_number: int, step_name: str) -> StoppableThread:
+        """Start planning a stage move to the starting position of a step.
+
+        Runs on a background thread that connects to the microscope and
+        calculates the target position without moving anything. The thread's
+        result is a `StageMovePlan` for the user to confirm, which must then be
+        passed to `move_stage_to_step` or `end_stage_move`.
+
+        Args:
+            slice_number: Slice to move to
+            step_name: Name of the step to move to
+
+        Returns:
+            The started thread
+
+        Raises:
+            RuntimeError: If an experiment or another stage move is in progress
+        """
+        if self.state.is_running or self.is_moving:
+            raise RuntimeError("An experiment or stage move is already in progress")
+        self.is_moving = True
+        self._thread = StoppableThread(
+            target=self._plan_stage_move,
+            args=(slice_number, step_name),
+            name="StageMovePlanThread",
+        )
+        self._thread.start()
+        return self._thread
+
+    def _plan_stage_move(self, slice_number: int, step_name: str) -> StageMovePlan:
+        """Validate the configuration and calculate the target stage position."""
+        if self.config_path is None:
+            raise ValueError("No configuration file loaded")
+
+        # Release any old connection before making a new one
+        self.clear_experiment_settings()
+        experiment_settings = workflow.pre_flight_check(self.config_path)
+        try:
+            general_settings = experiment_settings.general_settings
+            step_names = [s.name for s in experiment_settings.step_sequence]
+            if step_name not in step_names:
+                raise ValueError(f"Step '{step_name}' is not in the configuration")
+            max_slice = general_settings.max_slice_number
+            if not 1 <= slice_number <= max_slice:
+                raise ValueError(
+                    f"Slice {slice_number} is outside the experiment's slices (1 to {max_slice})"
+                )
+
+            step_number = step_names.index(step_name) + 1
+            operation = experiment_settings.step_sequence[step_number - 1]
+            return StageMovePlan(
+                slice_number=slice_number,
+                step_number=step_number,
+                step_name=step_name,
+                current_position=factory.active_stage_position_settings(
+                    experiment_settings.microscope
+                ),
+                target_position=stage.target_position(
+                    operation.stage,
+                    slice_number=slice_number,
+                    slice_thickness_um=general_settings.slice_thickness_um,
+                ),
+                step_runs_on_slice=(slice_number - 1) % operation.frequency == 0,
+                experiment_settings=experiment_settings,
+            )
+        except BaseException:
+            self._disconnect(experiment_settings.microscope)
+            raise
+
+    def move_stage_to_step(self, plan: StageMovePlan) -> StoppableThread:
+        """Start moving the stage to a confirmed plan's target position.
+
+        Runs on a background thread, so `request_stop_now` can halt the stage.
+        As in an experiment step, all insertable devices are retracted before
+        the stage moves. Call `end_stage_move` once the thread has finished.
+
+        Args:
+            plan: Plan from `plan_stage_move`
+
+        Returns:
+            The started thread
+        """
+        self._thread = StoppableThread(
+            target=self._move_stage_to_step,
+            args=(plan,),
+            name="StageMoveThread",
+        )
+        self._thread.start()
+        return self._thread
+
+    def _move_stage_to_step(self, plan: StageMovePlan):
+        """Retract devices and move the stage to the step's starting position."""
+        settings = plan.experiment_settings
+        microscope = settings.microscope
+        print(
+            f"Moving stage to step '{plan.step_name}' (step {plan.step_number}) of slice {plan.slice_number}"
+        )
+        try:
+            print("\tRetracting all devices...")
+            insertable_devices.retract_all_devices(
+                microscope=microscope,
+                enable_EBSD=settings.enable_EBSD,
+                enable_EDS=settings.enable_EDS,
+            )
+            print("\tDevices retracted.")
+            stage.step_start_position(
+                microscope=microscope,
+                slice_number=plan.slice_number,
+                operation=settings.step_sequence[plan.step_number - 1],
+                general_settings=settings.general_settings,
+            )
+        except KeyboardInterrupt:
+            self._try_stop_stage(microscope)
+            print("-----> Stage move stopped <-----")
+            raise
+        except Exception as e:
+            print(f"Stage move failed: {e.__class__.__name__}: {e}")
+            self._log_error(
+                e,
+                plan.slice_number,
+                plan.step_number,
+                exp_dir=settings.general_settings.exp_dir,
+            )
+            self._try_stop_stage(microscope)
+            raise
+        print("-----> Stage move complete <-----")
+
+    def end_stage_move(self, plan: Optional[StageMovePlan] = None):
+        """Finish a stage move: release the microscope connection and allow new moves.
+
+        Call this after the move finishes, fails, or the user declines the plan.
+
+        Args:
+            plan: The plan whose connection should be released, if any
+        """
+        if plan is not None:
+            self._disconnect(plan.experiment_settings.microscope)
+        self.state.should_stop_now = False
+        self.is_moving = False
+
+    def _disconnect(self, microscope):
+        """Disconnect from the microscope, ignoring an existing disconnection."""
+        try:
+            utilities.disconnect_microscope(microscope, quiet_output=True)
+        except Exception as e:
+            if str(e) != "Client is already disconnected.":
+                print(f"Warning: Failed to disconnect microscope: {e}")
+
     def request_stop_after_step(self):
         """Request experiment stop after current step completes."""
         if not self.state.is_running:
@@ -493,13 +698,16 @@ class ExperimentController:
         print("-----> Stopping after current slice")
 
     def request_stop_now(self):
-        """Request immediate experiment stop."""
-        if not self.state.is_running:
+        """Request immediate experiment stop (also halts a manual stage move)."""
+        if not self.state.is_running and not self.is_moving:
             return
 
         self.state.should_stop_now = True
         self._notify("stop_requested", "now")
-        print("-----> Experiment stopped immediately by user")
+        if self.state.is_running:
+            print("-----> Experiment stopped immediately by user")
+        else:
+            print("-----> Stage move stopped immediately by user")
 
         # Try to interrupt hardware
         try:

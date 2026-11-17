@@ -495,6 +495,31 @@ class TestValidation:
         controller_with_pipeline.validate_general()
         assert "ok" in received
 
+    @pytest.mark.parametrize("notify", [True, False])
+    def test_validate_step_callback_respects_notify(
+        self, controller_with_pipeline, monkeypatch, notify
+    ):
+        received = {}
+        controller_with_pipeline.register_callback(
+            "step_validation_complete", lambda idx, ok, msg: received.update({"ok": ok})
+        )
+        from pytribeam.GUI.config_ui.validator import ValidationResult
+
+        monkeypatch.setattr(
+            controller_with_pipeline.validator,
+            "validate_general",
+            lambda d: ValidationResult(success=True, step_name="general", settings={}),
+        )
+        monkeypatch.setattr(
+            controller_with_pipeline.validator,
+            "validate_step",
+            lambda m, name, db, general: ValidationResult(success=True, step_name=name),
+        )
+        controller_with_pipeline.add_step("image")
+        success, _ = controller_with_pipeline.validate_step(1, notify=notify)
+        assert success is True
+        assert ("ok" in received) is notify
+
 
 # ----------------------------------------------------------------------
 # Pipeline summary

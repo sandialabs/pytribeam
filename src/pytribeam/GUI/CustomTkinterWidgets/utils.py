@@ -120,7 +120,7 @@ def resize_img(img, size, keep_aspect_ratio=True):
 
     size = (int(requested_width), int(requested_height))
 
-    img = img.resize(size, resample=PIL.Image.LANCZOS)
+    img = img.resize(size, resample=Image.LANCZOS)
 
     return img
 
@@ -338,7 +338,7 @@ def create_circle(
     img = img.filter(ImageFilter.BLUR)
 
     # resize image back to the requested size
-    img = img.resize(requested_size, Image.LANCZOS)
+    img = img.resize(requested_size, resample=Image.LANCZOS)
 
     # change color again will enhance quality (weird)
     if fill:

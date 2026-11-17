@@ -4,8 +4,16 @@ This module provides centralized management of application resources like
 images, icons, and documentation files.
 """
 
+from __future__ import annotations
+
+from contextlib import ExitStack
 from pathlib import Path
-from typing import Optional, Dict, List
+from typing import Dict, List
+
+try:
+    from importlib.resources import as_file, files
+except ImportError:
+    from importlib_resources import as_file, files
 
 
 class AppResources:
@@ -19,16 +27,28 @@ class AppResources:
         base_path: Root directory of the pytribeam package
     """
 
-    def __init__(self, base_path: Path):
+    package_name = "pytribeam.GUI"
+
+    def __init__(self):
         """Initialize resource manager.
 
         Args:
             base_path: Root directory containing docs, src, etc.
         """
-        self.base_path = Path(base_path)
+        self._exit_stack = ExitStack()
+
+    def close(self) -> None:
+        """Release any temporary extracted resource files."""
+        self._exit_stack.close()
+
+    def __enter__(self) -> "AppResources":
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback) -> None:
+        self.close()
 
     @classmethod
-    def from_module_file(cls, module_file: str) -> "AppResources":
+    def from_module_file(cls, module_file: str | None = None) -> "AppResources":
         """Create AppResources from a module's __file__ path.
 
         This is the preferred way to initialize AppResources from within
@@ -43,57 +63,44 @@ class AppResources:
         Example:
             resources = AppResources.from_module_file(__file__)
         """
-        # From GUI/module.py, go up to pytribeam root
-        module_path = Path(module_file)
-        # module.py -> GUI -> pytribeam -> src -> pytribeam_root
-        if module_path.parent.name == "GUI":
-            base = module_path.parent.parent.parent.parent
-        elif (
-            module_path.parent.name == "common"
-            or module_path.parent.name == "config_ui"
-        ):
-            base = module_path.parent.parent.parent.parent.parent
-        return cls(base_path=base)
+        return cls()
+
+    def _resource(self, *parts: str):
+        """Return an importlib resource object."""
+        return files(self.package_name).joinpath("resources", *parts)
+
+    def _resource_path(self, *parts: str) -> Path:
+        """Return a real filesystem path for a packaged resource.
+
+        The returned path remains valid until this AppResources instance is
+        closed.
+        """
+        resource = self._resource(*parts)
+        return self._exit_stack.enter_context(as_file(resource))
 
     @property
     def icon_path(self) -> Path:
-        """Path to application icon (.ico file)."""
-        return self.base_path / "docs/userguide/src/logos/logo_color_alt.ico"
+        """Path to application icon file."""
+        return self._resource_path("logo_color.ico")
 
     @property
-    def logo_dark_path(self) -> Path:
+    def logo_path(self) -> Path:
         """Path to dark theme logo image."""
-        return self.base_path / "docs/userguide/src/logos/logo_color_dark.png"
+        return self._resource_path("logo_color.png")
 
     @property
-    def logo_light_path(self) -> Path:
-        """Path to light theme logo image."""
-        return self.base_path / "docs/userguide/src/logos/logo_color.png"
-
-    @property
-    def user_guide_path(self) -> Path:
+    def user_guide_path(self) -> str:
         """Path to user guide HTML index."""
         # return self.base_path / "docs" / "userguide" / "book" / "index.html"
         return "https://github.com/sandialabs/pytribeam/blob/main/docs/userguide/src/SUMMARY.md"
 
-    def get_logo_path(self, theme: str = "dark") -> Path:
-        """Get logo path for specified theme.
-
-        Args:
-            theme: Theme name ('dark' or 'light')
+    def get_logo_path(self) -> Path:
+        """Get logo path.
 
         Returns:
             Path to appropriate logo file
-
-        Raises:
-            ValueError: If theme is not 'dark' or 'light'
         """
-        if theme.lower() == "dark":
-            return self.logo_dark_path
-        elif theme.lower() == "light":
-            return self.logo_light_path
-        else:
-            raise ValueError(f"Unknown theme: {theme}. Must be 'dark' or 'light'")
+        return self.logo_path
 
     def verify_resources(self) -> Dict[str, bool]:
         """Check which resources exist on filesystem.
@@ -102,10 +109,9 @@ class AppResources:
             Dictionary mapping resource names to existence status
         """
         return {
-            "icon": self.icon_path.exists(),
-            "logo_dark": self.logo_dark_path.exists(),
-            "logo_light": self.logo_light_path.exists(),
-            "user_guide": self.user_guide_path.exists(),
+            "icon": self._resource("logo_color.ico").is_file(),
+            "logo": self._resource("logo_color.png").is_file(),
+            "user_guide_path": bool(self.user_guide_path),
         }
 
     def get_missing_resources(self) -> List[str]:

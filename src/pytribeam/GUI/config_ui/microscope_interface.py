@@ -4,9 +4,10 @@ This module provides an abstraction layer for microscope communication,
 separating hardware interaction from UI code.
 """
 
-from typing import Optional, Dict, Tuple
+from typing import Optional, Dict, List, Tuple
 
 import pytribeam.factory as factory
+import pytribeam.image as img
 import pytribeam.laser as laser
 import pytribeam.types as tbt
 import pytribeam.utilities as ut
@@ -195,6 +196,88 @@ class MicroscopeInterface:
             return factory.active_image_settings(self._microscope)
         except Exception as e:
             raise MicroscopeConnectionError("Failed to get imaging settings") from e
+
+    def get_detector_options(self) -> Dict[str, Dict[str, List[str]]]:
+        """Get the detector types and modes available for each beam.
+
+        Detector availability depends on the active beam, and the modes
+        reported by AutoScript depend on the active detector, so each beam
+        and detector is selected in turn. The original device, detector, and
+        mode are restored afterward.
+
+        Returns:
+            Nested dictionary of {beam_type: {detector_type: [modes]}}, using
+            the string values of the pytribeam enums. Detectors and modes
+            that pytribeam does not support are omitted.
+
+        Raises:
+            MicroscopeConnectionError: If not connected or operation fails
+        """
+        self.ensure_connected()
+        microscope = self._microscope
+        beam_devices = {
+            tbt.BeamType.ELECTRON.value: tbt.Device.ELECTRON_BEAM,
+            tbt.BeamType.ION.value: tbt.Device.ION_BEAM,
+        }
+
+        try:
+            initial_device = tbt.Device(microscope.imaging.get_active_device())
+            initial_detector = microscope.detector.type.value
+            initial_mode = microscope.detector.mode.value
+        except Exception as e:
+            raise MicroscopeConnectionError("Failed to get detector options") from e
+
+        options = {}
+        try:
+            for beam, device in beam_devices.items():
+                img.set_beam_device(microscope=microscope, device=device)
+                detectors = {}
+                for detector in factory.available_detector_types(microscope):
+                    if not ut.valid_enum_entry(detector, tbt.DetectorType):
+                        continue
+                    try:
+                        img.detector_type(
+                            microscope=microscope,
+                            detector=tbt.DetectorType(detector),
+                        )
+                    except Exception:
+                        continue  # Listed but not selectable, skip it
+                    detectors[detector] = [
+                        mode
+                        for mode in factory.available_detector_modes(microscope)
+                        if ut.valid_enum_entry(mode, tbt.DetectorMode)
+                    ]
+                options[beam] = detectors
+        except Exception as e:
+            raise MicroscopeConnectionError("Failed to get detector options") from e
+        finally:
+            # Put the microscope back the way the user left it
+            try:
+                img.set_beam_device(microscope=microscope, device=initial_device)
+                microscope.detector.type.value = initial_detector
+                microscope.detector.mode.value = initial_mode
+            except Exception:
+                pass
+
+        return options
+
+    def get_fib_applications(self) -> List[str]:
+        """Get the FIB patterning application files available on the microscope.
+
+        Returns:
+            List of application file names
+
+        Raises:
+            MicroscopeConnectionError: If not connected or operation fails
+        """
+        self.ensure_connected()
+
+        try:
+            return list(factory.active_fib_applications(self._microscope))
+        except Exception as e:
+            raise MicroscopeConnectionError(
+                "Failed to get FIB application files"
+            ) from e
 
     def get_laser_state(self) -> Dict:
         """Get current laser settings.

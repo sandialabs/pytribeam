@@ -15,13 +15,13 @@ which is useful when they are behind a firewall or have already installed depend
 The `--all-tests` flag allows users to run the full test suite and a full lint check.
 
 Usage:
-    python preflight.py [--no-sync] [--skip-network-check] [--all-tests] [--force]
+    python scripts/preflight.py [--no-sync] [--skip-network-check] [--all-tests] [--force]
 
 Examples:
-    python preflight.py --no-sync      # Skip dependency sync (useful when offline/firewall)
-    python preflight.py --all-tests    # Run the full test suite and full lint check
-    python preflight.py --force        # Continue even if network/sync checks fail
-    python preflight.py --skip-network-check  # Skip the initial connectivity check
+    python scripts/preflight.py --no-sync      # Skip dependency sync (useful when offline/firewall)
+    python scripts/preflight.py --all-tests    # Run the full test suite and full lint check
+    python scripts/preflight.py --force        # Continue even if network/sync checks fail
+    python scripts/preflight.py --skip-network-check  # Skip the initial connectivity check
 
 """
 
@@ -284,10 +284,13 @@ def main() -> None:
         print("PREFLIGHT FAILED: Fix errors before pushing.")
         if not args.no_sync:
             print(
-                "\n[TIP] If synchronization failed, try 'python preflight.py --no-sync'."
+                "\n[TIP] If synchronization failed, try 'python scripts/preflight.py --no-sync'."
             )
         sys.exit(1)
 
 
 if __name__ == "__main__":
+    # Commands below use repo-relative paths (src/, tests/), so run from the
+    # repo root no matter where this script was launched from.
+    os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     main()

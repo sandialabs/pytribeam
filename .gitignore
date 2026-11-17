@@ -62,5 +62,13 @@ tests/test_dir/*
 
 # misc
 body.json
-pytribeam_install.log
+
+# Per-machine test settings (instrument hosts, hardware opt-in flags)
 .env
+# Offline installer log
+pytribeam_install.log
+
+# AI stuff
+.claude/
+.codex/
+.opencode-workspace/

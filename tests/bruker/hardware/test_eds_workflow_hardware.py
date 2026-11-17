@@ -53,6 +53,7 @@ def _small_profile_settings(tmp_path):
 
 @pytest.mark.esprit
 @pytest.mark.hardware
+@pytest.mark.bruker_hardware
 def test_known_small_profile_map_bcf_bmp_and_numeric_readback_hardware(
     connected_bruker_hardware_session,
     tmp_path,

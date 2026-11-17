@@ -12,6 +12,10 @@ Test capability tiers:
     Runs only on physical hardware systems, including laser and non-laser.
 - laser_hardware:
     Runs only on physical hardware systems with a laser subsystem.
+- oxford_hardware / edax_hardware:
+    Runs only on matching TFS Laser-style OEM hardware systems.
+- bruker_simulator / bruker_hardware:
+    Runs only on matching Bruker/ESPRIT simulator or hardware systems.
 
 """
 
@@ -143,13 +147,82 @@ def has_laser_hardware() -> bool:
     return ut.is_laser_available()
 
 
+RUN_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_HARDWARE"
+TEST_OEM_ENV_VAR = "PYTRIBEAM_TEST_OEM"
 BRUKER_HARDWARE_ENV_VAR = "PYTRIBEAM_RUN_BRUKER_HARDWARE"
 BRUKER_TEST_ENV_VAR = "PYTRIBEAM_BRUKER_TEST_ENV"
+RUN_EDAX_IPAPI_ENV_VAR = "PYTRIBEAM_RUN_EDAX_IPAPI"
+EDAX_HOST_ENV_VAR = "PYTRIBEAM_EDAX_HOST"
+
+#: Optional per-machine settings file at the repository root, holding the
+#: opt-in variables for hardware runs. It is deliberately git-ignored, because
+#: it names a specific instrument host.
+ENV_FILE = Path(__file__).resolve().parent.parent / ".env"
+
+
+def load_env_file(path: Path = None) -> dict:
+    """
+    Load ``KEY=value`` pairs from the repository .env file, if it exists.
+
+    Test runners launched from an editor do not inherit the shell environment,
+    so variables exported in a terminal never reach them. VS Code's Python
+    extension reads ``${workspaceFolder}/.env`` natively; loading the same file
+    here means the CLI, the VS Code test explorer, and any other runner all
+    agree, with one place to edit.
+
+    Variables already present in the environment always win, so an explicit
+    ``$env:NAME`` or a CI variable is never overridden by a stale file.
+
+    Parameters
+    ----------
+    path : Path, optional
+        The file to read. Defaults to the repository-root ``.env``.
+
+    Returns
+    -------
+    dict
+        The variables this call actually set, empty when there were none.
+    """
+    path = ENV_FILE if path is None else path
+    if not path.is_file():
+        return {}
+
+    applied = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        entry = line.strip()
+        if not entry or entry.startswith("#") or "=" not in entry:
+            continue
+        if entry.lower().startswith("export "):
+            entry = entry[len("export ") :].lstrip()
+
+        name, _, value = entry.partition("=")
+        name = name.strip()
+        value = value.strip().strip('"').strip("'")
+        if not name or name in os.environ:
+            continue
+
+        os.environ[name] = value
+        applied[name] = value
+
+    return applied
+
+
+#: Variables picked up from the .env file during collection, for diagnostics.
+ENV_FILE_APPLIED = load_env_file()
 
 
 def _env_flag_enabled(name: str) -> bool:
     """Return True when an environment variable is an explicit truthy opt-in."""
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _declared_test_oem() -> str:
+    """Return operator-declared generic OEM test target.
+
+    Valid values are "", "oxford", "edax", and "bruker". An empty value means
+    no generic OEM environment was explicitly declared.
+    """
+    return os.environ.get(TEST_OEM_ENV_VAR, "").strip().lower()
 
 
 def _bruker_test_env() -> str:
@@ -159,6 +232,111 @@ def _bruker_test_env() -> str:
     no Bruker environment was explicitly declared.
     """
     return os.environ.get(BRUKER_TEST_ENV_VAR, "").strip().lower()
+
+
+def is_oxford_hardware_system() -> bool:
+    """Return True if running on a configured Oxford OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_oxford_machines)
+
+
+def is_edax_hardware_system() -> bool:
+    """Return True if running on a configured EDAX OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_edax_machines)
+
+
+def is_bruker_hardware_system() -> bool:
+    """Return True if running on a configured Bruker OEM hardware system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.microscope_with_bruker_machines)
+
+
+def is_bruker_simulator_system() -> bool:
+    """Return True if running on a configured Bruker simulator system."""
+    import pytribeam.constants as cs
+
+    return _matches_machine_list(cs.Constants.bruker_simulator_machines)
+
+
+def can_run_oxford_hardware() -> bool:
+    """Return True when Oxford hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        and is_hardware_system()
+        and has_laser_hardware()
+        and (_declared_test_oem() == "oxford" or is_oxford_hardware_system())
+    )
+
+
+def can_run_edax_hardware() -> bool:
+    """Return True when EDAX hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        and is_hardware_system()
+        and has_laser_hardware()
+        and (_declared_test_oem() == "edax" or is_edax_hardware_system())
+    )
+
+
+def can_run_edax_ipapi() -> bool:
+    """Return True when EDAX IPAPI service tests are enabled for this session.
+
+    The EDAX IPAPI is a TCP service and is reachable from any machine on the
+    network, including the EDAX workstation itself, so this deliberately does
+    not require AutoScript, a laser, or a TFS host name. The operator opts in
+    by naming the service host and setting one of the run flags.
+    """
+    if not os.environ.get(EDAX_HOST_ENV_VAR, "").strip():
+        return False
+    return _env_flag_enabled(RUN_EDAX_IPAPI_ENV_VAR) or _env_flag_enabled(
+        RUN_HARDWARE_ENV_VAR
+    )
+
+
+def _is_edax_test_item(item) -> bool:
+    """Return True for tests under tests/edax."""
+    path = str(getattr(item, "path", item.fspath)).replace("\\", "/").lower()
+    return "/tests/edax/" in f"/{path}"
+
+
+def _has_edax_ipapi_override(item) -> bool:
+    """Allow standalone EDAX IPAPI tests outside TFS host-name lists.
+
+    The EDAX IPAPI wrapper speaks TCP to the EDAX application and is
+    independent of TFS AutoScript, so it can be exercised from the EDAX
+    workstation or an engineering laptop for debugging. The override is
+    restricted to tests under tests/edax marked both edax_ipapi and hardware,
+    and it must be explicitly enabled by the operator with:
+    - PYTRIBEAM_EDAX_HOST=<host> and PYTRIBEAM_RUN_EDAX_IPAPI=1
+    - PYTRIBEAM_EDAX_HOST=<host> and PYTRIBEAM_RUN_HARDWARE=1
+    """
+    return (
+        "edax_ipapi" in item.keywords
+        and "hardware" in item.keywords
+        and _is_edax_test_item(item)
+        and can_run_edax_ipapi()
+    )
+
+
+def can_run_bruker_simulator() -> bool:
+    """Return True when Bruker simulator tests are enabled for this session."""
+    return _bruker_test_env() == "simulator" or is_bruker_simulator_system()
+
+
+def can_run_bruker_hardware() -> bool:
+    """Return True when Bruker hardware tests are enabled for this session."""
+    return (
+        _env_flag_enabled(RUN_HARDWARE_ENV_VAR)
+        or _env_flag_enabled(BRUKER_HARDWARE_ENV_VAR)
+    ) and (
+        _bruker_test_env() == "hardware"
+        or _declared_test_oem() == "bruker"
+        or is_bruker_hardware_system()
+    )
 
 
 def _is_bruker_test_item(item) -> bool:
@@ -174,16 +352,15 @@ def _has_bruker_hardware_override(item) -> bool:
     validated on a Bruker/ESPRIT machine whose hostname is not listed in
     Constants.microscope_machines. The override is restricted to tests under
     tests/bruker that are marked both esprit and hardware, and it must be
-    explicitly enabled by the operator with both:
-    - PYTRIBEAM_BRUKER_TEST_ENV=hardware
-    - PYTRIBEAM_RUN_BRUKER_HARDWARE=1
+    explicitly enabled by the operator with either:
+    - PYTRIBEAM_BRUKER_TEST_ENV=hardware and PYTRIBEAM_RUN_BRUKER_HARDWARE=1
+    - PYTRIBEAM_TEST_OEM=bruker and PYTRIBEAM_RUN_HARDWARE=1
     """
     return (
         "esprit" in item.keywords
         and "hardware" in item.keywords
         and _is_bruker_test_item(item)
-        and _bruker_test_env() == "hardware"
-        and _env_flag_enabled(BRUKER_HARDWARE_ENV_VAR)
+        and can_run_bruker_hardware()
     )
 
 
@@ -194,20 +371,45 @@ def pytest_collection_modifyitems(config, items):
     LASER_HARDWARE_ONLY_REASON = (
         "requires physical microscope hardware with laser support"
     )
+    OXFORD_HARDWARE_ONLY_REASON = "requires Oxford OEM hardware/software"
+    EDAX_HARDWARE_ONLY_REASON = "requires EDAX OEM hardware/software"
+    BRUKER_SIMULATOR_ONLY_REASON = "requires Bruker/ESPRIT simulator environment"
+    BRUKER_HARDWARE_ONLY_REASON = "requires Bruker/ESPRIT hardware"
+    EDAX_IPAPI_ONLY_REASON = (
+        f"requires a reachable EDAX IPAPI service; set {EDAX_HOST_ENV_VAR} and "
+        f"{RUN_EDAX_IPAPI_ENV_VAR}=1"
+    )
+
+    # Determined before the AutoScript-dependent probes below, because the EDAX
+    # IPAPI is reachable from machines that have no AutoScript installation.
+    CAN_RUN_EDAX_IPAPI = can_run_edax_ipapi()
 
     CAN_RUN_DETACHED = True
     try:
         CAN_RUN_SIMULATED = is_simulated_system()
         CAN_RUN_HARDWARE = is_hardware_system()
         CAN_RUN_LASER_HARDWARE = is_hardware_system() and has_laser_hardware()
+        CAN_RUN_OXFORD_HARDWARE = can_run_oxford_hardware()
+        CAN_RUN_EDAX_HARDWARE = can_run_edax_hardware()
+        CAN_RUN_BRUKER_SIMULATOR = can_run_bruker_simulator()
+        CAN_RUN_BRUKER_HARDWARE = can_run_bruker_hardware()
     except ModuleNotFoundError:
         CAN_RUN_SIMULATED = False
         CAN_RUN_HARDWARE = False
         CAN_RUN_LASER_HARDWARE = False
+        CAN_RUN_OXFORD_HARDWARE = False
+        CAN_RUN_EDAX_HARDWARE = False
+        CAN_RUN_BRUKER_SIMULATOR = False
+        CAN_RUN_BRUKER_HARDWARE = False
 
     skip_simulated = pytest.mark.skip(reason=SIMULATED_ONLY_REASON)
     skip_hardware = pytest.mark.skip(reason=HARDWARE_ONLY_REASON)
     skip_laser_hardware = pytest.mark.skip(reason=LASER_HARDWARE_ONLY_REASON)
+    skip_oxford_hardware = pytest.mark.skip(reason=OXFORD_HARDWARE_ONLY_REASON)
+    skip_edax_hardware = pytest.mark.skip(reason=EDAX_HARDWARE_ONLY_REASON)
+    skip_bruker_simulator = pytest.mark.skip(reason=BRUKER_SIMULATOR_ONLY_REASON)
+    skip_bruker_hardware = pytest.mark.skip(reason=BRUKER_HARDWARE_ONLY_REASON)
+    skip_edax_ipapi = pytest.mark.skip(reason=EDAX_IPAPI_ONLY_REASON)
 
     for item in items:
         if "simulated" in item.keywords and not CAN_RUN_SIMULATED:
@@ -217,11 +419,27 @@ def pytest_collection_modifyitems(config, items):
             "hardware" in item.keywords
             and not CAN_RUN_HARDWARE
             and not _has_bruker_hardware_override(item)
+            and not _has_edax_ipapi_override(item)
         ):
             item.add_marker(skip_hardware)
 
+        if "edax_ipapi" in item.keywords and not CAN_RUN_EDAX_IPAPI:
+            item.add_marker(skip_edax_ipapi)
+
         if "laser_hardware" in item.keywords and not CAN_RUN_LASER_HARDWARE:
             item.add_marker(skip_laser_hardware)
+
+        if "oxford_hardware" in item.keywords and not CAN_RUN_OXFORD_HARDWARE:
+            item.add_marker(skip_oxford_hardware)
+
+        if "edax_hardware" in item.keywords and not CAN_RUN_EDAX_HARDWARE:
+            item.add_marker(skip_edax_hardware)
+
+        if "bruker_simulator" in item.keywords and not CAN_RUN_BRUKER_SIMULATOR:
+            item.add_marker(skip_bruker_simulator)
+
+        if "bruker_hardware" in item.keywords and not CAN_RUN_BRUKER_HARDWARE:
+            item.add_marker(skip_bruker_hardware)
 
 
 # ----------------------------------------------------------------------

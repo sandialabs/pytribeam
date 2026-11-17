@@ -3,12 +3,11 @@
 # 3rd party libraries
 import pytest
 
+# import pytribeam.image as img
+import pytribeam.types as tbt
 
 # Local
 import pytribeam.utilities as ut
-
-# import pytribeam.image as img
-import pytribeam.types as tbt
 
 
 @pytest.fixture
