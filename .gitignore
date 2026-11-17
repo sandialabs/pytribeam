@@ -62,3 +62,5 @@ tests/test_dir/*
 
 # misc
 body.json
+pytribeam_install.log
+.env
