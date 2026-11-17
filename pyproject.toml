@@ -27,6 +27,7 @@ dependencies = [
     "pandas",
     "colorama",
     "importlib_resources; python_version < '3.9'",
+    "pythonnet>=3.0,<4; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
