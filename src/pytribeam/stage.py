@@ -969,6 +969,11 @@ def step_start_position(
     ## Returns
 
     - `bool`: True if the stage is moved to the starting position successfully.
+
+    ## Raises
+
+    - `DetectorError`: If a configured external EBSD/EDS detector reports being
+      inserted, moving, or in error.
     """
     position = target_position(
         operation.stage,
@@ -983,6 +988,12 @@ def step_start_position(
     print(
         f"\t\t{round(position.x_mm, 4):<10}{round(position.y_mm, 4):<10}{round(position.z_mm, 4):<10}{round(position.r_deg, 3):<10}{round(position.t_deg, 3):<10}"
     )
+    # The external detectors were just retracted; refuse to move if any
+    # configured one still reports being in the way.
+    import pytribeam.external_oem.dispatch as external_devices
+
+    external_devices.check_safe_for_stage_motion(general_settings)
+
     move_to_position(
         microscope=microscope,
         target_position=position,
