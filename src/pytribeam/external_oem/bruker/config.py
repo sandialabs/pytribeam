@@ -2,8 +2,30 @@
 Bruker EDS Configuration Module
 ================================
 
-Provides YAML configuration parsing and schema validation for Bruker EDS
+Provides configuration parsing and schema validation for Bruker EDS and EBSD
 mapping workflows.
+
+Two entry points:
+
+- :func:`parse_bruker_settings` parses the ``Bruker_settings`` block of a
+  pyTriBeam experiment YAML (v1.2+) into a :class:`BrukerSettings`.
+- :func:`load_bruker_eds_yaml` reads a standalone Bruker EDS YAML file, as used
+  by the deprecated custom-step tooling in ``bruker/tools``.
+
+The ``Bruker_settings`` block has this layout. ``eds`` uses the same sections as
+the standalone EDS YAML, minus ``session``, which is shared::
+
+    Bruker_settings:
+      session: {dll_dir, mode, server, user, password, host, port, ...}
+      eds:                      # optional
+        output: {root_dir, run_name}
+        detector: {...}
+        map: {...}
+        readback: {...}
+      ebsd:                     # optional; not yet hardware-validated
+        output: {root_dir, run_name}
+        detector: {inserted_position_mm, retracted_position_mm, ...}
+        acquisition: {profile_name, width_px, height_px, pixel_time_us, ...}
 
 Parses YAML into immutable NamedTuple settings with validation using the
 ``schema`` library (matching the main pytribeam factory.py pattern).
@@ -17,6 +39,9 @@ from schema import SchemaError
 
 from pytribeam.external_oem.bruker.types import (
     BrukerDetectorMotionSettings,
+    BrukerEBSDDetectorSettings,
+    BrukerEBSDScanAreaSettings,
+    BrukerEBSDWorkflowSettings,
     BrukerEDSElementMapSetting,
     BrukerEDSMapSettings,
     BrukerEDSOutputSettings,
@@ -25,6 +50,7 @@ from pytribeam.external_oem.bruker.types import (
     BrukerEDSWorkflowSettings,
     BrukerRectROI,
     BrukerSessionSettings,
+    BrukerSettings,
 )
 
 
@@ -57,6 +83,20 @@ def load_bruker_eds_yaml(path: Union[str, Path]) -> BrukerEDSWorkflowSettings:
     with open(path, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
+    return parse_bruker_eds_config(cfg)
+
+
+def parse_bruker_eds_config(cfg: Dict[str, Any]) -> BrukerEDSWorkflowSettings:
+    """Validate and parse a Bruker EDS configuration dictionary.
+
+    The dictionary has the standalone EDS YAML layout: ``session``, ``output``,
+    ``detector``, ``map`` and optional ``readback`` sections.
+
+    Raises
+    ------
+    SchemaError
+        If the contents do not pass validation.
+    """
     validate_bruker_eds_config(cfg)
 
     session = parse_session_settings(cfg)
@@ -71,6 +111,95 @@ def load_bruker_eds_yaml(path: Union[str, Path]) -> BrukerEDSWorkflowSettings:
         map=map_settings,
         output=output,
         readback=readback,
+    )
+
+
+def parse_bruker_settings(cfg: Dict[str, Any]) -> BrukerSettings:
+    """Validate and parse a ``Bruker_settings`` block from an experiment YAML.
+
+    Parameters
+    ----------
+    cfg : dict
+        The ``Bruker_settings`` mapping. It needs a ``session`` section and at
+        least one of ``eds`` or ``ebsd``.
+
+    Returns
+    -------
+    BrukerSettings
+        Immutable settings; ``eds`` / ``ebsd`` are None when absent.
+
+    Raises
+    ------
+    SchemaError
+        If the contents do not pass validation.
+    """
+    if not isinstance(cfg, dict):
+        raise SchemaError("Bruker_settings must be a mapping/dictionary")
+    _require_keys(cfg, "Bruker_settings", ("session",))
+    for section_name in ("session", "eds", "ebsd"):
+        section = cfg.get(section_name)
+        if section is not None and not isinstance(section, dict):
+            raise SchemaError(
+                f"Bruker_settings.{section_name} must be a mapping/dictionary"
+            )
+    if cfg.get("eds") is None and cfg.get("ebsd") is None:
+        raise SchemaError(
+            "Bruker_settings must contain an 'eds' and/or an 'ebsd' section"
+        )
+
+    eds = None
+    if cfg.get("eds") is not None:
+        eds = parse_bruker_eds_config({**cfg["eds"], "session": cfg["session"]})
+
+    ebsd = None
+    if cfg.get("ebsd") is not None:
+        ebsd = parse_bruker_ebsd_config({**cfg["ebsd"], "session": cfg["session"]})
+
+    session = eds.session if eds is not None else ebsd.session
+    return BrukerSettings(session=session, eds=eds, ebsd=ebsd)
+
+
+def parse_bruker_ebsd_config(cfg: Dict[str, Any]) -> BrukerEBSDWorkflowSettings:
+    """Validate and parse a Bruker EBSD configuration dictionary.
+
+    The dictionary has ``session``, ``output``, ``detector`` and
+    ``acquisition`` sections.
+
+    Raises
+    ------
+    SchemaError
+        If the contents do not pass validation.
+    """
+    validate_bruker_ebsd_config(cfg)
+
+    d = cfg["detector"]
+    a = cfg["acquisition"]
+    o = cfg["output"]
+    detector = BrukerEBSDDetectorSettings(
+        inserted_position_mm=float(d["inserted_position_mm"]),
+        retracted_position_mm=float(d["retracted_position_mm"]),
+        speed_mm_per_s=float(d.get("speed_mm_per_s", 2.0)),
+        tolerance_mm=float(d.get("tolerance_mm", 0.10)),
+        timeout_s=float(d.get("move_timeout_s", 60.0)),
+        poll_interval_s=float(d.get("poll_interval_s", 0.5)),
+        stable_polls=int(d.get("stable_polls", 2)),
+    )
+    return BrukerEBSDWorkflowSettings(
+        session=parse_session_settings(cfg),
+        detector=detector,
+        profile_name=str(a["profile_name"]),
+        scan_area=BrukerEBSDScanAreaSettings(
+            width_px=int(a["width_px"]),
+            height_px=int(a["height_px"]),
+            pixel_time_us=int(a["pixel_time_us"]),
+        ),
+        output=BrukerEDSOutputSettings(
+            output_dir=str(o["root_dir"]),
+            run_name=str(o.get("run_name", "bruker_ebsd")),
+        ),
+        with_patterns=bool(a.get("with_patterns", False)),
+        poll_interval_s=float(a.get("poll_interval_s", 1.0)),
+        timeout_s=float(a.get("timeout_s", 3600.0)),
     )
 
 
@@ -152,22 +281,7 @@ def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
     ):
         raise SchemaError("readback must be a mapping/dictionary or null")
 
-    session_cfg = cfg["session"]
-    _require_keys(session_cfg, "session", ("dll_dir",))
-    _require_nonempty_str(session_cfg["dll_dir"], "session.dll_dir")
-    mode = session_cfg.get("mode", "local")
-    _require_type(mode, str, "session.mode")
-    if mode not in ("local", "tcp"):
-        raise SchemaError(f"session.mode must be one of ['local', 'tcp']; got {mode!r}")
-    for key in ("server", "user", "password"):
-        _require_optional_type(session_cfg, key, str, f"session.{key}")
-    if "host" in session_cfg and session_cfg["host"] is not None:
-        _require_type(session_cfg["host"], str, "session.host")
-    if "port" in session_cfg and session_cfg["port"] is not None:
-        _require_int(session_cfg["port"], "session.port")
-    for key in ("close_on_exit", "keep_connection_open"):
-        if key in session_cfg:
-            _require_bool(session_cfg[key], f"session.{key}")
+    _validate_session_config(cfg["session"])
 
     output_cfg = cfg["output"]
     _require_keys(output_cfg, "output", ("root_dir",))
@@ -300,6 +414,83 @@ def validate_bruker_eds_config(cfg: Dict[str, Any]) -> bool:
                             raise SchemaError(
                                 f"{path}.{rgb_key}[{channel_idx}] must be 0..255; got {channel}"
                             )
+
+    return True
+
+
+def _validate_session_config(session_cfg: Dict[str, Any]) -> None:
+    """Validate the ``session`` section shared by EDS and EBSD configs."""
+    _require_keys(session_cfg, "session", ("dll_dir",))
+    _require_nonempty_str(session_cfg["dll_dir"], "session.dll_dir")
+    mode = session_cfg.get("mode", "local")
+    _require_type(mode, str, "session.mode")
+    if mode not in ("local", "tcp"):
+        raise SchemaError(f"session.mode must be one of ['local', 'tcp']; got {mode!r}")
+    for key in ("server", "user", "password"):
+        _require_optional_type(session_cfg, key, str, f"session.{key}")
+    if "host" in session_cfg and session_cfg["host"] is not None:
+        _require_type(session_cfg["host"], str, "session.host")
+    if "port" in session_cfg and session_cfg["port"] is not None:
+        _require_int(session_cfg["port"], "session.port")
+    for key in ("close_on_exit", "keep_connection_open"):
+        if key in session_cfg:
+            _require_bool(session_cfg[key], f"session.{key}")
+
+
+def validate_bruker_ebsd_config(cfg: Dict[str, Any]) -> bool:
+    """Validate the structure and values of a Bruker EBSD configuration."""
+    if not isinstance(cfg, dict):
+        raise SchemaError("Bruker EBSD config must be a mapping/dictionary")
+
+    sections = ("session", "output", "detector", "acquisition")
+    _require_keys(cfg, "", sections)
+    for section_name in sections:
+        if not isinstance(cfg[section_name], dict):
+            raise SchemaError(f"{section_name} must be a mapping/dictionary")
+
+    _validate_session_config(cfg["session"])
+
+    output_cfg = cfg["output"]
+    _require_keys(output_cfg, "output", ("root_dir",))
+    _require_nonempty_str(output_cfg["root_dir"], "output.root_dir")
+    _require_optional_type(output_cfg, "run_name", str, "output.run_name")
+
+    detector_cfg = cfg["detector"]
+    _require_keys(
+        detector_cfg, "detector", ("inserted_position_mm", "retracted_position_mm")
+    )
+    for key in ("inserted_position_mm", "retracted_position_mm"):
+        _require_nonnegative_number(detector_cfg[key], f"detector.{key}")
+    for key in ("speed_mm_per_s", "tolerance_mm", "move_timeout_s", "poll_interval_s"):
+        if key in detector_cfg:
+            _require_positive_number(detector_cfg[key], f"detector.{key}")
+    if "stable_polls" in detector_cfg:
+        _require_positive_int(detector_cfg["stable_polls"], "detector.stable_polls")
+    tolerance = detector_cfg.get("tolerance_mm", 0.10)
+    separation = abs(
+        detector_cfg["inserted_position_mm"] - detector_cfg["retracted_position_mm"]
+    )
+    if separation <= tolerance:
+        raise SchemaError(
+            "detector.inserted_position_mm and detector.retracted_position_mm must "
+            f"differ by more than tolerance_mm ({tolerance}); got a separation of "
+            f"{separation}"
+        )
+
+    acquisition_cfg = cfg["acquisition"]
+    _require_keys(
+        acquisition_cfg,
+        "acquisition",
+        ("profile_name", "width_px", "height_px", "pixel_time_us"),
+    )
+    _require_nonempty_str(acquisition_cfg["profile_name"], "acquisition.profile_name")
+    for key in ("width_px", "height_px", "pixel_time_us"):
+        _require_positive_int(acquisition_cfg[key], f"acquisition.{key}")
+    if "with_patterns" in acquisition_cfg:
+        _require_bool(acquisition_cfg["with_patterns"], "acquisition.with_patterns")
+    for key in ("poll_interval_s", "timeout_s"):
+        if key in acquisition_cfg:
+            _require_positive_number(acquisition_cfg[key], f"acquisition.{key}")
 
     return True
 
