@@ -70,6 +70,7 @@ AUTOSCRIPT_PROVIDED = {
     "imageio",
     "lazy-loader",
     "networkx",
+    "pycparser",  # cffi
     "python-dateutil",
     "pywavelets",
     "scipy",
