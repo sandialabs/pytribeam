@@ -113,23 +113,39 @@ class MainApplication(tk.Tk):
 
         # Register callbacks for UI updates
         self.experiment_controller.register_callback(
-            "state_changed", self._on_experiment_state_changed
+            "state_changed", self._on_gui_thread(self._on_experiment_state_changed)
         )
         self.experiment_controller.register_callback(
-            "experiment_started", self._on_experiment_started
+            "experiment_started", self._on_gui_thread(self._on_experiment_started)
         )
         self.experiment_controller.register_callback(
-            "experiment_completed", self._on_experiment_completed
+            "experiment_completed", self._on_gui_thread(self._on_experiment_completed)
         )
         self.experiment_controller.register_callback(
-            "experiment_stopped", self._on_experiment_stopped
+            "experiment_stopped", self._on_gui_thread(self._on_experiment_stopped)
         )
         self.experiment_controller.register_callback(
-            "validation_failed", self._on_validation_failed
+            "validation_failed", self._on_gui_thread(self._on_validation_failed)
         )
         self.experiment_controller.register_callback(
-            "detector_warning", self._on_detector_warning
+            "detector_warning", self._on_gui_thread(self._on_detector_warning)
         )
+
+    def _on_gui_thread(self, handler):
+        """Wrap a controller callback so it runs on the Tk thread.
+
+        The controller notifies from its experiment thread (setup and the
+        experiment both run there), and Tk may only be used from the thread
+        that created it.
+        """
+
+        def schedule(*args, **kwargs):
+            try:
+                self.after(0, lambda: handler(*args, **kwargs))
+            except (tk.TclError, RuntimeError):
+                pass  # the window is closing
+
+        return schedule
 
     def _draw(self):
         self._create_menubar()
@@ -579,8 +595,8 @@ class MainApplication(tk.Tk):
         )
 
         if success:
-            # Update the validation status
-            self.control_panel.set_validation_status(True)
+            # Validation and setup now run in the background; the status is set
+            # when the experiment actually starts (or fails to).
             self._update_exp_control_buttons(start="disabled", buttons="disabled")
 
     # -------- Callbacks for experiment controller -------- #
@@ -597,8 +613,8 @@ class MainApplication(tk.Tk):
             pass
 
     def _on_experiment_started(self, settings, start_slice, start_step):
-        """Handle experiment start."""
-        pass
+        """Handle experiment start (setup succeeded)."""
+        self.control_panel.set_validation_status(True)
         # print(f"Starting experiment at slice {start_slice}, step {start_step}")
 
     def _on_experiment_completed(self):
@@ -616,7 +632,8 @@ class MainApplication(tk.Tk):
         self._update_exp_control_buttons()
 
     def _on_validation_failed(self, error_message):
-        """Handle validation failure."""
+        """Handle validation or setup failure."""
+        self.control_panel.set_validation_status(False, "Configuration file is invalid")
         messagebox.showerror("Invalid config", error_message)
         self._update_exp_control_buttons()
 
