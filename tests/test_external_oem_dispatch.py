@@ -1,4 +1,15 @@
+"""Routing tests for the external OEM dispatcher.
+
+Every backend is replaced by a recording fake adapter, so these tests check
+which backend handles each call, with which arguments, and in what order,
+without a microscope, LaserControl, or any vendor software. Each adapter is
+tested on its own in phase 3.
+"""
+
 # python standard libraries
+import os
+import subprocess
+import sys
 from types import SimpleNamespace
 
 # 3rd party libraries
@@ -11,6 +22,16 @@ pytest.importorskip("autoscript_sdb_microscope_client")
 # Local
 import pytribeam.external_oem.dispatch as external_devices
 import pytribeam.types as tbt
+from pytribeam.external_oem.core.errors import ConfigurationError, DetectorError
+
+OEM = tbt.ExternalDeviceOEM
+BACKEND = tbt.ExternalBackend
+STATE = tbt.RetractableDeviceState
+EBSD = tbt.ExternalTechnique.EBSD
+EDS = tbt.ExternalTechnique.EDS
+
+MICROSCOPE = object()
+STEP = SimpleNamespace(number=3, name="ebsd_map")
 
 # ----------------
 # Helper functions
@@ -18,7 +39,6 @@ import pytribeam.types as tbt
 
 
 def edax_config() -> tbt.EDAXConfig:
-    """Return an EDAX_settings block naming an IPAPI host."""
     return tbt.EDAXConfig(
         save_directory="D:/EDAX Data/exp1",
         project_name="exp1",
@@ -26,526 +46,546 @@ def edax_config() -> tbt.EDAXConfig:
     )
 
 
-def general_settings(
-    ebsd_oem: tbt.ExternalDeviceOEM,
-    eds_oem: tbt.ExternalDeviceOEM,
-    edax_settings: tbt.EDAXConfig = None,
-) -> tbt.GeneralSettings:
-    """Build minimal GeneralSettings for external OEM dispatcher tests."""
+def oxford_config() -> tbt.OxfordConfig:
+    return tbt.OxfordConfig(
+        connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201),
+        ebsd_profile="ebsd",
+        eds_profile="eds",
+    )
+
+
+def bruker_config() -> tbt.BrukerConfig:
+    # Only presence matters for routing.
+    return tbt.BrukerConfig(session=None)
+
+
+def general_settings(ebsd_oem=OEM.NONE, eds_oem=OEM.NONE, **blocks):
+    """Build minimal GeneralSettings for dispatcher tests."""
     return tbt.GeneralSettings(
-        yml_version=1.0,
+        yml_version=1.2,
         slice_thickness_um=1.0,
         max_slice_number=1,
         pre_tilt_deg=0.0,
         sectioning_axis=tbt.SectioningAxis.Z,
-        stage_tolerance=tbt.StageTolerance(
-            translational_um=1.0,
-            angular_deg=1.0,
-        ),
+        stage_tolerance=tbt.StageTolerance(translational_um=1.0, angular_deg=1.0),
         connection=tbt.MicroscopeConnection(host="localhost"),
         EBSD_OEM=ebsd_oem,
         EDS_OEM=eds_oem,
         exp_dir=".",
         h5_log_name="log",
         step_count=1,
-        EDAX_settings=edax_settings,
+        **blocks,
     )
 
 
-# -----
-# Tests
-# -----
+def ebsd_settings(enable_eds=False) -> tbt.EBSDSettings:
+    return tbt.EBSDSettings(image=None, enable_eds=enable_eds)
 
 
-@pytest.mark.simulated
-class TestBrukerDeviceControlPlaceholders:
-    """Phase 1 Bruker dispatcher tests for no-op placeholder behavior."""
-
-    def test_bruker_connect_ebsd_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.BRUKER,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        status = external_devices.connect_ebsd(general_settings=settings)
-        captured = capsys.readouterr()
-
-        assert status == tbt.RetractableDeviceState.CONNECTED
-        assert (
-            "Bruker EBSD device control is not implemented in Phase 1" in captured.out
-        )
-
-    def test_bruker_connect_eds_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.BRUKER,
-        )
-
-        status = external_devices.connect_eds(general_settings=settings)
-        captured = capsys.readouterr()
-
-        assert status == tbt.RetractableDeviceState.CONNECTED
-        assert (
-            "Bruker EDS device control is handled by the Bruker workflow configuration"
-            in captured.out
-        )
-
-    def test_bruker_insert_ebsd_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.BRUKER,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        assert external_devices.insert_ebsd(
-            microscope=None,
-            general_settings=settings,
-        )
-        captured = capsys.readouterr()
-        assert (
-            "Bruker EBSD device control is not implemented in Phase 1" in captured.out
-        )
-
-    def test_bruker_retract_ebsd_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.BRUKER,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        assert external_devices.retract_ebsd(
-            microscope=None,
-            general_settings=settings,
-        )
-        captured = capsys.readouterr()
-        assert (
-            "Bruker EBSD device control is not implemented in Phase 1" in captured.out
-        )
-
-    def test_bruker_insert_eds_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.BRUKER,
-        )
-
-        assert external_devices.insert_eds(
-            microscope=None,
-            general_settings=settings,
-        )
-        captured = capsys.readouterr()
-        assert (
-            "Bruker EDS device control is handled by the Bruker workflow configuration"
-            in captured.out
-        )
-
-    def test_bruker_retract_eds_no_tfs_placeholder(self, capsys):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.BRUKER,
-        )
-
-        assert external_devices.retract_eds(
-            microscope=None,
-            general_settings=settings,
-        )
-        captured = capsys.readouterr()
-        assert (
-            "Bruker EDS device control is handled by the Bruker workflow configuration"
-            in captured.out
-        )
+def eds_settings() -> tbt.EDSSettings:
+    return tbt.EDSSettings(image=None)
 
 
-@pytest.mark.laser_hardware
-@pytest.mark.oxford_hardware
-class TestOxfordDeviceControlDispatcher:
-    """Oxford hardware tests for dispatcher routes that use TFS Laser API."""
-
-    def test_connect_ebsd_routes_to_tfs_laser_style_control(self):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.OXFORD,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        status = external_devices.connect_ebsd(general_settings=settings)
-
-        assert isinstance(status, tbt.RetractableDeviceState)
-        assert status != tbt.RetractableDeviceState.ERROR
-
-    def test_connect_eds_routes_to_tfs_laser_style_control(self):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.OXFORD,
-        )
-
-        status = external_devices.connect_eds(general_settings=settings)
-
-        assert isinstance(status, tbt.RetractableDeviceState)
-        assert status != tbt.RetractableDeviceState.ERROR
-
-    def test_retract_ebsd_routes_to_tfs_laser_style_control(self, microscope):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.OXFORD,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        assert external_devices.retract_ebsd(
-            microscope=microscope,
-            general_settings=settings,
-        )
-
-    def test_retract_eds_routes_to_tfs_laser_style_control(self, microscope):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.OXFORD,
-        )
-
-        assert external_devices.retract_eds(
-            microscope=microscope,
-            general_settings=settings,
-        )
+def step(operation_settings, number=1):
+    return tbt.Step(
+        type=None,
+        name=f"step_{number}",
+        number=number,
+        frequency=1,
+        stage=None,
+        operation_settings=operation_settings,
+    )
 
 
-@pytest.mark.laser_hardware
-@pytest.mark.edax_hardware
-class TestEdaxDeviceControlDispatcher:
-    """EDAX hardware tests for dispatcher routes that use TFS Laser API."""
+class FakeAdapter:
+    """Stand-in adapter that records every call into a shared list."""
 
-    def test_connect_ebsd_routes_to_tfs_laser_style_control(self):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.EDAX,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
+    FUNCTIONS = (
+        "test_connection",
+        "preflight_ebsd",
+        "preflight_eds",
+        "get_ebsd_camera_state",
+        "get_eds_detector_state",
+        "insert_ebsd_camera",
+        "insert_eds_detector",
+        "retract_ebsd_camera",
+        "retract_eds_detector",
+        "set_ebsd_parameters",
+        "set_eds_parameters",
+        "map_ebsd",
+        "map_eds",
+    )
 
-        status = external_devices.connect_ebsd(general_settings=settings)
+    def __init__(self, backend, calls):
+        self.__name__ = f"fake.{backend.value}"
+        self.backend = backend
+        self.calls = calls
+        self.returns = {name: True for name in self.FUNCTIONS}
+        self.returns["get_ebsd_camera_state"] = STATE.RETRACTED
+        self.returns["get_eds_detector_state"] = STATE.RETRACTED
+        self.raises = {}
+        self.metrics = []  # (name, value) reported by map_* through on_metric
 
-        assert isinstance(status, tbt.RetractableDeviceState)
-        assert status != tbt.RetractableDeviceState.ERROR
+    def __getattr__(self, name):
+        if name not in self.FUNCTIONS:
+            raise AttributeError(name)
 
-    def test_connect_eds_routes_to_tfs_laser_style_control(self):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.EDAX,
-        )
+        def record(*args):
+            self.calls.append((self.backend, name, args))
+            if name in self.raises:
+                raise self.raises[name]
+            if name.startswith("map_"):
+                on_metric = args[-1]
+                for metric in self.metrics:
+                    on_metric(*metric)
+            return self.returns[name]
 
-        status = external_devices.connect_eds(general_settings=settings)
-
-        assert isinstance(status, tbt.RetractableDeviceState)
-        assert status != tbt.RetractableDeviceState.ERROR
-
-    def test_retract_ebsd_routes_to_tfs_laser_style_control(self, microscope):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.EDAX,
-            eds_oem=tbt.ExternalDeviceOEM.NONE,
-        )
-
-        assert external_devices.retract_ebsd(
-            microscope=microscope,
-            general_settings=settings,
-        )
-
-    def test_retract_eds_routes_to_tfs_laser_style_control(self, microscope):
-        settings = general_settings(
-            ebsd_oem=tbt.ExternalDeviceOEM.NONE,
-            eds_oem=tbt.ExternalDeviceOEM.EDAX,
-        )
-
-        assert external_devices.retract_eds(
-            microscope=microscope,
-            general_settings=settings,
-        )
-
-
-# -----------------------
-# Routing, without devices
-# -----------------------
+        return record
 
 
 @pytest.fixture
-def routes(monkeypatch):
-    """Replace every backend the dispatcher can reach with a recorder.
-
-    Returns the list of backend calls in order and the list of log writes, so
-    tests can assert which backend handled an operation without touching a
-    microscope, a LaserControl install, or an IPAPI service.
-    """
+def adapters(monkeypatch):
+    """Replace every adapter with a FakeAdapter; record calls and metric logs."""
     calls = []
     logged = []
-
-    fake_laser = SimpleNamespace(
-        map_ebsd=lambda: calls.append("laser.map_ebsd") or True,
-        map_eds=lambda: calls.append("laser.map_eds") or True,
-    )
-
-    def edax_map_ebsd(general_settings, step_settings, slice_number, on_metric=None):
-        calls.append("edax.map_ebsd")
-        if on_metric is not None:
-            on_metric("camera_saturation", 0.6)
-            on_metric("average_ci", 0.85)
-
-    fake_edax = SimpleNamespace(
-        map_ebsd=edax_map_ebsd,
-        preflight=lambda general_settings: calls.append("edax.preflight") or True,
-        check_connection=lambda host, port: (
-            calls.append(("edax.check", host, port)) or True
-        ),
-        preflight_eds=lambda general_settings: (
-            calls.append("edax.preflight_eds") or True
-        ),
-        eds_detector_state=lambda general_settings: (
-            calls.append("edax.eds_detector_state")
-            or tbt.RetractableDeviceState.RETRACTED
-        ),
-        insert_eds_detector=lambda general_settings, microscope: (
-            calls.append("edax.insert_eds_detector") or True
-        ),
-        retract_eds_detector=lambda general_settings, microscope: (
-            calls.append("edax.retract_eds_detector") or True
-        ),
-        map_eds=lambda general_settings, step_settings, slice_number: calls.append(
-            "edax.map_eds"
-        ),
-    )
-
-    # LaserControl's EDS detector calls, so a test can show they were not used.
-    for name in ("connect_EDS", "insert_EDS", "retract_EDS"):
-        monkeypatch.setattr(
-            external_devices.devices,
-            name,
-            lambda *args, _name=name, **kwargs: (
-                calls.append(f"laser_control.{_name}")
-                or tbt.RetractableDeviceState.RETRACTED
-            ),
-        )
-
-    monkeypatch.setattr(external_devices, "_laser", lambda: fake_laser)
-    monkeypatch.setattr(external_devices, "_edax_workflow", lambda: fake_edax)
+    fakes = {backend: FakeAdapter(backend, calls) for backend in BACKEND}
+    monkeypatch.setattr(external_devices, "adapter", lambda backend: fakes[backend])
     monkeypatch.setattr(
         external_devices.log,
         "ebsd_camera_saturation",
-        lambda **kwargs: logged.append(("camera_saturation", kwargs)),
+        lambda **kwargs: logged.append((external_devices.CAMERA_SATURATION, kwargs)),
     )
     monkeypatch.setattr(
         external_devices.log,
         "ebsd_average_ci",
-        lambda **kwargs: logged.append(("average_ci", kwargs)),
+        lambda **kwargs: logged.append((external_devices.AVERAGE_CI, kwargs)),
     )
-    return SimpleNamespace(calls=calls, logged=logged)
+    return SimpleNamespace(fakes=fakes, calls=calls, logged=logged)
 
 
-STEP = SimpleNamespace(number=3, name="ebsd_map")
+def names(calls):
+    """Return just (backend, function) from recorded calls."""
+    return [(backend, name) for backend, name, _ in calls]
 
 
-def _map_ebsd(settings):
-    return external_devices.map_ebsd(
-        general_settings=settings, step_settings=None, slice_number=7, step=STEP
-    )
+# Settings for each backend, both techniques on the same OEM.
+EVERY_BACKEND = {
+    BACKEND.TFS_LASER: lambda: general_settings(OEM.EDAX, OEM.EDAX),
+    BACKEND.EDAX_IPAPI: lambda: general_settings(
+        OEM.EDAX, OEM.EDAX, EDAX_settings=edax_config()
+    ),
+    BACKEND.OXFORD_AZTEC: lambda: general_settings(
+        OEM.OXFORD, OEM.OXFORD, Oxford_settings=oxford_config()
+    ),
+    BACKEND.BRUKER_ESPRIT: lambda: general_settings(
+        OEM.BRUKER, OEM.BRUKER, Bruker_settings=bruker_config()
+    ),
+}
+
+# -----------------
+# Backend selection
+# -----------------
 
 
-class TestEbsdRouting:
-    """EBSD mapping and preflight reach the right backend for each OEM."""
-
-    def test_edax_with_ipapi_settings_uses_the_native_wrapper(self, routes):
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.NONE, edax_config()
-        )
-
-        assert _map_ebsd(settings) is True
-        assert routes.calls == ["edax.map_ebsd"]
-
-    def test_edax_without_ipapi_settings_falls_back_to_laser_control(self, routes):
-        """A v1.0 configuration names no IPAPI host, so LaserControl drives it."""
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.NONE
-        )
-
-        _map_ebsd(settings)
-
-        assert routes.calls == ["laser.map_ebsd"]
-
-    def test_oxford_ignores_an_edax_block(self, routes):
-        """v1.1 configurations carry EDAX_settings whatever the OEM."""
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.OXFORD, tbt.ExternalDeviceOEM.NONE, edax_config()
-        )
-
-        _map_ebsd(settings)
-
-        assert routes.calls == ["laser.map_ebsd"]
-
-    def test_bruker_ebsd_is_refused_with_the_reason(self, routes):
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.BRUKER, tbt.ExternalDeviceOEM.NONE
-        )
-
-        with pytest.raises(NotImplementedError, match="Bruker EBSD wrapper"):
-            _map_ebsd(settings)
-        assert routes.calls == []
-
-    def test_no_ebsd_oem_is_refused(self, routes):
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.NONE, tbt.ExternalDeviceOEM.NONE
-        )
-
-        with pytest.raises(NotImplementedError, match="EBSD step was requested"):
-            _map_ebsd(settings)
-
-    def test_native_preflight_runs_over_the_ipapi(self, routes):
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.NONE, edax_config()
-        )
-
-        assert external_devices.preflight_ebsd(general_settings=settings) is True
-        assert routes.calls == ["edax.preflight"]
-
+class TestBackendSelection:
     @pytest.mark.parametrize(
-        "oem, edax",
+        "settings, expected",
         [
-            (tbt.ExternalDeviceOEM.EDAX, False),
-            (tbt.ExternalDeviceOEM.OXFORD, True),
-            (tbt.ExternalDeviceOEM.BRUKER, False),
+            (general_settings(OEM.EDAX), BACKEND.TFS_LASER),
+            (
+                general_settings(OEM.EDAX, EDAX_settings=edax_config()),
+                BACKEND.EDAX_IPAPI,
+            ),
+            (general_settings(OEM.OXFORD), BACKEND.TFS_LASER),
+            (
+                general_settings(OEM.OXFORD, Oxford_settings=oxford_config()),
+                BACKEND.OXFORD_AZTEC,
+            ),
+            (
+                general_settings(OEM.OXFORD, EDAX_settings=edax_config()),
+                BACKEND.TFS_LASER,
+            ),
+            (
+                general_settings(OEM.BRUKER, Bruker_settings=bruker_config()),
+                BACKEND.BRUKER_ESPRIT,
+            ),
+            (general_settings(), None),
         ],
     )
-    def test_preflight_is_a_no_op_off_the_native_path(self, routes, oem, edax):
-        settings = general_settings(
-            oem, tbt.ExternalDeviceOEM.NONE, edax_config() if edax else None
+    def test_ebsd_backend(self, settings, expected):
+        assert external_devices.backend(settings, EBSD) is expected
+
+    def test_each_technique_follows_its_own_oem(self):
+        settings = general_settings(OEM.NONE, OEM.EDAX, EDAX_settings=edax_config())
+
+        assert external_devices.backend(settings, EBSD) is None
+        assert external_devices.backend(settings, EDS) is BACKEND.EDAX_IPAPI
+
+    def test_bruker_without_its_block_is_a_configuration_error(self):
+        with pytest.raises(ConfigurationError, match="Bruker_settings"):
+            external_devices.backend(general_settings(OEM.BRUKER), EBSD)
+
+    def test_every_backend_has_an_adapter_module(self):
+        assert set(external_devices.ADAPTER_MODULES) == set(BACKEND)
+        for module in external_devices.ADAPTER_MODULES.values():
+            assert module.startswith("pytribeam.external_oem.adapters.")
+
+    def test_adapter_imports_the_backend_module(self, monkeypatch):
+        imported = []
+        monkeypatch.setattr(
+            external_devices.importlib,
+            "import_module",
+            lambda name: imported.append(name) or name,
         )
 
-        assert external_devices.preflight_ebsd(general_settings=settings) is True
-        assert routes.calls == []
+        found = external_devices.adapter(BACKEND.OXFORD_AZTEC)
 
-    @pytest.mark.parametrize(
-        "oem, edax, expected",
-        [
-            (tbt.ExternalDeviceOEM.EDAX, True, True),
-            (tbt.ExternalDeviceOEM.EDAX, False, False),
-            (tbt.ExternalDeviceOEM.OXFORD, True, False),
-            (tbt.ExternalDeviceOEM.BRUKER, True, False),
-            (tbt.ExternalDeviceOEM.NONE, True, False),
-        ],
-    )
-    def test_native_edax_selection(self, oem, edax, expected):
-        settings = general_settings(
-            oem, tbt.ExternalDeviceOEM.NONE, edax_config() if edax else None
+        assert imported == ["pytribeam.external_oem.adapters.oxford"]
+        assert found == "pytribeam.external_oem.adapters.oxford"
+
+    def test_importing_the_dispatcher_loads_no_vendor_package(self):
+        """Vendor code is imported lazily, so one OEM never loads another."""
+        code = (
+            "import sys, pytribeam.external_oem.dispatch\n"
+            "vendors = ('edax', 'oxford', 'adapters')\n"
+            "loaded = [m for m in sys.modules\n"
+            "          if m.split('.')[2:3] and m.split('.')[2] in vendors\n"
+            "          and m.startswith('pytribeam.external_oem.')]\n"
+            "print(loaded)\n"
         )
-        assert external_devices.uses_native_edax_ebsd(settings) is expected
-
-
-class TestEdsRouting:
-    """EDAX EDS runs over the IPAPI whenever an IPAPI host is configured."""
-
-    def _eds(self, oem, edax=True):
-        return general_settings(
-            tbt.ExternalDeviceOEM.NONE, oem, edax_config() if edax else None
+        result = subprocess.run(
+            [sys.executable, "-c", code],
+            capture_output=True,
+            text=True,
+            env={**os.environ, "PYTHONPATH": os.pathsep.join(p for p in sys.path if p)},
         )
 
-    def test_native_edax_eds_never_touches_laser_control(self, routes):
-        """Connect, preflight, insert, map, and retract all go over the IPAPI."""
-        settings = self._eds(tbt.ExternalDeviceOEM.EDAX)
+        assert result.returncode == 0, result.stderr
+        assert result.stdout.strip().splitlines()[-1] == "[]"
 
-        external_devices.connect_eds(general_settings=settings)
-        external_devices.preflight_eds(general_settings=settings)
-        external_devices.insert_eds(microscope=None, general_settings=settings)
-        external_devices.map_eds(general_settings=settings, slice_number=4)
-        external_devices.retract_eds(microscope=None, general_settings=settings)
 
-        assert routes.calls == [
-            "edax.eds_detector_state",
-            "edax.preflight_eds",
-            "edax.insert_eds_detector",
-            "edax.map_eds",
-            "edax.retract_eds_detector",
+# -------------------------
+# Forwarding, every backend
+# -------------------------
+
+
+@pytest.mark.parametrize("backend", list(BACKEND))
+class TestForwarding:
+    """Each public call reaches the selected backend with the same arguments."""
+
+    def test_detector_motion_and_state(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
+
+        assert external_devices.insert_ebsd_camera(MICROSCOPE, settings)
+        assert external_devices.insert_eds_detector(MICROSCOPE, settings)
+        assert external_devices.get_ebsd_camera_state(settings) == STATE.RETRACTED
+        assert external_devices.get_eds_detector_state(settings) == STATE.RETRACTED
+        assert external_devices.retract_ebsd_camera(MICROSCOPE, settings)
+        assert external_devices.retract_eds_detector(MICROSCOPE, settings)
+
+        assert adapters.calls == [
+            (backend, "insert_ebsd_camera", (MICROSCOPE, settings)),
+            (backend, "insert_eds_detector", (MICROSCOPE, settings)),
+            (backend, "get_ebsd_camera_state", (settings,)),
+            (backend, "get_eds_detector_state", (settings,)),
+            (backend, "retract_ebsd_camera", (MICROSCOPE, settings)),
+            (backend, "retract_eds_detector", (MICROSCOPE, settings)),
         ]
 
-    def test_edax_without_ipapi_settings_falls_back_to_laser_control(self, routes):
-        """A v1.0 configuration names no IPAPI host."""
-        settings = self._eds(tbt.ExternalDeviceOEM.EDAX, edax=False)
+    def test_connection(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
 
-        external_devices.insert_eds(microscope=None, general_settings=settings)
-        external_devices.map_eds(general_settings=settings)
-        external_devices.retract_eds(microscope=None, general_settings=settings)
+        assert external_devices.test_connection(settings, EBSD)
+        assert external_devices.test_connection(settings, EDS)
 
-        assert routes.calls == [
-            "laser_control.insert_EDS",
-            "laser.map_eds",
-            "laser_control.retract_EDS",
+        assert adapters.calls == [
+            (backend, "test_connection", (settings, EBSD)),
+            (backend, "test_connection", (settings, EDS)),
         ]
-        assert external_devices.preflight_eds(general_settings=settings) is True
 
-    def test_oxford_ignores_an_edax_block(self, routes):
-        """v1.1 configurations carry EDAX_settings whatever the OEM."""
-        settings = self._eds(tbt.ExternalDeviceOEM.OXFORD)
+    def test_parameters(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
+        ebsd, eds = ebsd_settings(), eds_settings()
 
-        external_devices.map_eds(general_settings=settings)
-        external_devices.preflight_eds(general_settings=settings)
+        assert external_devices.set_ebsd_parameters(settings, ebsd)
+        assert external_devices.set_eds_parameters(settings, eds)
 
-        assert routes.calls == ["laser.map_eds"]
+        assert adapters.calls == [
+            (backend, "set_ebsd_parameters", (settings, ebsd)),
+            (backend, "set_eds_parameters", (settings, eds)),
+        ]
 
-    def test_concurrent_eds_moves_the_detector_over_the_ipapi(self, routes):
-        """An EBSD step with concurrent EDS inserts the EDS detector natively."""
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.EDAX, edax_config()
-        )
+    def test_maps_apply_the_step_parameters_first(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
+        ebsd, eds = ebsd_settings(), eds_settings()
 
-        external_devices.insert_eds(microscope=None, general_settings=settings)
+        assert external_devices.map_ebsd(settings, ebsd, 7, STEP)
+        assert external_devices.map_eds(settings, eds, 8, STEP)
 
-        assert routes.calls == ["edax.insert_eds_detector"]
+        assert names(adapters.calls) == [
+            (backend, "set_ebsd_parameters"),
+            (backend, "map_ebsd"),
+            (backend, "set_eds_parameters"),
+            (backend, "map_eds"),
+        ]
+        assert adapters.calls[1][2][:3] == (settings, ebsd, 7)
+        assert adapters.calls[3][2][:3] == (settings, eds, 8)
+        assert callable(adapters.calls[1][2][3])
 
+    def test_adapter_results_are_passed_back(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
+        adapters.fakes[backend].returns["insert_ebsd_camera"] = False
+        adapters.fakes[backend].returns["get_eds_detector_state"] = STATE.INSERTED
+
+        assert external_devices.insert_ebsd_camera(MICROSCOPE, settings) is False
+        assert external_devices.get_eds_detector_state(settings) == STATE.INSERTED
+
+
+# ------------------
+# No OEM configured
+# ------------------
+
+
+class TestNoOemConfigured:
     @pytest.mark.parametrize(
-        "oem, edax, expected",
+        "call",
         [
-            (tbt.ExternalDeviceOEM.EDAX, True, True),
-            (tbt.ExternalDeviceOEM.EDAX, False, False),
-            (tbt.ExternalDeviceOEM.OXFORD, True, False),
-            (tbt.ExternalDeviceOEM.BRUKER, True, False),
-            (tbt.ExternalDeviceOEM.NONE, True, False),
+            lambda s: external_devices.test_connection(s, EBSD),
+            lambda s: external_devices.get_ebsd_camera_state(s),
+            lambda s: external_devices.get_eds_detector_state(s),
+            lambda s: external_devices.insert_ebsd_camera(MICROSCOPE, s),
+            lambda s: external_devices.insert_eds_detector(MICROSCOPE, s),
+            lambda s: external_devices.set_ebsd_parameters(s, ebsd_settings()),
+            lambda s: external_devices.set_eds_parameters(s, eds_settings()),
+            lambda s: external_devices.map_ebsd(s, ebsd_settings(), 1, STEP),
+            lambda s: external_devices.map_eds(s, eds_settings(), 1, STEP),
         ],
     )
-    def test_native_edax_eds_selection(self, oem, edax, expected):
-        assert external_devices.uses_native_edax_eds(self._eds(oem, edax)) is expected
+    def test_device_operations_are_refused(self, adapters, call):
+        with pytest.raises(ConfigurationError, match="OEM is configured"):
+            call(general_settings())
+        assert adapters.calls == []
 
-    def test_bruker_eds_points_to_the_custom_step(self, routes):
-        settings = self._eds(tbt.ExternalDeviceOEM.BRUKER, edax=False)
+    def test_retraction_is_a_no_op(self, adapters):
+        settings = general_settings()
 
-        with pytest.raises(NotImplementedError, match="custom"):
-            external_devices.map_eds(general_settings=settings)
-        assert routes.calls == []
+        assert external_devices.retract_ebsd_camera(MICROSCOPE, settings)
+        assert external_devices.retract_eds_detector(MICROSCOPE, settings)
+        assert external_devices.retract_all_external_devices(MICROSCOPE, settings)
+        assert adapters.calls == []
+
+    def test_concurrent_eds_needs_an_eds_oem(self, adapters):
+        """Detector motion follows the detector's OEM, not the EBSD step's."""
+        settings = general_settings(OEM.EDAX, OEM.NONE, EDAX_settings=edax_config())
+
+        with pytest.raises(ConfigurationError, match="EDS OEM"):
+            external_devices.insert_eds_detector(MICROSCOPE, settings)
+
+
+# ---------------
+# Input checking
+# ---------------
+
+
+class TestInputChecking:
+    def test_vendor_states_are_rejected(self, adapters):
+        """Adapters must translate vendor states; a raw value is a bug."""
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        adapters.fakes[BACKEND.OXFORD_AZTEC].returns["get_ebsd_camera_state"] = "IN"
+
+        with pytest.raises(TypeError, match="RetractableDeviceState"):
+            external_devices.get_ebsd_camera_state(settings)
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda s: external_devices.set_ebsd_parameters(s, eds_settings()),
+            lambda s: external_devices.set_eds_parameters(s, ebsd_settings()),
+            lambda s: external_devices.map_ebsd(s, eds_settings(), 1, STEP),
+            lambda s: external_devices.map_eds(s, ebsd_settings(), 1, STEP),
+        ],
+    )
+    def test_step_settings_must_match_the_technique(self, adapters, call):
+        with pytest.raises(TypeError):
+            call(EVERY_BACKEND[BACKEND.EDAX_IPAPI]())
+        assert adapters.calls == []
+
+    def test_unknown_technique(self):
+        with pytest.raises(TypeError):
+            external_devices.oem(general_settings(), "EBSD")
+
+
+# ---------
+# Preflight
+# ---------
+
+
+class TestPreflight:
+    def steps(self):
+        return [
+            step(ebsd_settings(), number=1),
+            step(eds_settings(), number=2),
+            step(ebsd_settings(enable_eds=True), number=3),
+            step(object(), number=4),  # e.g. an image step
+        ]
+
+    def test_ebsd_sequence(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        steps = self.steps()
+        ebsd_steps = [steps[0].operation_settings, steps[2].operation_settings]
+        backend = BACKEND.OXFORD_AZTEC
+
+        assert external_devices.preflight_ebsd(settings, steps)
+
+        assert adapters.calls == [
+            (backend, "test_connection", (settings, EBSD)),
+            (backend, "get_ebsd_camera_state", (settings,)),
+            (backend, "preflight_ebsd", (settings, ebsd_steps)),
+            (backend, "set_ebsd_parameters", (settings, ebsd_steps[0])),
+            (backend, "set_ebsd_parameters", (settings, ebsd_steps[1])),
+        ]
+
+    def test_eds_sequence(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.BRUKER_ESPRIT]()
+        steps = self.steps()
+        eds_steps = [steps[1].operation_settings]
+        backend = BACKEND.BRUKER_ESPRIT
+
+        assert external_devices.preflight_eds(settings, steps)
+
+        assert adapters.calls == [
+            (backend, "test_connection", (settings, EDS)),
+            (backend, "get_eds_detector_state", (settings,)),
+            (backend, "preflight_eds", (settings, eds_steps)),
+            (backend, "set_eds_parameters", (settings, eds_steps[0])),
+        ]
+
+    def test_without_steps_still_checks_the_detector(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+
+        assert external_devices.preflight_eds(settings, [])
+
+        assert names(adapters.calls) == [
+            (BACKEND.EDAX_IPAPI, "test_connection"),
+            (BACKEND.EDAX_IPAPI, "get_eds_detector_state"),
+            (BACKEND.EDAX_IPAPI, "preflight_eds"),
+        ]
+
+    def test_failed_connection_stops_preflight(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].returns["test_connection"] = False
+
+        with pytest.raises(DetectorError, match="connection test failed"):
+            external_devices.preflight_ebsd(settings, self.steps())
+        assert names(adapters.calls) == [(BACKEND.EDAX_IPAPI, "test_connection")]
+
+    def test_detector_in_error_stops_preflight(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].returns["get_ebsd_camera_state"] = (
+            STATE.ERROR
+        )
+
+        with pytest.raises(DetectorError, match="error state"):
+            external_devices.preflight_ebsd(settings, self.steps())
+        assert (BACKEND.EDAX_IPAPI, "preflight_ebsd") not in names(adapters.calls)
+
+    def test_parameter_failure_is_raised_before_the_experiment(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        adapters.fakes[BACKEND.OXFORD_AZTEC].raises["set_ebsd_parameters"] = (
+            ConfigurationError("profile 'ebsd' not found")
+        )
+
+        with pytest.raises(ConfigurationError, match="profile"):
+            external_devices.preflight_ebsd(settings, self.steps())
+
+    def test_no_oem_and_no_steps_has_nothing_to_check(self, adapters):
+        assert external_devices.preflight_ebsd(general_settings(), [step(object())])
+        assert adapters.calls == []
+
+    def test_steps_without_an_oem_are_refused(self, adapters):
+        with pytest.raises(ConfigurationError, match="EBSD steps"):
+            external_devices.preflight_ebsd(general_settings(), self.steps())
+
+
+# ----------------
+# Retract all
+# ----------------
+
+
+class TestRetractAll:
+    def test_retracts_both_detectors(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+
+        assert external_devices.retract_all_external_devices(MICROSCOPE, settings)
+
+        assert names(adapters.calls) == [
+            (BACKEND.EDAX_IPAPI, "retract_ebsd_camera"),
+            (BACKEND.EDAX_IPAPI, "retract_eds_detector"),
+        ]
+
+    def test_skips_a_technique_with_no_oem(self, adapters):
+        settings = general_settings(
+            OEM.NONE, OEM.OXFORD, Oxford_settings=oxford_config()
+        )
+
+        assert external_devices.retract_all_external_devices(MICROSCOPE, settings)
+        assert names(adapters.calls) == [(BACKEND.OXFORD_AZTEC, "retract_eds_detector")]
+
+    def test_attempts_every_retraction_before_raising(self, adapters):
+        """An abort must still retract the EDS detector if the camera fails."""
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        adapters.fakes[BACKEND.OXFORD_AZTEC].raises["retract_ebsd_camera"] = (
+            DetectorError("camera touched")
+        )
+
+        with pytest.raises(DetectorError, match="EBSD camera.*camera touched"):
+            external_devices.retract_all_external_devices(MICROSCOPE, settings)
+        assert names(adapters.calls) == [
+            (BACKEND.OXFORD_AZTEC, "retract_ebsd_camera"),
+            (BACKEND.OXFORD_AZTEC, "retract_eds_detector"),
+        ]
+
+    def test_a_reported_failure_is_raised(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.TFS_LASER]()
+        adapters.fakes[BACKEND.TFS_LASER].returns["retract_eds_detector"] = False
+
+        with pytest.raises(DetectorError, match="EDS detector"):
+            external_devices.retract_all_external_devices(MICROSCOPE, settings)
+
+
+# --------------
+# Metric logging
+# --------------
 
 
 class TestMetricLogging:
-    """Native EDAX metrics land in the experiment log as they are measured."""
+    def test_map_logs_each_metric_as_reported(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].metrics = [
+            (external_devices.CAMERA_SATURATION, 0.6),
+            (external_devices.AVERAGE_CI, 0.85),
+        ]
 
-    def test_native_map_logs_saturation_and_ci(self, routes):
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.NONE, edax_config()
-        )
+        external_devices.map_ebsd(settings, ebsd_settings(), 7, STEP)
 
-        _map_ebsd(settings)
-
-        names = [name for name, _ in routes.logged]
-        assert names == ["camera_saturation", "average_ci"]
-        saturation = routes.logged[0][1]
+        assert [name for name, _ in adapters.logged] == [
+            external_devices.CAMERA_SATURATION,
+            external_devices.AVERAGE_CI,
+        ]
+        saturation = adapters.logged[0][1]
         assert saturation["cam_sat_p"] == 0.6
         assert saturation["step_number"] == 3
         assert saturation["step_name"] == "ebsd_map"
         assert saturation["slice_number"] == 7
-        assert routes.logged[1][1]["avg_ci_p"] == 0.85
+        assert saturation["log_filepath"] == settings.log_filepath
+        assert adapters.logged[1][1]["avg_ci_p"] == 0.85
 
-    def test_unknown_metric_is_reported_not_raised(self, routes, capsys):
+    def test_unknown_metric_is_reported_not_raised(self, adapters, capsys):
         """A vendor reporting something new must not abort an experiment."""
-        settings = general_settings(
-            tbt.ExternalDeviceOEM.EDAX, tbt.ExternalDeviceOEM.NONE, edax_config()
-        )
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        adapters.fakes[BACKEND.OXFORD_AZTEC].metrics = [("pattern_quality", 0.4)]
 
-        logged = external_devices.log_ebsd_metric(
-            settings, STEP, 7, "pattern_quality", 0.4
-        )
+        assert external_devices.map_ebsd(settings, ebsd_settings(), 7, STEP)
 
-        assert logged is False
-        assert routes.logged == []
+        assert adapters.logged == []
         assert "pattern_quality" in capsys.readouterr().out
-
-
-class TestConnectionCheck:
-    """Configuration validation reaches the IPAPI through the dispatcher."""
-
-    def test_check_delegates_to_the_edax_wrapper(self, routes):
-        assert external_devices.check_edax_connection(host="edax-pc", port=8301)
-        assert routes.calls == [("edax.check", "edax-pc", 8301)]

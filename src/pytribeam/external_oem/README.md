@@ -89,7 +89,7 @@ uses.
 | Oxford | absent            | `TFS_LASER` (LaserControl fallback) |
 | Bruker | `Bruker_settings` | `BRUKER_ESPRIT` (native; there is no fallback) |
 | Bruker | absent            | configuration error |
-| None   | —                 | no-op / `NotImplementedError` when a map is requested |
+| None   | —                 | retracts are no-ops; any other call raises `ConfigurationError` |
 
 A v1.0 configuration with no vendor block therefore behaves exactly as it does
 today. Having different OEMs for EBSD and EDS stays forbidden, as
@@ -113,11 +113,22 @@ external_oem/
 └── bruker/              # (existing) vendor wrapper — changes to drop the second YAML
 ```
 
-- **Adapters are plain modules, not classes.** Each one exposes the same
-  function names and signatures as the public API. The dispatcher looks up a
-  `tbt.ExternalBackend` value in a table mapping it to the adapter's module
-  path, and imports that module lazily. Selecting Oxford therefore never
-  imports Bruker's ctypes code or EDAX's sockets.
+- **Adapters are plain modules, not classes.** Each one exposes the public
+  API's function names, minus the composite `retract_all_external_devices`.
+  The full contract is in the comment block at the top of `dispatch.py`. The
+  dispatcher looks up the `tbt.ExternalBackend` in `ADAPTER_MODULES` and
+  imports that module lazily, so selecting Oxford never imports Bruker's
+  ctypes code or EDAX's sockets. (Bruker's stdlib-only `types.py` is the
+  exception: `pytribeam.types` imports it for `BrukerConfig`.)
+- **The dispatcher owns the generic sequencing**: preflight's connection test,
+  state check and per-step parameter calls; applying parameters before each
+  map; logging metrics; and attempting every retraction in
+  `retract_all_external_devices` before reporting failures. Adapters own only
+  what differs by vendor.
+- **Motion safety (for now) is the adapter's job.** Every insert and retract
+  checks for collisions and runs under `insertable_devices.ccd_live_view`, as
+  the existing EDAX and LaserControl paths already do. Phase 6 moves this into
+  the dispatcher.
 - **Adapters are the only translation layer.** pyTriBeam types go in and
   pyTriBeam types come out. Vendor packages keep their own types.
 - **The adapter is the only code that imports a vendor package's internals.**
