@@ -105,6 +105,7 @@ class Constants(NamedTuple):
     - `laser_objective_tolerance_mm` (`float`): Tolerance for laser objective in millimeters.
     - `laser_beam_shift_tolerance_um` (`float`): Tolerance for laser beam shift in micrometers.
     - `laser_energy_tol_uj` (`float`): Tolerance for laser energy in microjoules.
+    - `oxford_aztec_default_port` (`int`): Default TCP port of the Oxford AZtec plugin service.
     - `laser_delay_s` (`float`): Delay for measuring power and setting pulse divider/energy in seconds.
     - `default_fib_rectangle_pattern` (`tbt.FIBRectanglePattern`): Default FIB rectangle pattern.
     - `stream_pattern_scale` (`int`): Scale for stream pattern.
@@ -212,6 +213,9 @@ class Constants(NamedTuple):
 
     # Detector constants
     contrast_brightness_tolerance = 1.0e-4  # range is 0 to 1
+
+    # External OEM constants
+    oxford_aztec_default_port = 22201  # AZtec plugin service TCP port
 
     # Laser constants
     image_scan_rotation_for_laser_deg = 180.0  # requirement by TFS for laser milling

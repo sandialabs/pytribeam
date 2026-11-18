@@ -171,7 +171,9 @@ __all__ = [
     "DetectorType",
     "Device",
     "DeviceStatus",
+    "ExternalBackend",
     "ExternalDeviceOEM",
+    "ExternalTechnique",
     "ImageFileFormat",
     "MapStatus",
     "RetractableDeviceState",
@@ -233,6 +235,9 @@ __all__ = [
     "EDSSettings",
     # Workflow and configuration settings
     "CustomSettings",
+    "BrukerConfig",
+    "EDAXConfig",
+    "OxfordConfig",
     "GeneralSettings",
     "StepType",
     "Step",
@@ -245,6 +250,10 @@ __all__ = [
 from enum import Enum, IntEnum
 from pathlib import Path
 from typing import List, NamedTuple, Union
+
+# Bruker settings are defined in the vendor package, which is stdlib-only, so
+# the vendor wrapper can parse them without importing AutoScript.
+from pytribeam.external_oem.bruker.types import BrukerSettings as _BrukerSettings
 
 import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
 import autoscript_sdb_microscope_client.enumerations as as_enums
@@ -599,6 +608,41 @@ class ExternalDeviceOEM(Enum):
     EDAX: str = "EDAX"
     BRUKER: str = "Bruker"
     NONE: str = None
+
+
+class ExternalBackend(Enum):
+    """
+    Software interface used to drive an external EBSD or EDS detector.
+
+    The backend follows from the OEM and from which vendor settings block is
+    present in the configuration; see `pytribeam.external_oem.dispatch`.
+
+    ## Attributes
+
+    - `TFS_LASER` (`str`): TFS LaserControl fallback (EDAX and Oxford only).
+    - `EDAX_IPAPI` (`str`): EDAX IPAPI (TEAM/APEX) over TCP.
+    - `OXFORD_AZTEC` (`str`): Oxford AZtec plugin API over .NET.
+    - `BRUKER_ESPRIT` (`str`): Bruker ESPRIT API over its DLL.
+    """
+
+    TFS_LASER: str = "tfs_laser"
+    EDAX_IPAPI: str = "edax_ipapi"
+    OXFORD_AZTEC: str = "oxford_aztec"
+    BRUKER_ESPRIT: str = "bruker_esprit"
+
+
+class ExternalTechnique(Enum):
+    """
+    External detector technique.
+
+    ## Attributes
+
+    - `EBSD` (`str`): Electron backscatter diffraction.
+    - `EDS` (`str`): Energy dispersive X-ray spectroscopy.
+    """
+
+    EBSD: str = "EBSD"
+    EDS: str = "EDS"
 
 
 # TODO remove this class and fix references
@@ -1472,6 +1516,35 @@ class EDAXConfig(NamedTuple):
     connection: MicroscopeConnection = None
 
 
+class OxfordConfig(NamedTuple):
+    """
+    General configuration for Oxford AZtec, driven through its plugin API.
+
+    AZtec's plugin API cannot set technique parameters, so EBSD and EDS
+    parameters are applied by loading the named AZtec profiles.
+
+    ## Attributes
+
+    - `connection` (`MicroscopeConnection`): Host and port of the AZtec plugin
+      service (default port 22201).
+    - `ebsd_profile` (`str, optional`): AZtec profile loaded before EBSD maps.
+    - `eds_profile` (`str, optional`): AZtec profile loaded before EDS maps.
+    - `dll_dir` (`Path, optional`): Folder holding the AZtec plugin SDK DLLs.
+      If None, the `AZTEC_PLUGIN_DIR` environment variable is used.
+    """
+
+    connection: MicroscopeConnection
+    ebsd_profile: str = None
+    eds_profile: str = None
+    dll_dir: Path = None
+
+
+#: General configuration for Bruker ESPRIT: session, plus EDS and/or EBSD
+#: workflow settings. Defined in `pytribeam.external_oem.bruker.types` as
+#: `BrukerSettings`; parsed by `pytribeam.external_oem.bruker.config`.
+BrukerConfig = _BrukerSettings
+
+
 class GeneralSettings(NamedTuple):
     """
     General settings object.
@@ -1490,6 +1563,9 @@ class GeneralSettings(NamedTuple):
     - `exp_dir` (`Path`): The experiment directory.
     - `h5_log_name` (`str`): The HDF5 log file name.
     - `step_count` (`int`): The step count.
+    - `EDAX_settings` (`EDAXConfig, optional`): EDAX IPAPI settings (v1.1+).
+    - `Oxford_settings` (`OxfordConfig, optional`): Oxford AZtec settings (v1.2+).
+    - `Bruker_settings` (`BrukerConfig, optional`): Bruker ESPRIT settings (v1.2+).
 
     ## Properties
 
@@ -1509,6 +1585,8 @@ class GeneralSettings(NamedTuple):
     h5_log_name: str
     step_count: int
     EDAX_settings: EDAXConfig = None
+    Oxford_settings: OxfordConfig = None
+    Bruker_settings: BrukerConfig = None
 
     @property
     def log_filepath(self) -> Path:
@@ -2158,6 +2236,9 @@ class YMLFormatVersion(YMLFormat, Enum):
     ## Attributes
 
     - `V_1_0` (`YMLFormat`): Version 1.0 of the YAML format.
+    - `V_1_1` (`YMLFormat`): Version 1.1, adding `EDAX_settings`.
+    - `V_1_2` (`YMLFormat`): Version 1.2, adding `Oxford_settings` and
+      `Bruker_settings`.
     """
 
     V_1_0 = YMLFormat(
@@ -2228,6 +2309,56 @@ class YMLFormatVersion(YMLFormat, Enum):
             "h5_log_name": str,
             "step_count": int,
             "EDAX_settings": EDAXConfig,
+        },
+        step_count_key="step_count",
+        # step settings
+        step_section_key="steps",
+        step_general_key="step_general",
+        step_type_key="step_type",
+        step_frequency_key="frequency",
+        step_stage_settings_key="stage",
+        step_general_settings={
+            "step_number": int,
+            "step_type": StepType,
+            "frequency": int,
+            "stage": StagePositionUser,
+        },
+        image_step_settings={
+            "beam_type": BeamType,
+            "beam_settings": BeamSettings,
+            "detector": Detector,
+            "scan": Scan,
+            "bit_depth": ColorDepth,
+            "tiling_settings": ImageTileSettings,
+        },
+        # custom_step_settings={
+        #     "script_path": Path,
+        #     "executable_path": Path,
+        # }
+    )
+    V_1_2 = YMLFormat(
+        version=1.2,
+        # general settings
+        general_section_key="general",
+        non_step_section_count=2,
+        step_number_key="step_number",
+        general_exp_settings={
+            "slice_thickness_um": float,
+            "max_slice_num": int,
+            "pre_tilt_deg": float,
+            "sectioning_axis": SectioningAxis,
+            "stage_translational_tol_um": float,
+            "stage_angular_tol_deg": float,
+            "connection_host": str,
+            "connection_port": int,
+            "EBSD_OEM": ExternalDeviceOEM,
+            "EDS_OEM": ExternalDeviceOEM,
+            "exp_dir": Path,
+            "h5_log_name": str,
+            "step_count": int,
+            "EDAX_settings": EDAXConfig,
+            "Oxford_settings": OxfordConfig,
+            "Bruker_settings": BrukerConfig,
         },
         step_count_key="step_count",
         # step settings

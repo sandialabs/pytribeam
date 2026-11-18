@@ -142,7 +142,7 @@ from pathlib import Path
 from typing import List, Union
 
 # 3rd party libraries
-from schema import And, Or, Schema
+from schema import And, Optional, Or, Schema, SchemaError
 
 import pytribeam.image as img
 
@@ -798,19 +798,18 @@ def general(
         # step count
         step_count = general_db["step_count"]
         EDAX_settings = None
+        Oxford_settings = None
+        Bruker_settings = None
         yml_version = 1.0
 
     if yml_format.version >= 1.1:
-        edax_db = general_db["EDAX_settings"]
-        EDAX_settings = tbt.EDAXConfig(
-            save_directory=edax_db["save_directory"],
-            project_name=edax_db["project_name"],
-            connection=tbt.MicroscopeConnection(
-                host=edax_db["connection"]["host"],
-                port=edax_db["connection"]["port"],
-            ),
-        )
+        EDAX_settings = edax_config(general_db.get("EDAX_settings"))
         yml_version = 1.1
+
+    if yml_format.version >= 1.2:
+        Oxford_settings = oxford_config(general_db.get("Oxford_settings"))
+        Bruker_settings = bruker_config(general_db.get("Bruker_settings"))
+        yml_version = 1.2
 
     general_settings = tbt.GeneralSettings(
         yml_version=yml_version,
@@ -825,10 +824,87 @@ def general(
         exp_dir=Path(exp_dir),
         h5_log_name=h5_log_name,
         EDAX_settings=EDAX_settings,
+        Oxford_settings=Oxford_settings,
+        Bruker_settings=Bruker_settings,
         step_count=step_count,
     )
 
     return general_settings
+
+
+def edax_config(edax_db: dict) -> tbt.EDAXConfig:
+    """
+    Convert an `EDAX_settings` dictionary to an `EDAXConfig` object.
+
+    ## Parameters
+
+    - `edax_db` (`dict`): The `EDAX_settings` block, already validated, or None.
+
+    ## Returns
+
+    - `tbt.EDAXConfig`: The EDAX configuration, or None when `edax_db` is None.
+    """
+    if edax_db is None:
+        return None
+    return tbt.EDAXConfig(
+        save_directory=edax_db["save_directory"],
+        project_name=edax_db["project_name"],
+        connection=tbt.MicroscopeConnection(
+            host=edax_db["connection"]["host"],
+            port=edax_db["connection"]["port"],
+        ),
+    )
+
+
+def oxford_config(oxford_db: dict) -> tbt.OxfordConfig:
+    """
+    Convert an `Oxford_settings` dictionary to an `OxfordConfig` object.
+
+    ## Parameters
+
+    - `oxford_db` (`dict`): The `Oxford_settings` block, already validated, or None.
+
+    ## Returns
+
+    - `tbt.OxfordConfig`: The Oxford configuration, or None when `oxford_db` is None.
+    """
+    if oxford_db is None:
+        return None
+    connection_db = oxford_db["connection"]
+    port = connection_db.get("port")
+    dll_dir = oxford_db.get("dll_dir")
+    return tbt.OxfordConfig(
+        connection=tbt.MicroscopeConnection(
+            host=connection_db["host"],
+            port=Constants.oxford_aztec_default_port if port is None else port,
+        ),
+        ebsd_profile=oxford_db.get("ebsd_profile"),
+        eds_profile=oxford_db.get("eds_profile"),
+        dll_dir=None if dll_dir is None else Path(dll_dir),
+    )
+
+
+def bruker_config(bruker_db: dict) -> tbt.BrukerConfig:
+    """
+    Convert a `Bruker_settings` dictionary to a `BrukerConfig` object.
+
+    ## Parameters
+
+    - `bruker_db` (`dict`): The `Bruker_settings` block, or None.
+
+    ## Returns
+
+    - `tbt.BrukerConfig`: The Bruker configuration, or None when `bruker_db` is None.
+
+    ## Raises
+
+    - `SchemaError`: If the block does not pass validation.
+    """
+    if bruker_db is None:
+        return None
+    from pytribeam.external_oem.bruker.config import parse_bruker_settings
+
+    return parse_bruker_settings(bruker_db)
 
 
 def laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern:
@@ -1413,8 +1489,10 @@ def ebsd(
         scan_box = None
         grid_type = None
         save_patterns = None
+    edax_settings = None
     if yml_format.version >= 1.1:
         edax_settings = step_settings.get("edax_settings")
+    if edax_settings is not None:
         scan_db = edax_settings.get("scan_box")
         # We use brackets instead of parentheses here since grid type is the name not the value
         grid_type = tbt.EBSDGridType[edax_settings.get("grid_type")]
@@ -2090,6 +2168,8 @@ def validate_EBSD_EDS_settings(
     ebsd_oem: str,
     eds_oem: str,
     edax_settings: dict = None,
+    oxford_settings: dict = None,
+    bruker_settings: dict = None,
 ) -> bool:
     """
     Check EBSD and EDS OEM and connection for supported OEMs.
@@ -2103,6 +2183,13 @@ def validate_EBSD_EDS_settings(
     - `connection_port` (`str`): The port for the microscope connection.
     - `ebsd_oem` (`str`): The OEM for the EBSD device.
     - `eds_oem` (`str`): The OEM for the EDS device.
+    - `edax_settings` (`dict`): The `EDAX_settings` block, or None.
+    - `oxford_settings` (`dict`): The `Oxford_settings` block, or None.
+    - `bruker_settings` (`dict`): The `Bruker_settings` block, or None.
+
+    The LaserControl API is only required when an OEM falls back to it, i.e.
+    EDAX or Oxford without its native settings block. Native backends never
+    use LaserControl.
 
     ## Returns
 
@@ -2111,8 +2198,9 @@ def validate_EBSD_EDS_settings(
     ## Raises
 
     - `NotImplementedError`: If differing EBSD and EDS OEMs are requested.
-    - `ValueError`: If the EBSD or EDS OEM is unsupported.
-    - `SystemError`: If the Laser API is not accessible.
+    - `ValueError`: If the EBSD or EDS OEM is unsupported, or a vendor
+      settings block is missing or invalid.
+    - `SystemError`: If the Laser API is required but not accessible.
     """
     # Check EBSD OEM
     if not ut.valid_enum_entry(ebsd_oem, tbt.ExternalDeviceOEM):
@@ -2141,39 +2229,51 @@ def validate_EBSD_EDS_settings(
     if ebsd_device == eds_device == tbt.ExternalDeviceOEM.NONE:
         return True
 
-    # Bruker Phase 1 device-control validation does not require TFS Laser API.
-    if tbt.ExternalDeviceOEM.BRUKER in (ebsd_device, eds_device):
-        return True
+    import pytribeam.external_oem.dispatch as external_devices
+    from pytribeam.external_oem.core.errors import ConfigurationError
 
-    # check EBSD and EDS connection
-    try:
-        fs_laser.tfs_laser
-    except:
-        raise SystemError(
-            "EBSD and/or EDS control requested, but Laser API not accessible, so cannot use EBSD and EDS control. Please restart Laser API, or if not installed, change OEM to 'null', or leave blank in settings file."
+    enabled = {
+        tbt.ExternalTechnique.EBSD: ebsd_device,
+        tbt.ExternalTechnique.EDS: eds_device,
+    }
+    backends = {}
+    for technique, oem in enabled.items():
+        try:
+            backends[technique] = external_devices.resolve_backend(
+                oem,
+                edax_settings=edax_settings,
+                oxford_settings=oxford_settings,
+                bruker_settings=bruker_settings,
+            )
+        except ConfigurationError as error:
+            raise ValueError(str(error)) from error
+
+    # LaserControl is only needed by the fallback backend
+    if tbt.ExternalBackend.TFS_LASER in backends.values():
+        try:
+            fs_laser.tfs_laser
+        except:
+            raise SystemError(
+                "EBSD and/or EDS control through LaserControl requested, but Laser API not accessible, so cannot use EBSD and EDS control. Please restart Laser API, provide the vendor settings block for native control, or if not installed, change OEM to 'null', or leave blank in settings file."
+            )
+
+    if oxford_settings is not None:
+        validate_oxford_settings(
+            oxford_settings=oxford_settings,
+            ebsd_native=backends[tbt.ExternalTechnique.EBSD]
+            == tbt.ExternalBackend.OXFORD_AZTEC,
+            eds_native=backends[tbt.ExternalTechnique.EDS]
+            == tbt.ExternalBackend.OXFORD_AZTEC,
         )
 
-    ###################### PROPOSED CHANGE ######################
-    # Retracting devices here is unnecessary
-    # This causes devices to retract during validation
-    # Device retraction is needed only when startin/ending experiments
-    # Both of which are outside the scope of validation and already handled elsewhere
-    ###################### PROPOSED CHANGE ######################
-    # microscope = tbt.Microscope()
-    # ut.connect_microscope(
-    #     microscope=microscope,
-    #     quiet_output=True,
-    #     connection_host=connection_host,
-    #     connection_port=connection_port,
-    # )
-    # if tbt.ExternalDeviceOEM(eds_oem) != tbt.ExternalDeviceOEM.NONE:
-    #     devices.retract_EDS(microscope=microscope)
-    # if tbt.ExternalDeviceOEM(ebsd_oem) != tbt.ExternalDeviceOEM.NONE:
-    #     devices.retract_EBSD(microscope=microscope)
-    # ut.disconnect_microscope(
-    #     microscope=microscope,
-    #     quiet_output=True,
-    # )
+    if bruker_settings is not None:
+        validate_bruker_settings(
+            bruker_settings=bruker_settings,
+            ebsd_native=backends[tbt.ExternalTechnique.EBSD]
+            == tbt.ExternalBackend.BRUKER_ESPRIT,
+            eds_native=backends[tbt.ExternalTechnique.EDS]
+            == tbt.ExternalBackend.BRUKER_ESPRIT,
+        )
 
     if edax_settings is not None:
         schema = Schema(
@@ -2218,13 +2318,128 @@ def validate_EBSD_EDS_settings(
             )
 
         # Confirm the IPAPI accepts a connection before the experiment starts.
-        import pytribeam.external_oem.dispatch as external_devices
-
         external_devices.check_edax_connection(
             host=edax_settings["connection"]["host"],
             port=edax_settings["connection"]["port"],
         )
 
+    return True
+
+
+def validate_oxford_settings(
+    oxford_settings: dict,
+    ebsd_native: bool,
+    eds_native: bool,
+) -> bool:
+    """
+    Perform schema checking for an `Oxford_settings` dictionary.
+
+    Oxford parameters are applied by loading AZtec profiles, so each technique
+    run natively through AZtec must name its profile.
+
+    ## Parameters
+
+    - `oxford_settings` (`dict`): The `Oxford_settings` block.
+    - `ebsd_native` (`bool`): Whether EBSD runs through the AZtec API.
+    - `eds_native` (`bool`): Whether EDS runs through the AZtec API.
+
+    ## Returns
+
+    - `bool`: True if the settings are valid.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if not isinstance(oxford_settings, dict):
+        raise ValueError(
+            f"'Oxford_settings' must be a mapping, not {type(oxford_settings).__name__}."
+        )
+    optional_str = Or(None, And(str, len))
+    schema = Schema(
+        {
+            "connection": {
+                "host": And(
+                    str,
+                    len,
+                    error="Oxford_settings 'connection.host' must be a non-empty string.",
+                ),
+                Optional("port"): Or(
+                    None,
+                    And(int, lambda x: 0 < x < 65536),
+                    error="Oxford_settings 'connection.port' must be an int between 1 and 65535, or null for the default.",
+                ),
+            },
+            Optional("ebsd_profile"): Or(
+                optional_str,
+                error="Oxford_settings 'ebsd_profile' must be a non-empty string or null.",
+            ),
+            Optional("eds_profile"): Or(
+                optional_str,
+                error="Oxford_settings 'eds_profile' must be a non-empty string or null.",
+            ),
+            Optional("dll_dir"): Or(
+                optional_str,
+                error="Oxford_settings 'dll_dir' must be a non-empty string or null.",
+            ),
+        },
+    )
+    try:
+        schema.validate(oxford_settings)
+    except SchemaError as error:
+        raise ValueError(f"Invalid 'Oxford_settings': {error}") from error
+
+    for technique, native, key in (
+        ("EBSD", ebsd_native, "ebsd_profile"),
+        ("EDS", eds_native, "eds_profile"),
+    ):
+        if native and oxford_settings.get(key) is None:
+            raise ValueError(
+                f"Oxford {technique} runs through AZtec, which applies parameters by "
+                f"loading a profile, so 'Oxford_settings.{key}' must name one."
+            )
+    return True
+
+
+def validate_bruker_settings(
+    bruker_settings: dict,
+    ebsd_native: bool,
+    eds_native: bool,
+) -> bool:
+    """
+    Perform schema checking for a `Bruker_settings` dictionary.
+
+    ## Parameters
+
+    - `bruker_settings` (`dict`): The `Bruker_settings` block.
+    - `ebsd_native` (`bool`): Whether EBSD runs through ESPRIT.
+    - `eds_native` (`bool`): Whether EDS runs through ESPRIT.
+
+    ## Returns
+
+    - `bool`: True if the settings are valid.
+
+    ## Raises
+
+    - `ValueError`: If the block is invalid, or lacks the `eds` / `ebsd`
+      section for a technique run through ESPRIT.
+    """
+    from pytribeam.external_oem.bruker.config import parse_bruker_settings
+
+    try:
+        parsed = parse_bruker_settings(bruker_settings)
+    except SchemaError as error:
+        raise ValueError(f"Invalid 'Bruker_settings': {error}") from error
+
+    for technique, native, section in (
+        ("EBSD", ebsd_native, parsed.ebsd),
+        ("EDS", eds_native, parsed.eds),
+    ):
+        if native and section is None:
+            raise ValueError(
+                f"Bruker {technique} is enabled, but 'Bruker_settings' has no "
+                f"'{technique.lower()}' section."
+            )
     return True
 
 
@@ -2267,8 +2482,13 @@ def validate_general_settings(
         exp_dir = settings.get("exp_dir")
         h5_log_name = settings.get("h5_log_name")
         edax_settings = None
+        oxford_settings = None
+        bruker_settings = None
     if yml_format.version >= 1.1:
         edax_settings = settings.get("EDAX_settings")
+    if yml_format.version >= 1.2:
+        oxford_settings = settings.get("Oxford_settings")
+        bruker_settings = settings.get("Bruker_settings")
 
     # Validate the non-numeric values
     # Check sectioning axis
@@ -2297,6 +2517,8 @@ def validate_general_settings(
         ebsd_oem=ebsd_oem,
         eds_oem=eds_oem,
         edax_settings=edax_settings,
+        oxford_settings=oxford_settings,
+        bruker_settings=bruker_settings,
     )
 
     # Check exp dir

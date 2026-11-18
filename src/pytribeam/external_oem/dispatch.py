@@ -1,543 +1,103 @@
-#!/usr/bin/python3
 """
-External OEM Dispatcher
-=======================
+# External OEM dispatcher
 
-Routes external EBSD/EDS operations to the right backend for the configured
-OEM. The workflow calls only this module; it never reaches into a vendor
-package or the TFS LaserControl interface directly.
+This script is the high level dispatcher that converts a generic `map_ebsd(...)` (and other functions) into the corresponding external vendor API commands.
 
-Routing
--------
-EBSD and EDS are separate threads. Concurrent EDS during an EBSD scan is still
-an EBSD scan: it is a flag on the EBSD step, routed with ``EBSD_OEM``.
+### Necessary functionality
 
-============  =============================================  ===================
-OEM           EBSD                                           EDS
-============  =============================================  ===================
-EDAX          native IPAPI when ``EDAX_settings`` is set,    same rule as EBSD
-              otherwise LaserControl
-Oxford        LaserControl                                   LaserControl
-Bruker        not supported                                  Bruker custom step
-============  =============================================  ===================
+external_oem.test_connection(...) - Test whether or not the connection to the vendor is available and functioning
+external_oem.insert_ebsd_camera(...) - Insert the EBSD camera.
+external_oem.insert_eds_detector(...) - Insert the EDS detector.
+external_oem.get_ebsd_camera_state(...) - Get the current state of the EBSD camera.
+external_oem.get_eds_detector_state(...) - Get the current state of the EDS detector.
+external_oem.retract_ebsd_camera(...) - Retract the EBSD camera.
+external_oem.retract_eds_detector(...) - Retract the EDS detector.
+external_oem.set_ebsd_parameters(...) - Set the EBSD parameters. Some vendors do not allow this, in which case it checks if the user needs to manually update the parameters in the GUI and raises an error if the current parameters are not equal to the desired parameters.
+external_oem.set_eds_parameters(...) - Set the EDS parameters. Some vendors do not allow this, in which case it checks if the user needs to manually update the parameters in the GUI and raises an error if the current parameters are not equal to the desired parameters.
+external_oem.map_ebsd(...) - Collect an EBSD map
+external_oem.map_eds(...) - Collect an EDS map
+external_oem.preflight_eds(...) - This is a test connection call and also a set parameters call. There are often configuration things that need to happen when connecting to the API (setting project, setting parameters, etc.)
+external_oem.preflight_ebsd(...) - This is a test connection call and also a set parameters call. There are often configuration things that need to happen when connecting to the API (setting project, setting parameters, etc.)
 
-Whether the native EDAX path applies depends on the configuration, not only the
-OEM: a configuration without an ``EDAX_settings`` block names no IPAPI host, so
-LaserControl is the only option. That reproduces the ``yml_version >= 1.1``
-rule this dispatcher replaced.
 
-Native EDAX EDS runs entirely over the IPAPI: headless setup, detector motion,
-and collection. Native EDAX EBSD maps over the IPAPI but still inserts the
-camera through LaserControl, whose insertion is proven on hardware; the map
-retracts the camera over the IPAPI when it finishes. Every detector move, on
-either interface, runs under the live chamber CCD view.
+### External OEMs
 
-Vendor packages are imported lazily, so selecting one OEM never imports
-another's dependencies.
+There are three external OEMs, with a fallback for two of them: EDAX, Oxford, Bruker. EDAX and Oxford both have a fallback with thermofisher (through their laser module) that provides basic detector insert/retract/status and map EBSD/EDS.
+
+
+### Notes
+
+- We will need to add some types to src/pytribeam/types.py for the external vendors. This codebase tries to use functional programming and not object oriented, relying heavily on enumerated types. OOP is allowed, but FP is preferred.
+- Modifications to the EDAX/Bruker/Oxford submodules are allowed, but should be minimized in order to preserve the known functionality.
+- The goal is to keep this lightweight.
+- Tests are required. We use a unique marking strategy to ensure that only relevant tests are run on machines (i.e. a simulator does not run hardware tests, a PC with EDAX does not run Oxford tests, etc.). I suspect this will need to be updated for the multi-vendor support we are adding here.
+- There are integrations necessary elsewhere in the code (such as src/pytribeam/insertable_devices.py). These are mainly places where we ensure that insertions or stage movements are safe. Those should not be implemented until the external_oem submodule is completed. 
+
 """
+
+# Default python modules
+from typing import Any, Optional
 
 # Local scripts
-import pytribeam.insertable_devices as devices
-import pytribeam.log as log
 import pytribeam.types as tbt
-from pytribeam.constants import Constants
-from pytribeam.external_oem.edax.mapping import AVERAGE_CI, CAMERA_SATURATION
+from pytribeam.external_oem.core.errors import ConfigurationError
 
-BRUKER_EDS_MESSAGE = (
-    "Bruker EDS device control is handled by the Bruker workflow configuration; "
-    "skipping TFS EDS control."
-)
-BRUKER_EBSD_MESSAGE = (
-    "Bruker EBSD device control is not implemented in Phase 1; "
-    "skipping TFS EBSD control."
-)
-BRUKER_EBSD_MAP_MESSAGE = (
-    "EBSD mapping with Bruker requires the Bruker EBSD wrapper, which is not "
-    "available yet. The TFS LaserControl interface does not support Bruker."
-)
-BRUKER_EDS_MAP_MESSAGE = (
-    "EDS mapping with Bruker runs through the Bruker workflow as a 'custom' "
-    "step, not an 'eds' step. The TFS LaserControl interface does not support "
-    "Bruker."
-)
-
-
-# ----------------------------------------------------------------------
-# Helpers
-# ----------------------------------------------------------------------
-def _ensure_oem(oem: tbt.ExternalDeviceOEM) -> tbt.ExternalDeviceOEM:
-    """Validate and return an ExternalDeviceOEM value."""
-    if not isinstance(oem, tbt.ExternalDeviceOEM):
-        raise NotImplementedError(
-            f"Unsupported type of {type(oem)}, only 'ExternalDeviceOEM' types are supported."
-        )
-    return oem
-
-
-def _is_tfs_laser_oem(oem: tbt.ExternalDeviceOEM) -> bool:
-    """Return True for OEMs the TFS LaserControl interface can drive."""
-    return oem in (tbt.ExternalDeviceOEM.OXFORD, tbt.ExternalDeviceOEM.EDAX)
-
-
-def _neutral_status() -> tbt.RetractableDeviceState:
-    """Return a neutral non-error device status for no-op dispatcher branches."""
-    return tbt.RetractableDeviceState.CONNECTED
-
-
-def _laser():
-    """Import the LaserControl module on first use."""
-    import pytribeam.laser as laser
-
-    return laser
-
-
-def _edax_workflow():
-    """Import the EDAX workflow glue on first use."""
-    import pytribeam.external_oem.edax.workflow as edax_workflow
-
-    return edax_workflow
-
-
-def uses_native_edax_ebsd(general_settings: tbt.GeneralSettings) -> bool:
-    """
-    Return True when EBSD runs over the native EDAX IPAPI.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-
-    Returns
-    -------
-    bool
-        True when the EBSD OEM is EDAX and an ``EDAX_settings`` block names the
-        IPAPI host. Configurations without one fall back to LaserControl.
-    """
-    oem = _ensure_oem(general_settings.EBSD_OEM)
-    return (
-        oem == tbt.ExternalDeviceOEM.EDAX
-        and getattr(general_settings, "EDAX_settings", None) is not None
-    )
-
-
-def uses_native_edax_eds(general_settings: tbt.GeneralSettings) -> bool:
-    """
-    Return True when EDS runs over the native EDAX IPAPI.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-
-    Returns
-    -------
-    bool
-        True when the EDS OEM is EDAX and an ``EDAX_settings`` block names the
-        IPAPI host. Configurations without one fall back to LaserControl.
-    """
-    oem = _ensure_oem(general_settings.EDS_OEM)
-    return (
-        oem == tbt.ExternalDeviceOEM.EDAX
-        and getattr(general_settings, "EDAX_settings", None) is not None
-    )
-
-
-# ----------------------------------------------------------------------
-# Metric logging
-# ----------------------------------------------------------------------
-#: Maps each EBSD metric name to the log call that records it. Adding a metric
-#: reported by any vendor needs one entry here and a dataset in log.py.
-_EBSD_METRIC_LOGGERS = {
-    CAMERA_SATURATION: lambda common, value: log.ebsd_camera_saturation(
-        **common,
-        dataset_name=Constants.ebsd_camera_saturation_dataset_name,
-        cam_sat_p=value,
-    ),
-    AVERAGE_CI: lambda common, value: log.ebsd_average_ci(
-        **common,
-        dataset_name=Constants.ebsd_average_ci_dataset_name,
-        avg_ci_p=value,
-    ),
+#: OEMs that can fall back to TFS LaserControl when their native settings
+#: block is absent, mapped to the native backend used when it is present.
+_NATIVE_WITH_FALLBACK = {
+    tbt.ExternalDeviceOEM.EDAX: tbt.ExternalBackend.EDAX_IPAPI,
+    tbt.ExternalDeviceOEM.OXFORD: tbt.ExternalBackend.OXFORD_AZTEC,
 }
 
 
-def log_ebsd_metric(
-    general_settings: tbt.GeneralSettings,
-    step: tbt.Step,
-    slice_number: int,
-    name: str,
-    value: float,
-) -> bool:
+def resolve_backend(
+    oem: tbt.ExternalDeviceOEM,
+    *,
+    edax_settings: Any = None,
+    oxford_settings: Any = None,
+    bruker_settings: Any = None,
+) -> Optional[tbt.ExternalBackend]:
     """
-    Record one EBSD metric in the experiment log.
+    Return the backend that drives a detector from this OEM.
 
-    A metric with no registered dataset is reported and skipped rather than
-    raising, so a vendor reporting something new cannot abort a running
-    experiment.
+    The native vendor API is used when that vendor's settings block is present;
+    otherwise EDAX and Oxford fall back to TFS LaserControl. Only presence is
+    checked, so the settings may be raw YAML dictionaries (during validation)
+    or parsed config objects.
 
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings, for the log file path.
-    step : tbt.Step
-        The step being run, for the dataset location.
-    slice_number : int
-        The slice being collected.
-    name : str
-        Metric name, such as ``camera_saturation`` or ``average_ci``.
-    value : float
-        The measured value.
+    ## Parameters
 
-    Returns
-    -------
-    bool
-        True when the metric was logged, False when no dataset is defined.
+    - `oem` (`tbt.ExternalDeviceOEM`): The configured EBSD or EDS OEM.
+    - `edax_settings`, `oxford_settings`, `bruker_settings`: The vendor
+      settings blocks, or None when absent.
+
+    ## Returns
+
+    - `tbt.ExternalBackend`: The backend to use, or None when `oem` is
+      `ExternalDeviceOEM.NONE`.
+
+    ## Raises
+
+    - `TypeError`: If `oem` is not an `ExternalDeviceOEM`.
+    - `ConfigurationError`: If the OEM is Bruker and no `Bruker_settings`
+      block is present; Bruker has no LaserControl fallback.
     """
-    logger = _EBSD_METRIC_LOGGERS.get(name)
-    if logger is None:
-        print(
-            f"\tWARNING: no log dataset is defined for EBSD metric '{name}'; "
-            f"value {value} was not logged."
-        )
-        return False
-    logger(
-        {
-            "step_number": step.number,
-            "step_name": step.name,
-            "slice_number": slice_number,
-            "log_filepath": general_settings.log_filepath,
-        },
-        value,
-    )
-    return True
-
-
-# ----------------------------------------------------------------------
-# Connection and preflight
-# ----------------------------------------------------------------------
-def connect_eds(general_settings: tbt.GeneralSettings) -> tbt.RetractableDeviceState:
-    """
-    Connect to the configured external EDS device control interface.
-
-    Native EDAX reports the detector position over the IPAPI. Bruker is a
-    Phase 1 no-op placeholder and does not call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EDS_OEM)
+    if not isinstance(oem, tbt.ExternalDeviceOEM):
+        raise TypeError(f"Expected an ExternalDeviceOEM, got {type(oem).__name__}.")
     if oem == tbt.ExternalDeviceOEM.NONE:
-        return _neutral_status()
-    if uses_native_edax_eds(general_settings):
-        return _edax_workflow().eds_detector_state(general_settings)
-    if _is_tfs_laser_oem(oem):
-        return devices.connect_EDS()
+        return None
     if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EDS_MESSAGE)
-        return _neutral_status()
-    raise NotImplementedError(f"Unsupported EDS OEM device control for '{oem.value}'.")
+        if bruker_settings is None:
+            raise ConfigurationError(
+                "Bruker EBSD/EDS requires a 'Bruker_settings' block (config file "
+                "version 1.2 or later); Bruker has no LaserControl fallback."
+            )
+        return tbt.ExternalBackend.BRUKER_ESPRIT
 
-
-def connect_ebsd(general_settings: tbt.GeneralSettings) -> tbt.RetractableDeviceState:
-    """
-    Connect to the configured external EBSD device control interface.
-
-    Detector control stays on LaserControl for EDAX even when mapping runs over
-    the native IPAPI; the IPAPI connection is established by
-    :func:`preflight_ebsd`. Bruker is a Phase 1 no-op placeholder and does not
-    call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EBSD_OEM)
-    if oem == tbt.ExternalDeviceOEM.NONE:
-        return _neutral_status()
-    if _is_tfs_laser_oem(oem):
-        return devices.connect_EBSD()
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EBSD_MESSAGE)
-        return _neutral_status()
-    raise NotImplementedError(f"Unsupported EBSD OEM device control for '{oem.value}'.")
-
-
-def check_edax_connection(host: str, port: int) -> bool:
-    """
-    Validate that an EDAX IPAPI service accepts connections.
-
-    Used while validating an experiment configuration, before anything runs.
-
-    Parameters
-    ----------
-    host : str
-        Host running the IPAPI service.
-    port : int
-        IPAPI service port.
-
-    Returns
-    -------
-    bool
-        True when the service accepted the connection and unlock.
-
-    Raises
-    ------
-    EdaxConnectionError
-        If the service is unreachable or refuses the unlock.
-    """
-    return _edax_workflow().check_connection(host=host, port=port)
-
-
-def preflight_ebsd(general_settings: tbt.GeneralSettings) -> bool:
-    """
-    Prepare the EBSD software before the first slice.
-
-    For native EDAX this points the application at the experiment folder and
-    project over the IPAPI. LaserControl needs no preflight, so the other OEMs
-    return immediately.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-
-    Returns
-    -------
-    bool
-        True on success.
-    """
-    if uses_native_edax_ebsd(general_settings):
-        return _edax_workflow().preflight(general_settings)
-    return True
-
-
-def preflight_eds(general_settings: tbt.GeneralSettings) -> bool:
-    """
-    Prepare the EDS software before the first slice.
-
-    For native EDAX this puts APEX's EDS side in headless (NoWait) mode and
-    points it at the experiment folder and project, then confirms the detector
-    is ready. Without it, APEX decides where EDS maps are saved. LaserControl
-    needs no preflight, so the other OEMs return immediately.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-
-    Returns
-    -------
-    bool
-        True on success.
-    """
-    if uses_native_edax_eds(general_settings):
-        return _edax_workflow().preflight_eds(general_settings)
-    return True
-
-
-# ----------------------------------------------------------------------
-# Detector motion
-# ----------------------------------------------------------------------
-def insert_eds(
-    microscope: tbt.Microscope,
-    general_settings: tbt.GeneralSettings,
-) -> bool:
-    """
-    Insert the configured external EDS detector.
-
-    Native EDAX inserts over the IPAPI, with the same collision check and live
-    CCD view as LaserControl. Bruker is a Phase 1 no-op placeholder and does
-    not call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EDS_OEM)
-    if oem == tbt.ExternalDeviceOEM.NONE:
-        return True
-    if uses_native_edax_eds(general_settings):
-        return _edax_workflow().insert_eds_detector(general_settings, microscope)
-    if _is_tfs_laser_oem(oem):
-        return devices.insert_EDS(microscope=microscope)
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EDS_MESSAGE)
-        return True
-    raise NotImplementedError(f"Unsupported EDS OEM device control for '{oem.value}'.")
-
-
-def insert_ebsd(
-    microscope: tbt.Microscope,
-    general_settings: tbt.GeneralSettings,
-) -> bool:
-    """
-    Insert the configured external EBSD detector.
-
-    Bruker is a Phase 1 no-op placeholder and does not call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EBSD_OEM)
-    if oem == tbt.ExternalDeviceOEM.NONE:
-        return True
-    if _is_tfs_laser_oem(oem):
-        return devices.insert_EBSD(microscope=microscope)
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EBSD_MESSAGE)
-        return True
-    raise NotImplementedError(f"Unsupported EBSD OEM device control for '{oem.value}'.")
-
-
-def retract_eds(
-    microscope: tbt.Microscope,
-    general_settings: tbt.GeneralSettings,
-) -> bool:
-    """
-    Retract the configured external EDS detector.
-
-    Native EDAX retracts over the IPAPI, under the live CCD view. Bruker is a
-    Phase 1 no-op placeholder and does not call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EDS_OEM)
-    if oem == tbt.ExternalDeviceOEM.NONE:
-        return True
-    if uses_native_edax_eds(general_settings):
-        return _edax_workflow().retract_eds_detector(general_settings, microscope)
-    if _is_tfs_laser_oem(oem):
-        return devices.retract_EDS(microscope=microscope)
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EDS_MESSAGE)
-        return True
-    raise NotImplementedError(f"Unsupported EDS OEM device control for '{oem.value}'.")
-
-
-def retract_ebsd(
-    microscope: tbt.Microscope,
-    general_settings: tbt.GeneralSettings,
-) -> bool:
-    """
-    Retract the configured external EBSD detector.
-
-    Bruker is a Phase 1 no-op placeholder and does not call TFS Laser API.
-    """
-    oem = _ensure_oem(general_settings.EBSD_OEM)
-    if oem == tbt.ExternalDeviceOEM.NONE:
-        return True
-    if _is_tfs_laser_oem(oem):
-        return devices.retract_EBSD(microscope=microscope)
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        print(BRUKER_EBSD_MESSAGE)
-        return True
-    raise NotImplementedError(f"Unsupported EBSD OEM device control for '{oem.value}'.")
-
-
-def retract_all_external_devices(
-    microscope: tbt.Microscope,
-    general_settings: tbt.GeneralSettings,
-) -> bool:
-    """Retract all configured external OEM EBSD/EDS detectors."""
-    if general_settings.EBSD_OEM != tbt.ExternalDeviceOEM.NONE:
-        retract_ebsd(microscope=microscope, general_settings=general_settings)
-    if general_settings.EDS_OEM != tbt.ExternalDeviceOEM.NONE:
-        retract_eds(microscope=microscope, general_settings=general_settings)
-    return True
-
-
-# ----------------------------------------------------------------------
-# Mapping
-# ----------------------------------------------------------------------
-def map_ebsd(
-    general_settings: tbt.GeneralSettings,
-    step_settings: tbt.EBSDSettings,
-    slice_number: int,
-    step: tbt.Step,
-) -> bool:
-    """
-    Collect one EBSD map with the configured OEM.
-
-    Native EDAX collection logs each metric as soon as it is measured, so the
-    camera saturation is recorded even when the map that follows fails.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-    step_settings : tbt.EBSDSettings
-        The EBSD step's scan and concurrent-EDS settings.
-    slice_number : int
-        The slice being collected.
-    step : tbt.Step
-        The step being run, for logging.
-
-    Returns
-    -------
-    bool
-        True once the map is complete.
-
-    Raises
-    ------
-    NotImplementedError
-        For Bruker, which LaserControl cannot drive and whose EBSD wrapper is
-        not available yet, or when no EBSD OEM is configured.
-    """
-    oem = _ensure_oem(general_settings.EBSD_OEM)
-
-    if uses_native_edax_ebsd(general_settings):
-
-        def record(name: str, value: float) -> None:
-            log_ebsd_metric(general_settings, step, slice_number, name, value)
-
-        _edax_workflow().map_ebsd(
-            general_settings=general_settings,
-            step_settings=step_settings,
-            slice_number=slice_number,
-            on_metric=record,
-        )
-        return True
-
-    if _is_tfs_laser_oem(oem):
-        return _laser().map_ebsd()
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        raise NotImplementedError(BRUKER_EBSD_MAP_MESSAGE)
-    raise NotImplementedError(
-        f"An EBSD step was requested, but the EBSD OEM is '{oem.value}'."
-    )
-
-
-def map_eds(
-    general_settings: tbt.GeneralSettings,
-    step_settings: tbt.EDSSettings = None,
-    slice_number: int = None,
-    step: tbt.Step = None,
-) -> bool:
-    """
-    Collect one EDS map with the configured OEM.
-
-    Native EDAX collects over the IPAPI using APEX's current EDS map settings,
-    as LaserControl did, but saves to the experiment folder set in
-    :func:`preflight_eds` and waits out finalization properly.
-
-    Parameters
-    ----------
-    general_settings : tbt.GeneralSettings
-        Experiment settings.
-    step_settings : tbt.EDSSettings, optional
-        The EDS step's settings.
-    slice_number : int, optional
-        The slice being collected.
-    step : tbt.Step, optional
-        The step being run.
-
-    Returns
-    -------
-    bool
-        True once the map is complete.
-
-    Raises
-    ------
-    NotImplementedError
-        For Bruker, whose EDS maps run as a custom step, or when no EDS OEM is
-        configured.
-    """
-    oem = _ensure_oem(general_settings.EDS_OEM)
-    if uses_native_edax_eds(general_settings):
-        _edax_workflow().map_eds(
-            general_settings=general_settings,
-            step_settings=step_settings,
-            slice_number=slice_number,
-        )
-        return True
-    if _is_tfs_laser_oem(oem):
-        return _laser().map_eds()
-    if oem == tbt.ExternalDeviceOEM.BRUKER:
-        raise NotImplementedError(BRUKER_EDS_MAP_MESSAGE)
-    raise NotImplementedError(
-        f"An EDS step was requested, but the EDS OEM is '{oem.value}'."
-    )
+    native_settings = {
+        tbt.ExternalDeviceOEM.EDAX: edax_settings,
+        tbt.ExternalDeviceOEM.OXFORD: oxford_settings,
+    }[oem]
+    if native_settings is not None:
+        return _NATIVE_WITH_FALLBACK[oem]
+    return tbt.ExternalBackend.TFS_LASER
