@@ -118,17 +118,19 @@ external_oem/
   The full contract is in the comment block at the top of `dispatch.py`. The
   dispatcher looks up the `tbt.ExternalBackend` in `ADAPTER_MODULES` and
   imports that module lazily, so selecting Oxford never imports Bruker's
-  ctypes code or EDAX's sockets. (Bruker's stdlib-only `types.py` is the
-  exception: `pytribeam.types` imports it for `BrukerConfig`.)
+  ctypes code or EDAX's sockets.
 - **The dispatcher owns the generic sequencing**: preflight's connection test,
   state check and per-step parameter calls; applying parameters before each
   map; logging metrics; and attempting every retraction in
   `retract_all_external_devices` before reporting failures. Adapters own only
   what differs by vendor.
-- **Motion safety (for now) is the adapter's job.** Every insert and retract
-  checks for collisions and runs under `insertable_devices.ccd_live_view`, as
-  the existing EDAX and LaserControl paths already do. Phase 6 moves this into
-  the dispatcher.
+- **Motion safety is the dispatcher's job**, enforced in one place for every
+  backend: a collision check before every insert, and the live chamber CCD
+  (`insertable_devices.ccd_live_view`) around every insert and retract. Adapter
+  motion functions only move the detector, refusing unsafe vendor states (an
+  unknown slide position, a running map). The LaserControl and EDAX EDS paths
+  also show the CCD themselves; nesting is harmless. See "Integration with
+  the rest of pyTriBeam" below.
 - **Adapters are the only translation layer.** pyTriBeam types go in and
   pyTriBeam types come out. Vendor packages keep their own types.
 - **The adapter is the only code that imports a vendor package's internals.**
@@ -143,10 +145,15 @@ New:
 - `ExternalTechnique(Enum)`: `EBSD`, `EDS`.
 - `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201),
   `ebsd_profile: str`, `eds_profile: str`, `project_name`, `dll_dir = None`.
-- `BrukerConfig(NamedTuple)`: the session fields (`dll_dir`, `mode`,
-  `server`, `user`, `host`, `port`), detector indices and park/acquire
-  settings, EDS map and readback options, and an EBSD profile. Section 6 covers
-  where these come from.
+- `BrukerConfig(NamedTuple)`: instrument-level Bruker settings only:
+  `dll_dir`, `mode` (`BrukerConnectionMode`: `LOCAL` / `TCP`), `host`, `port`,
+  `detector_index` (1-4), `move_detector` (False unless set), and the EBSD
+  camera's `ebsd_inserted_position_mm` / `ebsd_retracted_position_mm`
+  (required for Bruker EBSD).
+- Per-step Bruker settings: `BrukerMapSettings(width_px, height_px, dwell_us)`,
+  `BrukerEDSStepSettings(output_path, map, run_name)` on `EDSSettings.bruker`,
+  and `BrukerEBSDStepSettings(output_path, profile_name, map, save_patterns,
+  run_name)` on `EBSDSettings.bruker`. `run_name` is the step name.
 - `GeneralSettings` gains `Oxford_settings: OxfordConfig = None` and
   `Bruker_settings: BrukerConfig = None`, next to the existing `EDAX_settings`.
 
@@ -165,10 +172,10 @@ configured.
 
 ## 5. Per-backend behaviour
 
-Implemented in `adapters/`. Every native adapter checks for detector
-collisions before inserting, runs every move under `ccd_live_view`, refuses to
-insert from an unknown or intermediate position, and retracts from any state.
-None of them uses LaserControl.
+Implemented in `adapters/`. Every native adapter refuses to insert from an
+unknown or intermediate position and retracts from any state; the dispatcher
+adds the collision check and the chamber CCD around both. None of them uses
+LaserControl.
 
 ### EDAX (`EDAX_IPAPI`, `adapters/edax.py`)
 - **Reuses `edax/workflow.py`** for preflight, EDS motion and state, and both
@@ -203,39 +210,41 @@ None of them uses LaserControl.
   `BUSY`; auto-retracted reads `RETRACTED`.
 
 ### Bruker (`BRUKER_ESPRIT`, `adapters/bruker.py`)
-- **No second YAML file.** All Bruker configuration comes from
-  `Bruker_settings` in the experiment YAML.
-  - `bruker/config.parse_bruker_settings(...)` parses the block. Its `eds`
-    section uses the same layout as the standalone EDS YAML, minus `session`,
-    which is shared with `ebsd`. `load_bruker_eds_yaml` wraps the same parser,
-    so the existing tools keep working.
-  - Map settings (resolution, pixel time, ROI, elements, filters, and now
-    `poll_interval_s` / `max_wait_s`) come from `Bruker_settings.eds.map`, so
-    they apply to every Bruker EDS step.
-- **Sessions are kept open** (one per set of session settings), re-checked
-  before each use, and reconnected if they dropped. Your colleague's hardware
-  notes say closing an ESPRIT connection can grey out parts of the ESPRIT GUI.
-  `session.close_on_exit: true` closes after every call instead.
-- **EDS:** detector `park` ↔ `RETRACTED`, `acquire` ↔ `INSERTED`; the existing
-  `detector` flags (`move_to_acquire_before`, `park_after`,
-  `verify_park_before`) still disable motion for simulator configs.
-  - Preflight checks the spectrometer is ready and the output folders are
-    writable.
-  - `set_eds_parameters` applies the image configuration and reads it back,
-    refusing a size ESPRIT changed; for profile maps it also has ESPRIT build
-    the element profile.
-  - Each map saves the native `.bcf` under `eds.output.root_dir` and writes its
-    own HDF5 file to `<exp_dir>/Bruker_EDS/`, so a 500-slice experiment
-    produces 500 files. Each holds that map's element arrays and metadata, the
-    run settings (password removed), the ESPRIT query info, and any problems
-    noted (a missing `.bcf`, a failed element readback), which are reported
-    but don't stop the experiment. The HDF5 file replaces the loose `.npy`
-    files.
+- **Only what varies is configured**, as in the custom-step version that
+  preceded this adapter. `Bruker_settings` (once per instrument): `dll_dir`,
+  `mode`, `host`, `port`, `detector_index`, `move_detector`, and the EBSD
+  camera positions. Each Bruker
+  EDS/EBSD step's `bruker_settings`: `output_path` and `map` (`width_px`,
+  `height_px`, `dwell_us`), plus `profile_name` and `save_patterns` for EBSD.
+- **Everything else is a fixed default** in the adapter: server, user and
+  password (`Lokaler Server` / `edx` / `edx`), timeouts and polling, the SPU
+  (the detector index), `.bcf` + `.bmp` output, profile mode with a single
+  placeholder element, no element readback. The adapter builds the vendor's
+  full EDS settings from these and parses them with
+  `bruker/config.parse_bruker_eds_config`, so vendor validation still applies.
+  The map time limit is the larger of 600 s (3600 s for EBSD) and 3x the
+  nominal pixels x dwell.
+- **Sessions are kept open** (one per instrument), re-checked before each use,
+  and reconnected if they dropped: your colleague's hardware notes say closing
+  an ESPRIT connection can grey out parts of the ESPRIT GUI.
+- **EDS:** detector `park` <-> `RETRACTED`, `acquire` <-> `INSERTED`.
+  `move_detector` is off unless set to `true` (an unticked GUI checkbox writes
+  `false`; a missing value also means `false`), so a configuration never moves
+  the detector by accident. Preflight checks the
+  spectrometer is ready and each step's output folder; `set_eds_parameters`
+  applies the map size and dwell, refuses a size ESPRIT changed, and has ESPRIT
+  build the HyperMap profile. Each map saves a `.bcf` and a `.bmp` under the
+  step's `output_path`; a missing `.bcf` is reported, not raised.
 - **EBSD** runs on the existing scaffold and is **not hardware-validated**.
-  Camera state comes from position in mm against the configured inserted and
-  retracted positions. Preflight checks the DLL exports the needed EBSD
-  functions; parameters configure the scan area and select the (existing)
-  acquisition profile.
+  The API positions the camera in millimetres only, so its measured inserted
+  and retracted positions are required for Bruker EBSD (validation fails
+  without them, or if they are within the 0.1 mm tolerance of each other). Its
+  state is classified against them; it is refused to insert from an
+  intermediate position and retracts from anywhere. Preflight checks the
+  positions are set and the DLL exports the needed EBSD functions (including
+  camera position get/set); parameters configure the scan area and select the
+  step's acquisition profile.
+- **A Bruker step without `bruker_settings`** is refused in preflight.
 - **The `custom`-step tooling** (`bruker/tools/run_bruker_eds_custom_step.py`
   and related scripts) stays in place, documented as deprecated.
 
@@ -263,16 +272,14 @@ None of them uses LaserControl.
   `chamber` fixture records CCD-view use and can simulate a collision.
   - **Oxford** runs end to end against `oxford.simulator.Simulator`, including
     touch, fault, refused-connection and failed-acquisition paths.
-  - **EDAX** and **Bruker** use fake clients/controllers; Bruker's writes real
-    HDF5 files to a temporary folder.
+  - **EDAX** and **Bruker** use fake clients/controllers.
   - **LaserControl** replaces the LaserControl functions with recorders, plus
     read-only hardware checks (`laser_hardware` + `edax_hardware` /
     `oxford_hardware`).
 - `tests/edax/hardware/test_edax_adapter_hardware.py`: read-only EDAX adapter
   checks against a live IPAPI (`edax_hardware`).
-- `tests/bruker/unit/test_bruker_settings.py` and `test_dispatcher_support.py`:
-  the `Bruker_settings` parser, map timing fields, the image-config setter and
-  the HDF5 writer.
+- `tests/bruker/unit/test_dispatcher_support.py`: the map timing fields and
+  the image-config setter.
 - `tests/external_oem/test_adapter_oxford_hardware.py` and
   `tests/bruker/hardware/test_bruker_adapter_hardware.py`: read-only adapter
   checks under the vendor marker, plus an insert/retract round trip that also
@@ -321,15 +328,45 @@ carries every marker for what it needs and is skipped unless all are available:
 2. **Dispatcher.** Write `dispatch.py`: backend resolution, forwarding, metric
    logging and `retract_all_external_devices`; plus the routing tests.
 3. **Adapters, in order of readiness:** `tfs_laser`, then `edax`, `oxford`
-   (simulator tests) and `bruker` (including the HDF5 writer). Each lands with
+   (simulator tests) and `bruker`. Each lands with
    its tests.
 4. **Callers.** Switch `workflow.py` and `factory.py` to the new names.
    `workflow.py` passes the experiment's steps to preflight.
 5. **Markers.** Table-driven `conftest.py` gating with three vendor markers
    (`edax_hardware`, `oxford_hardware`, `bruker_hardware`).
-6. **Integration (after the submodule is done):** use dispatcher state in
-   `insertable_devices.py` collision and insertion safety checks, and in stage
-   movement guards; GUI LUT entries for the new blocks; user-guide docs.
+6. **Integration.** Done; see "Integration with the rest of pyTriBeam" below.
+
+## Integration with the rest of pyTriBeam
+
+- **Collision checks** (`insertable_devices.detectors_will_collide`) read the
+  external EBSD/EDS states from, in order: states the caller passes, the source
+  the dispatcher registers per experiment (`dispatch.use_for_collision_checks`,
+  called by `workflow.pre_flight_check`), then LaserControl. An external
+  detector no source can report is assumed to be in the way. Before, the check
+  always asked LaserControl, and raised `AttributeError` without it, including
+  when inserting the CBS.
+- **Stage motion:** `stage.step_start_position` calls
+  `dispatch.check_safe_for_stage_motion`, which refuses to move while a
+  configured detector reports `INSERTED`, `BUSY` or `ERROR` (an unreadable
+  state counts as `ERROR`). `INDERTERMINATE` is reported but allowed, so a
+  vendor that cannot report the position does not halt every slice.
+- **`insertable_devices.retract_all_devices`** takes optional
+  `general_settings`; with them, external detectors are retracted through the
+  dispatcher. The GUI's stop/abort and move-to-step paths pass them.
+- **GUI connection test** (`laser._device_connections(general_settings=...)`)
+  reports configured detectors through the dispatcher; the GUI builds the
+  settings from the loaded configuration, and falls back to LaserControl (with
+  a note) when they cannot be built.
+- **Blank vendor blocks:** the GUI writes every field it knows, so an untouched
+  block is a mapping of nulls. `factory.vendor_block` treats that as absent, so
+  it neither selects a native backend nor fails another vendor's validation.
+  A blank EBSD-step `edax_settings.scan_box` likewise means "no scan box".
+- **GUI configurator:** `Oxford_settings` and `Bruker_settings` fields, and
+  each EDS/EBSD step's `bruker_settings` (all v1.2+). The EBSD/EDS OEM menus
+  offer Bruker. Fields with a fixed set of values (connection mode, EDS
+  detector index 1-4, OEMs, grid type) are dropdowns. Checkboxes always hold a
+  value, so they start unticked (= false) and booleans alone never make a
+  vendor block count as filled in.
 
 ## 8. Decisions
 
@@ -337,10 +374,10 @@ carries every marker for what it needs and is skipped unless all are available:
 |---|---|
 | Choosing a backend | Native when the vendor's settings block is present; otherwise the LaserControl fallback (EDAX/Oxford only). |
 | Oxford parameters | Applied by loading named AZtec profiles. |
-| Bruker | Configured entirely from `Bruker_settings` in the experiment YAML, with no second YAML file. EDS and EBSD both go through the dispatcher; EBSD stays "not hardware-validated" until a hardware run confirms it. |
+| Bruker | Only what varies is configured: instrument settings in `Bruker_settings`, map size/dwell and output folder per step in `bruker_settings`; everything else is a fixed default. No second YAML file. EDS and EBSD both go through the dispatcher; the EBSD camera's measured positions are required for Bruker EBSD. |
 | Public names | Only the docstring names; callers are updated with no aliases. |
 | Preflight | Checks everything that can be set can be set, up to but not including data collection. |
 | EDAX EBSD camera | Moved to the IPAPI. Native backends never use LaserControl. |
-| Bruker password | In `Bruker_settings`, in the experiment YAML. |
+| Bruker credentials | Fixed defaults (`edx` / `edx`), not configured. |
 | Sessions | A fresh session per call is fine. |
-| Bruker HDF5 output | In scope; one file per map (run), not one per experiment. |
+| Bruker HDF5 output | Dropped: ESPRIT's `.bcf` (and `.bmp` overview) per map is the data, as before. |
