@@ -990,12 +990,12 @@ def oxford_step(
             {
                 "profile": And(
                     str, len, error=f"{where} 'profile' must be a non-empty string."
-                )
+                ),
             }
         ).validate(block)
     except SchemaError as error:
         raise ValueError(f"Invalid {where}: {error}") from error
-    return tbt.OxfordStepSettings(profile=block["profile"])
+    return tbt.OxfordStepSettings(profile=block["profile"], run_name=step_name)
 
 
 def edax_eds_resolutions() -> list:
@@ -1096,11 +1096,13 @@ def oxford_config(oxford_db: dict) -> tbt.OxfordConfig:
     connection_db = oxford_db["connection"]
     port = connection_db.get("port")
     dll_dir = oxford_db.get("dll_dir")
+    project_folder = oxford_db.get("project_folder")
     return tbt.OxfordConfig(
         connection=tbt.MicroscopeConnection(
             host=connection_db["host"],
             port=Constants.oxford_aztec_default_port if port is None else port,
         ),
+        project_folder=None if not project_folder else Path(project_folder),
         dll_dir=None if dll_dir is None else Path(dll_dir),
     )
 
@@ -2757,12 +2759,22 @@ def validate_oxford_settings(
                 optional_str,
                 error="Oxford_settings 'dll_dir' must be a non-empty string or null.",
             ),
+            Optional("project_folder"): Or(
+                optional_str,
+                error="Oxford_settings 'project_folder' must be a non-empty string or null.",
+            ),
         },
     )
     try:
         schema.validate(oxford_settings)
     except SchemaError as error:
         raise ValueError(f"Invalid 'Oxford_settings': {error}") from error
+    if (ebsd_native or eds_native) and not oxford_settings.get("project_folder"):
+        raise ValueError(
+            "Oxford_settings needs a 'project_folder' (a folder on the AZtec "
+            "computer): the experiment's AZtec project and every map's .h5oina "
+            "export are kept there."
+        )
     return True
 
 

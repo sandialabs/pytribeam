@@ -143,7 +143,8 @@ New:
 - `ExternalBackend(Enum)`: `TFS_LASER`, `EDAX_IPAPI`, `OXFORD_AZTEC`,
   `BRUKER_ESPRIT`.
 - `ExternalTechnique(Enum)`: `EBSD`, `EDS`.
-- `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201) and
+- `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201),
+  `project_folder` (the experiment's AZtec project location) and
   `dll_dir = None`. The AZtec profile is per step: `OxfordStepSettings(profile)`
   on `EBSDSettings.oxford` and `EDSSettings.oxford`.
 - `BrukerConfig(NamedTuple)`: instrument-level Bruker settings only:
@@ -209,7 +210,16 @@ LaserControl.
   collecting.
 - **Concurrent EDS during EBSD** sets both acquisition-type flags. *Include
   EDS* must still be enabled in AZtec or in the EBSD profile.
-- **Maps are named `slice_NNNN`** in AZtec.
+- **Data:** one AZtec project per experiment, `<project_folder>/<exp_dir
+  name>/` (`Oxford_settings.project_folder`, on the AZtec PC), created by
+  preflight or reopened (already open, or on disk) so validating, starting and
+  resuming never duplicate it. Each map, named `<step>_slice_NNNN`, is acquired
+  into that project (explicit project and specimen ids) and exported with
+  `AztecSession.scan` to `.h5oina` in the project's `data` folder, next to the
+  `.ebsp` pattern file AZtec writes for EBSD maps when pattern saving is on in
+  the profile; AZtecCrystal pairs them. Status images are requested so AZtec
+  reports the map ids the export needs. A failed export stops the experiment
+  (the map stays in the AZtec project).
 - **States:** a touching or faulted detector reads `ERROR`; moving reads
   `BUSY`; auto-retracted reads `RETRACTED`.
 

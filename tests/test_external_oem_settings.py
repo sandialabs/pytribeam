@@ -29,7 +29,10 @@ EDAX_DB = {
     "connection": {"host": "edax-pc", "port": 8301},
 }
 
-OXFORD_DB = {"connection": {"host": "aztec-pc", "port": None}}
+OXFORD_DB = {
+    "connection": {"host": "aztec-pc", "port": None},
+    "project_folder": "D:/AZtec projects",
+}
 
 BRUKER_DB = {"dll_dir": "C:/Program Files/Bruker/Esprit API"}
 
@@ -178,6 +181,7 @@ class TestVendorConfigParsing:
             host="aztec-pc", port=Constants.oxford_aztec_default_port
         )
         assert oxford.dll_dir is None
+        assert oxford.project_folder == Path("D:/AZtec projects")
 
     def test_oxford_explicit_port_and_dll_dir(self):
         db = deepcopy(OXFORD_DB)
@@ -322,6 +326,14 @@ class TestValidateEbsdEdsSettings:
         assert edax_reachable == []
 
     # Oxford
+
+    @pytest.mark.parametrize("oems", [("Oxford", None), (None, "Oxford")])
+    def test_native_oxford_needs_a_project_folder(self, laser, oems):
+        db = deepcopy(OXFORD_DB)
+        del db["project_folder"]
+
+        with pytest.raises(ValueError, match="project_folder"):
+            validate(*oems, oxford_settings=db)
 
     @pytest.mark.parametrize("key", ["ebsd_profile", "eds_profile"])
     def test_profiles_in_the_general_block_point_to_the_steps(self, laser, key):
@@ -771,7 +783,9 @@ class TestStepBlocks:
         eds = eds_factory(settings, self.eds_step())
 
         assert eds.bruker is None and eds.edax is None
-        assert eds.oxford == tbt.OxfordStepSettings(profile="EDS 512px 50us")
+        assert eds.oxford == tbt.OxfordStepSettings(
+            profile="EDS 512px 50us", run_name="map_eds"
+        )
 
     def test_an_edax_eds_step_reads_only_its_edax_block(self, eds_factory):
         settings = built_settings(OEM.NONE, OEM.EDAX)
@@ -793,9 +807,20 @@ class TestOxfordStep:
 
     def test_profile(self):
         step = factory.oxford_step(
-            {"oxford_settings": {"profile": "EBSD 1um step"}}, "s", self.V12
+            {"oxford_settings": {"profile": "EBSD 1um step"}}, "ebsd_1", self.V12
         )
-        assert step == tbt.OxfordStepSettings(profile="EBSD 1um step")
+        assert step == tbt.OxfordStepSettings(
+            profile="EBSD 1um step", run_name="ebsd_1"
+        )
+
+    def test_the_export_folder_is_not_a_step_setting(self):
+        """Exports go to the experiment's AZtec project (Oxford_settings)."""
+        with pytest.raises(ValueError, match="oxford_settings"):
+            factory.oxford_step(
+                {"oxford_settings": {"profile": "x", "output_path": "D:/out"}},
+                "s",
+                self.V12,
+            )
 
     @pytest.mark.parametrize(
         "step_settings", [{}, {"oxford_settings": {"profile": None}}]
@@ -807,7 +832,10 @@ class TestOxfordStep:
         step_settings = {"oxford_settings": {"profile": "x"}}
         assert factory.oxford_step(step_settings, "s", ut.yml_format(1.1)) is None
 
-    @pytest.mark.parametrize("block", [{"profile": 3}, {"profile": "x", "extra": 1}])
+    @pytest.mark.parametrize(
+        "block",
+        [{"profile": 3}, {"profile": "x", "extra": 1}],
+    )
     def test_invalid(self, block):
         with pytest.raises(ValueError, match="oxford_settings"):
             factory.oxford_step({"oxford_settings": block}, "s", self.V12)

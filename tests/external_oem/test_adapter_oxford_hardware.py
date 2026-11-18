@@ -17,7 +17,8 @@ Opt in::
     set PYTRIBEAM_OXFORD_HOST=<AZtec host>          (often 127.0.0.1)
     set PYTRIBEAM_OXFORD_EBSD_PROFILE=<AZtec profile name>
     set PYTRIBEAM_OXFORD_EDS_PROFILE=<AZtec profile name>
-    rem optional: PYTRIBEAM_OXFORD_PORT (default 22201), AZTEC_PLUGIN_DIR
+    rem optional: PYTRIBEAM_OXFORD_PORT (default 22201), AZTEC_PLUGIN_DIR,
+    rem   PYTRIBEAM_OXFORD_PROJECT_FOLDER (default C:/pytribeam_projects)
     rem motion tier only:
     set PYTRIBEAM_ALLOW_DETECTOR_MOTION=1
     pytest tests/external_oem/test_adapter_oxford_hardware.py -v
@@ -38,6 +39,10 @@ from pytribeam.external_oem.adapters import oxford as oxford_adapter  # noqa: E4
 
 MOTION_ENV_VAR = "PYTRIBEAM_ALLOW_DETECTOR_MOTION"
 
+#: AZtec project folder (on the AZtec PC). Preflight creates or reopens the
+#: test experiment's project there; nothing is acquired or exported.
+PROJECTS = os.environ.get("PYTRIBEAM_OXFORD_PROJECT_FOLDER", "C:/pytribeam_projects")
+
 pytestmark = pytest.mark.oxford_hardware
 
 
@@ -54,6 +59,7 @@ def settings() -> tbt.GeneralSettings:
         connection=tbt.MicroscopeConnection(
             host=host, port=int(_env("PYTRIBEAM_OXFORD_PORT", "22201"))
         ),
+        project_folder=PROJECTS,
         dll_dir=_env("AZTEC_PLUGIN_DIR") or None,
     )
     return tbt.GeneralSettings(
@@ -123,7 +129,8 @@ def test_preflight(settings):
         oxford=tbt.OxfordStepSettings(profile=profile("ebsd")),
     )
     eds_step = tbt.EDSSettings(
-        image=None, oxford=tbt.OxfordStepSettings(profile=profile("eds"))
+        image=None,
+        oxford=tbt.OxfordStepSettings(profile=profile("eds")),
     )
 
     assert oxford_adapter.preflight_ebsd(settings, [ebsd_step])

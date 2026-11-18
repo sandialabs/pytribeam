@@ -22,11 +22,12 @@ Inserting and retracting the detectors, and starting each map with the $3^{rd}$ 
 **EBSD** and **EDS** type steps run through Oxford AZtec need an **oxford_settings** block (`config_file_version` 1.2+):
 
 - **profile** (*str*): the AZtec profile loaded before this step's maps. Save the settings you want as a profile in AZtec first. Loading a profile replaces AZtec's current settings, including unsaved changes made in the AZtec GUI. For an EBSD step with concurrent EDS, enable *Include EDS* in the profile.
-
 ```yaml
 oxford_settings:
   profile: "EBSD 1um step"
 ```
+
+Each Oxford map is exported to `.h5oina` in the experiment's AZtec project (see **Oxford_settings** / **project_folder** in **[General Experiment Settings](../../general/index.html)**), as `<step name>_slice_<NNNN>_<map id>.h5oina` in the project's `data` folder. EBSD patterns are saved there too, as `<map id>.ebsp`, when pattern saving is on in the AZtec profile (pyTriBeam cannot switch it on). An EBSD map with concurrent EDS gives an EBSD file and an EDS file. If an export fails, the experiment stops; the map is still in the AZtec project.
 
 A step's vendor blocks only apply to its technique's OEM (the **EBSD_OEM** for EBSD steps, the **EDS_OEM** for EDS steps); the others are ignored.
 

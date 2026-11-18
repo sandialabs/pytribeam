@@ -5,6 +5,7 @@ including detector motion, cooling, profiles, acquisitions and faults.
 """
 
 import time
+from pathlib import Path
 
 import pytest
 
@@ -24,6 +25,7 @@ from pytribeam.external_oem.oxford.enums import (  # noqa: E402
 )
 from pytribeam.external_oem.oxford.models import EdInsertionState  # noqa: E402
 from pytribeam.external_oem.oxford.session import AztecSession  # noqa: E402
+from pytribeam.external_oem.oxford import enums as E  # noqa: E402
 from pytribeam.external_oem.oxford.simulator import Simulator  # noqa: E402
 from tests.external_oem.helpers import (  # noqa: E402
     EBSD,
@@ -38,17 +40,30 @@ EBSD_PROFILE = "EBSD 1um step"
 EDS_PROFILE = "EDS 512px 50us"
 
 
+PROJECT_FOLDER = "D:/AZtec projects"
+#: The experiment's AZtec project, named after the experiment directory.
+PROJECT_FILE = "D:/AZtec projects/exp1/exp1.oipx"
+DATA_FOLDER = "D:/AZtec projects/exp1/data"
+
 SETTINGS = general_settings(
     OEM.OXFORD,
     OEM.OXFORD,
+    exp_dir="E:/experiments/exp1",
     Oxford_settings=tbt.OxfordConfig(
-        connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201)
+        connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201),
+        project_folder=Path(PROJECT_FOLDER),
     ),
 )
 
 
-def _oxford(profile):
-    return None if profile is None else tbt.OxfordStepSettings(profile=profile)
+def _oxford(profile, run_name="step"):
+    if profile is None:
+        return None
+    return tbt.OxfordStepSettings(profile=profile, run_name=run_name)
+
+
+def _slashes(path: str) -> str:
+    return path.replace("\\", "/")
 
 
 def ebsd_settings(enable_eds=False, profile=EBSD_PROFILE) -> tbt.EBSDSettings:
@@ -337,4 +352,110 @@ class TestMaps:
         assert oxford_adapter._acquisition_type(step) == expected
 
     def test_map_name(self):
-        assert oxford_adapter.map_name(7) == "slice_0007"
+        assert oxford_adapter.map_name("ebsd_1", 7) == "ebsd_1_slice_0007"
+
+    def exported(self, sim):
+        """(folder, file name) of every map AZtec exported."""
+        return [
+            (_slashes(str(Path(_slashes(path)).parent)), Path(_slashes(path)).name)
+            for path, _, _ in sim.exports
+        ]
+
+    def test_each_map_is_exported_into_the_project_next_to_its_patterns(self, sim):
+        """Reported: only AZtec's internal .dat files were being written."""
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        step = tbt.EDSSettings(image=None, oxford=_oxford(EDS_PROFILE, "eds_1"))
+
+        assert oxford_adapter.map_eds(SETTINGS, step, 7, print)
+
+        ((folder, name),) = self.exported(sim)
+        assert folder == DATA_FOLDER
+        assert name.startswith("eds_1_slice_0007_") and name.endswith(".h5oina")
+
+    def test_ebsd_with_concurrent_eds_exports_both_maps(self, sim):
+        sim.ebsd_includes_eds = True
+        oxford_adapter.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        step = tbt.EBSDSettings(
+            image=None, enable_eds=True, oxford=_oxford(EBSD_PROFILE, "ebsd_1")
+        )
+
+        oxford_adapter.map_ebsd(SETTINGS, step, 2, print)
+
+        exported = self.exported(sim)
+        assert len(exported) == 2
+        assert {folder for folder, _ in exported} == {DATA_FOLDER}
+        assert all(name.startswith("ebsd_1_slice_0002_") for _, name in exported)
+
+    def test_maps_go_into_the_experiment_project(self, sim):
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        oxford_adapter.map_eds(SETTINGS, eds_settings(), 1, print)
+
+        projects = [p for p in sim.of_type(E.DataType.PROJECT) if p.file_name]
+        ours = [p for p in projects if _slashes(p.file_name) == PROJECT_FILE]
+        assert len(ours) == 1
+        map_items = [
+            item for item in sim.of_type(E.DataType.ED_MAP) if _ancestor(item, ours[0])
+        ]
+        assert map_items
+
+    def test_the_project_is_created_once_and_reused(self, sim):
+        """Validate, start, and every map reuse the same AZtec project."""
+        oxford_adapter.preflight_eds(SETTINGS, [eds_settings()])
+        oxford_adapter.preflight_eds(SETTINGS, [eds_settings()])
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        oxford_adapter.map_eds(SETTINGS, eds_settings(), 1, print)
+        oxford_adapter.map_eds(SETTINGS, eds_settings(), 2, print)
+
+        files = [
+            _slashes(p.file_name)
+            for p in sim.of_type(E.DataType.PROJECT)
+            if p.file_name
+        ]
+        assert files.count(PROJECT_FILE) == 1
+
+    def test_status_images_are_requested_so_maps_can_be_exported(self, sim):
+        """Real AZtec may leave the map ids empty without them."""
+        sim.ids_only_with_status_images = True
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+
+        assert oxford_adapter.map_eds(SETTINGS, eds_settings(), 1, print)
+        assert len(sim.exports) == 1
+
+    def test_a_failed_export_stops_the_experiment(self, sim):
+        oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        sim.fail_next_export = "disk full"
+
+        with pytest.raises(DetectorError, match="could not export.*still in the AZtec"):
+            oxford_adapter.map_eds(SETTINGS, eds_settings(), 1, print)
+        assert all_disconnected(sim)
+
+    def test_preflight_creates_the_local_project_folder(
+        self, sim, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr(AztecSession, "aztec_is_local", property(lambda self: True))
+        settings = SETTINGS._replace(
+            Oxford_settings=SETTINGS.Oxford_settings._replace(
+                project_folder=tmp_path / "projects"
+            )
+        )
+
+        assert oxford_adapter.preflight_ebsd(settings, [ebsd_settings()])
+        assert (tmp_path / "projects").is_dir()
+
+    def test_a_project_folder_is_required(self, sim):
+        settings = SETTINGS._replace(
+            Oxford_settings=SETTINGS.Oxford_settings._replace(project_folder=None)
+        )
+
+        with pytest.raises(ConfigurationError, match="project_folder"):
+            oxford_adapter.preflight_eds(settings, [eds_settings()])
+
+
+def _ancestor(item, project) -> bool:
+    node = item
+    while node is not None:
+        if node is project:
+            return True
+        node = node.parent
+    return False

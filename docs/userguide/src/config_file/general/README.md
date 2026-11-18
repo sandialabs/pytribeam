@@ -76,6 +76,7 @@ AZtec's plugin API cannot set technique parameters (step size, dwell time, resol
 
 - **connection** / **host** (*str*): Host running AZtec and its plugin service (often `127.0.0.1`).
 - **connection** / **port** (*int*, optional): Plugin service port; blank for the default, `22201`.
+- **project_folder** (*str*): folder, **on the AZtec computer**, for the experiment's AZtec project, `<project_folder>/<experiment>/`, named after the experiment directory (**exp_dir**). Preflight creates the project, or reopens it when resuming. Every map is acquired into it and exported to `.h5oina` in the project's `data` folder, next to the `.ebsp` pattern file AZtec saves for EBSD maps, so AZtecCrystal pairs them. Required for Oxford through AZtec.
 - **dll_dir** (*str*, optional): Folder holding the AZtec plugin SDK DLLs; blank to use the `AZTEC_PLUGIN_DIR` environment variable.
 
 ### Bruker_settings
