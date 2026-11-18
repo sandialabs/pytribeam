@@ -251,26 +251,6 @@ oxford_port = LUTField(
     int,
     tbt.Limit(min=1.2, max=max(VERSIONS)),
 )
-oxford_ebsd_profile = LUTField(
-    "EBSD Profile",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "Name of the AZtec profile loaded before EBSD maps; AZtec settings cannot "
-    "be set any other way. Loading it replaces AZtec's current settings.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
-oxford_eds_profile = LUTField(
-    "EDS Profile",
-    "",
-    ctk.Entry,
-    {"dtype": str},
-    "Name of the AZtec profile loaded before EDS maps. Loading it replaces "
-    "AZtec's current settings.",
-    str,
-    tbt.Limit(min=1.2, max=max(VERSIONS)),
-)
 oxford_dll_dir = LUTField(
     "AZtec Plugin DLL Folder",
     "",
@@ -286,8 +266,6 @@ oxford_connection_lut.add_entry("host", oxford_host)
 oxford_connection_lut.add_entry("port", oxford_port)
 oxford_settings_lut = LUT("Oxford_settings")
 oxford_settings_lut.add_entry("connection", oxford_connection_lut)
-oxford_settings_lut.add_entry("ebsd_profile", oxford_ebsd_profile)
-oxford_settings_lut.add_entry("eds_profile", oxford_eds_profile)
 oxford_settings_lut.add_entry("dll_dir", oxford_dll_dir)
 
 
@@ -385,6 +363,76 @@ bruker_settings_lut.add_entry("detector_index", bruker_detector_index)
 bruker_settings_lut.add_entry("move_detector", bruker_move_detector)
 bruker_settings_lut.add_entry("ebsd_inserted_position_mm", bruker_ebsd_inserted_mm)
 bruker_settings_lut.add_entry("ebsd_retracted_position_mm", bruker_ebsd_retracted_mm)
+
+
+def _oxford_step_lut(technique: str) -> LUT:
+    """A step's `oxford_settings` block: the AZtec profile to load."""
+    extra = (
+        " For concurrent EDS, enable Include EDS in the profile."
+        if technique == "EBSD"
+        else ""
+    )
+    lut = LUT("oxford_settings")
+    lut.add_entry(
+        "profile",
+        LUTField(
+            f"Oxford {technique} Profile",
+            "",
+            ctk.Entry,
+            {"dtype": str},
+            f"The AZtec profile loaded before this step's {technique} maps; AZtec "
+            "settings cannot be set any other way. Loading it replaces AZtec's "
+            f"current settings.{extra}",
+            str,
+            V_1_2_ON,
+        ),
+    )
+    return lut
+
+
+def _edax_eds_step_lut() -> LUT:
+    """An EDS step's `edax_settings` block. Blank fields keep APEX's values."""
+    from pytribeam.external_oem.edax.types import EdaxEdsResolution
+
+    resolutions = [f"{r.points}x{r.lines}" for r in EdaxEdsResolution] + [""]
+    lut = LUT("edax_settings")
+    lut.add_entry(
+        "resolution",
+        LUTField(
+            "EDAX EDS Resolution",
+            "",
+            ctk.MenuButton,
+            {"options": resolutions, "dtype": str},
+            "The EDAX EDS map size preset. Blank keeps the size set in APEX.",
+            str,
+            V_1_2_ON,
+        ),
+    )
+    lut.add_entry(
+        "num_frames",
+        LUTField(
+            "EDAX EDS Frames",
+            "",
+            ctk.Entry,
+            {"dtype": int},
+            "Number of frames in the EDS map. Blank keeps the value set in APEX.",
+            int,
+            V_1_2_ON,
+        ),
+    )
+    lut.add_entry(
+        "dwell_us",
+        LUTField(
+            "EDAX EDS Dwell (us)",
+            "",
+            ctk.Entry,
+            {"dtype": float},
+            "Dwell time per point in microseconds. Blank keeps the value set in APEX.",
+            float,
+            V_1_2_ON,
+        ),
+    )
+    return lut
 
 
 def _bruker_step_lut(ebsd: bool) -> LUT:
@@ -1143,6 +1191,8 @@ eds_lut.add_entry("beam", deepcopy(beam_lut))
 eds_lut.add_entry("detector", deepcopy(detector_lut))
 eds_lut.add_entry("scan", deepcopy(scan_lut))
 eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
+eds_lut.add_entry("edax_settings", _edax_eds_step_lut())
+eds_lut.add_entry("oxford_settings", _oxford_step_lut("EDS"))
 eds_lut.add_entry("bruker_settings", _bruker_step_lut(ebsd=False))
 # EDS should be electron beam types only, and should have a step type and name of eds
 
@@ -1238,6 +1288,7 @@ ebsd_lut.add_entry("scan", deepcopy(scan_lut))
 ebsd_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 ebsd_lut.add_entry("concurrent_EDS", deepcopy(ebsd_concurrent_eds))
 ebsd_lut.add_entry("edax_settings", deepcopy(edax_params_lut))
+ebsd_lut.add_entry("oxford_settings", _oxford_step_lut("EBSD"))
 ebsd_lut.add_entry("bruker_settings", _bruker_step_lut(ebsd=True))
 # EBSD should be electron beam types only, and should have a step type and name of ebsd
 

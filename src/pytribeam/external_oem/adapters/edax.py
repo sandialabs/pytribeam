@@ -28,6 +28,8 @@ from pytribeam.external_oem.edax.errors import EdaxStateError
 from pytribeam.external_oem.edax.types import (
     EdaxCameraStatus,
     EdaxDetectorStatus,
+    EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxMappingStatus,
 )
 
@@ -231,11 +233,40 @@ def set_ebsd_parameters(
     return True
 
 
+def eds_map_params(step_settings: tbt.EDSSettings) -> EdaxEdsMapParams:
+    """Translate an EDS step's `edax_settings` into IPAPI map parameters.
+
+    Unset values are None and are not sent, so APEX keeps its own; with no
+    `edax_settings` at all, nothing is sent.
+    """
+    edax = step_settings.edax
+    if edax is None:
+        return EdaxEdsMapParams()
+    resolution = None
+    if edax.resolution is not None:
+        resolution = next(
+            preset
+            for preset in EdaxEdsResolution
+            if f"{preset.points}x{preset.lines}" == edax.resolution
+        )
+    return EdaxEdsMapParams(
+        resolution=resolution,
+        num_frames=edax.num_frames,
+        preset_dwell_us=edax.dwell_us,
+    )
+
+
 def set_eds_parameters(
     general_settings: tbt.GeneralSettings,
     step_settings: tbt.EDSSettings,
 ) -> bool:
-    """EDS steps carry no map parameters; APEX's own EDS settings apply."""
+    """Apply the step's map resolution, frames and dwell; unset ones keep
+    APEX's own values."""
+    params = eds_map_params(step_settings)
+    if params == EdaxEdsMapParams():
+        return True
+    with _client(general_settings, quiet=True) as client:
+        EdaxEdsController(client).apply_map_parameters(params)
     return True
 
 
@@ -262,5 +293,10 @@ def map_eds(
     slice_number: int,
     on_metric: Callable[[str, float], None],
 ) -> bool:
-    edax_workflow.map_eds(general_settings, step_settings, slice_number)
+    edax_workflow.map_eds(
+        general_settings,
+        step_settings,
+        slice_number,
+        params=eds_map_params(step_settings),
+    )
     return True

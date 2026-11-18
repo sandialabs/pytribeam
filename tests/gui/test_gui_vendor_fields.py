@@ -20,6 +20,7 @@ def vendor_fields():
                 "Oxford_settings",
                 "Bruker_settings",
                 "edax_settings",
+                "oxford_settings",
                 "bruker_settings",
             }:
                 found.append((step_type, key, lut[key]))
@@ -30,6 +31,8 @@ def test_vendor_fields_exist():
     keys = {key for _, key, _ in vendor_fields()}
     assert "Bruker_settings/detector_index" in keys
     assert "bruker_settings/map/dwell_us" in keys
+    assert "oxford_settings/profile" in keys
+    assert not any(key.endswith("_profile") for key in keys if key.startswith("Oxford"))
 
 
 @pytest.mark.parametrize(

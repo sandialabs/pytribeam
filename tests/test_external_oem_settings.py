@@ -29,11 +29,7 @@ EDAX_DB = {
     "connection": {"host": "edax-pc", "port": 8301},
 }
 
-OXFORD_DB = {
-    "connection": {"host": "aztec-pc", "port": None},
-    "ebsd_profile": "pyTriBeam EBSD",
-    "eds_profile": "pyTriBeam EDS",
-}
+OXFORD_DB = {"connection": {"host": "aztec-pc", "port": None}}
 
 BRUKER_DB = {"dll_dir": "C:/Program Files/Bruker/Esprit API"}
 
@@ -181,8 +177,6 @@ class TestVendorConfigParsing:
         assert oxford.connection == tbt.MicroscopeConnection(
             host="aztec-pc", port=Constants.oxford_aztec_default_port
         )
-        assert oxford.ebsd_profile == "pyTriBeam EBSD"
-        assert oxford.eds_profile == "pyTriBeam EDS"
         assert oxford.dll_dir is None
 
     def test_oxford_explicit_port_and_dll_dir(self):
@@ -329,27 +323,13 @@ class TestValidateEbsdEdsSettings:
 
     # Oxford
 
-    @pytest.mark.parametrize(
-        "ebsd_oem, eds_oem, missing",
-        [
-            ("Oxford", None, "ebsd_profile"),
-            (None, "Oxford", "eds_profile"),
-        ],
-    )
-    def test_native_oxford_needs_a_profile_per_technique(
-        self, laser, ebsd_oem, eds_oem, missing
-    ):
-        db = deepcopy(OXFORD_DB)
-        db[missing] = None
+    @pytest.mark.parametrize("key", ["ebsd_profile", "eds_profile"])
+    def test_profiles_in_the_general_block_point_to_the_steps(self, laser, key):
+        """Profiles moved to each step's oxford_settings."""
+        db = {**deepcopy(OXFORD_DB), key: "pyTriBeam"}
 
-        with pytest.raises(ValueError, match=f"Oxford_settings.{missing}"):
-            validate(ebsd_oem, eds_oem, oxford_settings=db)
-
-    def test_unused_oxford_profile_may_be_omitted(self, laser):
-        db = deepcopy(OXFORD_DB)
-        del db["eds_profile"]
-
-        assert validate("Oxford", None, oxford_settings=db)
+        with pytest.raises(ValueError, match="each EBSD/EDS step's 'oxford_settings"):
+            validate("Oxford", "Oxford", oxford_settings=db)
 
     @pytest.mark.parametrize(
         "change",
@@ -357,7 +337,7 @@ class TestValidateEbsdEdsSettings:
             lambda db: db["connection"].update(host=""),
             lambda db: db["connection"].update(port=0),
             lambda db: db["connection"].pop("host"),
-            lambda db: db.update(ebsd_profile=3),
+            lambda db: db.update(dll_dir=3),
             lambda db: db.update(unknown_key=True),
             lambda db: db.pop("connection"),
         ],
@@ -671,42 +651,226 @@ BLANK_EDAX = {
 }
 
 
-class TestBlankVendorBlocks:
-    """The GUI writes every field it knows, so an untouched block is all nulls."""
+class TestVendorBlockSelection:
+    """Which general vendor blocks count as configured.
+
+    The GUI writes every block it knows, often with defaults such as ports, so
+    a block is used only when its vendor is an OEM of the experiment and its
+    key field (host, or Bruker's dll_dir) is filled in.
+    """
+
+    def db(self, ebsd_oem=None, eds_oem=None, **blocks):
+        return {"EBSD_OEM": ebsd_oem, "EDS_OEM": eds_oem, **deepcopy(blocks)}
+
+    def test_used_when_its_vendor_is_an_oem_and_the_key_field_is_set(self):
+        db = self.db("EDAX", "EDAX", EDAX_settings=EDAX_DB)
+        assert factory.vendor_block(db, "EDAX_settings") == EDAX_DB
 
     @pytest.mark.parametrize(
-        "block, present",
+        "name, block",
         [
-            (None, False),
-            ({}, False),
-            (BLANK_EDAX, False),
-            ({"connection": {"host": "edax-pc", "port": None}}, True),
-            (
-                {"eds": {"map": {"profile": {"elements": [{"atomic_number": 26}]}}}},
-                True,
-            ),
-            # checkboxes always hold a value, so booleans alone are "blank"
-            ({"flag": False}, False),
-            ({"flag": True, "dll_dir": "C:/Esprit"}, True),
+            ("EDAX_settings", EDAX_DB),
+            ("Bruker_settings", bruker_db(port=5328)),
+            ("Bruker_settings", {"dll_dir": None, "mode": "usb", "port": -1}),
         ],
     )
-    def test_vendor_block(self, block, present):
-        result = factory.vendor_block({"X_settings": block}, "X_settings")
-        assert (result is not None) is present
+    def test_other_vendors_blocks_are_ignored(self, name, block):
+        """Reported from the GUI: an Oxford pipeline failed on its Bruker block."""
+        db = self.db("Oxford", "Oxford", **{name: block})
+        assert factory.vendor_block(db, name) is None
 
-    def test_a_blank_edax_block_does_not_select_native_edax(self, laser):
-        """EDAX without real settings falls back to LaserControl."""
+    @pytest.mark.parametrize("oems", [("EDAX", None), (None, "EDAX")])
+    def test_either_technique_counts(self, oems):
+        db = self.db(*oems, EDAX_settings=EDAX_DB)
+        assert factory.vendor_block(db, "EDAX_settings") is not None
+
+    @pytest.mark.parametrize(
+        "name, block",
+        [
+            ("EDAX_settings", BLANK_EDAX),
+            ("EDAX_settings", {"connection": {"host": None, "port": 8301}}),
+            ("Oxford_settings", {"connection": {"host": "", "port": 22201}}),
+            (
+                "Bruker_settings",
+                {"dll_dir": None, "port": 5328, "move_detector": False},
+            ),
+        ],
+    )
+    def test_a_default_filled_block_without_its_key_field_is_unused(self, name, block):
+        oem = {"EDAX_settings": "EDAX", "Oxford_settings": "Oxford"}.get(name, "Bruker")
+        db = self.db(oem, oem, **{name: block})
+        assert factory.vendor_block(db, name) is None
+
+    def test_partly_filled_without_the_key_field_warns(self):
+        db = self.db(
+            "EDAX",
+            "EDAX",
+            EDAX_settings={"connection": {"host": None}, "project_name": "exp1"},
+        )
+
+        with pytest.warns(UserWarning, match="connection.host"):
+            assert factory.vendor_block(db, "EDAX_settings") is None
+
+    def test_edax_with_only_a_default_port_falls_back_to_laser_control(self, laser):
         laser(True)
-        settings = {"EDAX_settings": deepcopy(BLANK_EDAX)}
+        db = self.db("EDAX", "EDAX", EDAX_settings={"connection": {"port": 8301}})
 
-        edax = factory.vendor_block(settings, "EDAX_settings")
+        edax = factory.vendor_block(db, "EDAX_settings")
 
         assert edax is None
         assert validate("EDAX", "EDAX", version=1.1, edax_settings=edax)
 
-    def test_a_blank_edax_block_does_not_trip_oxford_validation(self, laser):
-        edax = factory.vendor_block({"EDAX_settings": BLANK_EDAX}, "EDAX_settings")
 
-        assert validate(
-            "Oxford", "Oxford", oxford_settings=OXFORD_DB, edax_settings=edax
+class TestStepBlocks:
+    """Step-level vendor blocks apply only to their technique's OEM."""
+
+    @pytest.mark.parametrize(
+        "technique, oem, expected",
+        [
+            (tbt.ExternalTechnique.EDS, OEM.BRUKER, True),
+            (tbt.ExternalTechnique.EDS, OEM.EDAX, False),
+            (tbt.ExternalTechnique.EBSD, OEM.EDAX, True),
+            (tbt.ExternalTechnique.EBSD, OEM.BRUKER, False),
+        ],
+    )
+    def test_step_uses(self, technique, oem, expected):
+        settings = built_settings(OEM.EDAX, OEM.BRUKER)
+        assert factory.step_uses(settings, technique, oem) is expected
+
+    def test_without_general_settings_every_block_is_read(self):
+        assert factory.step_uses(None, tbt.ExternalTechnique.EDS, OEM.BRUKER)
+
+    @pytest.fixture
+    def eds_factory(self, monkeypatch):
+        """factory.eds with the microscope-dependent image parsing stubbed out."""
+        monkeypatch.setattr(factory, "enforce_beam_type", lambda *a, **k: True)
+        monkeypatch.setattr(factory, "image", lambda **kwargs: None)
+
+        def make(general_settings, step_settings):
+            return factory.eds(
+                microscope=None,
+                step_settings=step_settings,
+                step_name="map_eds",
+                yml_format=ut.yml_format(version=1.2),
+                general_settings=general_settings,
+            )
+
+        return make
+
+    def eds_step(self):
+        return {
+            # invalid for Bruker, as left over from an earlier Bruker setup
+            "bruker_settings": {"output_path": "C:/data", "map": {"width_px": 0}},
+            "edax_settings": {"resolution": "512x400", "num_frames": 2, "dwell_us": 50},
+            "oxford_settings": {"profile": "EDS 512px 50us"},
+        }
+
+    def test_an_oxford_eds_step_reads_only_its_oxford_block(self, eds_factory):
+        settings = built_settings(OEM.OXFORD, OEM.OXFORD)
+
+        eds = eds_factory(settings, self.eds_step())
+
+        assert eds.bruker is None and eds.edax is None
+        assert eds.oxford == tbt.OxfordStepSettings(profile="EDS 512px 50us")
+
+    def test_an_edax_eds_step_reads_only_its_edax_block(self, eds_factory):
+        settings = built_settings(OEM.NONE, OEM.EDAX)
+
+        eds = eds_factory(settings, self.eds_step())
+
+        assert eds.bruker is None and eds.oxford is None
+        assert eds.edax == tbt.EdaxEDSStepSettings("512x400", 2, 50.0)
+
+    def test_a_bruker_eds_step_validates_its_block(self, eds_factory):
+        settings = built_settings(OEM.NONE, OEM.BRUKER)
+
+        with pytest.raises(ValueError, match="map"):
+            eds_factory(settings, self.eds_step())
+
+
+class TestOxfordStep:
+    V12 = ut.yml_format(version=1.2)
+
+    def test_profile(self):
+        step = factory.oxford_step(
+            {"oxford_settings": {"profile": "EBSD 1um step"}}, "s", self.V12
         )
+        assert step == tbt.OxfordStepSettings(profile="EBSD 1um step")
+
+    @pytest.mark.parametrize(
+        "step_settings", [{}, {"oxford_settings": {"profile": None}}]
+    )
+    def test_absent_or_blank_is_none(self, step_settings):
+        assert factory.oxford_step(step_settings, "s", self.V12) is None
+
+    def test_older_formats_ignore_it(self):
+        step_settings = {"oxford_settings": {"profile": "x"}}
+        assert factory.oxford_step(step_settings, "s", ut.yml_format(1.1)) is None
+
+    @pytest.mark.parametrize("block", [{"profile": 3}, {"profile": "x", "extra": 1}])
+    def test_invalid(self, block):
+        with pytest.raises(ValueError, match="oxford_settings"):
+            factory.oxford_step({"oxford_settings": block}, "s", self.V12)
+
+
+class TestEdaxEdsStep:
+    V12 = ut.yml_format(version=1.2)
+
+    def test_all_fields(self):
+        step = factory.edax_eds_step(
+            {
+                "edax_settings": {
+                    "resolution": "1024x800",
+                    "num_frames": 4,
+                    "dwell_us": 100,
+                }
+            },
+            "s",
+            self.V12,
+        )
+        assert step == tbt.EdaxEDSStepSettings("1024x800", 4, 100.0)
+
+    def test_blank_fields_keep_apex_values(self):
+        step = factory.edax_eds_step(
+            {
+                "edax_settings": {
+                    "resolution": "256x200",
+                    "num_frames": None,
+                    "dwell_us": "",
+                }
+            },
+            "s",
+            self.V12,
+        )
+        assert step == tbt.EdaxEDSStepSettings("256x200", None, None)
+
+    @pytest.mark.parametrize(
+        "step_settings",
+        [
+            {},
+            {"edax_settings": {"resolution": "", "num_frames": None, "dwell_us": None}},
+        ],
+    )
+    def test_absent_or_blank_is_none(self, step_settings):
+        assert factory.edax_eds_step(step_settings, "s", self.V12) is None
+
+    def test_older_formats_ignore_it(self):
+        step_settings = {"edax_settings": {"num_frames": 2}}
+        assert factory.edax_eds_step(step_settings, "s", ut.yml_format(1.1)) is None
+
+    def test_resolutions_are_the_edax_presets(self):
+        assert factory.edax_eds_resolutions()[0] == "64x50"
+        assert "4096x3200" in factory.edax_eds_resolutions()
+
+    @pytest.mark.parametrize(
+        "block, match",
+        [
+            ({"resolution": "500x400"}, "resolution"),
+            ({"num_frames": 0}, "num_frames"),
+            ({"num_frames": True, "resolution": "512x400"}, "num_frames"),
+            ({"dwell_us": -5}, "dwell_us"),
+        ],
+    )
+    def test_invalid(self, block, match):
+        with pytest.raises(ValueError, match=match):
+            factory.edax_eds_step({"edax_settings": block}, "s", self.V12)

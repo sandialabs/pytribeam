@@ -143,8 +143,9 @@ New:
 - `ExternalBackend(Enum)`: `TFS_LASER`, `EDAX_IPAPI`, `OXFORD_AZTEC`,
   `BRUKER_ESPRIT`.
 - `ExternalTechnique(Enum)`: `EBSD`, `EDS`.
-- `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201),
-  `ebsd_profile: str`, `eds_profile: str`, `project_name`, `dll_dir = None`.
+- `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201) and
+  `dll_dir = None`. The AZtec profile is per step: `OxfordStepSettings(profile)`
+  on `EBSDSettings.oxford` and `EDSSettings.oxford`.
 - `BrukerConfig(NamedTuple)`: instrument-level Bruker settings only:
   `dll_dir`, `mode` (`BrukerConnectionMode`: `LOCAL` / `TCP`), `host`, `port`,
   `detector_index` (1-4), `move_detector` (False unless set), and the EBSD
@@ -185,8 +186,9 @@ LaserControl.
   native path. All 18 EDAX slide states map to a pyTriBeam state; insertion is
   also refused while a map is running.
 - **Parameters:** `set_ebsd_parameters` applies the step's scan box, grid,
-  pattern and spectra settings (`mapping.ebsd_map_params`). EDS steps carry no
-  map parameters, so APEX's own EDS settings apply.
+  pattern and spectra settings (`mapping.ebsd_map_params`). EDS steps' optional
+  `edax_settings` (resolution preset, frames, dwell) are applied by
+  `set_eds_parameters` and passed to the map; blank fields keep APEX's.
 - **The EBSD map still retracts the camera itself** when it finishes, as proven
   on hardware; the dispatcher's later retract then does nothing.
 - **Preflight** also checks the EDS detector reports ready, for EDS steps and
@@ -194,10 +196,12 @@ LaserControl.
 
 ### Oxford (`OXFORD_AZTEC`, `adapters/oxford.py`)
 - **Every call opens its own `AztecSession`** and disconnects afterwards.
-- **Parameters are profile-based.** `set_*_parameters` loads
-  `Oxford_settings.<technique>_profile`, and raises `ConfigurationError`
-  listing the available profiles if it doesn't exist. Loading a profile
-  replaces AZtec's current settings, including unsaved GUI changes.
+- **Parameters are profile-based, per step.** `set_*_parameters` loads the
+  step's `oxford_settings.profile`, and raises `ConfigurationError` listing the
+  available profiles if it doesn't exist; preflight refuses a step that names
+  none. Loading a profile replaces AZtec's current settings, including unsaved
+  GUI changes. A config still carrying `ebsd_profile` / `eds_profile` in
+  `Oxford_settings` fails validation with a message pointing to the steps.
 - **Readiness is checked at map time, not in preflight.** AZtec only reports a
   technique ready once its detector is inserted (and EDS is cold), so preflight
   checks what doesn't depend on insertion (no acquisition running, EDS
@@ -357,12 +361,17 @@ carries every marker for what it needs and is skipped unless all are available:
   reports configured detectors through the dispatcher; the GUI builds the
   settings from the loaded configuration, and falls back to LaserControl (with
   a note) when they cannot be built.
-- **Blank vendor blocks:** the GUI writes every field it knows, so an untouched
-  block is a mapping of nulls. `factory.vendor_block` treats that as absent, so
-  it neither selects a native backend nor fails another vendor's validation.
-  A blank EBSD-step `edax_settings.scan_box` likewise means "no scan box".
+- **Which vendor blocks are used:** the GUI writes every block it knows,
+  often with defaults such as ports. `factory.vendor_block` uses a general
+  block only when its vendor is an OEM of the experiment and its key field is
+  set (EDAX/Oxford `connection.host`, Bruker `dll_dir`); otherwise it is
+  ignored (with a warning if it has other values), so it neither selects a
+  native backend nor fails validation. Step blocks are read only for their
+  technique's OEM (`factory.step_uses`). A blank EBSD-step
+  `edax_settings.scan_box` means "no scan box".
 - **GUI configurator:** `Oxford_settings` and `Bruker_settings` fields, and
-  each EDS/EBSD step's `bruker_settings` (all v1.2+). The EBSD/EDS OEM menus
+  each EDS/EBSD step's `oxford_settings` and `bruker_settings`, plus EDS
+  steps' `edax_settings` (all v1.2+). The EBSD/EDS OEM menus
   offer Bruker. Fields with a fixed set of values (connection mode, EDS
   detector index 1-4, OEMs, grid type) are dropdowns. Checkboxes always hold a
   value, so they start unticked (= false) and booleans alone never make a
@@ -373,7 +382,7 @@ carries every marker for what it needs and is skipped unless all are available:
 | Topic | Decision |
 |---|---|
 | Choosing a backend | Native when the vendor's settings block is present; otherwise the LaserControl fallback (EDAX/Oxford only). |
-| Oxford parameters | Applied by loading named AZtec profiles. |
+| Oxford parameters | Applied by loading the AZtec profile each step names (`oxford_settings.profile`). |
 | Bruker | Only what varies is configured: instrument settings in `Bruker_settings`, map size/dwell and output folder per step in `bruker_settings`; everything else is a fixed default. No second YAML file. EDS and EBSD both go through the dispatcher; the EBSD camera's measured positions are required for Bruker EBSD. |
 | Public names | Only the docstring names; callers are updated with no aliases. |
 | Preflight | Checks everything that can be set can be set, up to but not including data collection. |

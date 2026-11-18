@@ -884,13 +884,38 @@ def _has_value(value) -> bool:
     return value is not None and value != ""
 
 
+#: Each general vendor block: the OEM it serves, and the field that marks it as
+#: configured. Other fields may hold GUI defaults (such as the port), so only
+#: this one shows the operator actually set the vendor up.
+_VENDOR_BLOCKS = {
+    "EDAX_settings": (tbt.ExternalDeviceOEM.EDAX, ("connection", "host")),
+    "Oxford_settings": (tbt.ExternalDeviceOEM.OXFORD, ("connection", "host")),
+    "Bruker_settings": (tbt.ExternalDeviceOEM.BRUKER, ("dll_dir",)),
+}
+
+
+def _configured_oems(general_db: dict) -> set:
+    """The OEMs named by EBSD_OEM / EDS_OEM, ignoring unrecognized values."""
+    oems = set()
+    for key in ("EBSD_OEM", "EDS_OEM"):
+        value = general_db.get(key)
+        for oem in tbt.ExternalDeviceOEM:
+            if oem != tbt.ExternalDeviceOEM.NONE and oem.value == value:
+                oems.add(oem)
+    return oems
+
+
 def vendor_block(general_db: dict, name: str) -> dict:
     """
-    Return a vendor settings block, or None when it is absent or left blank.
+    Return a general vendor settings block if it is in use, otherwise None.
 
-    The GUI configurator writes every field it knows, so an untouched vendor
-    block arrives as a mapping of nulls. A vendor block's presence selects that
-    vendor's native API, so a blank block must count as absent.
+    A block is in use when its vendor is the EBSD or EDS OEM and its key field
+    is filled in (the EDAX/Oxford `connection.host`, the Bruker `dll_dir`).
+    Blocks for other vendors are ignored, so a configuration may keep blocks
+    for vendors it does not use, as the GUI configurator writes them all. A
+    block's presence selects that vendor's native API, so a block whose key
+    field is blank counts as absent; if it has other values, a warning says
+    so.
 
     ## Parameters
 
@@ -899,10 +924,135 @@ def vendor_block(general_db: dict, name: str) -> dict:
 
     ## Returns
 
-    - `dict`: The block, or None when it is missing or every value is blank.
+    - `dict`: The block, or None when it is not in use.
     """
+    oem, key_path = _VENDOR_BLOCKS[name]
     block = general_db.get(name)
+    if block is None or oem not in _configured_oems(general_db):
+        return None
+    if not isinstance(block, dict):
+        return block  # let validation report the bad type
+    value = block
+    for key in key_path:
+        value = value.get(key) if isinstance(value, dict) else None
+    if value is None or value == "":
+        if _has_value(block):
+            warnings.warn(
+                f"'{name}' has values but no '{'.'.join(key_path)}', so it is "
+                f"treated as not configured for {oem.value}."
+            )
+        return None
+    return block
+
+
+def step_block(step_settings: dict, name: str) -> dict:
+    """Return a step-level vendor block, or None when absent or left blank."""
+    block = step_settings.get(name)
     return block if _has_value(block) else None
+
+
+def step_uses(
+    general_settings: tbt.GeneralSettings,
+    technique: tbt.ExternalTechnique,
+    oem: tbt.ExternalDeviceOEM,
+) -> bool:
+    """Whether a step's vendor block for `oem` applies: its technique's OEM is
+    `oem`. Without general settings (direct calls), every block is read."""
+    if general_settings is None:
+        return True
+    configured = (
+        general_settings.EBSD_OEM
+        if technique == tbt.ExternalTechnique.EBSD
+        else general_settings.EDS_OEM
+    )
+    return configured == oem
+
+
+def oxford_step(
+    step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion
+) -> tbt.OxfordStepSettings:
+    """
+    Read an EBSD/EDS step's `oxford_settings` block (v1.2+), or None if
+    absent/blank. A step run through AZtec without one is refused at preflight.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if yml_format.version < 1.2:
+        return None
+    block = step_block(step_settings, "oxford_settings")
+    if block is None:
+        return None
+    where = f"step '{step_name}' oxford_settings"
+    try:
+        Schema(
+            {
+                "profile": And(
+                    str, len, error=f"{where} 'profile' must be a non-empty string."
+                )
+            }
+        ).validate(block)
+    except SchemaError as error:
+        raise ValueError(f"Invalid {where}: {error}") from error
+    return tbt.OxfordStepSettings(profile=block["profile"])
+
+
+def edax_eds_resolutions() -> list:
+    """EDAX EDS map size presets, as written in the config (e.g. "512x400")."""
+    from pytribeam.external_oem.edax.types import EdaxEdsResolution
+
+    return [f"{r.points}x{r.lines}" for r in EdaxEdsResolution]
+
+
+def edax_eds_step(
+    step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion
+) -> tbt.EdaxEDSStepSettings:
+    """
+    Read an EDS step's `edax_settings` block (v1.2+), or None if absent/blank.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if yml_format.version < 1.2:
+        return None
+    block = step_block(step_settings, "edax_settings")
+    if block is None:
+        return None
+    # A blank field keeps APEX's value, however it was left blank.
+    block = {key: (None if value == "" else value) for key, value in block.items()}
+    where = f"step '{step_name}' edax_settings"
+    resolutions = edax_eds_resolutions()
+    schema = Schema(
+        {
+            Optional("resolution"): Or(
+                None,
+                lambda x: x in resolutions,
+                error=f"{where} 'resolution' must be one of {resolutions}.",
+            ),
+            Optional("num_frames"): Or(
+                None,
+                And(int, lambda x: not isinstance(x, bool) and x > 0),
+                error=f"{where} 'num_frames' must be a positive int.",
+            ),
+            Optional("dwell_us"): Or(
+                None,
+                And(Or(int, float), lambda x: not isinstance(x, bool) and x > 0),
+                error=f"{where} 'dwell_us' must be a positive number.",
+            ),
+        }
+    )
+    try:
+        schema.validate(block)
+    except SchemaError as error:
+        raise ValueError(f"Invalid {where}: {error}") from error
+    dwell = block.get("dwell_us")
+    return tbt.EdaxEDSStepSettings(
+        resolution=block.get("resolution"),
+        num_frames=block.get("num_frames"),
+        dwell_us=None if dwell is None else float(dwell),
+    )
 
 
 def edax_config(edax_db: dict) -> tbt.EDAXConfig:
@@ -951,8 +1101,6 @@ def oxford_config(oxford_db: dict) -> tbt.OxfordConfig:
             host=connection_db["host"],
             port=Constants.oxford_aztec_default_port if port is None else port,
         ),
-        ebsd_profile=oxford_db.get("ebsd_profile"),
-        eds_profile=oxford_db.get("eds_profile"),
         dll_dir=None if dll_dir is None else Path(dll_dir),
     )
 
@@ -1039,7 +1187,7 @@ def bruker_eds_step(
     """
     if yml_format.version < 1.2:
         return None
-    block = vendor_block(step_settings, "bruker_settings")
+    block = step_block(step_settings, "bruker_settings")
     if block is None:
         return None
     _validate_bruker_step(block, step_name, ebsd=False)
@@ -1062,7 +1210,7 @@ def bruker_ebsd_step(
     """
     if yml_format.version < 1.2:
         return None
-    block = vendor_block(step_settings, "bruker_settings")
+    block = step_block(step_settings, "bruker_settings")
     if block is None:
         return None
     _validate_bruker_step(block, step_name, ebsd=True)
@@ -1609,6 +1757,7 @@ def ebsd(
     step_settings: dict,
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
+    general_settings: tbt.GeneralSettings = None,
 ) -> tbt.EBSDSettings:
     """
     Convert an EBSD step from a .yml file to microscope settings for performing an EBSD operation.
@@ -1621,6 +1770,10 @@ def ebsd(
     - `step_settings` (`dict`): The dictionary containing the EBSD step settings from the .yml file.
     - `step_name` (`str`): The name of the step in the .yml file.
     - `yml_format` (`tbt.YMLFormatVersion`): The format specified by the version of the .yml file.
+    - `general_settings` (`tbt.GeneralSettings`, optional): The experiment's
+      general settings. When given, only the vendor block for the EBSD OEM
+      (`edax_settings`, `oxford_settings` or `bruker_settings`) is read; the
+      others are ignored.
 
     ## Returns
 
@@ -1658,7 +1811,9 @@ def ebsd(
         grid_type = None
         save_patterns = None
     edax_settings = None
-    if yml_format.version >= 1.1:
+    if yml_format.version >= 1.1 and step_uses(
+        general_settings, tbt.ExternalTechnique.EBSD, tbt.ExternalDeviceOEM.EDAX
+    ):
         edax_settings = step_settings.get("edax_settings")
     if edax_settings is not None:
         scan_db = edax_settings.get("scan_box")
@@ -1683,7 +1838,16 @@ def ebsd(
         scan_box=scan_box,
         grid_type=grid_type,
         save_patterns=save_patterns,
-        bruker=bruker_ebsd_step(step_settings, step_name, yml_format),
+        bruker=bruker_ebsd_step(step_settings, step_name, yml_format)
+        if step_uses(
+            general_settings, tbt.ExternalTechnique.EBSD, tbt.ExternalDeviceOEM.BRUKER
+        )
+        else None,
+        oxford=oxford_step(step_settings, step_name, yml_format)
+        if step_uses(
+            general_settings, tbt.ExternalTechnique.EBSD, tbt.ExternalDeviceOEM.OXFORD
+        )
+        else None,
     )
     return ebsd_settings
 
@@ -1693,6 +1857,7 @@ def eds(
     step_settings: dict,
     step_name: str,
     yml_format: tbt.YMLFormatVersion,
+    general_settings: tbt.GeneralSettings = None,
 ) -> tbt.EDSSettings:
     """
     Convert an EDS step from a .yml file to microscope settings for performing an EDS operation.
@@ -1705,6 +1870,10 @@ def eds(
     - `step_settings` (`dict`): The dictionary containing the EDS step settings from the .yml file.
     - `step_name` (`str`): The name of the step in the .yml file.
     - `yml_format` (`tbt.YMLFormatVersion`): The format specified by the version of the .yml file.
+    - `general_settings` (`tbt.GeneralSettings`, optional): The experiment's
+      general settings. When given, only the vendor block for the EDS OEM
+      (`edax_settings`, `oxford_settings` or `bruker_settings`) is read; the
+      others are ignored.
 
     ## Returns
 
@@ -1725,7 +1894,21 @@ def eds(
     eds_settings = tbt.EDSSettings(
         image=image_settings,
         enable_eds=True,
-        bruker=bruker_eds_step(step_settings, step_name, yml_format),
+        bruker=bruker_eds_step(step_settings, step_name, yml_format)
+        if step_uses(
+            general_settings, tbt.ExternalTechnique.EDS, tbt.ExternalDeviceOEM.BRUKER
+        )
+        else None,
+        edax=edax_eds_step(step_settings, step_name, yml_format)
+        if step_uses(
+            general_settings, tbt.ExternalTechnique.EDS, tbt.ExternalDeviceOEM.EDAX
+        )
+        else None,
+        oxford=oxford_step(step_settings, step_name, yml_format)
+        if step_uses(
+            general_settings, tbt.ExternalTechnique.EDS, tbt.ExternalDeviceOEM.OXFORD
+        )
+        else None,
     )
     return eds_settings
 
@@ -2528,8 +2711,8 @@ def validate_oxford_settings(
     """
     Perform schema checking for an `Oxford_settings` dictionary.
 
-    Oxford parameters are applied by loading AZtec profiles, so each technique
-    run natively through AZtec must name its profile.
+    Oxford parameters are applied by loading AZtec profiles, which are named per
+    step (each EBSD/EDS step's `oxford_settings.profile`), not here.
 
     ## Parameters
 
@@ -2549,6 +2732,12 @@ def validate_oxford_settings(
         raise ValueError(
             f"'Oxford_settings' must be a mapping, not {type(oxford_settings).__name__}."
         )
+    moved = [key for key in ("ebsd_profile", "eds_profile") if key in oxford_settings]
+    if moved:
+        raise ValueError(
+            f"'Oxford_settings' no longer takes {moved}: name the AZtec profile in "
+            "each EBSD/EDS step's 'oxford_settings: {profile: ...}' instead."
+        )
     optional_str = Or(None, And(str, len))
     schema = Schema(
         {
@@ -2564,14 +2753,6 @@ def validate_oxford_settings(
                     error="Oxford_settings 'connection.port' must be an int between 1 and 65535, or null for the default.",
                 ),
             },
-            Optional("ebsd_profile"): Or(
-                optional_str,
-                error="Oxford_settings 'ebsd_profile' must be a non-empty string or null.",
-            ),
-            Optional("eds_profile"): Or(
-                optional_str,
-                error="Oxford_settings 'eds_profile' must be a non-empty string or null.",
-            ),
             Optional("dll_dir"): Or(
                 optional_str,
                 error="Oxford_settings 'dll_dir' must be a non-empty string or null.",
@@ -2582,16 +2763,6 @@ def validate_oxford_settings(
         schema.validate(oxford_settings)
     except SchemaError as error:
         raise ValueError(f"Invalid 'Oxford_settings': {error}") from error
-
-    for technique, native, key in (
-        ("EBSD", ebsd_native, "ebsd_profile"),
-        ("EDS", eds_native, "eds_profile"),
-    ):
-        if native and oxford_settings.get(key) is None:
-            raise ValueError(
-                f"Oxford {technique} runs through AZtec, which applies parameters by "
-                f"loading a profile, so 'Oxford_settings.{key}' must name one."
-            )
     return True
 
 
@@ -3902,6 +4073,7 @@ def step(
             step_settings=step_settings,
             step_name=step_name,
             yml_format=yml_format,
+            general_settings=general_settings,
         )
     if step_type == tbt.StepType.EDS:
         operation_settings = eds(
@@ -3909,6 +4081,7 @@ def step(
             step_settings=step_settings,
             step_name=step_name,
             yml_format=yml_format,
+            general_settings=general_settings,
         )
     if step_type == tbt.StepType.IMAGE:
         operation_settings = image(

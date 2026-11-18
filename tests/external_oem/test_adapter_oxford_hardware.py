@@ -54,8 +54,6 @@ def settings() -> tbt.GeneralSettings:
         connection=tbt.MicroscopeConnection(
             host=host, port=int(_env("PYTRIBEAM_OXFORD_PORT", "22201"))
         ),
-        ebsd_profile=_env("PYTRIBEAM_OXFORD_EBSD_PROFILE") or None,
-        eds_profile=_env("PYTRIBEAM_OXFORD_EDS_PROFILE") or None,
         dll_dir=_env("AZTEC_PLUGIN_DIR") or None,
     )
     return tbt.GeneralSettings(
@@ -98,10 +96,15 @@ def test_states_are_translated(settings, read):
     print(f"{read.__name__}: {state}")
 
 
+def profile(technique: str) -> str:
+    """The AZtec profile a test step names, from the environment."""
+    return _env(f"PYTRIBEAM_OXFORD_{technique.upper()}_PROFILE")
+
+
 @pytest.mark.parametrize("technique", ["ebsd", "eds"])
 def test_configured_profile_exists(settings, technique):
     """Checked without loading: loading replaces AZtec's current settings."""
-    name = getattr(settings.Oxford_settings, f"{technique}_profile")
+    name = profile(technique)
     if not name:
         pytest.skip(f"PYTRIBEAM_OXFORD_{technique.upper()}_PROFILE is not set")
     with oxford_adapter._session(settings) as session:
@@ -112,14 +115,19 @@ def test_configured_profile_exists(settings, technique):
 
 def test_preflight(settings):
     """AZtec idle and EDS cold. Nothing moves and no profile is loaded."""
-    if not (
-        settings.Oxford_settings.ebsd_profile and settings.Oxford_settings.eds_profile
-    ):
+    if not (profile("ebsd") and profile("eds")):
         pytest.skip("both profile variables are needed for preflight")
-    ebsd_step = tbt.EBSDSettings(image=None, enable_eds=True)
+    ebsd_step = tbt.EBSDSettings(
+        image=None,
+        enable_eds=True,
+        oxford=tbt.OxfordStepSettings(profile=profile("ebsd")),
+    )
+    eds_step = tbt.EDSSettings(
+        image=None, oxford=tbt.OxfordStepSettings(profile=profile("eds"))
+    )
 
     assert oxford_adapter.preflight_ebsd(settings, [ebsd_step])
-    assert oxford_adapter.preflight_eds(settings, [tbt.EDSSettings(image=None)])
+    assert oxford_adapter.preflight_eds(settings, [eds_step])
 
 
 # ----------------------------------------------------------------------

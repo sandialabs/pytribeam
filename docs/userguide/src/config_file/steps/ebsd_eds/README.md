@@ -13,6 +13,23 @@ Inserting and retracting the detectors, and starting each map with the $3^{rd}$ 
   - **save_patterns** (*bool*): whether EDAX saves the EBSD patterns.
 - **bruker_settings** (Bruker only, `config_file_version` 1.2+): see below.
 
+**EDS** type steps have an optional **edax_settings** block (EDAX native control only, `config_file_version` 1.2+). Leave a field blank to keep the value set in APEX:
+
+- **resolution** (*str*): map size preset, one of `64x50`, `128x100`, `256x200`, `512x400`, `1024x800`, `2048x1600`, `4096x3200`.
+- **num_frames** (*int*): number of frames in the map.
+- **dwell_us** (*float*): dwell time per point in microseconds.
+
+**EBSD** and **EDS** type steps run through Oxford AZtec need an **oxford_settings** block (`config_file_version` 1.2+):
+
+- **profile** (*str*): the AZtec profile loaded before this step's maps. Save the settings you want as a profile in AZtec first. Loading a profile replaces AZtec's current settings, including unsaved changes made in the AZtec GUI. For an EBSD step with concurrent EDS, enable *Include EDS* in the profile.
+
+```yaml
+oxford_settings:
+  profile: "EBSD 1um step"
+```
+
+A step's vendor blocks only apply to its technique's OEM (the **EBSD_OEM** for EBSD steps, the **EDS_OEM** for EDS steps); the others are ignored.
+
 **EDS** and **EBSD** type steps run through Bruker need a **bruker_settings** block:
 
 - **output_path** (*str*): folder, **on the ESPRIT computer**, where the maps are saved. Each slice gets its own run folder, named after the step and slice.
@@ -36,8 +53,8 @@ For Bruker EDS, ESPRIT saves each map's `.bcf` HyperMap (the full spectra) and a
 
 | Control | EBSD | EDS |
 |---|---|---|
-| EDAX (native) | the step's **edax_settings**; spectra on/off from **concurrent_EDS** | APEX's current EDS map settings |
-| Oxford (native) | loads **Oxford_settings.ebsd_profile** | loads **Oxford_settings.eds_profile** |
+| EDAX (native) | the step's **edax_settings**; spectra on/off from **concurrent_EDS** | the step's **edax_settings** (resolution, frames, dwell); blank fields keep APEX's |
+| Oxford (native) | loads the step's **oxford_settings.profile** | loads the step's **oxford_settings.profile** |
 | Bruker (native) | the step's **bruker_settings** (scan size, dwell, acquisition profile) | the step's **bruker_settings** (map size, dwell) |
 | LaserControl fallback | the vendor software's current settings | the vendor software's current settings |
 

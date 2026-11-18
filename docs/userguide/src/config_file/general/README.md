@@ -59,7 +59,7 @@ EBSD and EDS detectors are driven either through the detector vendor's own softw
 | Bruker | **Bruker_settings** | native, over the Bruker ESPRIT API (no fallback) |
 | `null` | — | no control |
 
-A block whose fields are all left blank, as the GUI writes it when untouched, counts as absent. Native control never uses LaserControl, so the Laser API is only required for the fallback. The vendor connection is tested when the configuration is validated, and each detector's readiness and every EBSD/EDS step's parameters are checked before the first slice (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)**).
+A vendor block is used only when that vendor is the **EBSD_OEM** or **EDS_OEM** and its key field is filled in: the **connection** / **host** for EDAX and Oxford, the **dll_dir** for Bruker. Blocks for other vendors are ignored, so a configuration can keep them (the GUI writes every block), and fields with defaults, such as the ports, don't make a block count as filled in. Native control never uses LaserControl, so the Laser API is only required for the fallback. The vendor connection is tested when the configuration is validated, and each detector's readiness and every EBSD/EDS step's parameters are checked before the first slice (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)**).
 
 **EDAX_settings** requires `config_file_version` 1.1 or later. **Oxford_settings** and **Bruker_settings** require 1.2 or later.
 
@@ -72,12 +72,10 @@ A block whose fields are all left blank, as the GUI writes it when untouched, co
 
 ### Oxford_settings
 
-AZtec's plugin API cannot set technique parameters (step size, dwell time, resolution, ...). Instead, pyTriBeam loads a saved AZtec *profile* before each map. Save the settings you want as a profile in AZtec first. Loading a profile replaces AZtec's current settings, including unsaved changes made in the AZtec GUI.
+AZtec's plugin API cannot set technique parameters (step size, dwell time, resolution, ...). Instead, pyTriBeam loads a saved AZtec *profile* before each map; each EBSD/EDS step names its own (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)**). This block only says how to reach AZtec.
 
 - **connection** / **host** (*str*): Host running AZtec and its plugin service (often `127.0.0.1`).
 - **connection** / **port** (*int*, optional): Plugin service port; blank for the default, `22201`.
-- **ebsd_profile** (*str*): AZtec profile loaded before EBSD maps. Required when EBSD runs through AZtec. For concurrent EDS, enable *Include EDS* in this profile.
-- **eds_profile** (*str*): AZtec profile loaded before EDS maps. Required when EDS runs through AZtec.
 - **dll_dir** (*str*, optional): Folder holding the AZtec plugin SDK DLLs; blank to use the `AZTEC_PLUGIN_DIR` environment variable.
 
 ### Bruker_settings

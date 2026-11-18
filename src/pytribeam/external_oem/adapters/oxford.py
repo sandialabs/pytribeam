@@ -7,8 +7,8 @@ Native Oxford backend, through the AZtec plugin API
 
 AZtec's plugin API cannot set technique parameters (step size, dwell,
 resolution...). Parameters are applied by loading the AZtec profile named in
-`Oxford_settings` (`ebsd_profile` / `eds_profile`). Loading a profile replaces
-AZtec's current settings, including unsaved GUI changes.
+each step's `oxford_settings.profile`, so steps can differ. Loading a profile
+replaces AZtec's current settings, including unsaved GUI changes.
 
 AZtec only reports a technique "ready" once its detector is inserted (and, for
 EDS, cold), so preflight checks what does not depend on insertion, and each map
@@ -88,14 +88,15 @@ def device_state(insertion_state) -> tbt.RetractableDeviceState:
     return _POSITION_STATE.get(insertion_state.state, STATE.INDERTERMINATE)
 
 
-def _profile(general_settings: tbt.GeneralSettings, technique: str) -> str:
-    name = getattr(general_settings.Oxford_settings, f"{technique}_profile")
-    if not name:
+def _profile(step_settings, technique: str) -> str:
+    """The AZtec profile a step names, or a clear error if it names none."""
+    if step_settings.oxford is None:
         raise ConfigurationError(
-            f"Oxford {technique.upper()} parameters are applied by loading an AZtec "
-            f"profile, but 'Oxford_settings.{technique}_profile' is not set."
+            f"Oxford {technique} parameters are applied by loading an AZtec "
+            f"profile, but this {technique} step has no "
+            "'oxford_settings: {profile: ...}'."
         )
-    return name
+    return step_settings.oxford.profile
 
 
 def _acquisition_type(step_settings) -> AcquisitionType:
@@ -160,8 +161,10 @@ def preflight_ebsd(
     general_settings: tbt.GeneralSettings,
     step_settings: List[tbt.EBSDSettings],
 ) -> bool:
-    """Check AZtec is idle, and the EDS detector is cold for concurrent EDS."""
-    _profile(general_settings, "ebsd")
+    """Check every step names a profile, AZtec is idle, and the EDS detector is
+    cold for concurrent EDS. The profiles are loaded by set_ebsd_parameters."""
+    for settings in step_settings:
+        _profile(settings, "EBSD")
     with _session(general_settings) as session:
         _require_idle(session)
         if any(settings.enable_eds for settings in step_settings):
@@ -173,8 +176,10 @@ def preflight_eds(
     general_settings: tbt.GeneralSettings,
     step_settings: List[tbt.EDSSettings],
 ) -> bool:
-    """Check AZtec is idle and the EDS detector is cold."""
-    _profile(general_settings, "eds")
+    """Check every step names a profile, AZtec is idle, and the EDS detector is
+    cold. The profiles are loaded by set_eds_parameters."""
+    for settings in step_settings:
+        _profile(settings, "EDS")
     with _session(general_settings) as session:
         _require_idle(session)
         _require_eds_cold(session)
@@ -261,14 +266,14 @@ def retract_eds_detector(microscope, general_settings) -> bool:
 # ----------------------------------------------------------------------
 
 
-def _load_profile(general_settings: tbt.GeneralSettings, technique: str) -> bool:
-    name = _profile(general_settings, technique)
+def _load_profile(general_settings, step_settings, technique: str) -> bool:
+    name = _profile(step_settings, technique)
     with _session(general_settings) as session:
         available = [profile.name for profile in session.acquisition.profiles()]
         if name not in available:
             raise ConfigurationError(
-                f"AZtec has no profile named '{name}' "
-                f"(Oxford_settings.{technique}_profile). Available: {available}"
+                f"AZtec has no profile named '{name}' (the {technique} step's "
+                f"oxford_settings.profile). Available: {available}"
             )
         session.acquisition.load_profile(name)
     return True
@@ -278,16 +283,16 @@ def set_ebsd_parameters(
     general_settings: tbt.GeneralSettings,
     step_settings: tbt.EBSDSettings,
 ) -> bool:
-    """Load the EBSD profile (which also carries concurrent EDS settings)."""
-    return _load_profile(general_settings, "ebsd")
+    """Load the step's profile (which also carries concurrent EDS settings)."""
+    return _load_profile(general_settings, step_settings, "EBSD")
 
 
 def set_eds_parameters(
     general_settings: tbt.GeneralSettings,
     step_settings: tbt.EDSSettings,
 ) -> bool:
-    """Load the EDS profile."""
-    return _load_profile(general_settings, "eds")
+    """Load the step's profile."""
+    return _load_profile(general_settings, step_settings, "EDS")
 
 
 def map_name(slice_number: int) -> str:

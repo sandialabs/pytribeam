@@ -15,6 +15,8 @@ from pytribeam.external_oem.edax.errors import EdaxStateError  # noqa: E402
 from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxCameraStatus,
     EdaxDetectorStatus,
+    EdaxEdsMapParams,
+    EdaxEdsResolution,
     EdaxMappingStatus,
 )
 from tests.external_oem.helpers import (  # noqa: E402
@@ -90,6 +92,9 @@ def ipapi(monkeypatch, chamber):
 
         def detector_status(self):
             return state.eds_status
+
+        def apply_map_parameters(self, params):
+            state.calls.append(("apply_eds_parameters", params))
 
     monkeypatch.setattr(edax_adapter, "EdaxClient", FakeClient)
     monkeypatch.setattr(edax_adapter, "EdaxEbsdController", FakeEbsd)
@@ -294,6 +299,45 @@ class TestParametersAndMaps:
 
         assert edax_adapter.map_eds(SETTINGS, step, 4, print)
         assert ipapi.calls == [("map_eds", (SETTINGS, step, 4))]
+
+    def test_eds_step_parameters(self, ipapi):
+        step = tbt.EDSSettings(
+            image=None,
+            edax=tbt.EdaxEDSStepSettings(
+                resolution="512x400", num_frames=2, dwell_us=50.0
+            ),
+        )
+
+        assert edax_adapter.set_eds_parameters(SETTINGS, step)
+
+        ((name, params),) = [c for c in ipapi.calls if c[0] == "apply_eds_parameters"]
+        assert params == EdaxEdsMapParams(
+            resolution=EdaxEdsResolution.PRESET_512X400,
+            num_frames=2,
+            preset_dwell_us=50.0,
+        )
+
+    def test_unset_eds_values_are_not_sent(self, ipapi):
+        step = tbt.EDSSettings(image=None, edax=tbt.EdaxEDSStepSettings(num_frames=3))
+
+        params = edax_adapter.eds_map_params(step)
+
+        assert params == EdaxEdsMapParams(num_frames=3)
+
+    def test_eds_map_uses_the_step_parameters(self, ipapi, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(
+            edax_adapter.edax_workflow,
+            "map_eds",
+            lambda *args, params=None: seen.update(params=params),
+        )
+        step = tbt.EDSSettings(
+            image=None, edax=tbt.EdaxEDSStepSettings(resolution="64x50")
+        )
+
+        edax_adapter.map_eds(SETTINGS, step, 4, print)
+
+        assert seen["params"].resolution is EdaxEdsResolution.PRESET_64X50
 
 
 def test_never_uses_laser_control():

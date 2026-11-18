@@ -31,8 +31,6 @@ from tests.external_oem.helpers import (  # noqa: E402
     MICROSCOPE,
     OEM,
     STATE,
-    ebsd_settings,
-    eds_settings,
     general_settings,
 )
 
@@ -40,19 +38,27 @@ EBSD_PROFILE = "EBSD 1um step"
 EDS_PROFILE = "EDS 512px 50us"
 
 
-def settings(ebsd_profile=EBSD_PROFILE, eds_profile=EDS_PROFILE):
-    return general_settings(
-        OEM.OXFORD,
-        OEM.OXFORD,
-        Oxford_settings=tbt.OxfordConfig(
-            connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201),
-            ebsd_profile=ebsd_profile,
-            eds_profile=eds_profile,
-        ),
-    )
+SETTINGS = general_settings(
+    OEM.OXFORD,
+    OEM.OXFORD,
+    Oxford_settings=tbt.OxfordConfig(
+        connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201)
+    ),
+)
 
 
-SETTINGS = settings()
+def _oxford(profile):
+    return None if profile is None else tbt.OxfordStepSettings(profile=profile)
+
+
+def ebsd_settings(enable_eds=False, profile=EBSD_PROFILE) -> tbt.EBSDSettings:
+    """An EBSD step naming its AZtec profile (the simulator has this one)."""
+    return tbt.EBSDSettings(image=None, enable_eds=enable_eds, oxford=_oxford(profile))
+
+
+def eds_settings(profile=EDS_PROFILE) -> tbt.EDSSettings:
+    """An EDS step naming its AZtec profile (the simulator has this one)."""
+    return tbt.EDSSettings(image=None, oxford=_oxford(profile))
 
 
 @pytest.fixture
@@ -255,9 +261,16 @@ class TestPreflight:
         """AZtec only reports ready once inserted, so preflight can't require it."""
         assert oxford_adapter.preflight_ebsd(SETTINGS, [ebsd_settings()])
 
-    def test_missing_profile_setting(self, sim):
-        with pytest.raises(ConfigurationError, match="ebsd_profile"):
-            oxford_adapter.preflight_ebsd(settings(ebsd_profile=None), [])
+    @pytest.mark.parametrize(
+        "preflight, step",
+        [
+            (oxford_adapter.preflight_ebsd, lambda: ebsd_settings(profile=None)),
+            (oxford_adapter.preflight_eds, lambda: eds_settings(profile=None)),
+        ],
+    )
+    def test_every_step_must_name_a_profile(self, sim, preflight, step):
+        with pytest.raises(ConfigurationError, match="oxford_settings"):
+            preflight(SETTINGS, [step()])
 
     def test_unreachable_aztec(self, sim):
         sim.refuse_connections = True
@@ -282,9 +295,17 @@ class TestParameters:
     def test_unknown_profile_lists_the_available_ones(self, sim):
         with pytest.raises(ConfigurationError, match=EDS_PROFILE):
             oxford_adapter.set_ebsd_parameters(
-                settings(ebsd_profile="no such profile"), ebsd_settings()
+                SETTINGS, ebsd_settings(profile="no such profile")
             )
         assert sim.loaded_profile is None
+
+    def test_each_step_loads_its_own_profile(self, sim):
+        """Steps can differ: two EBSD steps with different profiles."""
+        oxford_adapter.set_ebsd_parameters(SETTINGS, ebsd_settings(profile=EDS_PROFILE))
+        assert sim.loaded_profile == EDS_PROFILE
+
+        oxford_adapter.set_ebsd_parameters(SETTINGS, ebsd_settings())
+        assert sim.loaded_profile == EBSD_PROFILE
 
 
 class TestMaps:

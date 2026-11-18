@@ -49,8 +49,6 @@ def edax_config() -> tbt.EDAXConfig:
 def oxford_config() -> tbt.OxfordConfig:
     return tbt.OxfordConfig(
         connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201),
-        ebsd_profile="ebsd",
-        eds_profile="eds",
     )
 
 

@@ -240,6 +240,8 @@ __all__ = [
     "BrukerEBSDStepSettings",
     "BrukerEDSStepSettings",
     "BrukerMapSettings",
+    "EdaxEDSStepSettings",
+    "OxfordStepSettings",
     "EDAXConfig",
     "OxfordConfig",
     "GeneralSettings",
@@ -1522,21 +1524,18 @@ class OxfordConfig(NamedTuple):
     General configuration for Oxford AZtec, driven through its plugin API.
 
     AZtec's plugin API cannot set technique parameters, so EBSD and EDS
-    parameters are applied by loading the named AZtec profiles.
+    parameters are applied by loading an AZtec profile, named per step
+    (`OxfordStepSettings`).
 
     ## Attributes
 
     - `connection` (`MicroscopeConnection`): Host and port of the AZtec plugin
       service (default port 22201).
-    - `ebsd_profile` (`str, optional`): AZtec profile loaded before EBSD maps.
-    - `eds_profile` (`str, optional`): AZtec profile loaded before EDS maps.
     - `dll_dir` (`Path, optional`): Folder holding the AZtec plugin SDK DLLs.
       If None, the `AZTEC_PLUGIN_DIR` environment variable is used.
     """
 
     connection: MicroscopeConnection
-    ebsd_profile: str = None
-    eds_profile: str = None
     dll_dir: Path = None
 
 
@@ -1977,6 +1976,36 @@ class EBSDScanBox(NamedTuple):
     step_size_um: float
 
 
+class OxfordStepSettings(NamedTuple):
+    """
+    Oxford settings for one EBSD or EDS step.
+
+    ## Attributes
+
+    - `profile` (`str`): AZtec profile loaded before this step's maps. For an
+      EBSD step with concurrent EDS, the profile carries the EDS settings too
+      (enable *Include EDS* in it).
+    """
+
+    profile: str
+
+
+class EdaxEDSStepSettings(NamedTuple):
+    """
+    EDAX settings for one EDS step. Unset fields leave APEX's value in place.
+
+    ## Attributes
+
+    - `resolution` (`str, optional`): Map size preset, e.g. `"512x400"`.
+    - `num_frames` (`int, optional`): Number of frames in the map.
+    - `dwell_us` (`float, optional`): Dwell time per point in microseconds.
+    """
+
+    resolution: str = None
+    num_frames: int = None
+    dwell_us: float = None
+
+
 class BrukerMapSettings(NamedTuple):
     """
     Bruker map size and dwell, set per step.
@@ -2040,6 +2069,7 @@ class EBSDSettings(NamedTuple):
     - `enable_ebsd` (`bool`): Whether to enable EBSD (default is True).
     - `scan_box`, `grid_type`, `save_patterns`: EDAX map parameters (v1.1+).
     - `bruker` (`BrukerEBSDStepSettings, optional`): Bruker map parameters (v1.2+).
+    - `oxford` (`OxfordStepSettings, optional`): Oxford AZtec profile (v1.2+).
     """
 
     image: ImageSettings
@@ -2049,6 +2079,7 @@ class EBSDSettings(NamedTuple):
     grid_type: int = EBSDGridType.SQUARE
     save_patterns: bool = True
     bruker: BrukerEBSDStepSettings = None
+    oxford: OxfordStepSettings = None
 
 
 class EDSSettings(NamedTuple):
@@ -2059,12 +2090,16 @@ class EDSSettings(NamedTuple):
 
     - `image` (`ImageSettings`): The image settings.
     - `enable_eds` (`bool`): Whether to enable EDS (default is True).
+    - `edax` (`EdaxEDSStepSettings, optional`): EDAX map parameters (v1.2+).
     - `bruker` (`BrukerEDSStepSettings, optional`): Bruker map parameters (v1.2+).
+    - `oxford` (`OxfordStepSettings, optional`): Oxford AZtec profile (v1.2+).
     """
 
     image: ImageSettings
     enable_eds: bool = True
     bruker: BrukerEDSStepSettings = None
+    edax: EdaxEDSStepSettings = None
+    oxford: OxfordStepSettings = None
 
 
 class LaserPolarization(Enum):
