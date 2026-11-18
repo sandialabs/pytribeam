@@ -85,14 +85,19 @@ def laser(monkeypatch):
 
 @pytest.fixture
 def edax_reachable(monkeypatch):
-    """Stand in for the EDAX IPAPI connection check made during validation."""
+    """Record dispatcher connection tests as (backend, technique) pairs.
+
+    Validation itself never connects; `factory.general` tests each native
+    backend's connection once the settings are built.
+    """
     calls = []
-    monkeypatch.setattr(
-        external_devices,
-        "check_edax_connection",
-        lambda host, port: calls.append((host, port)) or True,
-        raising=False,
-    )
+
+    def test_connection(general_settings, technique):
+        backend = external_devices.backend(general_settings, technique)
+        calls.append((backend, technique))
+        return True
+
+    monkeypatch.setattr(external_devices, "test_connection", test_connection)
     return calls
 
 
@@ -230,7 +235,7 @@ class TestValidateEbsdEdsSettings:
 
     def test_native_edax_does_not_require_laser_control(self, laser, edax_reachable):
         assert validate("EDAX", "EDAX", version=1.1, edax_settings=EDAX_DB)
-        assert edax_reachable == [("edax-pc", 8301)]
+        assert edax_reachable == []  # validation does not connect
 
     def test_native_oxford_does_not_require_laser_control(self, laser):
         assert validate("Oxford", "Oxford", oxford_settings=OXFORD_DB)
@@ -352,6 +357,68 @@ class TestValidateEbsdEdsSettings:
             validate("Bruker", "Bruker", bruker_settings=db)
 
 
+# ---------------------------------
+# Connection tests after validation
+# ---------------------------------
+
+
+def built_settings(ebsd_oem, eds_oem, **blocks):
+    return tbt.GeneralSettings(
+        yml_version=1.2,
+        slice_thickness_um=1.0,
+        max_slice_number=1,
+        pre_tilt_deg=0.0,
+        sectioning_axis=tbt.SectioningAxis.Z,
+        stage_tolerance=tbt.StageTolerance(translational_um=1.0, angular_deg=1.0),
+        connection=tbt.MicroscopeConnection(host="localhost"),
+        EBSD_OEM=ebsd_oem,
+        EDS_OEM=eds_oem,
+        exp_dir=".",
+        h5_log_name="log",
+        step_count=1,
+        **blocks,
+    )
+
+
+class TestExternalConnections:
+    def test_each_native_technique_is_tested(self, edax_reachable):
+        settings = built_settings(
+            OEM.OXFORD, OEM.OXFORD, Oxford_settings=factory.oxford_config(OXFORD_DB)
+        )
+
+        assert factory.test_external_connections(settings)
+        assert edax_reachable == [
+            (BACKEND.OXFORD_AZTEC, tbt.ExternalTechnique.EBSD),
+            (BACKEND.OXFORD_AZTEC, tbt.ExternalTechnique.EDS),
+        ]
+
+    def test_only_configured_techniques(self, edax_reachable):
+        settings = built_settings(
+            OEM.NONE, OEM.EDAX, EDAX_settings=factory.edax_config(EDAX_DB)
+        )
+
+        factory.test_external_connections(settings)
+
+        assert edax_reachable == [(BACKEND.EDAX_IPAPI, tbt.ExternalTechnique.EDS)]
+
+    @pytest.mark.parametrize("oem", [OEM.EDAX, OEM.OXFORD, OEM.NONE])
+    def test_laser_control_fallback_and_no_oem_are_skipped(self, edax_reachable, oem):
+        assert factory.test_external_connections(built_settings(oem, oem))
+        assert edax_reachable == []
+
+    def test_an_unreachable_vendor_fails_validation(self, monkeypatch):
+        def unreachable(general_settings, technique):
+            raise external_devices.DetectorError("AZtec not listening")
+
+        monkeypatch.setattr(external_devices, "test_connection", unreachable)
+        settings = built_settings(
+            OEM.OXFORD, OEM.NONE, Oxford_settings=factory.oxford_config(OXFORD_DB)
+        )
+
+        with pytest.raises(external_devices.DetectorError, match="not listening"):
+            factory.test_external_connections(settings)
+
+
 # -------------------------------------
 # Full general-settings parse (microscope)
 # -------------------------------------
@@ -394,7 +461,7 @@ class TestGeneralSettingsV12:
 
         assert settings.EDAX_settings is None
 
-    def test_v12_oxford(self, tmp_path, laser):
+    def test_v12_oxford(self, tmp_path, laser, edax_reachable):
         settings = self.parse(
             self.general_db(
                 tmp_path,
@@ -405,8 +472,9 @@ class TestGeneralSettingsV12:
         )
 
         assert settings.Oxford_settings == factory.oxford_config(OXFORD_DB)
+        assert [backend for backend, _ in edax_reachable] == [BACKEND.OXFORD_AZTEC] * 2
 
-    def test_v12_bruker(self, tmp_path, laser):
+    def test_v12_bruker(self, tmp_path, laser, edax_reachable):
         settings = self.parse(
             self.general_db(
                 tmp_path,
@@ -417,6 +485,7 @@ class TestGeneralSettingsV12:
         )
 
         assert settings.Bruker_settings == factory.bruker_config(bruker_db())
+        assert [backend for backend, _ in edax_reachable] == [BACKEND.BRUKER_ESPRIT] * 2
 
     def test_v11_ignores_v12_blocks(self, tmp_path, laser):
         settings = self.parse(

@@ -506,6 +506,25 @@ class TestPreflight:
         with pytest.raises(ConfigurationError, match="EBSD steps"):
             external_devices.preflight_ebsd(general_settings(), self.steps())
 
+    def test_concurrent_eds_without_an_eds_oem_is_refused(self, adapters):
+        """Caught before the experiment, not at the first slice's insert."""
+        settings = general_settings(
+            OEM.OXFORD, OEM.NONE, Oxford_settings=oxford_config()
+        )
+
+        with pytest.raises(ConfigurationError, match="concurrent EDS"):
+            external_devices.preflight_ebsd(
+                settings, [step(ebsd_settings(enable_eds=True))]
+            )
+        assert adapters.calls == []
+
+    def test_ebsd_only_steps_need_no_eds_oem(self, adapters):
+        settings = general_settings(
+            OEM.OXFORD, OEM.NONE, Oxford_settings=oxford_config()
+        )
+
+        assert external_devices.preflight_ebsd(settings, [step(ebsd_settings())])
+
 
 # ----------------
 # Retract all

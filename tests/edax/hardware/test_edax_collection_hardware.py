@@ -9,14 +9,14 @@ so what passes here is what an experiment runs:
 ========================  ================================================
 Map                       Path
 ========================  ================================================
-EBSD                      native IPAPI, camera inserted by LaserControl
+EBSD                      native IPAPI throughout, camera included
 EBSD + concurrent EDS     as EBSD, spectra saved, EDS detector over IPAPI
 EDS                       native IPAPI throughout, headless
 ========================  ================================================
 
 Unlike the read-only sweep in ``test_edax_ipapi_hardware.py``, these need the
-microscope PC: AutoScript for the camera-saturation measurement, LaserControl
-for detector motion and EDS, and the IPAPI for EBSD. They insert detectors,
+microscope PC: AutoScript for the camera-saturation measurement, the collision
+check and the chamber CCD, and the IPAPI for everything else. They insert detectors,
 scan the beam, and write maps, so they have their own opt-in::
 
     $env:PYTRIBEAM_RUN_HARDWARE = "1"
@@ -44,10 +44,10 @@ also look in that folder and fail if a map wrote nothing to it.
 ``PYTRIBEAM_EDAX_MAP_SIZE_UM`` (default 5) and ``PYTRIBEAM_EDAX_MAP_STEP_UM``
 (default 0.5) set the square scan area, centered in the field of view.
 
-Every test also watches detector motion: each insertion and retraction, over
-LaserControl or the IPAPI, must happen while the chamber CCD is live in the
-lower-right quadrant, so the operator can stop a collision. A move made with
-the CCD off fails the test.
+Every test also watches detector motion: each insertion and retraction must
+happen while the chamber CCD is live in the lower-right quadrant, so the
+operator can stop a collision. A move made with the CCD off fails the test, and
+so does any move made through LaserControl: native EDAX never uses it.
 """
 
 # Default python modules
@@ -286,6 +286,18 @@ def _logged(settings: tbt.GeneralSettings, step, dataset_name: str):
         return [(int(row[0]), float(row[1])) for row in log_file[location][()]]
 
 
+def _as_step(step, step_type: tbt.StepType, operation_settings) -> tbt.Step:
+    """Wrap operation settings as the experiment step preflight expects."""
+    return tbt.Step(
+        type=step_type,
+        name=step.name,
+        number=step.number,
+        frequency=1,
+        stage=None,
+        operation_settings=operation_settings,
+    )
+
+
 def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
     """Run the external-device half of the workflow's EBSD step.
 
@@ -301,17 +313,23 @@ def _collect_ebsd(microscope, experiment, *, slice_number, name, enable_eds):
     folder = _local_map_folder(experiment.EDAX_settings)
     files_before = _folder_snapshot(folder)
 
-    external_devices.preflight_ebsd(general_settings=experiment)
+    external_devices.preflight_ebsd(
+        general_settings=experiment,
+        steps=[_as_step(step, tbt.StepType.EBSD, step_settings)],
+    )
     try:
-        external_devices.insert_ebsd(microscope=microscope, general_settings=experiment)
+        external_devices.insert_ebsd_camera(
+            microscope=microscope, general_settings=experiment
+        )
         if enable_eds:
-            external_devices.insert_eds(
+            external_devices.insert_eds_detector(
                 microscope=microscope, general_settings=experiment
             )
         # The saturation measurement must hand back exactly the imaging state
         # it found. Capture that state here, after insertion: the collision
-        # check in insert_EBSD selects the CBS as the active detector as a side
-        # effect, so an earlier baseline would expect the wrong detector back.
+        # check before insertion selects the CBS as the active detector as a
+        # side effect, so an earlier baseline would expect the wrong detector
+        # back.
         before = _imaging_state(microscope)
         assert external_devices.map_ebsd(
             general_settings=experiment,
@@ -437,6 +455,11 @@ class MotionWatch:
         for name in expect:
             assert name in self.moves, f"expected {name} among moves {self.moves}"
 
+    def assert_no_laser_control(self):
+        """Native EDAX must never move a detector through LaserControl."""
+        laser_moves = [m for m in self.moves if m.startswith("LaserControl")]
+        assert not laser_moves, f"native EDAX moved through LaserControl: {laser_moves}"
+
 
 @pytest.fixture
 def motion_watch(monkeypatch) -> MotionWatch:
@@ -512,7 +535,10 @@ def test_ebsd_map(microscope, experiment, motion_watch):
 
     params = _assert_ebsd_map_recorded(microscope, experiment, step, 1, before)
     assert params.save_spectra is False
-    motion_watch.assert_all_moves_observed(expect=["IPAPI retract_camera"])
+    motion_watch.assert_all_moves_observed(
+        expect=["IPAPI insert_camera", "IPAPI retract_camera"]
+    )
+    motion_watch.assert_no_laser_control()
 
 
 def test_ebsd_map_with_concurrent_eds(microscope, experiment, motion_watch):
@@ -533,11 +559,13 @@ def test_ebsd_map_with_concurrent_eds(microscope, experiment, motion_watch):
     assert params.save_spectra is True
     motion_watch.assert_all_moves_observed(
         expect=[
+            "IPAPI insert_camera",
             "IPAPI retract_camera",
             "IPAPI EDS insert_detector",
             "IPAPI EDS retract_detector",
         ]
     )
+    motion_watch.assert_no_laser_control()
 
 
 def test_eds_map(microscope, experiment, motion_watch):
@@ -561,7 +589,11 @@ def test_eds_map(microscope, experiment, motion_watch):
     folder = _local_map_folder(config)
     files_before = _folder_snapshot(folder)
 
-    external_devices.preflight_eds(general_settings=experiment)
+    eds_step_settings = tbt.EDSSettings(image=None)
+    external_devices.preflight_eds(
+        general_settings=experiment,
+        steps=[_as_step(step, tbt.StepType.EDS, eds_step_settings)],
+    )
     with _eds_map_settings(config, TEST_EDS_MAP) as applied:
         # The dispatcher maps with APEX's current settings, so these must have
         # landed before it starts. Confirm the size in APEX's menu, too: the
@@ -577,12 +609,12 @@ def test_eds_map(microscope, experiment, motion_watch):
         ), f"APEX read back a dwell of {applied.preset_dwell_us} us"
 
         try:
-            external_devices.insert_eds(
+            external_devices.insert_eds_detector(
                 microscope=microscope, general_settings=experiment
             )
             assert external_devices.map_eds(
                 general_settings=experiment,
-                step_settings=None,
+                step_settings=eds_step_settings,
                 slice_number=3,
                 step=step,
             )

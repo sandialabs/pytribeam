@@ -368,6 +368,17 @@ def _preflight(
             )
         return True
 
+    # Concurrent EDS inserts the EDS detector, which follows EDS_OEM.
+    if (
+        technique == EBSD
+        and any(settings.enable_eds for settings in step_settings)
+        and backend(general_settings, EDS) is None
+    ):
+        raise ConfigurationError(
+            "An EBSD step enables concurrent EDS, but no EDS OEM is configured "
+            "('EDS_OEM' is null), so the EDS detector cannot be inserted."
+        )
+
     test_connection(general_settings, technique)
 
     state = _get_state(general_settings, technique)

@@ -363,11 +363,11 @@ def _perform_ebsd_operation(
     microscope = image_settings.microscope
 
     # insert detector(s); concurrent EDS is part of the EBSD step
-    external_devices.insert_ebsd(
+    external_devices.insert_ebsd_camera(
         microscope=microscope, general_settings=general_settings
     )
     if step_settings.enable_eds:
-        external_devices.insert_eds(
+        external_devices.insert_eds_detector(
             microscope=microscope, general_settings=general_settings
         )
 
@@ -408,11 +408,11 @@ def _perform_ebsd_operation(
     )
 
     # retract detector(s)
-    external_devices.retract_ebsd(
+    external_devices.retract_ebsd_camera(
         microscope=microscope, general_settings=general_settings
     )
     if step_settings.enable_eds:
-        external_devices.retract_eds(
+        external_devices.retract_eds_detector(
             microscope=microscope, general_settings=general_settings
         )
 
@@ -444,7 +444,7 @@ def _perform_eds_operation(
     microscope = image_settings.microscope
 
     # insert detector
-    external_devices.insert_eds(
+    external_devices.insert_eds_detector(
         microscope=microscope, general_settings=general_settings
     )
 
@@ -485,7 +485,7 @@ def _perform_eds_operation(
     )
 
     # retract detector
-    external_devices.retract_eds(
+    external_devices.retract_eds_detector(
         microscope=microscope, general_settings=general_settings
     )
 
@@ -577,7 +577,9 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
 
     ## Raises
 
-    - `SystemError`: If there are issues with the EBSD or EDS camera, or if the laser control is not enabled.
+    - `SystemError`: If laser control is not enabled.
+    - `DetectorError`: If an external EBSD/EDS detector fails its preflight checks.
+    - `ConfigurationError`: If an external detector's settings cannot be applied.
     - `ValueError`: If the step sequence is not parsed correctly or if there are EBSD/EDS conflicts.
     """
     # get configuration from yml
@@ -604,16 +606,6 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
     # whether to enable EBSD and EDS control
     enable_EBSD = ut.enable_external_device(general_settings.EBSD_OEM)
     enable_EDS = ut.enable_external_device(general_settings.EDS_OEM)
-    if enable_EBSD:
-        status = external_devices.connect_ebsd(general_settings=general_settings)
-        if status == tbt.RetractableDeviceState.ERROR:
-            raise SystemError("EBSD camera is connected but in error state.")
-        external_devices.preflight_ebsd(general_settings=general_settings)
-    if enable_EDS:
-        status = external_devices.connect_eds(general_settings=general_settings)
-        if status == tbt.RetractableDeviceState.ERROR:
-            raise SystemError("EDS camera is connected but in error state.")
-        external_devices.preflight_eds(general_settings=general_settings)
 
     # connect to microscope:
     connection = general_settings.connection
@@ -683,6 +675,18 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
 
     # ensure only EBSD or EDS step type exists
     ebsd_eds_conflict_free(step_sequence=step_sequence)
+
+    # Check external detectors: connection, state, vendor readiness, and that
+    # every EBSD/EDS step's parameters can be applied. Runs after the steps are
+    # built, because it needs them, and stops short of collecting data.
+    if enable_EBSD:
+        external_devices.preflight_ebsd(
+            general_settings=general_settings, steps=step_sequence
+        )
+    if enable_EDS:
+        external_devices.preflight_eds(
+            general_settings=general_settings, steps=step_sequence
+        )
 
     experiment_settings = tbt.ExperimentSettings(
         microscope=microscope,

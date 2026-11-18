@@ -829,7 +829,44 @@ def general(
         step_count=step_count,
     )
 
+    test_external_connections(general_settings)
+
     return general_settings
+
+
+def test_external_connections(general_settings: tbt.GeneralSettings) -> bool:
+    """
+    Confirm each natively driven external detector's vendor API is reachable.
+
+    Called once the general settings are built, so configuration problems
+    surface during validation rather than at the first slice. LaserControl
+    fallbacks are skipped here: the Laser API's availability is checked by
+    `validate_EBSD_EDS_settings`.
+
+    ## Parameters
+
+    - `general_settings` (`tbt.GeneralSettings`): The validated general settings.
+
+    ## Returns
+
+    - `bool`: True when every native connection works (or none is configured).
+
+    ## Raises
+
+    - `DetectorError`: If a vendor API cannot be reached.
+    """
+    import pytribeam.external_oem.dispatch as external_devices
+
+    for technique in tbt.ExternalTechnique:
+        backend = external_devices.backend(general_settings, technique)
+        if backend in (None, tbt.ExternalBackend.TFS_LASER):
+            continue
+        external_devices.test_connection(general_settings, technique)
+    return True
+
+
+# Not a pytest test, despite the name.
+test_external_connections.__test__ = False
 
 
 def edax_config(edax_db: dict) -> tbt.EDAXConfig:
@@ -2284,15 +2321,6 @@ def validate_EBSD_EDS_settings(
             == tbt.ExternalBackend.BRUKER_ESPRIT,
             eds_native=backends[tbt.ExternalTechnique.EDS]
             == tbt.ExternalBackend.BRUKER_ESPRIT,
-        )
-
-    # Confirm the IPAPI accepts a connection before the experiment starts, but
-    # only when EDAX actually runs over it.
-    # TODO(phase 4): replace with dispatch.test_connection for every backend.
-    if any(edax_native.values()):
-        external_devices.check_edax_connection(
-            host=edax_settings["connection"]["host"],
-            port=edax_settings["connection"]["port"],
         )
 
     return True

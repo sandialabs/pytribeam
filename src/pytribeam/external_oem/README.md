@@ -152,8 +152,16 @@ New:
 
 The YAML format moves to **v1.2**, adding the two optional blocks. `factory.py`
 parses and validates them the same way it handles `EDAX_settings` today.
-Validation ends with `test_connection`, which replaces the
-`check_edax_connection` call.
+Validation itself never connects. Once the settings are built,
+`factory.general()` calls `factory.test_external_connections()`, which runs the
+dispatcher's `test_connection` for every natively driven technique, so an
+unreachable vendor fails at configuration time (including in the GUI
+validator). LaserControl fallbacks are covered by the existing Laser API check.
+
+`workflow.pre_flight_check` runs the dispatcher's `preflight_ebsd` /
+`preflight_eds` after it has built the step list, since preflight needs the
+steps. EBSD preflight also refuses concurrent EDS when no EDS OEM is
+configured.
 
 ## 5. Per-backend behaviour
 
