@@ -238,6 +238,48 @@ class TestValidateEbsdEdsSettings:
     def test_native_bruker_does_not_require_laser_control(self, laser):
         assert validate("Bruker", "Bruker", bruker_settings=bruker_db())
 
+    # EDAX
+
+    @pytest.mark.parametrize(
+        "change",
+        [
+            lambda db: db.pop("save_directory"),
+            lambda db: db.pop("project_name"),
+            lambda db: db.pop("connection"),
+            lambda db: db.update(project_name=7),
+            lambda db: db["connection"].pop("host"),
+            lambda db: db["connection"].update(port="8301"),
+        ],
+    )
+    def test_invalid_edax_block_is_refused(self, laser, edax_reachable, change):
+        """Missing keys used to raise KeyError; all problems are now ValueError."""
+        db = deepcopy(EDAX_DB)
+        change(db)
+
+        with pytest.raises(ValueError, match="EDAX_settings"):
+            validate("EDAX", "EDAX", version=1.1, edax_settings=db)
+        assert edax_reachable == []
+
+    def test_unused_edax_block_is_checked_but_not_connected(
+        self, laser, edax_reachable
+    ):
+        """v1.1 configurations carry EDAX_settings whatever the OEM."""
+        assert validate(
+            "Oxford", "Oxford", oxford_settings=OXFORD_DB, edax_settings=EDAX_DB
+        )
+        assert edax_reachable == []
+
+        bad = deepcopy(EDAX_DB)
+        bad["connection"]["port"] = "8301"
+        with pytest.raises(ValueError, match="EDAX_settings"):
+            validate("Oxford", "Oxford", oxford_settings=OXFORD_DB, edax_settings=bad)
+
+    def test_edax_fallback_does_not_connect_to_the_ipapi(self, laser, edax_reachable):
+        laser(True)
+
+        assert validate("EDAX", "EDAX", version=1.1)
+        assert edax_reachable == []
+
     # Oxford
 
     @pytest.mark.parametrize(

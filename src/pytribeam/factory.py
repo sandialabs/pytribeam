@@ -2257,6 +2257,17 @@ def validate_EBSD_EDS_settings(
                 "EBSD and/or EDS control through LaserControl requested, but Laser API not accessible, so cannot use EBSD and EDS control. Please restart Laser API, provide the vendor settings block for native control, or if not installed, change OEM to 'null', or leave blank in settings file."
             )
 
+    edax_native = {
+        technique: backend == tbt.ExternalBackend.EDAX_IPAPI
+        for technique, backend in backends.items()
+    }
+    if edax_settings is not None:
+        validate_edax_settings(
+            edax_settings=edax_settings,
+            ebsd_native=edax_native[tbt.ExternalTechnique.EBSD],
+            eds_native=edax_native[tbt.ExternalTechnique.EDS],
+        )
+
     if oxford_settings is not None:
         validate_oxford_settings(
             oxford_settings=oxford_settings,
@@ -2275,54 +2286,76 @@ def validate_EBSD_EDS_settings(
             == tbt.ExternalBackend.BRUKER_ESPRIT,
         )
 
-    if edax_settings is not None:
-        schema = Schema(
-            {
-                "save_directory": And(
-                    str,
-                    error=f"Requested 'save_directory' of '{edax_settings['save_directory']}', which must be a string.",
-                ),
-                "project_name": And(
-                    str,
-                    error=f'Requested "project_name" of "{edax_settings["project_name"]}", which must be a string.',
-                ),
-            },
-            ignore_extra_keys=True,
-        )
-
-        try:
-            schema.validate(edax_settings)
-        except UnboundLocalError:
-            raise ValueError(
-                f"Error. Unsupported yml version {yml_format.version} provided."
-            )
-
-        connection_db = edax_settings["connection"]
-        schema_connection = Schema(
-            {
-                "host": And(
-                    str,
-                    error=f'Requested "host" of "{connection_db["host"]}", which must be a string.',
-                ),
-                "port": And(
-                    int,
-                    error=f'Requested "port" of "{connection_db["port"]}", which must be an int.',
-                ),
-            }
-        )
-        try:
-            schema_connection.validate(connection_db)
-        except UnboundLocalError:
-            raise ValueError(
-                f"Error. Unsupported yml version {yml_format.version} provided."
-            )
-
-        # Confirm the IPAPI accepts a connection before the experiment starts.
+    # Confirm the IPAPI accepts a connection before the experiment starts, but
+    # only when EDAX actually runs over it.
+    # TODO(phase 4): replace with dispatch.test_connection for every backend.
+    if any(edax_native.values()):
         external_devices.check_edax_connection(
             host=edax_settings["connection"]["host"],
             port=edax_settings["connection"]["port"],
         )
 
+    return True
+
+
+def validate_edax_settings(
+    edax_settings: dict,
+    ebsd_native: bool,
+    eds_native: bool,
+) -> bool:
+    """
+    Perform schema checking for an `EDAX_settings` dictionary.
+
+    The block is checked whenever it is present. v1.1 configurations may carry
+    it whatever the OEM, so `ebsd_native` / `eds_native` say whether it is
+    actually used; no EDAX-specific requirement depends on them yet, and they
+    keep the signature aligned with the other vendor validators.
+
+    ## Parameters
+
+    - `edax_settings` (`dict`): The `EDAX_settings` block.
+    - `ebsd_native` (`bool`): Whether EBSD runs through the EDAX IPAPI.
+    - `eds_native` (`bool`): Whether EDS runs through the EDAX IPAPI.
+
+    ## Returns
+
+    - `bool`: True if the settings are valid.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if not isinstance(edax_settings, dict):
+        raise ValueError(
+            f"'EDAX_settings' must be a mapping, not {type(edax_settings).__name__}."
+        )
+    schema = Schema(
+        {
+            "save_directory": And(
+                str,
+                error="EDAX_settings 'save_directory' must be a string.",
+            ),
+            "project_name": And(
+                str,
+                error="EDAX_settings 'project_name' must be a string.",
+            ),
+            "connection": {
+                "host": And(
+                    str,
+                    error="EDAX_settings 'connection.host' must be a string.",
+                ),
+                "port": And(
+                    int,
+                    error="EDAX_settings 'connection.port' must be an int.",
+                ),
+            },
+        },
+        ignore_extra_keys=True,
+    )
+    try:
+        schema.validate(edax_settings)
+    except SchemaError as error:
+        raise ValueError(f"Invalid 'EDAX_settings': {error}") from error
     return True
 
 
