@@ -188,12 +188,19 @@ class ExperimentController:
     ) -> bool:
         """Start experiment execution.
 
+        Validation and setup (connection tests, external detector preflight,
+        retracting every detector) can take a while and move hardware, so they
+        run on the experiment's background thread with the experiment itself;
+        the GUI stays responsive. A setup failure is reported through the
+        "validation_failed" callback.
+
         Args:
             starting_slice: Slice number to start at
             starting_step: Step name to start at (or None for first step)
 
         Returns:
-            True if experiment started successfully, False otherwise
+            True if the experiment thread started, False if it could not
+            (already running, or a stage move is in progress)
         """
         if self.state.is_running:
             self._notify("error", "Experiment is already running")
@@ -202,27 +209,43 @@ class ExperimentController:
             self._notify("error", "A stage move is in progress")
             return False
 
-        # Validate configuration
-        is_valid, experiment_settings, error = self.validate_config()
+        # Mark as running now, so a second start is refused during setup.
+        self.state = ExperimentState(current_slice=starting_slice, is_running=True)
+
+        self._thread = StoppableThread(
+            target=self._setup_and_run,
+            args=(starting_slice, starting_step),
+            name="ExperimentThread",
+        )
+        self._thread.start()
+        return True
+
+    def _setup_and_run(self, starting_slice: int, starting_step: Optional[str]):
+        """Validate and set up the experiment, then run it (background thread)."""
+        try:
+            is_valid, experiment_settings, error = self.validate_config()
+            if is_valid:
+                step_names = [s.name for s in experiment_settings.step_sequence]
+                if starting_step is not None and starting_step not in step_names:
+                    is_valid = False
+                    error = f"Unknown starting step '{starting_step}'."
+        except BaseException as stopped:  # a hard stop during setup
+            is_valid, error = False, f"Stopped during setup: {stopped!r}"
         if not is_valid:
+            self.state.is_running = False
             self._notify("validation_failed", error)
-            return False
+            return
         self.experiment_settings = experiment_settings
 
-        # Reset stop flags
         self.state = ExperimentState(
             total_slices=experiment_settings.general_settings.max_slice_number,
             total_steps=experiment_settings.general_settings.step_count,
             current_slice=starting_slice,
             is_running=True,
         )
-
-        # Get step information
-        step_names = [s.name for s in experiment_settings.step_sequence]
-        if starting_step is None:
-            starting_step_idx = 0
-        else:
-            starting_step_idx = step_names.index(starting_step)
+        starting_step_idx = (
+            0 if starting_step is None else step_names.index(starting_step)
+        )
 
         # Check EBSD/EDS detector status and warn user if needed
         self._check_detector_warning(experiment_settings)
@@ -231,16 +254,9 @@ class ExperimentController:
         self._notify(
             "experiment_started", experiment_settings, starting_slice, starting_step_idx
         )
-
-        # Run experiment in background thread (non-blocking)
-        self._thread = StoppableThread(
-            target=self._run_experiment_loop,
-            args=(experiment_settings, starting_slice, starting_step_idx, step_names),
-            name="ExperimentThread",
+        self._run_experiment_loop(
+            experiment_settings, starting_slice, starting_step_idx, step_names
         )
-        self._thread.start()
-
-        return True
 
     def _check_detector_warning(self, experiment_settings: tbt.ExperimentSettings):
         """Check EBSD/EDS detector status and notify UI if warning needed.
