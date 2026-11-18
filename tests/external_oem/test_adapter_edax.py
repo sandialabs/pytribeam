@@ -7,6 +7,7 @@ import pytest
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
+import pytribeam.external_oem.dispatch as external_devices  # noqa: E402
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import edax as edax_adapter  # noqa: E402
 from pytribeam.external_oem.core.errors import DetectorError  # noqa: E402
@@ -154,13 +155,20 @@ class TestCameraState:
 
 
 class TestCameraMotion:
-    def test_insert_runs_under_the_ccd_after_a_collision_check(self, ipapi):
+    def test_insert_moves_the_camera_over_the_ipapi(self, ipapi):
         assert edax_adapter.insert_ebsd_camera(MICROSCOPE, SETTINGS)
 
-        assert ipapi.chamber.checked == [tbt.DetectorType.EBSD]
+        # The adapter only moves; the dispatcher guards (see below).
+        assert ("insert_camera", []) in ipapi.calls
+        assert ipapi.chamber.checked == []
+        assert ipapi.open_clients == 0
+
+    def test_through_the_dispatcher_insert_is_guarded(self, ipapi):
+        assert external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+
+        assert [d for d, _ in ipapi.chamber.checked] == [tbt.DetectorType.EBSD]
         assert ("insert_camera", ["ccd_on"]) in ipapi.calls
         assert ipapi.chamber.events == ["ccd_on", "ccd_off"]
-        assert ipapi.open_clients == 0
 
     def test_insert_is_a_no_op_when_already_in(self, ipapi):
         ipapi.camera = EdaxCameraStatus.SLIDE_IN
@@ -169,11 +177,11 @@ class TestCameraMotion:
         assert "insert_camera" not in commands(ipapi)
         assert ipapi.chamber.events == []
 
-    def test_insert_refuses_a_possible_collision(self, ipapi):
+    def test_dispatcher_refuses_a_possible_collision(self, ipapi):
         ipapi.chamber.collide = True
 
         with pytest.raises(DetectorError, match="collide"):
-            edax_adapter.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+            external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
         assert ipapi.calls == []
 
     @pytest.mark.parametrize(
@@ -205,7 +213,7 @@ class TestCameraMotion:
         ipapi.camera = status
 
         assert edax_adapter.retract_ebsd_camera(MICROSCOPE, SETTINGS)
-        assert ("retract_camera", ["ccd_on"]) in ipapi.calls
+        assert ("retract_camera", []) in ipapi.calls
 
     def test_retract_is_a_no_op_when_out(self, ipapi):
         assert edax_adapter.retract_ebsd_camera(MICROSCOPE, SETTINGS)

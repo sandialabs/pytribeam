@@ -4,22 +4,18 @@ The fakes stand in for the ctypes-backed controllers, so these run anywhere.
 Real ESPRIT runs are covered by tests/bruker (simulator and hardware tiers).
 """
 
-import json
 from types import SimpleNamespace
 
 import pytest
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
-import h5py  # noqa: E402
-import numpy as np  # noqa: E402
-
+import pytribeam.external_oem.dispatch as external_devices  # noqa: E402
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import bruker as bruker_adapter  # noqa: E402
-from pytribeam.external_oem.bruker.config import parse_bruker_settings  # noqa: E402
 from pytribeam.external_oem.bruker.types import (  # noqa: E402
     BrukerDetectorPositionState,
-    BrukerEBSDDetectorMotionResult,
+    BrukerEDSProfileMapSettings,
     BrukerImageConfiguration,
     BrukerMapOutputs,
     BrukerSpectrometerStatus,
@@ -35,70 +31,74 @@ from tests.external_oem.helpers import (  # noqa: E402
     MICROSCOPE,
     OEM,
     STATE,
-    ebsd_settings,
-    eds_settings,
     general_settings,
 )
 
-ELEMENTS = [
-    {"atomic_number": 26, "line": "KA"},
-    {"atomic_number": 14, "line": "KA"},
-]
+MAP = tbt.BrukerMapSettings(width_px=8, height_px=6, dwell_us=100)
 
 
-def bruker_block(root, close_on_exit=False, map_mode="profile", **detector):
-    return {
-        "session": {
-            "dll_dir": "C:/Program Files/Bruker/Esprit API",
-            "password": "secret",
-            "close_on_exit": close_on_exit,
-        },
-        "eds": {
-            "output": {"root_dir": str(root / "esprit_eds"), "run_name": "eds"},
-            "detector": {"detector_index": 1, "move_timeout_s": 5.0, **detector},
-            "map": {
-                "mode": map_mode,
-                "width_px": 8,
-                "height_px": 6,
-                "pixel_time_us": 100,
-                "max_wait_s": 1800.0,
-                "profile": {"elements": ELEMENTS},
-            },
-        },
-        "ebsd": {
-            "output": {"root_dir": str(root / "esprit_ebsd"), "run_name": "ebsd"},
-            "detector": {"inserted_position_mm": 20.0, "retracted_position_mm": 0.0},
-            "acquisition": {
-                "profile_name": "default",
-                "width_px": 50,
-                "height_px": 24,
-                "pixel_time_us": 512,
-            },
-        },
+INSERTED_MM, RETRACTED_MM = 20.0, 0.0
+
+
+def settings_for(**config):
+    """General settings for a Bruker system with the given instrument config.
+
+    Detector motion is on and the EBSD camera positions are set, unless a test
+    overrides them.
+    """
+    values = {
+        "move_detector": True,
+        "ebsd_inserted_position_mm": INSERTED_MM,
+        "ebsd_retracted_position_mm": RETRACTED_MM,
+        **config,
     }
-
-
-def settings_for(tmp_path, **block_options):
     return general_settings(
         OEM.BRUKER,
         OEM.BRUKER,
-        exp_dir=str(tmp_path / "exp"),
-        Bruker_settings=parse_bruker_settings(bruker_block(tmp_path, **block_options)),
+        Bruker_settings=tbt.BrukerConfig(
+            dll_dir="C:/Program Files/Bruker/Esprit API", **values
+        ),
+    )
+
+
+def eds_step(tmp_path, bruker=True):
+    return tbt.EDSSettings(
+        image=None,
+        bruker=tbt.BrukerEDSStepSettings(
+            output_path=tmp_path / "esprit_eds", map=MAP, run_name="eds_step"
+        )
+        if bruker
+        else None,
+    )
+
+
+def ebsd_step(tmp_path, enable_eds=False, bruker=True):
+    return tbt.EBSDSettings(
+        image=None,
+        enable_eds=enable_eds,
+        bruker=tbt.BrukerEBSDStepSettings(
+            output_path=tmp_path / "esprit_ebsd",
+            profile_name="default",
+            map=MAP,
+            save_patterns=True,
+            run_name="ebsd_step",
+        )
+        if bruker
+        else None,
     )
 
 
 @pytest.fixture
 def esprit(monkeypatch, chamber):
-    """Fake ESPRIT: sessions, detector positions, maps and readback."""
+    """Fake ESPRIT: sessions, detector positions, maps."""
     state = SimpleNamespace(
         calls=[],
         sessions=[],
         eds_position="park",
-        ebsd_mm=0.0,
+        ebsd_mm=RETRACTED_MM,
         spectrometer_ready=True,
         image_size=None,  # None: accept the request
         profiles="default;fast",
-        readback_fails=set(),
         save_bcf=True,
         chamber=chamber,
     )
@@ -113,9 +113,6 @@ def esprit(monkeypatch, chamber):
         def check_connection(self):
             if not self.alive:
                 raise APICallError("CheckConnection", -1)
-
-        def query_info(self):
-            return "ESPRIT 2.5 (fake)"
 
         def close(self):
             self.closed = True
@@ -140,6 +137,7 @@ def esprit(monkeypatch, chamber):
             pass
 
         def get_spectrometer_status(self, spu=1):
+            record("spectrometer", spu)
             return BrukerSpectrometerStatus(1, (), 0, state.spectrometer_ready)
 
     class ImageConfig:
@@ -156,38 +154,17 @@ def esprit(monkeypatch, chamber):
             pass
 
         def create_hymap_profile(self, settings):
-            record("create_profile", len(settings.elements))
+            record("create_profile", [e.atomic_number for e in settings.elements])
             return "<profile/>"
 
-        def _acquire(self, kind, settings, poll_interval_s, max_wait_s):
-            record(kind, settings.output_bcf_path, max_wait_s)
+        def acquire_map_with_profile(self, settings, poll_interval_s, max_wait_s):
+            record("acquire", settings, max_wait_s)
             if state.save_bcf:
                 with open(settings.output_bcf_path, "wb") as f:
                     f.write(b"bcf")
-            return BrukerMapOutputs(settings.output_bcf_path, None)
-
-        def acquire_map_with_profile(self, settings, poll_interval_s, max_wait_s):
-            return self._acquire(
-                "acquire_profile", settings, poll_interval_s, max_wait_s
+            return BrukerMapOutputs(
+                settings.output_bcf_path, settings.output_image_path
             )
-
-        def acquire_map(self, settings, poll_interval_s, max_wait_s):
-            return self._acquire(
-                "acquire_simple", settings, poll_interval_s, max_wait_s
-            )
-
-    class Readback:
-        def __init__(self, session):
-            pass
-
-        @staticmethod
-        def _effective_readback_dimensions(settings):
-            return settings.width_px, settings.height_px
-
-        def get_element_data_array(self, element_index, width_px, height_px):
-            if element_index in state.readback_fails:
-                raise ValueError("size mismatch")
-            return np.full((height_px, width_px), element_index + 1, dtype="uint16")
 
     class Ebsd:
         def __init__(self, session):
@@ -199,8 +176,8 @@ def esprit(monkeypatch, chamber):
         def move_detector_position_tolerant(self, settings):
             record("move_ebsd", settings.target_position_mm, list(chamber.events))
             state.ebsd_mm = settings.target_position_mm
-            return BrukerEBSDDetectorMotionResult(
-                settings.target_position_mm, state.ebsd_mm, 0.0, True, 0
+            return SimpleNamespace(
+                within_tolerance=True, final_position_mm=state.ebsd_mm
             )
 
         def export_status(self):
@@ -217,7 +194,7 @@ def esprit(monkeypatch, chamber):
             record("select_profile", name)
 
         def run_profile_acquisition(self, settings):
-            record("ebsd_acquisition", settings.output_path, settings.with_edx)
+            record("ebsd_acquisition", settings)
 
     for name, fake in {
         "session_factory": FakeSession,
@@ -225,7 +202,6 @@ def esprit(monkeypatch, chamber):
         "BrukerSpectrometerController": Spectrometer,
         "BrukerImageConfigController": ImageConfig,
         "BrukerEDSController": Eds,
-        "BrukerEDSReadbackController": Readback,
         "BrukerEBSDController": Ebsd,
     }.items():
         monkeypatch.setattr(bruker_adapter, name, fake)
@@ -238,63 +214,116 @@ def calls(state, name):
     return [call for call in state.calls if call[0] == name]
 
 
+class TestFixedDefaults:
+    """Only what varies is configured; the rest matches the custom-step version."""
+
+    def test_session(self):
+        session = bruker_adapter.session_settings(
+            tbt.BrukerConfig(
+                dll_dir="C:/Esprit",
+                mode=tbt.BrukerConnectionMode.TCP,
+                host="esprit-pc",
+                port=5328,
+            )
+        )
+
+        assert (session.mode, session.host, session.port) == ("tcp", "esprit-pc", 5328)
+        assert (session.server, session.user, session.password) == (
+            "Lokaler Server",
+            "edx",
+            "edx",
+        )
+        assert session.close_on_exit is False
+
+    def test_eds_settings(self, tmp_path):
+        config = tbt.BrukerConfig(dll_dir="C:/Esprit", detector_index=2)
+
+        settings = bruker_adapter.eds_workflow_settings(
+            config, eds_step(tmp_path).bruker, slice_number=7
+        )
+
+        assert isinstance(settings.map, BrukerEDSProfileMapSettings)
+        assert (settings.map.width_px, settings.map.height_px) == (8, 6)
+        assert settings.map.pixel_time_us == 100
+        assert settings.map.spu_device == 2
+        assert settings.map.name == "0007"
+        assert [e.atomic_number for e in settings.map.elements] == [6]
+        assert settings.output.run_name == "eds_step"
+        assert settings.output.slice_number == 7
+        assert settings.readback.enabled is False
+
+    @pytest.mark.parametrize("move", [True, False])
+    def test_move_detector_drives_every_motion_flag(self, tmp_path, move):
+        config = tbt.BrukerConfig(dll_dir="C:/Esprit", move_detector=move)
+
+        detector = bruker_adapter.eds_workflow_settings(
+            config, eds_step(tmp_path).bruker
+        ).detector
+
+        assert (
+            detector.verify_park_before,
+            detector.move_to_acquire_before,
+            detector.park_after,
+        ) == (move, move, move)
+
+    def test_map_time_limit_grows_with_the_map(self):
+        small = tbt.BrukerMapSettings(64, 48, 100)
+        large = tbt.BrukerMapSettings(2048, 1536, 1000)
+
+        assert bruker_adapter.map_wait_s(small, 600.0) == 600.0
+        assert bruker_adapter.map_wait_s(large, 600.0) == pytest.approx(
+            3 * 2048 * 1536 * 1000e-6
+        )
+
+
 class TestSessions:
-    def test_one_session_is_reused(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+    def test_one_session_is_reused(self, esprit):
+        settings = settings_for()
 
         bruker_adapter.test_connection(settings, EDS)
         bruker_adapter.get_eds_detector_state(settings)
-        bruker_adapter.get_ebsd_camera_state(settings)
+        bruker_adapter.test_connection(settings, EBSD)
 
         assert len(esprit.sessions) == 1
         assert not esprit.sessions[0].closed
 
-    def test_a_dropped_session_is_replaced(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+    def test_a_dropped_session_is_replaced(self, esprit):
+        settings = settings_for()
         bruker_adapter.test_connection(settings, EDS)
         esprit.sessions[0].alive = False
 
         assert bruker_adapter.test_connection(settings, EDS)
         assert len(esprit.sessions) == 2
 
-    def test_close_on_exit_closes_after_every_call(self, esprit, tmp_path):
-        settings = settings_for(tmp_path, close_on_exit=True)
-
-        bruker_adapter.test_connection(settings, EDS)
-        bruker_adapter.test_connection(settings, EDS)
-
-        assert [s.closed for s in esprit.sessions] == [True, True]
-        assert bruker_adapter._SESSIONS == {}
-
-    def test_close_sessions(self, esprit, tmp_path):
-        bruker_adapter.test_connection(settings_for(tmp_path), EBSD)
+    def test_close_sessions(self, esprit):
+        bruker_adapter.test_connection(settings_for(), EBSD)
 
         bruker_adapter.close_sessions()
 
         assert esprit.sessions[0].closed
         assert bruker_adapter._SESSIONS == {}
 
-    def test_wrapper_errors_become_detector_errors(self, esprit, tmp_path, monkeypatch):
+    def test_wrapper_errors_become_detector_errors(self, esprit, monkeypatch):
         def no_dll(settings):
             raise FileNotFoundError("Bruker.API.Esprit64.dll")
 
         monkeypatch.setattr(bruker_adapter, "session_factory", no_dll)
 
         with pytest.raises(DetectorError, match="Esprit64.dll"):
-            bruker_adapter.test_connection(settings_for(tmp_path), EDS)
+            bruker_adapter.test_connection(settings_for(), EDS)
 
 
-def test_esprit_load_failure_is_a_detector_error(monkeypatch, tmp_path):
+def test_esprit_load_failure_is_a_detector_error(monkeypatch):
     """Off Windows, or with a wrong dll_dir, loading the DLL fails variously."""
 
     def no_dll(settings):
         raise AttributeError("module 'os' has no attribute 'add_dll_directory'")
 
     monkeypatch.setattr(bruker_adapter, "BrukerSession", no_dll)
-    settings = settings_for(tmp_path).Bruker_settings.session
+    session = bruker_adapter.session_settings(settings_for().Bruker_settings)
 
     with pytest.raises(DetectorError, match="Could not load the Bruker ESPRIT API"):
-        bruker_adapter._new_session(settings)
+        bruker_adapter._new_session(session)
 
 
 class TestEdsDetector:
@@ -306,39 +335,60 @@ class TestEdsDetector:
             ("unknown", STATE.INDERTERMINATE),
         ],
     )
-    def test_state(self, esprit, tmp_path, position, expected):
+    def test_state(self, esprit, position, expected):
         esprit.eds_position = position
 
-        assert bruker_adapter.get_eds_detector_state(settings_for(tmp_path)) == expected
+        assert bruker_adapter.get_eds_detector_state(settings_for()) == expected
 
-    def test_insert_and_retract_under_the_ccd(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+    def test_insert_and_retract(self, esprit):
+        settings = settings_for()
 
         assert bruker_adapter.insert_eds_detector(MICROSCOPE, settings)
         assert bruker_adapter.retract_eds_detector(MICROSCOPE, settings)
+
+        # The adapter only moves; the dispatcher guards (see below).
+        assert calls(esprit, "move_eds") == [
+            ("move_eds", "acquire", []),
+            ("move_eds", "park", []),
+        ]
+
+    def test_through_the_dispatcher_moves_are_guarded(self, esprit):
+        settings = settings_for()
+
+        assert external_devices.insert_eds_detector(MICROSCOPE, settings)
+        assert external_devices.retract_eds_detector(MICROSCOPE, settings)
 
         assert calls(esprit, "move_eds") == [
             ("move_eds", "acquire", ["ccd_on"]),
             ("move_eds", "park", ["ccd_on", "ccd_off", "ccd_on"]),
         ]
-        assert esprit.chamber.checked == [tbt.DetectorType.EDS]
+        assert [d for d, _ in esprit.chamber.checked] == [tbt.DetectorType.EDS]
 
-    def test_insert_refuses_unless_parked(self, esprit, tmp_path):
+    def test_insert_refuses_unless_parked(self, esprit):
         esprit.eds_position = "unknown"
 
         with pytest.raises(DetectorError, match="not parked"):
-            bruker_adapter.insert_eds_detector(MICROSCOPE, settings_for(tmp_path))
+            bruker_adapter.insert_eds_detector(MICROSCOPE, settings_for())
         assert calls(esprit, "move_eds") == []
 
-    def test_insert_refuses_a_possible_collision(self, esprit, tmp_path):
+    def test_dispatcher_refuses_a_possible_collision(self, esprit):
         esprit.chamber.collide = True
 
         with pytest.raises(DetectorError, match="collide"):
-            bruker_adapter.insert_eds_detector(MICROSCOPE, settings_for(tmp_path))
+            external_devices.insert_eds_detector(MICROSCOPE, settings_for())
         assert calls(esprit, "move_eds") == []
 
-    def test_motion_disabled_for_simulator_configs(self, esprit, tmp_path):
-        settings = settings_for(tmp_path, move_detector=False)
+    def test_motion_is_off_unless_set(self, esprit):
+        """A missing or unticked move_detector means the detector is not moved."""
+        config = tbt.BrukerConfig(dll_dir="C:/Esprit")
+        settings = general_settings(OEM.NONE, OEM.BRUKER, Bruker_settings=config)
+
+        assert config.move_detector is False
+        assert bruker_adapter.insert_eds_detector(MICROSCOPE, settings)
+        assert calls(esprit, "move_eds") == []
+
+    def test_motion_disabled_for_the_simulator(self, esprit):
+        settings = settings_for(move_detector=False)
 
         assert bruker_adapter.insert_eds_detector(MICROSCOPE, settings)
         assert bruker_adapter.retract_eds_detector(MICROSCOPE, settings)
@@ -346,55 +396,108 @@ class TestEdsDetector:
 
 
 class TestEbsdCamera:
+    """The camera is driven to its configured positions (not hardware-validated)."""
+
     @pytest.mark.parametrize(
         "position_mm, expected",
         [
-            (20.0, STATE.INSERTED),
-            (19.95, STATE.INSERTED),
-            (0.05, STATE.RETRACTED),
+            (INSERTED_MM, STATE.INSERTED),
+            (INSERTED_MM - 0.05, STATE.INSERTED),
+            (RETRACTED_MM + 0.05, STATE.RETRACTED),
             (10.0, STATE.INDERTERMINATE),
         ],
     )
-    def test_state_from_position(self, esprit, tmp_path, position_mm, expected):
+    def test_state_from_position(self, esprit, position_mm, expected):
         esprit.ebsd_mm = position_mm
 
-        assert bruker_adapter.get_ebsd_camera_state(settings_for(tmp_path)) == expected
+        assert bruker_adapter.get_ebsd_camera_state(settings_for()) == expected
 
-    def test_insert_and_retract(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+    def test_insert_and_retract(self, esprit):
+        settings = settings_for()
 
         assert bruker_adapter.insert_ebsd_camera(MICROSCOPE, settings)
         assert bruker_adapter.retract_ebsd_camera(MICROSCOPE, settings)
 
-        assert [call[1] for call in calls(esprit, "move_ebsd")] == [20.0, 0.0]
+        assert [call[1] for call in calls(esprit, "move_ebsd")] == [
+            INSERTED_MM,
+            RETRACTED_MM,
+        ]
 
-    def test_insert_refuses_from_an_intermediate_position(self, esprit, tmp_path):
+    def test_through_the_dispatcher_moves_are_guarded(self, esprit):
+        settings = settings_for()
+
+        external_devices.insert_ebsd_camera(MICROSCOPE, settings)
+
+        assert calls(esprit, "move_ebsd") == [("move_ebsd", INSERTED_MM, ["ccd_on"])]
+        assert [d for d, _ in esprit.chamber.checked] == [tbt.DetectorType.EBSD]
+
+    def test_insert_refuses_from_an_intermediate_position(self, esprit):
         esprit.ebsd_mm = 10.0
 
         with pytest.raises(DetectorError, match="neither inserted nor retracted"):
-            bruker_adapter.insert_ebsd_camera(MICROSCOPE, settings_for(tmp_path))
+            bruker_adapter.insert_ebsd_camera(MICROSCOPE, settings_for())
         assert calls(esprit, "move_ebsd") == []
 
-    def test_retract_from_an_intermediate_position(self, esprit, tmp_path):
+    def test_retract_from_an_intermediate_position(self, esprit):
         esprit.ebsd_mm = 10.0
 
-        assert bruker_adapter.retract_ebsd_camera(MICROSCOPE, settings_for(tmp_path))
-        assert [call[1] for call in calls(esprit, "move_ebsd")] == [0.0]
+        assert bruker_adapter.retract_ebsd_camera(MICROSCOPE, settings_for())
+        assert [call[1] for call in calls(esprit, "move_ebsd")] == [RETRACTED_MM]
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda s: bruker_adapter.get_ebsd_camera_state(s),
+            lambda s: bruker_adapter.insert_ebsd_camera(MICROSCOPE, s),
+            lambda s: bruker_adapter.retract_ebsd_camera(MICROSCOPE, s),
+            lambda s: bruker_adapter.preflight_ebsd(s, []),
+        ],
+    )
+    def test_positions_are_required(self, esprit, call):
+        settings = settings_for(ebsd_inserted_position_mm=None)
+
+        with pytest.raises(ConfigurationError, match="ebsd_inserted_position_mm"):
+            call(settings)
+        assert calls(esprit, "move_ebsd") == []
+
+    def test_stage_guard_sees_an_inserted_camera(self, esprit):
+        settings = general_settings(
+            OEM.BRUKER, OEM.NONE, Bruker_settings=settings_for().Bruker_settings
+        )
+        esprit.ebsd_mm = INSERTED_MM
+
+        with pytest.raises(DetectorError, match="EBSD is INSERTED"):
+            external_devices.check_safe_for_stage_motion(settings)
 
 
 class TestPreflightAndParameters:
     def test_eds_preflight(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+        settings = settings_for(detector_index=2)
 
-        assert bruker_adapter.preflight_eds(settings, [eds_settings()])
+        assert bruker_adapter.preflight_eds(settings, [eds_step(tmp_path)])
+        assert calls(esprit, "spectrometer") == [("spectrometer", 2)]
         assert (tmp_path / "esprit_eds").is_dir()
-        assert (tmp_path / "exp" / bruker_adapter.EDS_H5_FOLDER).is_dir()
 
     def test_spectrometer_not_ready(self, esprit, tmp_path):
         esprit.spectrometer_ready = False
 
         with pytest.raises(DetectorError, match="not ready"):
-            bruker_adapter.preflight_eds(settings_for(tmp_path), [])
+            bruker_adapter.preflight_eds(settings_for(), [eds_step(tmp_path)])
+
+    @pytest.mark.parametrize(
+        "call",
+        [
+            lambda s, p: bruker_adapter.preflight_eds(s, [eds_step(p, bruker=False)]),
+            lambda s, p: bruker_adapter.preflight_ebsd(s, [ebsd_step(p, bruker=False)]),
+            lambda s, p: bruker_adapter.set_eds_parameters(
+                s, eds_step(p, bruker=False)
+            ),
+            lambda s, p: bruker_adapter.map_eds(s, eds_step(p, bruker=False), 1, print),
+        ],
+    )
+    def test_a_step_without_bruker_settings_is_refused(self, esprit, tmp_path, call):
+        with pytest.raises(ConfigurationError, match="bruker_settings"):
+            call(settings_for(), tmp_path)
 
     def test_ebsd_preflight_needs_the_exports(self, esprit, tmp_path, monkeypatch):
         missing = SimpleNamespace(
@@ -406,124 +509,58 @@ class TestPreflightAndParameters:
         )
 
         with pytest.raises(DetectorError, match="has_save_to_file"):
-            bruker_adapter.preflight_ebsd(settings_for(tmp_path), [])
+            bruker_adapter.preflight_ebsd(settings_for(), [ebsd_step(tmp_path)])
 
     def test_eds_parameters(self, esprit, tmp_path):
-        assert bruker_adapter.set_eds_parameters(settings_for(tmp_path), eds_settings())
+        assert bruker_adapter.set_eds_parameters(settings_for(), eds_step(tmp_path))
         assert calls(esprit, "set_image") == [("set_image", 8, 6, 100)]
-        assert calls(esprit, "create_profile") == [("create_profile", 2)]
+        assert calls(esprit, "create_profile") == [("create_profile", [6])]
 
     def test_eds_size_adjusted_by_esprit_is_refused(self, esprit, tmp_path):
         esprit.image_size = (16, 6)
 
         with pytest.raises(ConfigurationError, match="16x6"):
-            bruker_adapter.set_eds_parameters(settings_for(tmp_path), eds_settings())
-
-    def test_simple_map_builds_no_profile(self, esprit, tmp_path):
-        settings = settings_for(tmp_path, map_mode="simple")
-
-        bruker_adapter.set_eds_parameters(settings, eds_settings())
-
-        assert calls(esprit, "create_profile") == []
+            bruker_adapter.set_eds_parameters(settings_for(), eds_step(tmp_path))
 
     def test_ebsd_parameters(self, esprit, tmp_path):
-        assert bruker_adapter.set_ebsd_parameters(
-            settings_for(tmp_path), ebsd_settings()
-        )
-        assert [call[0] for call in esprit.calls] == [
-            "configure_scan_area",
-            "select_profile",
-        ]
+        assert bruker_adapter.set_ebsd_parameters(settings_for(), ebsd_step(tmp_path))
+        ((_, area),) = calls(esprit, "configure_scan_area")
+        assert (area.width_px, area.height_px, area.pixel_time_us) == (8, 6, 100)
+        assert calls(esprit, "select_profile") == [("select_profile", "default")]
 
     def test_unknown_ebsd_profile(self, esprit, tmp_path):
         esprit.profiles = "fast;slow"
 
         with pytest.raises(ConfigurationError, match="'default'"):
-            bruker_adapter.set_ebsd_parameters(settings_for(tmp_path), ebsd_settings())
+            bruker_adapter.set_ebsd_parameters(settings_for(), ebsd_step(tmp_path))
 
 
-class TestEdsMap:
-    def h5_files(self, tmp_path):
-        return sorted((tmp_path / "exp" / bruker_adapter.EDS_H5_FOLDER).glob("*.h5"))
+class TestMaps:
+    def test_eds_map_saves_bcf_and_overview(self, esprit, tmp_path):
+        assert bruker_adapter.map_eds(settings_for(), eds_step(tmp_path), 3, print)
 
-    def test_each_map_writes_its_own_hdf5_file(self, esprit, tmp_path):
-        settings = settings_for(tmp_path)
+        ((_, map_settings, max_wait_s),) = calls(esprit, "acquire")
+        assert map_settings.output_bcf_path.endswith(".bcf")
+        assert "Slice_0003" in map_settings.output_bcf_path
+        assert map_settings.output_image_path.endswith(".bmp")
+        assert max_wait_s == 600.0
+        assert (tmp_path / "esprit_eds").exists()
 
-        assert bruker_adapter.map_eds(settings, eds_settings(), 3, print)
-        assert bruker_adapter.map_eds(settings, eds_settings(), 4, print)
-
-        files = self.h5_files(tmp_path)
-        assert len(files) == 2
-        assert [h5py.File(f, "r").attrs["slice_number"] for f in files] == [3, 4]
-
-    def test_hdf5_contents(self, esprit, tmp_path):
-        bruker_adapter.map_eds(settings_for(tmp_path), eds_settings(), 3, print)
-
-        (path,) = self.h5_files(tmp_path)
-        with h5py.File(path, "r") as f:
-            assert f.attrs["vendor"] == "Bruker"
-            assert f.attrs["technique"] == "EDS"
-            assert f.attrs["bcf_path"].endswith(".bcf")
-            assert json.loads(f.attrs["errors"]) == []
-            assert f["esprit"].attrs["query_info"] == "ESPRIT 2.5 (fake)"
-            maps = f["eds/maps"]
-            assert sorted(maps) == ["00", "01"]
-            assert maps["00"].shape == (6, 8)
-            assert int(maps["01"][0, 0]) == 2
-            assert maps["00"].attrs["atomic_number"] == 26
-            assert maps["01"].attrs["atomic_number"] == 14
-            recorded = json.loads(f["settings"].attrs["json"])
-            assert recorded["output"]["slice_number"] == 3
-            assert recorded["map"]["output_bcf_path"] == f.attrs["bcf_path"]
-
-    def test_password_is_never_written(self, esprit, tmp_path):
-        bruker_adapter.map_eds(settings_for(tmp_path), eds_settings(), 3, print)
-
-        (path,) = self.h5_files(tmp_path)
-        assert b"secret" not in path.read_bytes()
-        with h5py.File(path, "r") as f:
-            assert "password" not in json.loads(f["settings"].attrs["json"])["session"]
-
-    def test_uses_the_configured_time_limit(self, esprit, tmp_path):
-        bruker_adapter.map_eds(settings_for(tmp_path), eds_settings(), 3, print)
-
-        ((_, bcf_path, max_wait_s),) = calls(esprit, "acquire_profile")
-        assert max_wait_s == 1800.0
-        assert "Slice_0003" in bcf_path
-
-    def test_problems_are_recorded_not_raised(self, esprit, tmp_path, capsys):
-        esprit.readback_fails = {1}
+    def test_a_missing_bcf_is_reported_not_raised(self, esprit, tmp_path, capsys):
         esprit.save_bcf = False
 
-        assert bruker_adapter.map_eds(settings_for(tmp_path), eds_settings(), 3, print)
+        assert bruker_adapter.map_eds(settings_for(), eds_step(tmp_path), 3, print)
+        assert "no .bcf file found" in capsys.readouterr().out
 
-        (path,) = self.h5_files(tmp_path)
-        with h5py.File(path, "r") as f:
-            errors = json.loads(f.attrs["errors"])
-            assert "BCF file missing after acquisition" in errors
-            assert any("Element 1" in error for error in errors)
-            assert f["eds/maps/01"].attrs["error"] == "ValueError: size mismatch"
-            assert "00" in f["eds/maps"]
-        assert "WARNING" in capsys.readouterr().out
-
-    def test_simple_map_has_no_element_data(self, esprit, tmp_path):
-        bruker_adapter.map_eds(
-            settings_for(tmp_path, map_mode="simple"), eds_settings(), 3, print
-        )
-
-        assert calls(esprit, "acquire_simple")
-        (path,) = self.h5_files(tmp_path)
-        with h5py.File(path, "r") as f:
-            assert len(f["eds/maps"]) == 0
-
-
-class TestEbsdMap:
     @pytest.mark.parametrize("concurrent_eds", [False, True])
-    def test_map(self, esprit, tmp_path, concurrent_eds):
-        step = ebsd_settings(enable_eds=concurrent_eds)
+    def test_ebsd_map(self, esprit, tmp_path, concurrent_eds):
+        step = ebsd_step(tmp_path, enable_eds=concurrent_eds)
 
-        assert bruker_adapter.map_ebsd(settings_for(tmp_path), step, 5, print)
+        assert bruker_adapter.map_ebsd(settings_for(), step, 5, print)
 
-        ((_, output_path, with_edx),) = calls(esprit, "ebsd_acquisition")
-        assert "Slice_0005" in output_path
-        assert with_edx is concurrent_eds
+        ((_, acquisition),) = calls(esprit, "ebsd_acquisition")
+        assert "Slice_0005" in acquisition.output_path
+        assert acquisition.with_edx is concurrent_eds
+        assert acquisition.with_patterns is True
+        assert acquisition.profile_name == "default"
+        assert acquisition.timeout_s == 3600.0

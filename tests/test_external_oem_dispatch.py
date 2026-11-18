@@ -55,8 +55,7 @@ def oxford_config() -> tbt.OxfordConfig:
 
 
 def bruker_config() -> tbt.BrukerConfig:
-    # Only presence matters for routing.
-    return tbt.BrukerConfig(session=None)
+    return tbt.BrukerConfig(dll_dir="C:/Program Files/Bruker/Esprit API")
 
 
 def general_settings(ebsd_oem=OEM.NONE, eds_oem=OEM.NONE, **blocks):
@@ -144,8 +143,11 @@ class FakeAdapter:
 
 
 @pytest.fixture
-def adapters(monkeypatch):
-    """Replace every adapter with a FakeAdapter; record calls and metric logs."""
+def adapters(monkeypatch, chamber):
+    """Replace every adapter with a FakeAdapter; record calls and metric logs.
+
+    The chamber CCD and collision check are intercepted too (``chamber``).
+    """
     calls = []
     logged = []
     fakes = {backend: FakeAdapter(backend, calls) for backend in BACKEND}
@@ -160,7 +162,7 @@ def adapters(monkeypatch):
         "ebsd_average_ci",
         lambda **kwargs: logged.append((external_devices.AVERAGE_CI, kwargs)),
     )
-    return SimpleNamespace(fakes=fakes, calls=calls, logged=logged)
+    return SimpleNamespace(fakes=fakes, calls=calls, logged=logged, chamber=chamber)
 
 
 def names(calls):
@@ -529,6 +531,161 @@ class TestPreflight:
 # ----------------
 # Retract all
 # ----------------
+
+
+class TestMotionSafety:
+    """Collision checks and the chamber CCD are enforced here for every backend."""
+
+    @pytest.mark.parametrize("backend", list(BACKEND))
+    def test_insert_is_checked_then_runs_under_the_ccd(self, adapters, backend):
+        settings = EVERY_BACKEND[backend]()
+        fake = adapters.fakes[backend]
+        seen = []
+        fake.returns["insert_ebsd_camera"] = True
+        original = fake.__getattr__("insert_ebsd_camera")
+
+        def insert(*args):
+            seen.append(list(adapters.chamber.events))
+            return original(*args)
+
+        fake.__dict__["insert_ebsd_camera"] = insert
+
+        assert external_devices.insert_ebsd_camera(MICROSCOPE, settings)
+
+        assert [d for d, _ in adapters.chamber.checked] == [tbt.DetectorType.EBSD]
+        assert seen == [["ccd_on"]]  # the move ran with the CCD live
+        assert adapters.chamber.events == ["ccd_on", "ccd_off"]
+
+    @pytest.mark.parametrize(
+        "insert, detector",
+        [
+            (external_devices.insert_ebsd_camera, tbt.DetectorType.EBSD),
+            (external_devices.insert_eds_detector, tbt.DetectorType.EDS),
+        ],
+    )
+    def test_a_possible_collision_is_refused(self, adapters, insert, detector):
+        adapters.chamber.collide = True
+
+        with pytest.raises(DetectorError, match=f"insert the {detector.value}"):
+            insert(MICROSCOPE, EVERY_BACKEND[BACKEND.OXFORD_AZTEC]())
+        assert adapters.calls == []
+        assert adapters.chamber.events == []
+
+    def test_retract_runs_under_the_ccd(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.BRUKER_ESPRIT]()
+
+        external_devices.retract_ebsd_camera(MICROSCOPE, settings)
+        external_devices.retract_eds_detector(MICROSCOPE, settings)
+
+        assert adapters.chamber.events == ["ccd_on", "ccd_off"] * 2
+        assert adapters.chamber.checked == []  # retracting is the safe direction
+
+    def test_the_ccd_closes_when_a_move_fails(self, adapters):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].raises["retract_eds_detector"] = (
+            DetectorError("slide stuck")
+        )
+
+        with pytest.raises(DetectorError, match="slide stuck"):
+            external_devices.retract_eds_detector(MICROSCOPE, settings)
+        assert adapters.chamber.events == ["ccd_on", "ccd_off"]
+
+    def test_no_oem_retract_shows_no_ccd(self, adapters):
+        assert external_devices.retract_ebsd_camera(MICROSCOPE, general_settings())
+        assert adapters.chamber.events == []
+
+    def test_external_states_only_when_a_collision_partner_is_external(
+        self, adapters, monkeypatch
+    ):
+        """Today EBSD and EDS collide only with the CBS, so no vendor query."""
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+
+        external_devices.insert_eds_detector(MICROSCOPE, settings)
+        assert adapters.chamber.checked == [(tbt.DetectorType.EDS, None)]
+
+        monkeypatch.setattr(
+            external_devices.Constants,
+            "detector_collisions",
+            [[tbt.DetectorType.EBSD, tbt.DetectorType.EDS]],
+        )
+        adapters.chamber.checked.clear()
+        external_devices.insert_eds_detector(MICROSCOPE, settings)
+
+        ((detector, states),) = adapters.chamber.checked
+        assert states == {
+            tbt.DetectorType.EBSD: STATE.RETRACTED,
+            tbt.DetectorType.EDS: STATE.RETRACTED,
+        }
+
+
+class TestExternalStates:
+    def test_only_configured_detectors(self, adapters):
+        settings = general_settings(
+            OEM.NONE, OEM.OXFORD, Oxford_settings=oxford_config()
+        )
+        adapters.fakes[BACKEND.OXFORD_AZTEC].returns["get_eds_detector_state"] = (
+            STATE.INSERTED
+        )
+
+        assert external_devices.external_detector_states(settings) == {
+            tbt.DetectorType.EDS: STATE.INSERTED
+        }
+
+    def test_an_unreadable_state_counts_as_error(self, adapters, capsys):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].raises["get_ebsd_camera_state"] = (
+            DetectorError("IPAPI down")
+        )
+
+        states = external_devices.external_detector_states(settings)
+
+        assert states[tbt.DetectorType.EBSD] == STATE.ERROR
+        assert states[tbt.DetectorType.EDS] == STATE.RETRACTED
+        assert "IPAPI down" in capsys.readouterr().out
+
+    def test_registered_for_collision_checks(self, adapters, monkeypatch):
+        import pytribeam.insertable_devices as devices
+
+        monkeypatch.setattr(devices, "_external_state_source", None)
+        monkeypatch.setattr(devices, "external", None)  # no LaserControl
+        settings = EVERY_BACKEND[BACKEND.BRUKER_ESPRIT]()
+        adapters.fakes[BACKEND.BRUKER_ESPRIT].returns["get_eds_detector_state"] = (
+            STATE.INSERTED
+        )
+
+        assert devices.external_detector_state(tbt.DetectorType.EDS) is None
+        external_devices.use_for_collision_checks(settings)
+
+        assert devices.external_detector_state(tbt.DetectorType.EDS) == STATE.INSERTED
+        assert devices.external_detector_state(tbt.DetectorType.EBSD) == STATE.RETRACTED
+
+
+class TestStageGuard:
+    def test_all_retracted(self, adapters):
+        assert external_devices.check_safe_for_stage_motion(
+            EVERY_BACKEND[BACKEND.TFS_LASER]()
+        )
+
+    def test_no_oem_has_nothing_to_check(self, adapters):
+        assert external_devices.check_safe_for_stage_motion(general_settings())
+        assert adapters.calls == []
+
+    @pytest.mark.parametrize("state", [STATE.INSERTED, STATE.BUSY, STATE.ERROR])
+    def test_blocking_states_refuse_the_move(self, adapters, state):
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+        adapters.fakes[BACKEND.OXFORD_AZTEC].returns["get_eds_detector_state"] = state
+
+        with pytest.raises(DetectorError, match=f"EDS is {state.name}"):
+            external_devices.check_safe_for_stage_motion(settings)
+
+    def test_indeterminate_warns_but_allows(self, adapters, capsys):
+        settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
+        adapters.fakes[BACKEND.EDAX_IPAPI].returns["get_eds_detector_state"] = (
+            STATE.INDERTERMINATE
+        )
+
+        assert external_devices.check_safe_for_stage_motion(settings)
+        assert "INDERTERMINATE" in capsys.readouterr().out
 
 
 class TestRetractAll:

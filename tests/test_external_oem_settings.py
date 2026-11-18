@@ -35,37 +35,18 @@ OXFORD_DB = {
     "eds_profile": "pyTriBeam EDS",
 }
 
-BRUKER_SESSION = {"dll_dir": "C:/Program Files/Bruker/Esprit API", "password": "pw"}
-BRUKER_EDS = {
-    "output": {"root_dir": "C:/data/eds"},
-    "detector": {},
-    "map": {
-        "mode": "simple",
-        "width_px": 64,
-        "height_px": 48,
-        "pixel_time_us": 1024,
-    },
-}
-BRUKER_EBSD = {
-    "output": {"root_dir": "C:/data/ebsd"},
-    "detector": {"inserted_position_mm": 20.0, "retracted_position_mm": 0.0},
-    "acquisition": {
-        "profile_name": "default",
-        "width_px": 50,
-        "height_px": 24,
-        "pixel_time_us": 512,
-    },
+BRUKER_DB = {"dll_dir": "C:/Program Files/Bruker/Esprit API"}
+
+
+CAMERA_POSITIONS = {
+    "ebsd_inserted_position_mm": 20.0,
+    "ebsd_retracted_position_mm": 0.0,
 }
 
 
-def bruker_db(eds=True, ebsd=True):
-    """Return a Bruker_settings block with the requested technique sections."""
-    db = {"session": BRUKER_SESSION}
-    if eds:
-        db["eds"] = BRUKER_EDS
-    if ebsd:
-        db["ebsd"] = BRUKER_EBSD
-    return deepcopy(db)
+def bruker_db(**values):
+    """Return a Bruker_settings block; only dll_dir is required."""
+    return {**deepcopy(BRUKER_DB), **values}
 
 
 @pytest.fixture
@@ -196,12 +177,52 @@ class TestVendorConfigParsing:
         assert oxford.connection.port == 30000
         assert oxford.dll_dir == Path("C:/AZtec/Plugin")
 
-    def test_bruker(self):
+    def test_bruker_defaults(self):
         bruker = factory.bruker_config(bruker_db())
 
-        assert isinstance(bruker, tbt.BrukerConfig)
-        assert bruker.session.password == "pw"
-        assert bruker.eds is not None and bruker.ebsd is not None
+        assert bruker == tbt.BrukerConfig(
+            dll_dir=Path("C:/Program Files/Bruker/Esprit API"),
+            mode=tbt.BrukerConnectionMode.LOCAL,
+            host=None,
+            port=None,
+            detector_index=1,
+            move_detector=False,
+            ebsd_inserted_position_mm=None,
+            ebsd_retracted_position_mm=None,
+        )
+
+    @pytest.mark.parametrize("value", [None, False])
+    def test_bruker_move_detector_is_off_unless_set(self, value):
+        """As an unticked GUI checkbox: never moves the detector by accident."""
+        bruker = factory.bruker_config(bruker_db(move_detector=value))
+        assert bruker.move_detector is False
+
+    def test_bruker_camera_positions(self):
+        bruker = factory.bruker_config(
+            bruker_db(ebsd_inserted_position_mm=20.0, ebsd_retracted_position_mm=0)
+        )
+        assert (
+            bruker.ebsd_inserted_position_mm,
+            bruker.ebsd_retracted_position_mm,
+        ) == (
+            20.0,
+            0,
+        )
+
+    def test_bruker_tcp(self):
+        bruker = factory.bruker_config(
+            bruker_db(
+                mode="tcp",
+                host="esprit-pc",
+                port=5328,
+                detector_index=2,
+                move_detector=False,
+            )
+        )
+
+        assert bruker.mode == tbt.BrukerConnectionMode.TCP
+        assert (bruker.host, bruker.port) == ("esprit-pc", 5328)
+        assert (bruker.detector_index, bruker.move_detector) == (2, False)
 
 
 # -------------------------
@@ -241,7 +262,9 @@ class TestValidateEbsdEdsSettings:
         assert validate("Oxford", "Oxford", oxford_settings=OXFORD_DB)
 
     def test_native_bruker_does_not_require_laser_control(self, laser):
-        assert validate("Bruker", "Bruker", bruker_settings=bruker_db())
+        assert validate(
+            "Bruker", "Bruker", bruker_settings=bruker_db(**CAMERA_POSITIONS)
+        )
 
     # EDAX
 
@@ -334,27 +357,142 @@ class TestValidateEbsdEdsSettings:
             validate(None, "Bruker")
 
     @pytest.mark.parametrize(
-        "ebsd_oem, eds_oem, sections, match",
+        "change, match",
         [
-            ("Bruker", None, {"ebsd": False}, "no 'ebsd' section"),
-            (None, "Bruker", {"eds": False}, "no 'eds' section"),
+            (lambda db: db.pop("dll_dir"), "dll_dir"),
+            (lambda db: db.update(dll_dir=""), "dll_dir"),
+            (lambda db: db.update(mode="usb"), "mode"),
+            (lambda db: db.update(mode="tcp"), "needs a 'host'"),
+            (lambda db: db.update(port=0), "port"),
+            (lambda db: db.update(detector_index=0), "detector_index"),
+            (lambda db: db.update(detector_index=5), "detector_index"),
+            (lambda db: db.update(ebsd_inserted_position_mm=-1.0), "inserted"),
+            (lambda db: db.update(ebsd_retracted_position_mm="0"), "retracted"),
+            (lambda db: db.update(move_detector="yes"), "move_detector"),
+            (lambda db: db.update(password="edx"), "Bruker_settings"),
         ],
     )
-    def test_bruker_needs_a_section_per_enabled_technique(
-        self, laser, ebsd_oem, eds_oem, sections, match
-    ):
-        with pytest.raises(ValueError, match=match):
-            validate(ebsd_oem, eds_oem, bruker_settings=bruker_db(**sections))
-
-    def test_unused_bruker_section_may_be_omitted(self, laser):
-        assert validate(None, "Bruker", bruker_settings=bruker_db(ebsd=False))
-
-    def test_invalid_bruker_block_is_refused(self, laser):
+    def test_invalid_bruker_block_is_refused(self, laser, change, match):
         db = bruker_db()
-        db["ebsd"]["detector"]["retracted_position_mm"] = 20.0
+        change(db)
 
-        with pytest.raises(ValueError, match="Invalid 'Bruker_settings'"):
+        with pytest.raises(ValueError, match=match):
             validate("Bruker", "Bruker", bruker_settings=db)
+
+    def test_bruker_ebsd_needs_the_camera_positions(self, laser):
+        with pytest.raises(ValueError, match="measured positions"):
+            validate("Bruker", "Bruker", bruker_settings=bruker_db())
+        with pytest.raises(ValueError, match="measured positions"):
+            validate(
+                "Bruker",
+                None,
+                bruker_settings=bruker_db(ebsd_inserted_position_mm=20.0),
+            )
+
+    def test_bruker_eds_only_needs_no_positions(self, laser):
+        assert validate(None, "Bruker", bruker_settings=bruker_db())
+
+    def test_camera_positions_must_be_distinguishable(self, laser):
+        db = bruker_db(ebsd_inserted_position_mm=0.05, ebsd_retracted_position_mm=0.0)
+
+        with pytest.raises(ValueError, match="differ by more than"):
+            validate("Bruker", None, bruker_settings=db)
+
+    def test_tcp_with_a_host(self, laser):
+        assert validate(
+            "Bruker",
+            "Bruker",
+            bruker_settings=bruker_db(
+                mode="tcp", host="esprit-pc", port=5328, **CAMERA_POSITIONS
+            ),
+        )
+
+
+class TestBrukerStepSettings:
+    """Per-step `bruker_settings`: output folder and map size/dwell."""
+
+    V12 = ut.yml_format(version=1.2)
+    V11 = ut.yml_format(version=1.1)
+
+    def eds_block(self, **values):
+        block = {
+            "output_path": "C:/data/eds",
+            "map": {"width_px": 512, "height_px": 384, "dwell_us": 1024},
+        }
+        block.update(values)
+        return {"bruker_settings": block}
+
+    def ebsd_block(self, **values):
+        step = self.eds_block(profile_name="default", **values)
+        return step
+
+    def test_eds(self):
+        step = factory.bruker_eds_step(self.eds_block(), "map_eds", self.V12)
+
+        assert step == tbt.BrukerEDSStepSettings(
+            output_path=Path("C:/data/eds"),
+            map=tbt.BrukerMapSettings(512, 384, 1024),
+            run_name="map_eds",
+        )
+
+    def test_ebsd(self):
+        step = factory.bruker_ebsd_step(
+            self.ebsd_block(save_patterns=True), "map_ebsd", self.V12
+        )
+
+        assert step.profile_name == "default"
+        assert step.save_patterns is True
+        assert step.run_name == "map_ebsd"
+        assert step.map == tbt.BrukerMapSettings(512, 384, 1024)
+
+    def test_ebsd_save_patterns_defaults_off(self):
+        step = factory.bruker_ebsd_step(self.ebsd_block(), "map_ebsd", self.V12)
+        assert step.save_patterns is False
+
+    @pytest.mark.parametrize(
+        "step_settings",
+        [
+            {},
+            {"bruker_settings": None},
+            {
+                # as the GUI writes it, untouched
+                "bruker_settings": {
+                    "output_path": None,
+                    "profile_name": None,
+                    "map": {"width_px": None, "height_px": None, "dwell_us": None},
+                    "save_patterns": False,
+                }
+            },
+        ],
+    )
+    def test_absent_or_blank_is_none(self, step_settings):
+        assert factory.bruker_eds_step(step_settings, "s", self.V12) is None
+        assert factory.bruker_ebsd_step(step_settings, "s", self.V12) is None
+
+    def test_older_formats_ignore_it(self):
+        assert factory.bruker_eds_step(self.eds_block(), "s", self.V11) is None
+
+    @pytest.mark.parametrize(
+        "change, match",
+        [
+            (lambda b: b.pop("output_path"), "output_path"),
+            (lambda b: b["map"].update(width_px=0), "map.width_px"),
+            (lambda b: b["map"].update(dwell_us=1.5), "map.dwell_us"),
+            (lambda b: b["map"].pop("height_px"), "height_px"),
+        ],
+    )
+    def test_invalid_eds_block(self, change, match):
+        step = self.eds_block()
+        change(step["bruker_settings"])
+
+        with pytest.raises(ValueError, match=match):
+            factory.bruker_eds_step(step, "map_eds", self.V12)
+
+    def test_ebsd_needs_a_profile(self):
+        step = self.eds_block()  # no profile_name
+
+        with pytest.raises(ValueError, match="profile_name"):
+            factory.bruker_ebsd_step(step, "map_ebsd", self.V12)
 
 
 # ---------------------------------
@@ -480,11 +618,13 @@ class TestGeneralSettingsV12:
                 tmp_path,
                 EBSD_OEM="Bruker",
                 EDS_OEM="Bruker",
-                Bruker_settings=bruker_db(),
+                Bruker_settings=bruker_db(**CAMERA_POSITIONS),
             )
         )
 
-        assert settings.Bruker_settings == factory.bruker_config(bruker_db())
+        assert settings.Bruker_settings == factory.bruker_config(
+            bruker_db(**CAMERA_POSITIONS)
+        )
         assert [backend for backend, _ in edax_reachable] == [BACKEND.BRUKER_ESPRIT] * 2
 
     def test_v11_ignores_v12_blocks(self, tmp_path, laser):
@@ -499,3 +639,55 @@ class TestGeneralSettingsV12:
         )
 
         assert settings.Oxford_settings is None
+
+
+# --------------------------------------------
+# Blank vendor blocks (as the GUI writes them)
+# --------------------------------------------
+
+BLANK_EDAX = {
+    "connection": {"host": None, "port": None},
+    "save_directory": None,
+    "project_name": "",
+}
+
+
+class TestBlankVendorBlocks:
+    """The GUI writes every field it knows, so an untouched block is all nulls."""
+
+    @pytest.mark.parametrize(
+        "block, present",
+        [
+            (None, False),
+            ({}, False),
+            (BLANK_EDAX, False),
+            ({"connection": {"host": "edax-pc", "port": None}}, True),
+            (
+                {"eds": {"map": {"profile": {"elements": [{"atomic_number": 26}]}}}},
+                True,
+            ),
+            # checkboxes always hold a value, so booleans alone are "blank"
+            ({"flag": False}, False),
+            ({"flag": True, "dll_dir": "C:/Esprit"}, True),
+        ],
+    )
+    def test_vendor_block(self, block, present):
+        result = factory.vendor_block({"X_settings": block}, "X_settings")
+        assert (result is not None) is present
+
+    def test_a_blank_edax_block_does_not_select_native_edax(self, laser):
+        """EDAX without real settings falls back to LaserControl."""
+        laser(True)
+        settings = {"EDAX_settings": deepcopy(BLANK_EDAX)}
+
+        edax = factory.vendor_block(settings, "EDAX_settings")
+
+        assert edax is None
+        assert validate("EDAX", "EDAX", version=1.1, edax_settings=edax)
+
+    def test_a_blank_edax_block_does_not_trip_oxford_validation(self, laser):
+        edax = factory.vendor_block({"EDAX_settings": BLANK_EDAX}, "EDAX_settings")
+
+        assert validate(
+            "Oxford", "Oxford", oxford_settings=OXFORD_DB, edax_settings=edax
+        )

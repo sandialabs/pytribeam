@@ -10,6 +10,7 @@ import pytest
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
+import pytribeam.external_oem.dispatch as external_devices  # noqa: E402
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import oxford as oxford_adapter  # noqa: E402
 from pytribeam.external_oem.core.errors import (  # noqa: E402
@@ -106,7 +107,9 @@ class TestFullFlow:
         assert oxford_adapter.get_ebsd_camera_state(SETTINGS) == STATE.RETRACTED
         assert oxford_adapter.get_eds_detector_state(SETTINGS) == STATE.RETRACTED
 
-        assert sim.chamber.events == ["ccd_on", "ccd_off"] * 4
+        # Motion safety is the dispatcher's job; the adapter only moves.
+        assert sim.chamber.events == []
+        assert sim.chamber.checked == []
         assert all_disconnected(sim)
 
     def test_eds(self, sim):
@@ -121,15 +124,44 @@ class TestFullFlow:
         assert all_disconnected(sim)
 
 
-class TestMotion:
-    def test_insert_checks_for_collisions(self, sim):
+class TestThroughTheDispatcher:
+    """The dispatcher guards the adapter's moves: collision check and CCD."""
+
+    def test_insert_and_retract_are_guarded(self, sim):
+        assert external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+        assert external_devices.retract_ebsd_camera(MICROSCOPE, SETTINGS)
+
+        assert sim.chamber.events == ["ccd_on", "ccd_off"] * 2
+        assert [detector for detector, _ in sim.chamber.checked] == [
+            tbt.DetectorType.EBSD
+        ]
+
+    def test_a_possible_collision_never_reaches_the_adapter(self, sim):
         sim.chamber.collide = True
 
         with pytest.raises(DetectorError, match="collide"):
-            oxford_adapter.insert_ebsd_camera(MICROSCOPE, SETTINGS)
-        assert sim.chamber.checked == [tbt.DetectorType.EBSD]
+            external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
         assert oxford_adapter.get_ebsd_camera_state(SETTINGS) == STATE.RETRACTED
+        assert sim.chamber.events == []
 
+    def test_touch_during_insert_still_closes_the_ccd(self, sim):
+        sim.ebsd.touch_at_mm = 50.0
+
+        with pytest.raises(DetectorError):
+            external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+        assert sim.chamber.events == ["ccd_on", "ccd_off"]
+        assert all_disconnected(sim)
+
+    def test_stage_guard_sees_an_inserted_camera(self, sim):
+        external_devices.insert_ebsd_camera(MICROSCOPE, SETTINGS)
+
+        with pytest.raises(DetectorError, match="EBSD is INSERTED"):
+            external_devices.check_safe_for_stage_motion(SETTINGS)
+        external_devices.retract_ebsd_camera(MICROSCOPE, SETTINGS)
+        assert external_devices.check_safe_for_stage_motion(SETTINGS)
+
+
+class TestMotion:
     def test_already_inserted_does_not_move(self, sim):
         oxford_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
         sim.chamber.events.clear()
@@ -142,8 +174,6 @@ class TestMotion:
 
         with pytest.raises(DetectorError):
             oxford_adapter.insert_ebsd_camera(MICROSCOPE, SETTINGS)
-        # the CCD view still closes after the failed move
-        assert sim.chamber.events == ["ccd_on", "ccd_off"]
         assert all_disconnected(sim)
 
     def test_faulted_camera_reads_error_and_is_not_inserted(self, sim):

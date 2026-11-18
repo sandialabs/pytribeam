@@ -8,8 +8,8 @@ Two tiers:
   exist. Profiles are *not* loaded, because loading replaces AZtec's current
   settings. Runs from any machine that can reach the AZtec plugin service.
 - ``hardware`` + ``oxford_hardware``: moves detectors. Inserts and retracts
-  the EBSD camera and the EDS detector through the adapter, on the microscope
-  PC, with the real collision check and chamber CCD. Needs its own opt-in.
+  the EBSD camera and the EDS detector through the dispatcher (which owns the
+  collision check and chamber CCD), on the microscope PC. Needs its own opt-in.
 
 Opt in::
 
@@ -32,6 +32,7 @@ import pytest
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
+import pytribeam.external_oem.dispatch as external_devices  # noqa: E402
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import oxford as oxford_adapter  # noqa: E402
 
@@ -135,14 +136,14 @@ def test_preflight(settings):
     "insert, retract, read",
     [
         (
-            oxford_adapter.insert_ebsd_camera,
-            oxford_adapter.retract_ebsd_camera,
-            oxford_adapter.get_ebsd_camera_state,
+            external_devices.insert_ebsd_camera,
+            external_devices.retract_ebsd_camera,
+            external_devices.get_ebsd_camera_state,
         ),
         (
-            oxford_adapter.insert_eds_detector,
-            oxford_adapter.retract_eds_detector,
-            oxford_adapter.get_eds_detector_state,
+            external_devices.insert_eds_detector,
+            external_devices.retract_eds_detector,
+            external_devices.get_eds_detector_state,
         ),
     ],
     ids=["ebsd", "eds"],
