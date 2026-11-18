@@ -14,7 +14,7 @@ These are useful for:
 import ctypes as ct
 from typing import Callable, Optional
 
-from pytribeam.external_oem.bruker.bindings import bind_image_config
+from pytribeam.external_oem.bruker.bindings import bind_eds, bind_image_config
 from pytribeam.external_oem.bruker.ctypes_types import c_bool, c_dbl, c_u32
 from pytribeam.external_oem.bruker.session import BrukerSession
 from pytribeam.external_oem.bruker.types import (
@@ -71,6 +71,42 @@ class BrukerImageConfigController:
             ch1=bool(ch1.value),
             ch2=bool(ch2.value),
         )
+
+    def set_image_configuration(
+        self,
+        width_px: int,
+        height_px: int,
+        pixel_time_us: int,
+    ) -> BrukerImageConfiguration:
+        """Request an image configuration, then read back what ESPRIT accepted.
+
+        The hardware may adjust unsupported values, so callers should compare
+        the returned configuration with the request.
+
+        Parameters
+        ----------
+        width_px, height_px : int
+            Requested scan size in pixels.
+        pixel_time_us : int
+            Requested pixel dwell time in microseconds.
+
+        Returns
+        -------
+        BrukerImageConfiguration
+            The configuration ESPRIT reports after the request.
+        """
+        # ImageSetConfiguration is bound alongside the EDS functions.
+        bind_eds(self._session.dll)
+        rc = self._session.dll.ImageSetConfiguration(
+            self._session.cid,
+            int(width_px),
+            int(height_px),
+            int(pixel_time_us),
+            True,
+            False,
+        )
+        self._session._check(rc, "ImageSetConfiguration")
+        return self.get_image_configuration()
 
     def get_field_width_um(self) -> float:
         """Read the image field width from scan settings and SEM magnification.

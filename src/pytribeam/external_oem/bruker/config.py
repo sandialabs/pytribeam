@@ -624,6 +624,8 @@ def parse_map_settings(
             output_image_format=image_format,
             spu_device=int(m.get("spu_device", 1)),
             roi=roi,
+            poll_interval_s=float(m.get("poll_interval_s", 0.5)),
+            max_wait_s=float(m.get("max_wait_s", 600.0)),
         )
 
     # Profile mode
@@ -661,4 +663,6 @@ def parse_map_settings(
         normalization=bool(profile.get("normalization", True)),
         deconvolution=bool(profile.get("deconvolution", False)),
         roi=roi,
+        poll_interval_s=float(m.get("poll_interval_s", 0.5)),
+        max_wait_s=float(m.get("max_wait_s", 600.0)),
     )

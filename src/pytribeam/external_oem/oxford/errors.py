@@ -1,8 +1,14 @@
 """Exception hierarchy. Every error raised by this package derives from AztecError."""
 
+from pytribeam.external_oem.core.errors import DetectorError as _CoreDetectorError
 
-class AztecError(Exception):
-    """Base class for all errors raised by oxford_aztec."""
+
+class AztecError(_CoreDetectorError):
+    """Base class for all errors raised by oxford_aztec.
+
+    Derives from the vendor-neutral ``core.errors.DetectorError``, so the
+    external OEM dispatcher can treat Oxford failures like any other vendor's.
+    """
 
 
 class DotNetUnavailableError(AztecError):

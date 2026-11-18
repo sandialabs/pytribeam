@@ -39,6 +39,9 @@ class BrukerEDSMapSettings(NamedTuple):
     output_image_format: Optional[str]
     spu_device: int
     roi: Optional[BrukerRectROI] = None
+    # Map progress polling and overall time limit for one acquisition.
+    poll_interval_s: float = 0.5
+    max_wait_s: float = 600.0
 
 
 class BrukerEDSElementMapSetting(NamedTuple):
@@ -75,6 +78,9 @@ class BrukerEDSProfileMapSettings(NamedTuple):
     normalization: bool
     deconvolution: bool
     roi: Optional[BrukerRectROI] = None
+    # Map progress polling and overall time limit for one acquisition.
+    poll_interval_s: float = 0.5
+    max_wait_s: float = 600.0
 
 
 class BrukerEDSElementMapData(NamedTuple):

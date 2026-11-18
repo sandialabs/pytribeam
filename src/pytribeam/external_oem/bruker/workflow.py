@@ -172,8 +172,8 @@ def run_bruker_eds_workflow(
             log_fn(f"Acquiring profile EDS map: {map_settings.name}")
         outputs = eds.acquire_map_with_profile(
             settings=map_settings,
-            poll_interval_s=0.5,
-            max_wait_s=600.0,
+            poll_interval_s=map_settings.poll_interval_s,
+            max_wait_s=map_settings.max_wait_s,
             log_fn=log_fn,
         )
     else:
@@ -181,8 +181,8 @@ def run_bruker_eds_workflow(
             log_fn(f"Acquiring simple EDS map: {map_settings.name}")
         outputs = eds.acquire_map(
             settings=map_settings,
-            poll_interval_s=0.5,
-            max_wait_s=600.0,
+            poll_interval_s=map_settings.poll_interval_s,
+            max_wait_s=map_settings.max_wait_s,
             log_fn=log_fn,
         )
 
