@@ -4,6 +4,7 @@ from typing import Any, Dict, NamedTuple, Optional, Type, Union
 
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam import types as tbt
+from pytribeam.constants import Constants
 from pytribeam import utilities as ut
 
 VERSIONS = [version.version for version in tbt.YMLFormatVersion]
@@ -227,6 +228,220 @@ edax_settings_lut.add_entry("save_directory", edax_save_directory)
 edax_settings_lut.add_entry("project_name", edax_project_name)
 
 
+### Oxford LUT ###
+# Leaving every Oxford field blank means "not configured": Oxford then runs
+# through the TFS LaserControl fallback.
+oxford_host = LUTField(
+    "AZtec Host Address",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "The host running Oxford AZtec and its plugin service (often 127.0.0.1). "
+    "Fill this in to drive Oxford through AZtec instead of LaserControl.",
+    str,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_port = LUTField(
+    "AZtec Port",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "The AZtec plugin service port. Leave blank for the default, 22201.",
+    int,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_ebsd_profile = LUTField(
+    "EBSD Profile",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Name of the AZtec profile loaded before EBSD maps; AZtec settings cannot "
+    "be set any other way. Loading it replaces AZtec's current settings.",
+    str,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_eds_profile = LUTField(
+    "EDS Profile",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Name of the AZtec profile loaded before EDS maps. Loading it replaces "
+    "AZtec's current settings.",
+    str,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_dll_dir = LUTField(
+    "AZtec Plugin DLL Folder",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Folder holding the AZtec plugin SDK DLLs. Leave blank to use the "
+    "AZTEC_PLUGIN_DIR environment variable.",
+    str,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_connection_lut = LUT("connection")
+oxford_connection_lut.add_entry("host", oxford_host)
+oxford_connection_lut.add_entry("port", oxford_port)
+oxford_settings_lut = LUT("Oxford_settings")
+oxford_settings_lut.add_entry("connection", oxford_connection_lut)
+oxford_settings_lut.add_entry("ebsd_profile", oxford_ebsd_profile)
+oxford_settings_lut.add_entry("eds_profile", oxford_eds_profile)
+oxford_settings_lut.add_entry("dll_dir", oxford_dll_dir)
+
+
+### Bruker LUT ###
+# Instrument-level Bruker ESPRIT settings; map parameters are set per step.
+# Everything else ESPRIT needs is fixed in pyTriBeam's Bruker adapter.
+V_1_2_ON = tbt.Limit(min=1.2, max=max(VERSIONS))
+bruker_dll_dir = LUTField(
+    "ESPRIT API DLL Folder",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Folder holding the Bruker ESPRIT API DLLs, e.g. "
+    "C:/Program Files/Bruker/Esprit API. Required to use Bruker.",
+    str,
+    V_1_2_ON,
+)
+bruker_mode = LUTField(
+    "Connection Mode",
+    "",
+    ctk.MenuButton,
+    {"options": [m.value for m in tbt.BrukerConnectionMode] + [""], "dtype": str},
+    "local: ESPRIT runs on this computer. tcp: ESPRIT runs on another computer "
+    "(set the host and port). Blank means local.",
+    str,
+    V_1_2_ON,
+)
+bruker_host = LUTField(
+    "ESPRIT Host",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Host running ESPRIT, for tcp mode only.",
+    str,
+    V_1_2_ON,
+)
+bruker_port = LUTField(
+    "ESPRIT Port",
+    "",
+    ctk.Entry,
+    {"dtype": int},
+    "ESPRIT port, for tcp mode only.",
+    int,
+    V_1_2_ON,
+)
+bruker_detector_indices = list(range(1, Constants.bruker_max_eds_detectors + 1))
+bruker_detector_indices.append("")
+bruker_detector_index = LUTField(
+    "EDS Detector Index",
+    "",
+    ctk.MenuButton,
+    {"options": bruker_detector_indices, "dtype": int},
+    "The EDS detector (and spectrometer) number. Blank means 1.",
+    int,
+    V_1_2_ON,
+)
+# Unticked by default: a checkbox the user never clicks must mean "off".
+bruker_move_detector = LUTField(
+    "Move EDS Detector",
+    False,
+    ctk.Checkbutton,
+    {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
+    "Tick to have pyTriBeam move the EDS detector between park and acquire. "
+    "Leave unticked for the ESPRIT simulator, or if the detector is moved in "
+    "ESPRIT.",
+    bool,
+    V_1_2_ON,
+)
+bruker_ebsd_inserted_mm = LUTField(
+    "EBSD Camera Inserted (mm)",
+    "",
+    ctk.Entry,
+    {"dtype": float},
+    "The EBSD camera position when inserted, measured on the instrument. "
+    "Required for Bruker EBSD.",
+    float,
+    V_1_2_ON,
+)
+bruker_ebsd_retracted_mm = LUTField(
+    "EBSD Camera Retracted (mm)",
+    "",
+    ctk.Entry,
+    {"dtype": float},
+    "The EBSD camera position when retracted, measured on the instrument. "
+    "Required for Bruker EBSD.",
+    float,
+    V_1_2_ON,
+)
+bruker_settings_lut = LUT("Bruker_settings")
+bruker_settings_lut.add_entry("dll_dir", bruker_dll_dir)
+bruker_settings_lut.add_entry("mode", bruker_mode)
+bruker_settings_lut.add_entry("host", bruker_host)
+bruker_settings_lut.add_entry("port", bruker_port)
+bruker_settings_lut.add_entry("detector_index", bruker_detector_index)
+bruker_settings_lut.add_entry("move_detector", bruker_move_detector)
+bruker_settings_lut.add_entry("ebsd_inserted_position_mm", bruker_ebsd_inserted_mm)
+bruker_settings_lut.add_entry("ebsd_retracted_position_mm", bruker_ebsd_retracted_mm)
+
+
+def _bruker_step_lut(ebsd: bool) -> LUT:
+    """A step's `bruker_settings` block: output folder and map size/dwell."""
+    technique = "EBSD" if ebsd else "EDS"
+    lut = LUT("bruker_settings")
+    lut.add_entry(
+        "output_path",
+        LUTField(
+            "Bruker Output Folder",
+            "",
+            ctk.Entry,
+            {"dtype": str},
+            f"Folder, on the ESPRIT computer, where the {technique} maps are saved.",
+            str,
+            V_1_2_ON,
+        ),
+    )
+    if ebsd:
+        lut.add_entry(
+            "profile_name",
+            LUTField(
+                "Bruker EBSD Profile",
+                "",
+                ctk.Entry,
+                {"dtype": str},
+                "The ESPRIT EBSD acquisition profile to use.",
+                str,
+                V_1_2_ON,
+            ),
+        )
+    map_lut = LUT("map")
+    for name, label, help_text in (
+        ("width_px", "Bruker Map Width (px)", "Map width in pixels."),
+        ("height_px", "Bruker Map Height (px)", "Map height in pixels."),
+        ("dwell_us", "Bruker Pixel Dwell (us)", "Pixel dwell time in microseconds."),
+    ):
+        map_lut.add_entry(
+            name,
+            LUTField(label, "", ctk.Entry, {"dtype": int}, help_text, int, V_1_2_ON),
+        )
+    lut.add_entry("map", map_lut)
+    if ebsd:
+        lut.add_entry(
+            "save_patterns",
+            LUTField(
+                "Bruker Save Patterns",
+                False,
+                ctk.Checkbutton,
+                {"offvalue": False, "onvalue": True, "bd": 0, "dtype": bool},
+                "Whether ESPRIT saves the EBSD patterns.",
+                bool,
+                V_1_2_ON,
+            ),
+        )
+    return lut
+
+
 ### General LUT ###
 slice_thickness_um = LUTField(
     "Slice Thickness (um)",
@@ -304,7 +519,7 @@ ebsd_oem = LUTField(
     "EBSD OEM",
     "",
     ctk.MenuButton,
-    {"options": ["EDAX", "Oxford", "null"], "dtype": str},
+    {"options": ["EDAX", "Oxford", "Bruker", "null"], "dtype": str},
     "The OEM of the EBSD system being used.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
@@ -313,7 +528,7 @@ eds_oem = LUTField(
     "EDS OEM",
     "",
     ctk.MenuButton,
-    {"options": ["EDAX", "Oxford", "null"], "dtype": str},
+    {"options": ["EDAX", "Oxford", "Bruker", "null"], "dtype": str},
     "The OEM of the EDS system being used.",
     str,
     tbt.Limit(min=1.0, max=max(VERSIONS)),
@@ -361,6 +576,8 @@ general_lut.add_entry("EDS_OEM", deepcopy(eds_oem))
 general_lut.add_entry("exp_dir", deepcopy(exp_dir))
 general_lut.add_entry("h5_log_name", deepcopy(h5_log_name))
 general_lut.add_entry("EDAX_settings", deepcopy(edax_settings_lut))
+general_lut.add_entry("Oxford_settings", deepcopy(oxford_settings_lut))
+general_lut.add_entry("Bruker_settings", deepcopy(bruker_settings_lut))
 general_lut.add_entry("step_count", deepcopy(step_count))
 
 ### STAGE ###
@@ -925,6 +1142,7 @@ eds_lut.add_entry("beam", deepcopy(beam_lut))
 eds_lut.add_entry("detector", deepcopy(detector_lut))
 eds_lut.add_entry("scan", deepcopy(scan_lut))
 eds_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
+eds_lut.add_entry("bruker_settings", _bruker_step_lut(ebsd=False))
 # EDS should be electron beam types only, and should have a step type and name of eds
 
 ### EBSD ###
@@ -1019,6 +1237,7 @@ ebsd_lut.add_entry("scan", deepcopy(scan_lut))
 ebsd_lut.add_entry("bit_depth", deepcopy(image_bit_depth))
 ebsd_lut.add_entry("concurrent_EDS", deepcopy(ebsd_concurrent_eds))
 ebsd_lut.add_entry("edax_settings", deepcopy(edax_params_lut))
+ebsd_lut.add_entry("bruker_settings", _bruker_step_lut(ebsd=True))
 # EBSD should be electron beam types only, and should have a step type and name of ebsd
 
 ### PFIB ###

@@ -488,6 +488,7 @@ class ExperimentController:
                 microscope=experiment_settings.microscope,
                 enable_EBSD=experiment_settings.enable_EBSD,
                 enable_EDS=experiment_settings.enable_EDS,
+                general_settings=experiment_settings.general_settings,
             )
         except Exception as e:
             print(f"Warning: Failed to retract devices: {e}")
@@ -634,6 +635,7 @@ class ExperimentController:
                 microscope=microscope,
                 enable_EBSD=settings.enable_EBSD,
                 enable_EDS=settings.enable_EDS,
+                general_settings=settings.general_settings,
             )
             print("\tDevices retracted.")
             stage.step_start_position(

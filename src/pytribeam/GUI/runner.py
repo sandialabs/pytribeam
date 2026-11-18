@@ -17,6 +17,7 @@ from pytribeam import __version__
 import pytribeam.GUI.CustomTkinterWidgets as ctk
 from pytribeam.GUI.config_ui.App import Configurator
 from pytribeam import workflow, stage, utilities, log, laser, insertable_devices
+from pytribeam import factory
 import pytribeam.types as tbt
 
 # Import refactored common utilities
@@ -270,6 +271,7 @@ class MainApplication(tk.Tk):
         microscope can't be reached, only the laser and EDS/EBSD are tested.
         """
         with WaitCursor(self):
+            general_settings, settings_note = self._external_device_settings()
             try:
                 connection = self._microscope_connection()
                 microscope = tbt.Microscope()
@@ -279,14 +281,49 @@ class MainApplication(tk.Tk):
                     connection_port=connection.port,
                 )
                 try:
-                    status = laser._device_connections(microscope=microscope)
+                    status = laser._device_connections(
+                        microscope=microscope, general_settings=general_settings
+                    )
                 finally:
                     utilities.disconnect_microscope(microscope=microscope)
             except Exception as e:
                 print(f"Could not check insertable devices on the microscope: {e}")
-                status = laser._device_connections()
+                status = laser._device_connections(general_settings=general_settings)
 
-        messagebox.showinfo("Connection status", str(status))
+        message = str(status)
+        if settings_note:
+            message += f"\n\n{settings_note}"
+        messagebox.showinfo("Connection status", message)
+
+    def _external_device_settings(self):
+        """Experiment settings from the loaded config, for native EBSD/EDS status.
+
+        Building them also tests each native vendor connection. Returns the
+        settings (or None) and a note to show when they could not be built, in
+        which case EBSD/EDS are reported through LaserControl.
+        """
+        if self.config_path is None:
+            return None, ""
+        try:
+            version = utilities.yml_version(self.config_path)
+            db = utilities.yml_to_dict(
+                yml_path_file=self.config_path,
+                version=version,
+                required_keys=("general", "config_file_version"),
+            )
+            yml_format = utilities.yml_format(version=version)
+            general_settings = factory.general(
+                general_db=utilities.general_settings(db, yml_format=yml_format),
+                yml_format=yml_format,
+            )
+            return general_settings, ""
+        except Exception as e:
+            note = (
+                "EBSD/EDS were checked through LaserControl, because the "
+                f"configuration's external detector settings could not be used: {e}"
+            )
+            print(note)
+            return None, note
 
     def _microscope_connection(self):
         """Microscope connection settings from the loaded config file, or the defaults."""
