@@ -9,6 +9,10 @@ As not all functionality can be replicated in a simulated microscope, there are 
 - **Hardware**: tests that require a physical microscope. Specific approved microscope machine names are listed in the `microscope_machines` attribute in the `Constants` module.
 - **Laser Hardware**: tests that require a physical microscope with femtosecond laser module. Machine must be a member of the `microscope_machines` attribute in the `Constants` module and pass a laser hardware check to run these tests.
 
+- **EDAX / Oxford / Bruker hardware**: tests that need that vendor's live detector software or hardware (EDAX IPAPI, Oxford AZtec, Bruker ESPRIT or its simulator), marked `edax_hardware`, `oxford_hardware` and `bruker_hardware`. Declare which vendors are present with `PYTRIBEAM_TEST_OEM`, comma-separated (for example `PYTRIBEAM_TEST_OEM=edax`), or set `PYTRIBEAM_RUN_HARDWARE=1` on a machine listed for that vendor in the `Constants` module. Tests that also need the TriBeam (for example, moving a detector under the chamber CCD) carry the **Hardware** marker too. Tests that move detectors or collect maps have their own opt-in as well, such as `PYTRIBEAM_EDAX_ALLOW_MAPPING` or `PYTRIBEAM_ALLOW_DETECTOR_MOTION`; see `tests/conftest.py` and the READMEs under `tests/`.
+
+A test runs only when every one of its markers is available on the machine.
+
 > [!NOTE]
 > To have your specific machine added to the approved lists for running test suites, a source code modification of the `Constants` module will be required. This can be done locally after normal installation of `pytribeam`. Please contact the developer team for more information if you would like your machine name to be included in future releases.
 

@@ -28,16 +28,76 @@
 
   - **Oxford**: Oxford Instruments detector
   - **EDAX**: EDAX detector
-  - `None`: Enter the keyword `null` or leave the entry blank in the .yml file. This will disable EDS detector control for the experiment.
+  - **Bruker**: Bruker detector (requires a **Bruker_settings** block)
+  - `None`: Enter the keyword `null` or leave the entry blank in the .yml file. This will disable detector control for that technique in the experiment.
 
 - **EDS_OEM** (*str*): The original equipment manufacturer (OEM) of the EDS detector used in the system, a string which must be a member of the **ExternalDeviceOEM** enum in the `types` module. If no OEM is provided, control over the EDS detector will not be enabled during data collection. If EBSD is also enabled in this experiment, the values must match, but EBSD can be disabled by providing the `NoneType` keyword in the `.yml` (`null`). The available enumeration values are:
 
   - **Oxford**: Oxford Instruments detector
   - **EDAX**: EDAX detector
-  - `None`: Enter the keyword `null` or leave the entry blank in the .yml file. This will disable EDS detector control for the experiment.
+  - **Bruker**: Bruker detector (requires a **Bruker_settings** block)
+  - `None`: Enter the keyword `null` or leave the entry blank in the .yml file. This will disable detector control for that technique in the experiment.
+
+  How each detector is driven is described in **[External detector control](#external-detector-control)** below.
 
 - **exp_dir** (*str*): Experimental directory to store the log file and any images captured by the microscope, a string. The specific directory does not need to exist and will be automatically generated at the start of the experiment, but a valid creatable path must be provided (e.g. `exp_dir = "C:/path/to/experimental/directory"`). As EBSD and EDS data is generally collected on a separate machine and specific map settings must be preset by the user (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)** for details on external device integration), these data will not be automatically included in the experimental directory, are likely to not be stored on the same machine, and may have unqiue file naming conventions that do not correspond with those handled directly by the `pytribeam` package.
 
 - **h5_log_name** (*str*): Filename for the log file that automatically stores various state information during data collection, a string. Log files are saved in the `.h5` HDF (Hierarchical Data Format) extension. The suffix `.h5` is automatically added to the end of the user-provided value (if needed), so an entry of `h5_log_name` or `h5_log_name.h5` will result in the creation of the same log file (`h5_log_name.h5`) within the experimental directory.
 
 - **step_count** (*int*): The number of steps in the experiment, an integer. Used to validate the configuration file. Must be greater than zero and be equal to the number of steps contained in the **steps** section of the `.yml` settings as described in **[Step Settings](../steps/index.html)**. This value should auto-update when using the **[GUI](../../gui/index.html)**.
+
+## External detector control
+
+EBSD and EDS detectors are driven either through the detector vendor's own software interface ("native" control) or through ThermoFisher's LaserControl application (the "fallback"). Which one is used follows from the OEM and from whether that vendor's settings block is filled in:
+
+| OEM | Vendor block filled in | Control |
+|---|---|---|
+| EDAX | **EDAX_settings** | native, over the EDAX IPAPI (TEAM/APEX) |
+| EDAX | absent or blank | LaserControl |
+| Oxford | **Oxford_settings** | native, over the Oxford AZtec plugin API |
+| Oxford | absent or blank | LaserControl |
+| Bruker | **Bruker_settings** | native, over the Bruker ESPRIT API (no fallback) |
+| `null` | — | no control |
+
+A block whose fields are all left blank, as the GUI writes it when untouched, counts as absent. Native control never uses LaserControl, so the Laser API is only required for the fallback. The vendor connection is tested when the configuration is validated, and each detector's readiness and every EBSD/EDS step's parameters are checked before the first slice (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)**).
+
+**EDAX_settings** requires `config_file_version` 1.1 or later. **Oxford_settings** and **Bruker_settings** require 1.2 or later.
+
+### EDAX_settings
+
+- **connection** / **host** (*str*): Host running the EDAX IPAPI service (`localhost` on the EDAX PC itself).
+- **connection** / **port** (*int*): IPAPI service port, usually `8301`.
+- **save_directory** (*str*): Folder **on the EDAX computer** where maps are saved.
+- **project_name** (*str*): EDAX project the maps are stored under.
+
+### Oxford_settings
+
+AZtec's plugin API cannot set technique parameters (step size, dwell time, resolution, ...). Instead, pyTriBeam loads a saved AZtec *profile* before each map. Save the settings you want as a profile in AZtec first. Loading a profile replaces AZtec's current settings, including unsaved changes made in the AZtec GUI.
+
+- **connection** / **host** (*str*): Host running AZtec and its plugin service (often `127.0.0.1`).
+- **connection** / **port** (*int*, optional): Plugin service port; blank for the default, `22201`.
+- **ebsd_profile** (*str*): AZtec profile loaded before EBSD maps. Required when EBSD runs through AZtec. For concurrent EDS, enable *Include EDS* in this profile.
+- **eds_profile** (*str*): AZtec profile loaded before EDS maps. Required when EDS runs through AZtec.
+- **dll_dir** (*str*, optional): Folder holding the AZtec plugin SDK DLLs; blank to use the `AZTEC_PLUGIN_DIR` environment variable.
+
+### Bruker_settings
+
+Instrument-level settings, set once. The map size and dwell are set in each EDS/EBSD step's own **bruker_settings** block (see **[EBSD and EDS Settings](../steps/ebsd_eds/index.html)**). Everything else the Bruker ESPRIT API needs (server, user, timeouts, profile options, file formats) uses fixed defaults. This replaces the separate Bruker YAML file used by the earlier `custom`-step workflow.
+
+- **dll_dir** (*str*): Folder holding the ESPRIT API DLLs, e.g. `C:/Program Files/Bruker/Esprit API`.
+- **mode** (*str*, optional): `local` (ESPRIT runs on this computer, the default) or `tcp`.
+- **host** (*str*, optional): ESPRIT host, for `tcp` mode.
+- **port** (*int*, optional): ESPRIT port, for `tcp` mode.
+- **detector_index** (*int*, optional): EDS detector (and spectrometer) number, `1` to `4`; default `1`.
+- **move_detector** (*bool*, optional): whether pyTriBeam moves the EDS detector between park and acquire. Off unless set to `true`: leaving it out, or leaving the GUI checkbox unticked, means the detector is not moved. Leave it off with the ESPRIT simulator.
+- **ebsd_inserted_position_mm**, **ebsd_retracted_position_mm** (*float*): the EBSD camera's positions when inserted and retracted, measured on the instrument. Required for Bruker EBSD (the ESPRIT API moves the camera by position only); they must differ by more than 0.1 mm.
+
+```yaml
+Bruker_settings:
+  dll_dir: "C:/Program Files/Bruker/Esprit API"
+  mode: local
+  detector_index: 1
+  move_detector: true
+  ebsd_inserted_position_mm: 20.0   # Bruker EBSD only; measure on the instrument
+  ebsd_retracted_position_mm: 0.0
+```

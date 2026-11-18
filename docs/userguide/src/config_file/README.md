@@ -2,7 +2,7 @@
 
 The following describes the creation and validation of a configuration file, which is expected to be in the .yml file format. Configuration files are separated into three main sections, namely:
 
-- **config_file_version** (*float*): The `.yml` file format, a float. Specific functionality in the `pytribeam` module is tied to different versions of configuration files. The most current `.yml` file version is `1.0`.
+- **config_file_version** (*float*): The `.yml` file format, a float. Specific functionality in the `pytribeam` module is tied to different versions of configuration files. The most current `.yml` file version is `1.2`: `1.1` adds **EDAX_settings**, and `1.2` adds **Oxford_settings** and **Bruker_settings** (see **[General Experiment Settings](general/index.html#external-detector-control)**).
 
 - **general** (*dict*): General settings applicable to the entire experiment, a dictionary. Details for individual keys can be found in **[General Settings](./general/index.html)**.
 
