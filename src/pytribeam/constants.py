@@ -106,6 +106,7 @@ class Constants(NamedTuple):
     - `laser_beam_shift_tolerance_um` (`float`): Tolerance for laser beam shift in micrometers.
     - `laser_energy_tol_uj` (`float`): Tolerance for laser energy in microjoules.
     - `oxford_aztec_default_port` (`int`): Default TCP port of the Oxford AZtec plugin service.
+    - `edax_ipapi_default_port` (`int`): Default TCP port of the EDAX IPAPI service.
     - `bruker_ebsd_position_tolerance_mm` (`float`): Bruker EBSD camera position tolerance.
     - `bruker_max_eds_detectors` (`int`): Most EDS detectors a Bruker spectrometer reports.
     - `laser_delay_s` (`float`): Delay for measuring power and setting pulse divider/energy in seconds.
@@ -218,6 +219,8 @@ class Constants(NamedTuple):
 
     # External OEM constants
     oxford_aztec_default_port = 22201  # AZtec plugin service TCP port
+    edax_ipapi_default_port = 8301  # EDAX IPAPI service TCP port
+    bruker_esprit_default_port = 5328 # Bruker Esprit service TCP port
     # Bruker EBSD camera: positions within this of a configured one count as there
     bruker_ebsd_position_tolerance_mm = 0.10
     bruker_max_eds_detectors = 4  # the ESPRIT spectrometer reports up to four

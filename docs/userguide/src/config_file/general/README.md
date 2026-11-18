@@ -66,7 +66,7 @@ A block whose fields are all left blank, as the GUI writes it when untouched, co
 ### EDAX_settings
 
 - **connection** / **host** (*str*): Host running the EDAX IPAPI service (`localhost` on the EDAX PC itself).
-- **connection** / **port** (*int*): IPAPI service port, usually `8301`.
+- **connection** / **port** (*int*, optional): IPAPI service port; blank for the default, `8301`.
 - **save_directory** (*str*): Folder **on the EDAX computer** where maps are saved.
 - **project_name** (*str*): EDAX project the maps are stored under.
 

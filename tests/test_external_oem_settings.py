@@ -157,6 +157,24 @@ class TestVendorConfigParsing:
             connection=tbt.MicroscopeConnection(host="edax-pc", port=8301),
         )
 
+    @pytest.mark.parametrize("port", [None, "missing"])
+    def test_edax_defaults_the_port(self, port):
+        db = deepcopy(EDAX_DB)
+        if port == "missing":
+            del db["connection"]["port"]
+        else:
+            db["connection"]["port"] = port
+
+        edax = factory.edax_config(db)
+
+        assert edax.connection.port == Constants.edax_ipapi_default_port == 8301
+
+    def test_edax_blank_port_passes_validation(self, laser, edax_reachable):
+        db = deepcopy(EDAX_DB)
+        db["connection"]["port"] = None
+
+        assert validate("EDAX", "EDAX", version=1.1, edax_settings=db)
+
     def test_oxford_defaults_the_port_and_dll_dir(self):
         oxford = factory.oxford_config(OXFORD_DB)
 
@@ -277,6 +295,7 @@ class TestValidateEbsdEdsSettings:
             lambda db: db.update(project_name=7),
             lambda db: db["connection"].pop("host"),
             lambda db: db["connection"].update(port="8301"),
+            lambda db: db["connection"].update(port=0),
         ],
     )
     def test_invalid_edax_block_is_refused(self, laser, edax_reachable, change):

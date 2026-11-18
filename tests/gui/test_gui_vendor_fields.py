@@ -77,3 +77,18 @@ def test_no_vendor_entry_holds_an_enumeration():
             assert not (
                 isinstance(field.dtype, type) and issubclass(field.dtype, Enum)
             ), key
+
+
+@pytest.mark.parametrize(
+    "key, constant",
+    [
+        ("EDAX_settings/connection/port", "edax_ipapi_default_port"),
+        ("Oxford_settings/connection/port", "oxford_aztec_default_port"),
+    ],
+)
+def test_ports_start_at_the_vendor_default(key, constant):
+    from pytribeam.constants import Constants
+
+    lut = get_lut("general", VERSION)
+    lut.flatten()
+    assert lut[key].default == getattr(Constants, constant)

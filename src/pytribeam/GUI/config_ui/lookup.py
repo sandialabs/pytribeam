@@ -194,10 +194,11 @@ edax_host = LUTField(
 )
 edax_port = LUTField(
     "EDAX Port",
-    "",
+    Constants.edax_ipapi_default_port,
     ctk.Entry,
     {"dtype": int},
-    "The port used to access the computer that runs the EDAX machines.",
+    "The port used to access the computer that runs the EDAX machines. "
+    f"The IPAPI default is {Constants.edax_ipapi_default_port}.",
     int,
     tbt.Limit(min=1.1, max=max(VERSIONS)),
 )
@@ -243,7 +244,7 @@ oxford_host = LUTField(
 )
 oxford_port = LUTField(
     "AZtec Port",
-    "",
+    Constants.oxford_aztec_default_port,
     ctk.Entry,
     {"dtype": int},
     "The AZtec plugin service port. Leave blank for the default, 22201.",
@@ -325,7 +326,7 @@ bruker_host = LUTField(
 )
 bruker_port = LUTField(
     "ESPRIT Port",
-    "",
+    Constants.bruker_esprit_default_port,
     ctk.Entry,
     {"dtype": int},
     "ESPRIT port, for tcp mode only.",

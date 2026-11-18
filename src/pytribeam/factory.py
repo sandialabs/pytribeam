@@ -924,7 +924,7 @@ def edax_config(edax_db: dict) -> tbt.EDAXConfig:
         project_name=edax_db["project_name"],
         connection=tbt.MicroscopeConnection(
             host=edax_db["connection"]["host"],
-            port=edax_db["connection"]["port"],
+            port=edax_db["connection"].get("port") or Constants.edax_ipapi_default_port,
         ),
     )
 
@@ -2504,9 +2504,10 @@ def validate_edax_settings(
                     str,
                     error="EDAX_settings 'connection.host' must be a string.",
                 ),
-                "port": And(
-                    int,
-                    error="EDAX_settings 'connection.port' must be an int.",
+                Optional("port"): Or(
+                    None,
+                    And(int, lambda x: 0 < x < 65536),
+                    error="EDAX_settings 'connection.port' must be an int between 1 and 65535, or null for the default.",
                 ),
             },
         },
