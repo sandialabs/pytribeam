@@ -236,6 +236,10 @@ __all__ = [
     # Workflow and configuration settings
     "CustomSettings",
     "BrukerConfig",
+    "BrukerConnectionMode",
+    "BrukerEBSDStepSettings",
+    "BrukerEDSStepSettings",
+    "BrukerMapSettings",
     "EDAXConfig",
     "OxfordConfig",
     "GeneralSettings",
@@ -251,9 +255,6 @@ from enum import Enum, IntEnum
 from pathlib import Path
 from typing import List, NamedTuple, Union
 
-# Bruker settings are defined in the vendor package, which is stdlib-only, so
-# the vendor wrapper can parse them without importing AutoScript.
-from pytribeam.external_oem.bruker.types import BrukerSettings as _BrukerSettings
 
 import autoscript_sdb_microscope_client._dynamic_object_proxies as as_dynamics
 import autoscript_sdb_microscope_client.enumerations as as_enums
@@ -1539,10 +1540,53 @@ class OxfordConfig(NamedTuple):
     dll_dir: Path = None
 
 
-#: General configuration for Bruker ESPRIT: session, plus EDS and/or EBSD
-#: workflow settings. Defined in `pytribeam.external_oem.bruker.types` as
-#: `BrukerSettings`; parsed by `pytribeam.external_oem.bruker.config`.
-BrukerConfig = _BrukerSettings
+class BrukerConnectionMode(Enum):
+    """
+    How the Bruker ESPRIT API is reached.
+
+    ## Attributes
+
+    - `LOCAL` (`str`): ESPRIT runs on this computer.
+    - `TCP` (`str`): ESPRIT runs on another computer, reached at a host/port.
+    """
+
+    LOCAL: str = "local"
+    TCP: str = "tcp"
+
+
+class BrukerConfig(NamedTuple):
+    """
+    General configuration for Bruker ESPRIT, set once per instrument.
+
+    Everything else the ESPRIT API needs (server, user, timeouts, profile
+    options, file formats) is a fixed default in the Bruker adapter; map
+    parameters are set per step (`BrukerEDSStepSettings`,
+    `BrukerEBSDStepSettings`).
+
+    ## Attributes
+
+    - `dll_dir` (`Path`): Folder holding the ESPRIT API DLLs.
+    - `mode` (`BrukerConnectionMode`): Local ESPRIT, or over TCP.
+    - `host` (`str, optional`): ESPRIT host, for TCP mode.
+    - `port` (`int, optional`): ESPRIT port, for TCP mode.
+    - `detector_index` (`int`): EDS detector (and spectrometer) number, 1-4.
+    - `move_detector` (`bool`): Whether pyTriBeam moves the EDS detector
+      between park and acquire. Off unless set: an unticked GUI checkbox and a
+      missing value both mean False.
+    - `ebsd_inserted_position_mm` (`float, optional`): EBSD camera position
+      when inserted, measured on the instrument. Required for Bruker EBSD.
+    - `ebsd_retracted_position_mm` (`float, optional`): EBSD camera position
+      when retracted. Required for Bruker EBSD.
+    """
+
+    dll_dir: Path
+    mode: BrukerConnectionMode = BrukerConnectionMode.LOCAL
+    host: str = None
+    port: int = None
+    detector_index: int = 1
+    move_detector: bool = False
+    ebsd_inserted_position_mm: float = None
+    ebsd_retracted_position_mm: float = None
 
 
 class GeneralSettings(NamedTuple):
@@ -1933,6 +1977,58 @@ class EBSDScanBox(NamedTuple):
     step_size_um: float
 
 
+class BrukerMapSettings(NamedTuple):
+    """
+    Bruker map size and dwell, set per step.
+
+    ## Attributes
+
+    - `width_px` (`int`): Map width in pixels.
+    - `height_px` (`int`): Map height in pixels.
+    - `dwell_us` (`int`): Pixel dwell time in microseconds.
+    """
+
+    width_px: int
+    height_px: int
+    dwell_us: int
+
+
+class BrukerEDSStepSettings(NamedTuple):
+    """
+    Bruker settings for one EDS step.
+
+    ## Attributes
+
+    - `output_path` (`Path`): Folder, on the ESPRIT computer, for the maps.
+    - `map` (`BrukerMapSettings`): Map size and dwell.
+    - `run_name` (`str`): Base name for the run folders; the step name.
+    """
+
+    output_path: Path
+    map: BrukerMapSettings
+    run_name: str = "eds"
+
+
+class BrukerEBSDStepSettings(NamedTuple):
+    """
+    Bruker settings for one EBSD step. Not yet validated on hardware.
+
+    ## Attributes
+
+    - `output_path` (`Path`): Folder, on the ESPRIT computer, for the maps.
+    - `profile_name` (`str`): ESPRIT EBSD acquisition profile to use.
+    - `map` (`BrukerMapSettings`): Scan size and dwell.
+    - `save_patterns` (`bool`): Whether ESPRIT saves the EBSD patterns.
+    - `run_name` (`str`): Base name for the run folders; the step name.
+    """
+
+    output_path: Path
+    profile_name: str
+    map: BrukerMapSettings
+    save_patterns: bool = False
+    run_name: str = "ebsd"
+
+
 class EBSDSettings(NamedTuple):
     """
     EBSD settings for the microscope.
@@ -1942,6 +2038,8 @@ class EBSDSettings(NamedTuple):
     - `image` (`ImageSettings`): The image settings.
     - `enable_eds` (`bool`): Whether to enable EDS.
     - `enable_ebsd` (`bool`): Whether to enable EBSD (default is True).
+    - `scan_box`, `grid_type`, `save_patterns`: EDAX map parameters (v1.1+).
+    - `bruker` (`BrukerEBSDStepSettings, optional`): Bruker map parameters (v1.2+).
     """
 
     image: ImageSettings
@@ -1950,6 +2048,7 @@ class EBSDSettings(NamedTuple):
     scan_box: EBSDScanBox = None
     grid_type: int = EBSDGridType.SQUARE
     save_patterns: bool = True
+    bruker: BrukerEBSDStepSettings = None
 
 
 class EDSSettings(NamedTuple):
@@ -1960,10 +2059,12 @@ class EDSSettings(NamedTuple):
 
     - `image` (`ImageSettings`): The image settings.
     - `enable_eds` (`bool`): Whether to enable EDS (default is True).
+    - `bruker` (`BrukerEDSStepSettings, optional`): Bruker map parameters (v1.2+).
     """
 
     image: ImageSettings
     enable_eds: bool = True
+    bruker: BrukerEDSStepSettings = None
 
 
 class LaserPolarization(Enum):
