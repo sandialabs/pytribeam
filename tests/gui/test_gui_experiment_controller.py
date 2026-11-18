@@ -444,15 +444,81 @@ class TestStartExperiment:
         assert errors
 
     def test_invalid_config_fires_validation_failed(self, monkeypatch):
+        """Setup runs on the experiment thread, so failure arrives by callback."""
         ctrl = ExperimentController()
         monkeypatch.setattr(
             ctrl, "validate_config", lambda: (False, None, "bad config")
         )
         failures = []
         ctrl.register_callback("validation_failed", lambda m: failures.append(m))
-        result = ctrl.start_experiment()
-        assert result is False
+
+        assert ctrl.start_experiment() is True
+        ctrl._thread.join(timeout=5)
+
         assert "bad config" in failures
+        assert ctrl.state.is_running is False
+
+    def test_setup_does_not_block_the_caller(self, monkeypatch):
+        """Reported: the GUI froze while external detectors were retracted."""
+        import threading
+
+        ctrl = ExperimentController()
+        release = threading.Event()
+        seen = {}
+
+        def slow_setup():
+            seen["thread"] = threading.current_thread()
+            release.wait(timeout=5)
+            return False, None, "stopped"
+
+        monkeypatch.setattr(ctrl, "validate_config", slow_setup)
+
+        assert ctrl.start_experiment() is True  # returns while setup still runs
+        assert ctrl.state.is_running is True
+        # a second start is refused while the first is still setting up
+        assert ctrl.start_experiment() is False
+        release.set()
+        ctrl._thread.join(timeout=5)
+
+        assert seen["thread"] is not threading.main_thread()
+        assert ctrl.state.is_running is False
+
+    def test_valid_setup_runs_the_loop(self, monkeypatch):
+        ctrl = ExperimentController()
+        settings = MagicMock()
+        settings.general_settings.max_slice_number = 3
+        settings.general_settings.step_count = 2
+        settings.step_sequence = [MagicMock(), MagicMock()]
+        settings.step_sequence[0].name = "a"
+        settings.step_sequence[1].name = "b"
+        monkeypatch.setattr(ctrl, "validate_config", lambda: (True, settings, None))
+        monkeypatch.setattr(ctrl, "_check_detector_warning", lambda s: None)
+        ran = []
+        monkeypatch.setattr(
+            ctrl, "_run_experiment_loop", lambda *args: ran.append(args)
+        )
+        started = []
+        ctrl.register_callback("experiment_started", lambda *a: started.append(a))
+
+        assert ctrl.start_experiment(starting_slice=2, starting_step="b") is True
+        ctrl._thread.join(timeout=5)
+
+        assert started == [(settings, 2, 1)]
+        assert ran == [(settings, 2, 1, ["a", "b"])]
+        assert ctrl.state.total_slices == 3
+
+    def test_unknown_starting_step_fails_setup(self, monkeypatch):
+        ctrl = ExperimentController()
+        settings = MagicMock()
+        settings.step_sequence = []
+        monkeypatch.setattr(ctrl, "validate_config", lambda: (True, settings, None))
+        failures = []
+        ctrl.register_callback("validation_failed", failures.append)
+
+        ctrl.start_experiment(starting_step="nope")
+        ctrl._thread.join(timeout=5)
+
+        assert failures and "nope" in failures[0]
 
 
 # ----------------------------------------------------------------------

@@ -573,7 +573,9 @@ def _guarded_retract(microscope, general_settings, technique) -> bool:
     retract = (
         module.retract_ebsd_camera if technique == EBSD else module.retract_eds_detector
     )
-    with _devices().ccd_live_view(microscope=microscope):
+    # Retracting is the safe direction: if the CCD cannot be shown (say the
+    # microscope disconnected after an error), retract anyway, with a warning.
+    with _devices().ccd_live_view(microscope=microscope, required=False):
         return retract(microscope, general_settings)
 
 

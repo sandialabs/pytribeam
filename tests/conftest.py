@@ -74,17 +74,19 @@ def chamber(monkeypatch):
     ``chamber.events`` records "ccd_on" / "ccd_off" around every guarded move,
     so tests can check motion happened inside the CCD view. Set
     ``chamber.collide = True`` to make the collision check refuse an insert;
-    ``chamber.checked`` records each check as (detector, external_states).
+    ``chamber.checked`` records each check as (detector, external_states), and
+    ``chamber.ccd_required`` whether each CCD view was required.
     """
     from contextlib import contextmanager
     from types import SimpleNamespace
 
     from pytribeam import insertable_devices as devices
 
-    state = SimpleNamespace(events=[], collide=False, checked=[])
+    state = SimpleNamespace(events=[], collide=False, checked=[], ccd_required=[])
 
     @contextmanager
-    def ccd_live_view(microscope, **kwargs):
+    def ccd_live_view(microscope, required=True, **kwargs):
+        state.ccd_required.append(required)
         state.events.append("ccd_on")
         try:
             yield

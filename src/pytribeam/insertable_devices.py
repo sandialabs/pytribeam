@@ -334,8 +334,15 @@ def detectors_will_collide(
 
     - `bool`: True if a collision may occur, False otherwise. An external
       detector whose state no source can report is assumed to be in the way.
+      Microscope detectors are taken from the system's insertable detectors
+      (`image.get_available_insertable_detector_states`): one that is not
+      insertable on this system is not in the way.
     """
     device_retracted = tbt.RetractableDeviceState.RETRACTED
+    # The microscope's insertable detectors and their states, read once and
+    # only if needed. Probed on the electron beam (the only device with CBS/ABS
+    # access), with the active settings restored afterwards.
+    microscope_states = None
     for detector_combo in Constants.detector_collisions:
         if detector_to_insert in detector_combo:
             for detector in detector_combo:
@@ -353,8 +360,16 @@ def detectors_will_collide(
                     if state != device_retracted:
                         return True
                 else:
-                    state = detector_state(microscope=microscope, detector=detector)
-                    if state.value != device_retracted.value:
+                    if microscope_states is None:
+                        microscope_states = dict(
+                            img.get_available_insertable_detector_states(microscope)
+                        )
+                    state = microscope_states.get(detector)
+                    # Not an insertable detector on this system: nothing to
+                    # collide with.
+                    if state is None:
+                        continue
+                    if state != device_retracted:
                         return True
     return False
 
@@ -641,7 +656,9 @@ def retract_all_devices(
         Experiment settings. When given, the external EBSD/EDS detectors are
         retracted through the external OEM dispatcher, so whichever backend
         controls them (native vendor API or LaserControl) is used, and the
-        enable flags are ignored. Without them, LaserControl is used.
+        enable flags are ignored. They are retracted even if the microscope's
+        own detectors cannot be; any failures are raised together afterwards.
+        Without them, LaserControl is used.
 
     Returns
     -------
@@ -652,16 +669,36 @@ def retract_all_devices(
     ------
     None
     """
-    retract_all_microscope_insertable_detectors(microscope=microscope)
-
     if general_settings is not None:
         import pytribeam.external_oem.dispatch as external_devices
 
-        external_devices.retract_all_external_devices(
-            microscope=microscope, general_settings=general_settings
-        )
+        # The external detectors are retracted even if the microscope's own
+        # cannot be (for example, the client disconnected after an error).
+        failures = []
+        for name, retract in (
+            (
+                "microscope detectors",
+                lambda: retract_all_microscope_insertable_detectors(
+                    microscope=microscope
+                ),
+            ),
+            (
+                "external detectors",
+                lambda: external_devices.retract_all_external_devices(
+                    microscope=microscope, general_settings=general_settings
+                ),
+            ),
+        ):
+            try:
+                retract()
+            except Exception as error:
+                failures.append(f"{name}: {type(error).__name__}: {error}")
+        if failures:
+            raise SystemError("Could not retract all devices: " + "; ".join(failures))
         print("\t\tAll available and enabled devices retracted.")
         return True
+
+    retract_all_microscope_insertable_detectors(microscope=microscope)
 
     # EBSD/EDS detectors through LaserControl:
     if external is None:
@@ -948,6 +985,7 @@ def CCD_view(
 def ccd_live_view(
     microscope: tbt.Microscope,
     quad: tbt.ViewQuad = tbt.ViewQuad.LOWER_RIGHT,
+    required: bool = True,
 ):
     """
     Show the live chamber CCD for the duration of detector motion.
@@ -966,17 +1004,39 @@ def ccd_live_view(
         The microscope whose CCD to show.
     quad : tbt.ViewQuad, optional
         The quadrant to show it in (default is tbt.ViewQuad.LOWER_RIGHT).
+    required : bool, optional
+        If True (the default), a failure to show the CCD stops the motion. Use
+        False only for retraction, the safe direction: if the CCD cannot be
+        shown, for example because the microscope client has already
+        disconnected after an error, the detector is retracted anyway, with a
+        warning.
 
     Yields
     ------
     None
-        Control returns to the caller with the CCD live.
+        Control returns to the caller with the CCD live (or, when not
+        required, possibly without it).
     """
-    CCD_view(microscope=microscope, quad=quad)
+    try:
+        CCD_view(microscope=microscope, quad=quad)
+    except Exception as error:
+        if required:
+            raise
+        warnings.warn(
+            f"Could not show the chamber CCD ({type(error).__name__}: {error}); "
+            "retracting without it."
+        )
+        yield
+        return
     try:
         yield
     finally:
-        CCD_pause(microscope=microscope, quad=quad)
+        try:
+            CCD_pause(microscope=microscope, quad=quad)
+        except Exception as error:
+            if required:
+                raise
+            warnings.warn(f"Could not pause the chamber CCD: {error}")
 
 
 def specimen_current(

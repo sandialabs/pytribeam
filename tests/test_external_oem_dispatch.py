@@ -578,6 +578,15 @@ class TestMotionSafety:
         assert adapters.chamber.events == ["ccd_on", "ccd_off"] * 2
         assert adapters.chamber.checked == []  # retracting is the safe direction
 
+    def test_inserts_require_the_ccd_but_retracts_do_not(self, adapters):
+        """A retraction after an error must not be blocked by a missing CCD."""
+        settings = EVERY_BACKEND[BACKEND.OXFORD_AZTEC]()
+
+        external_devices.insert_eds_detector(MICROSCOPE, settings)
+        external_devices.retract_eds_detector(MICROSCOPE, settings)
+
+        assert adapters.chamber.ccd_required == [True, False]
+
     def test_the_ccd_closes_when_a_move_fails(self, adapters):
         settings = EVERY_BACKEND[BACKEND.EDAX_IPAPI]()
         adapters.fakes[BACKEND.EDAX_IPAPI].raises["retract_eds_detector"] = (

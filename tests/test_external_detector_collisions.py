@@ -45,6 +45,23 @@ def register(states):
     devices.set_external_detector_states(lambda: dict(states))
 
 
+def system_detectors(monkeypatch, states):
+    """Stand in for the microscope's insertable detectors and their states.
+
+    Returns the list of microscopes it was asked about.
+    """
+    reads = []
+
+    def available(microscope):
+        reads.append(microscope)
+        return list(states.items())
+
+    monkeypatch.setattr(
+        devices.img, "get_available_insertable_detector_states", available
+    )
+    return reads
+
+
 class TestInsertingTheCbs:
     """The CBS collides with both external detectors."""
 
@@ -111,9 +128,7 @@ class TestInsertingAnExternalDetector:
         "cbs_state, expected", [(STATE.RETRACTED, False), (STATE.INSERTED, True)]
     )
     def test_checks_the_cbs(self, sources, monkeypatch, cbs_state, expected):
-        monkeypatch.setattr(
-            devices, "detector_state", lambda microscope, detector: cbs_state
-        )
+        system_detectors(monkeypatch, {CBS: cbs_state})
 
         assert devices.detectors_will_collide(MICROSCOPE, EBSD) is expected
         assert devices.detectors_will_collide(MICROSCOPE, EDS) is expected
@@ -312,3 +327,116 @@ class TestStageGuard:
             general_settings=settings,
         )
         assert len(moves) == 1
+
+
+class TestAbsentMicroscopeDetectors:
+    """Microscope detectors come from the system's insertable detectors.
+
+    Reported from a simulator with no CBS: EDS insertion was refused.
+    """
+
+    @pytest.mark.parametrize("insert", [EDS, EBSD])
+    def test_no_insertable_detectors_means_nothing_to_check(
+        self, sources, monkeypatch, insert
+    ):
+        system_detectors(monkeypatch, {})
+
+        assert devices.detectors_will_collide(MICROSCOPE, insert) is False
+
+    def test_other_insertable_detectors_do_not_matter(self, sources, monkeypatch):
+        """Only the collision partners of the detector being inserted count."""
+        system_detectors(monkeypatch, {tbt.DetectorType.ABS: STATE.INSERTED})
+
+        assert devices.detectors_will_collide(MICROSCOPE, EDS) is False
+
+    @pytest.mark.parametrize("state", [STATE.INSERTED, STATE.BUSY, STATE.ERROR])
+    def test_a_present_cbs_must_be_retracted(self, sources, monkeypatch, state):
+        system_detectors(monkeypatch, {CBS: state})
+
+        assert devices.detectors_will_collide(MICROSCOPE, EDS) is True
+
+    def test_the_system_is_read_once_and_only_when_needed(self, sources, monkeypatch):
+        reads = system_detectors(monkeypatch, {CBS: STATE.RETRACTED})
+
+        devices.detectors_will_collide(MICROSCOPE, EDS)
+        assert reads == [MICROSCOPE]
+
+        reads.clear()
+        register({EBSD: STATE.RETRACTED, EDS: STATE.RETRACTED})
+        devices.detectors_will_collide(MICROSCOPE, CBS)  # partners are external
+        assert reads == []
+
+
+class TestRetractionWithoutTheMicroscope:
+    """After a step error the GUI stops the stage, which disconnects the
+    microscope; the external detectors must still be retracted."""
+
+    def test_external_detectors_are_retracted_when_the_microscope_part_fails(
+        self, monkeypatch
+    ):
+        import pytribeam.external_oem.dispatch as external_devices
+
+        retracted = []
+
+        def broken(microscope):
+            raise RuntimeError(
+                "Cannot perform a call because the client is not running."
+            )
+
+        monkeypatch.setattr(
+            devices, "retract_all_microscope_insertable_detectors", broken
+        )
+        monkeypatch.setattr(
+            external_devices,
+            "retract_all_external_devices",
+            lambda microscope, general_settings: retracted.append(True) or True,
+        )
+
+        with pytest.raises(
+            SystemError, match="microscope detectors.*client is not running"
+        ):
+            devices.retract_all_devices(
+                MICROSCOPE, enable_EBSD=True, enable_EDS=True, general_settings=object()
+            )
+        assert retracted == [True]
+
+    @pytest.fixture
+    def broken_ccd(self, monkeypatch):
+        def fail(microscope, quad=None):
+            raise RuntimeError("client is not running")
+
+        monkeypatch.setattr(devices, "CCD_view", fail)
+        monkeypatch.setattr(devices, "CCD_pause", fail)
+
+    def test_retraction_proceeds_without_the_ccd(self, broken_ccd):
+        moved = []
+
+        with pytest.warns(UserWarning, match="retracting without it"):
+            with devices.ccd_live_view(MICROSCOPE, required=False):
+                moved.append("retract")
+
+        assert moved == ["retract"]
+
+    def test_insertion_still_requires_the_ccd(self, broken_ccd):
+        moved = []
+
+        with pytest.raises(RuntimeError, match="client is not running"):
+            with devices.ccd_live_view(MICROSCOPE):
+                moved.append("insert")
+
+        assert moved == []
+
+    def test_the_ccd_is_paused_after_a_failed_move(self, monkeypatch):
+        events = []
+        monkeypatch.setattr(
+            devices, "CCD_view", lambda microscope, quad=None: events.append("on")
+        )
+        monkeypatch.setattr(
+            devices, "CCD_pause", lambda microscope, quad=None: events.append("off")
+        )
+
+        with pytest.raises(ValueError):
+            with devices.ccd_live_view(MICROSCOPE, required=False):
+                raise ValueError("slide stuck")
+
+        assert events == ["on", "off"]
