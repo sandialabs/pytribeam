@@ -106,6 +106,8 @@ class Constants(NamedTuple):
     - `laser_beam_shift_tolerance_um` (`float`): Tolerance for laser beam shift in micrometers.
     - `laser_energy_tol_uj` (`float`): Tolerance for laser energy in microjoules.
     - `oxford_aztec_default_port` (`int`): Default TCP port of the Oxford AZtec plugin service.
+    - `bruker_ebsd_position_tolerance_mm` (`float`): Bruker EBSD camera position tolerance.
+    - `bruker_max_eds_detectors` (`int`): Most EDS detectors a Bruker spectrometer reports.
     - `laser_delay_s` (`float`): Delay for measuring power and setting pulse divider/energy in seconds.
     - `default_fib_rectangle_pattern` (`tbt.FIBRectanglePattern`): Default FIB rectangle pattern.
     - `stream_pattern_scale` (`int`): Scale for stream pattern.
@@ -216,6 +218,9 @@ class Constants(NamedTuple):
 
     # External OEM constants
     oxford_aztec_default_port = 22201  # AZtec plugin service TCP port
+    # Bruker EBSD camera: positions within this of a configured one count as there
+    bruker_ebsd_position_tolerance_mm = 0.10
+    bruker_max_eds_detectors = 4  # the ESPRIT spectrometer reports up to four
 
     # Laser constants
     image_scan_rotation_for_laser_deg = 180.0  # requirement by TFS for laser milling
