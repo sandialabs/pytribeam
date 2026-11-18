@@ -262,11 +262,21 @@ def laser_connected() -> bool:
 
 def _device_connections(
     microscope: Optional[tbt.Microscope] = None,
+    general_settings: Optional[tbt.GeneralSettings] = None,
 ) -> tbt.DeviceStatus:
     """
     Check the connection status of the laser and associated external devices.
 
     This function checks the connection status of the laser, EBSD, and EDS devices. It is meant to be a quick tool for the GUI and does not provide additional information for troubleshooting.
+
+    ## Parameters
+
+    - `microscope` (`tbt.Microscope`, optional): Also report the microscope's
+      insertable detectors.
+    - `general_settings` (`tbt.GeneralSettings`, optional): Experiment
+      settings. When given, the EBSD/EDS states of configured detectors come
+      from the external OEM dispatcher, so native EDAX/Oxford/Bruker control is
+      reported; detectors without an OEM fall back to LaserControl.
 
     ## Returns
 
@@ -274,15 +284,31 @@ def _device_connections(
         The connection status of the laser, EBSD, and EDS devices.
 
     """
-    # laser must be connected to connect with other devices:
-    if not laser_connected():
-        laser = tbt.RetractableDeviceState.ERROR
-        ebsd = tbt.RetractableDeviceState.ERROR
-        eds = tbt.RetractableDeviceState.ERROR
-    else:
-        laser = tbt.RetractableDeviceState.CONNECTED
-        ebsd = devices.connect_EBSD()  # retractable device state
-        eds = devices.connect_EDS()  # retractable device state
+    laser_ok = laser_connected()
+    laser = (
+        tbt.RetractableDeviceState.CONNECTED
+        if laser_ok
+        else tbt.RetractableDeviceState.ERROR
+    )
+
+    def laser_control_state(connect) -> tbt.RetractableDeviceState:
+        # LaserControl must be connected to reach the detectors through it.
+        if not laser_ok:
+            return tbt.RetractableDeviceState.ERROR
+        try:
+            return connect()
+        except ConnectionError:
+            return tbt.RetractableDeviceState.ERROR
+
+    external = {}
+    if general_settings is not None:
+        import pytribeam.external_oem.dispatch as external_devices
+
+        external = external_devices.external_detector_states(general_settings)
+    ebsd = external.get(tbt.DetectorType.EBSD) or laser_control_state(
+        devices.connect_EBSD
+    )
+    eds = external.get(tbt.DetectorType.EDS) or laser_control_state(devices.connect_EDS)
 
     if microscope is not None:
         states = img.get_available_insertable_detector_states(microscope)
