@@ -27,8 +27,8 @@ Current structure:
 - `tests/bruker/hardware/`
 
 Markers:
-- `@pytest.mark.esprit`
-- `@pytest.mark.hardware`
+- `@pytest.mark.bruker_hardware` (needs ESPRIT; formerly `esprit`, `bruker_simulator`)
+- add `@pytest.mark.hardware` only when the TriBeam is also needed
 
 `pytest.ini` should live at repo root.
 
@@ -136,9 +136,9 @@ They run without Esprit/hardware and cover:
 - detector motion polling logic
 - EDS wrapper logic
 
-Unit tests should **not** carry `esprit` or `hardware` markers.
+Unit tests should **not** carry `bruker_hardware` or `hardware` markers.
 
-### Integration tests (`@pytest.mark.esprit`)
+### Integration tests (`@pytest.mark.bruker_hardware`, simulator)
 Assume real Esprit available, but no guaranteed hardware.
 
 Current good coverage areas:
@@ -148,7 +148,7 @@ Current good coverage areas:
 - light `.bcf` validation (`exists`, nontrivial size)
 - EBSD export/probe behavior with graceful skips when runtime unavailable
 
-### Hardware tests (`@pytest.mark.esprit @pytest.mark.hardware`)
+### Hardware tests (`@pytest.mark.bruker_hardware`, true hardware)
 Use only when real detector system is attached.
 Current intended scope:
 - EDS detector insertion / retraction

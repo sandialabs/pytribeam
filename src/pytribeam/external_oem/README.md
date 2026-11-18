@@ -269,26 +269,49 @@ None of them uses LaserControl.
     read-only hardware checks (`laser_hardware` + `edax_hardware` /
     `oxford_hardware`).
 - `tests/edax/hardware/test_edax_adapter_hardware.py`: read-only EDAX adapter
-  checks against a live IPAPI (`edax_ipapi` tier).
+  checks against a live IPAPI (`edax_hardware`).
 - `tests/bruker/unit/test_bruker_settings.py` and `test_dispatcher_support.py`:
   the `Bruker_settings` parser, map timing fields, the image-config setter and
   the HDF5 writer.
-- Oxford and Bruker adapter hardware tests wait for the marker work in
-  phase 5. The existing `tests/edax` and `tests/bruker` suites are otherwise
-  unchanged.
+- `tests/external_oem/test_adapter_oxford_hardware.py` and
+  `tests/bruker/hardware/test_bruker_adapter_hardware.py`: read-only adapter
+  checks under the vendor marker, plus an insert/retract round trip that also
+  needs `hardware` and a motion opt-in. Bruker EBSD is not covered yet (the
+  camera positions must be measured first).
+- `tests/test_marker_gating.py`: the gating rules themselves.
 
 ### Markers
-Each vendor follows the same three tiers. The gating in `conftest.py` becomes
-table-driven instead of a hand-written function per vendor:
 
-| Tier | EDAX | Oxford | Bruker | Enabled when |
-|---|---|---|---|---|
-| offline fake / simulator | `detached` | `detached` | `bruker_simulator` | always (Bruker: `PYTRIBEAM_BRUKER_TEST_ENV=simulator`) |
-| live vendor service, no stage motion | `edax_ipapi` | **`oxford_aztec` (new)** | `esprit` | `PYTRIBEAM_<VENDOR>_HOST` + run flag |
-| physical detectors on the tool | `edax_hardware` | `oxford_hardware` | `bruker_hardware` | `PYTRIBEAM_RUN_HARDWARE=1` + `PYTRIBEAM_TEST_OEM=<vendor>` or a known host |
+Implemented in `tests/conftest.py` as one table (`marker_gates()`). A test
+carries every marker for what it needs and is skipped unless all are available:
 
-LaserControl fallback tests also carry `laser_hardware`. A machine with one
-vendor therefore never collects another vendor's live or hardware tests.
+| Marker | Needs | Enabled when |
+|---|---|---|
+| `detached` | nothing | always |
+| `simulated` | an offline/simulated microscope | hostname in `Constants.offline_machines` |
+| `hardware` | a physical TriBeam | hostname in `Constants.microscope_machines` |
+| `laser_hardware` | TriBeam + TFS laser / LaserControl | `hardware`, and the Laser API imports |
+| `edax_hardware` | live EDAX IPAPI | `PYTRIBEAM_TEST_OEM` names `edax`, or `PYTRIBEAM_RUN_HARDWARE=1` on a listed EDAX host |
+| `oxford_hardware` | live Oxford AZtec | same, for `oxford` |
+| `bruker_hardware` | live Bruker ESPRIT (hardware or simulator) | same, for `bruker` |
+
+- `PYTRIBEAM_TEST_OEM` takes a comma-separated list (`edax,bruker`).
+- The older declarations still count: `PYTRIBEAM_RUN_EDAX_IPAPI=1` declares
+  EDAX, and `PYTRIBEAM_BRUKER_TEST_ENV=simulator|hardware` declares Bruker. The
+  `edax_ipapi`, `esprit` and `bruker_simulator` markers are gone, folded into
+  the vendor markers.
+- A vendor marker alone means the test talks to the vendor's software but not
+  the TriBeam (for example the IPAPI sweep, or ESPRIT runs). Tests that also
+  move detectors under the chamber CCD add `hardware`. LaserControl fallback
+  tests add `laser_hardware`.
+- Tests that move detectors or collect maps also need their own opt-in
+  (`PYTRIBEAM_EDAX_ALLOW_MAPPING`, `PYTRIBEAM_ALLOW_DETECTOR_MOTION`, or Bruker's
+  `PYTRIBEAM_BRUKER_TEST_ENV=hardware` + `PYTRIBEAM_RUN_BRUKER_HARDWARE=1`).
+- Skips are decided from a test's real markers, not its keywords, so a test
+  name or parametrize id can no longer trigger a skip by coinciding with a
+  marker name. The gate's reason is reported ahead of a test's own `skipif`.
+- A declared vendor that isn't actually reachable fails its tests rather than
+  skipping them, except the Bruker suites, which skip when ESPRIT can't load.
 
 ## 7. Phases
 
@@ -302,7 +325,8 @@ vendor therefore never collects another vendor's live or hardware tests.
    its tests.
 4. **Callers.** Switch `workflow.py` and `factory.py` to the new names.
    `workflow.py` passes the experiment's steps to preflight.
-5. **Markers.** Table-driven `conftest.py` gating; register `oxford_aztec`.
+5. **Markers.** Table-driven `conftest.py` gating with three vendor markers
+   (`edax_hardware`, `oxford_hardware`, `bruker_hardware`).
 6. **Integration (after the submodule is done):** use dispatcher state in
    `insertable_devices.py` collision and insertion safety checks, and in stage
    movement guards; GUI LUT entries for the new blocks; user-guide docs.

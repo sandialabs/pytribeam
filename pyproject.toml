@@ -114,14 +114,11 @@ addopts = "--cov=src/pytribeam --cov-report=term-missing -rs"
 markers = [
     "detached: test is always runnable and does not require AutoScript or hardware",
     "simulated: test requires a simulated/offline microscope system",
-    "hardware: test requires a physical hardware system",
-    "laser_hardware: test requires a physical hardware system with laser support",
-    "oxford_hardware: test requires Oxford EBSD/EDS hardware and software",
-    "edax_hardware: test requires EDAX EBSD/EDS hardware and software",
-    "edax_ipapi: test requires a reachable EDAX IPAPI service (PYTRIBEAM_EDAX_HOST)",
-    "bruker_simulator: test requires a Bruker/ESPRIT simulator environment",
-    "bruker_hardware: test requires Bruker/ESPRIT hardware",
-    "esprit: requires a running ESPRIT installation/API",
+    "hardware: test requires a physical TriBeam (the microscope PC)",
+    "laser_hardware: test requires a physical TriBeam with the TFS laser / LaserControl API",
+    "edax_hardware: test requires live EDAX detector software or hardware (IPAPI); see tests/conftest.py",
+    "oxford_hardware: test requires live Oxford detector software or hardware (AZtec); see tests/conftest.py",
+    "bruker_hardware: test requires live Bruker ESPRIT (hardware or simulator); see tests/conftest.py",
 ]
 
 # ----------------------

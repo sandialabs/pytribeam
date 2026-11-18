@@ -19,7 +19,7 @@ microscope PC: AutoScript for the camera-saturation measurement, the collision
 check and the chamber CCD, and the IPAPI for everything else. They insert detectors,
 scan the beam, and write maps, so they have their own opt-in::
 
-    $env:PYTRIBEAM_RUN_HARDWARE = "1"
+    $env:PYTRIBEAM_TEST_OEM = "edax"   # or PYTRIBEAM_RUN_HARDWARE=1 on a listed EDAX host
     $env:PYTRIBEAM_EDAX_HOST = "localhost"
     $env:PYTRIBEAM_EDAX_ALLOW_MAPPING = "1"
     $env:PYTRIBEAM_EDAX_MAP_FOLDER = "D:\\EDAX Data\\pytribeam_hardware_test"
@@ -130,7 +130,6 @@ def _flag(name: str) -> bool:
 
 pytestmark = [
     pytest.mark.hardware,
-    pytest.mark.laser_hardware,
     pytest.mark.edax_hardware,
     pytest.mark.skipif(
         not _flag(ALLOW_MAPPING_ENV_VAR),

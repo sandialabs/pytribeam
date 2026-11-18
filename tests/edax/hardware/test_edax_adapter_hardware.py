@@ -7,7 +7,7 @@ camera and EDS detector states, translated to pyTriBeam's device states.
 Nothing moves and no map starts. Opt in as for the IPAPI tier::
 
     set PYTRIBEAM_EDAX_HOST=<ipapi host>
-    set PYTRIBEAM_RUN_EDAX_IPAPI=1
+    set PYTRIBEAM_TEST_OEM=edax
     pytest tests/edax/hardware/test_edax_adapter_hardware.py -v
 
 The adapter is built on ``pytribeam.types``, so this also needs AutoScript.
@@ -22,7 +22,8 @@ pytest.importorskip("autoscript_sdb_microscope_client")
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import edax as edax_adapter  # noqa: E402
 
-pytestmark = [pytest.mark.hardware, pytest.mark.edax_ipapi]
+# Needs only the IPAPI service, not the TriBeam.
+pytestmark = pytest.mark.edax_hardware
 
 
 @pytest.fixture(scope="module")

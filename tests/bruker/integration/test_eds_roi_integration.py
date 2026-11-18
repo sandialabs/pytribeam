@@ -37,8 +37,7 @@ def _make_roi_profile_settings(tmp_path, roi, *, name):
     )
 
 
-@pytest.mark.esprit
-@pytest.mark.bruker_simulator
+@pytest.mark.bruker_hardware
 @pytest.mark.parametrize(
     "name,roi",
     [
@@ -105,8 +104,7 @@ def test_profile_roi_acquisition_outputs_and_readback_shape_if_supported(
         assert arr.dtype == np.uint16
 
 
-@pytest.mark.esprit
-@pytest.mark.bruker_simulator
+@pytest.mark.bruker_hardware
 def test_invalid_roi_rejected_locally_before_esprit_acquisition(
     connected_bruker_session,
     tmp_path,

@@ -13,7 +13,7 @@ Simulator / ESPRIT-only smoke tests:
 ```powershell
 $env:PYTRIBEAM_BRUKER_TEST_ENV = "simulator"
 Remove-Item Env:\PYTRIBEAM_RUN_BRUKER_HARDWARE -ErrorAction SilentlyContinue
-pytest -m "esprit and not hardware" tests/bruker/integration -rs
+pytest -m bruker_hardware tests/bruker/integration -rs
 ```
 
 True hardware smoke tests:
@@ -21,7 +21,7 @@ True hardware smoke tests:
 ```powershell
 $env:PYTRIBEAM_BRUKER_TEST_ENV = "hardware"
 $env:PYTRIBEAM_RUN_BRUKER_HARDWARE = "1"
-pytest -m "esprit and hardware" tests/bruker/hardware -rs
+pytest -m bruker_hardware tests/bruker/hardware -rs
 ```
 
 If in doubt, run the simulator command first. Hardware tests may move the EDS detector.
@@ -53,17 +53,21 @@ python src/pytribeam/external_oem/bruker/tools/prepare_bruker_eds_custom_step.py
 ### Test categories
 
 
-Bruker tests use two normal pytest markers:
+Bruker tests that need ESPRIT carry one marker, `bruker_hardware`; unit tests
+carry none. The folder says which kind a test is:
 
-| Marker | Meaning |
-| --- | --- |
-| `esprit` | Requires a running ESPRIT/API connection. Intended for simulator-safe or ESPRIT-only tests. |
-| `hardware` | Requires true hardware and may move the EDS detector. |
+| Folder | Needs | Notes |
+| --- | --- | --- |
+| `tests/bruker/unit` | nothing | Fake DLLs; always runnable. |
+| `tests/bruker/integration` | ESPRIT (normally the simulator) | Skipped when `PYTRIBEAM_BRUKER_TEST_ENV=hardware`. |
+| `tests/bruker/hardware` | true hardware | May move the EDS detector; also needs `PYTRIBEAM_BRUKER_TEST_ENV=hardware` and `PYTRIBEAM_RUN_BRUKER_HARDWARE=1`. |
 
-Practical rule:
-
-- Simulator / ESPRIT-only tests: `esprit` and **not** `hardware`.
-- True hardware tests: both `esprit` and `hardware`.
+`bruker_hardware` is enabled by `PYTRIBEAM_BRUKER_TEST_ENV=simulator|hardware`,
+by `PYTRIBEAM_TEST_OEM=bruker`, or by `PYTRIBEAM_RUN_HARDWARE=1` on a host
+listed in `Constants`. A test that also needs the TriBeam (for example the
+adapter's detector motion under the chamber CCD) adds the `hardware` marker.
+The former `esprit` and `bruker_simulator` markers were folded into
+`bruker_hardware`.
 
 ### Environment declaration
 
@@ -98,7 +102,7 @@ PowerShell:
 ```powershell
 $env:PYTRIBEAM_BRUKER_TEST_ENV = "simulator"
 Remove-Item Env:\PYTRIBEAM_RUN_BRUKER_HARDWARE -ErrorAction SilentlyContinue
-pytest -m "esprit and not hardware" tests/bruker/integration -rs
+pytest -m bruker_hardware tests/bruker/integration -rs
 ```
 
 cmd.exe:
@@ -106,7 +110,7 @@ cmd.exe:
 ```bat
 set PYTRIBEAM_BRUKER_TEST_ENV=simulator
 set PYTRIBEAM_RUN_BRUKER_HARDWARE=
-pytest -m "esprit and not hardware" tests/bruker/integration -rs
+pytest -m bruker_hardware tests/bruker/integration -rs
 ```
 
 These tests cover, where supported by the current ESPRIT setup:
@@ -174,7 +178,7 @@ PowerShell:
 ```powershell
 $env:PYTRIBEAM_BRUKER_TEST_ENV = "hardware"
 $env:PYTRIBEAM_RUN_BRUKER_HARDWARE = "1"
-pytest -m "esprit and hardware" tests/bruker/hardware -rs
+pytest -m bruker_hardware tests/bruker/hardware -rs
 ```
 
 cmd.exe:
@@ -182,14 +186,14 @@ cmd.exe:
 ```bat
 set PYTRIBEAM_BRUKER_TEST_ENV=hardware
 set PYTRIBEAM_RUN_BRUKER_HARDWARE=1
-pytest -m "esprit and hardware" tests/bruker/hardware -rs
+pytest -m bruker_hardware tests/bruker/hardware -rs
 ```
 
 Recommended order:
 
 ```powershell
-pytest -m "esprit and hardware" tests/bruker/hardware/test_detector_motion_hardware.py -rs
-pytest -m "esprit and hardware" tests/bruker/hardware/test_eds_workflow_hardware.py -rs
+pytest -m bruker_hardware tests/bruker/hardware/test_detector_motion_hardware.py -rs
+pytest -m bruker_hardware tests/bruker/hardware/test_eds_workflow_hardware.py -rs
 ```
 
 The current hardware smoke tests perform:
@@ -208,7 +212,7 @@ Optional known-sample nonzero check:
 
 ```powershell
 $env:PYTRIBEAM_BRUKER_HARDWARE_EXPECT_NONZERO = "1"
-pytest -m "esprit and hardware" tests/bruker/hardware/test_eds_workflow_hardware.py -rs
+pytest -m bruker_hardware tests/bruker/hardware/test_eds_workflow_hardware.py -rs
 ```
 
 Use this only when the sample should contain the requested smoke-test elements.

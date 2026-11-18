@@ -4,12 +4,13 @@ Explain why the EDAX hardware tests are running or skipping.
 
 The EDAX hardware tests come in two tiers with different gates:
 
-- **IPAPI sweep** (``test_edax_ipapi_hardware.py``): read-only, runs from any
-  machine that can reach the IPAPI. Needs ``PYTRIBEAM_EDAX_HOST`` and
-  ``PYTRIBEAM_RUN_EDAX_IPAPI``.
-- **Collection** (``test_edax_collection_hardware.py``): inserts detectors and
-  writes maps, so it runs only on the microscope PC. Needs AutoScript, the laser
-  API, ``PYTRIBEAM_RUN_HARDWARE``, and an EDAX-declared system.
+- **IPAPI sweep** (``test_edax_ipapi_hardware.py``, marker ``edax_hardware``):
+  read-only, runs from any machine that can reach the IPAPI. Needs EDAX
+  declared (``PYTRIBEAM_TEST_OEM=edax``) and ``PYTRIBEAM_EDAX_HOST``.
+- **Collection** (``test_edax_collection_hardware.py``, markers ``hardware`` +
+  ``edax_hardware``): inserts detectors and writes maps, so it runs only on the
+  microscope PC. Needs AutoScript, a listed microscope hostname, EDAX declared,
+  and its own mapping opt-in.
 
 The gating lives in ``tests/conftest.py``; this reuses those same functions and
 reports each condition, in the order pytest applies them, so the first failure
@@ -94,26 +95,32 @@ def _environment() -> None:
         print(f"  {key:<30} {related[key]!r}" if key in related else f"  {key}")
 
 
+def _edax_gate_check():
+    """The edax_hardware marker gate, exactly as conftest applies it."""
+    gate = next(g for g in conftest.VENDOR_GATES if g.marker == "edax_hardware")
+    allowed, why = conftest.vendor_gate(gate)
+    return (
+        "'edax_hardware': EDAX declared",
+        allowed,
+        why
+        if allowed
+        else f"{conftest.TEST_OEM_ENV_VAR}={_value(conftest.TEST_OEM_ENV_VAR)}",
+        f"{conftest.TEST_OEM_ENV_VAR}=edax",
+    )
+
+
+def _host_check():
+    return (
+        conftest.EDAX_HOST_ENV_VAR,
+        bool(os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip()),
+        _value(conftest.EDAX_HOST_ENV_VAR),
+        f"{conftest.EDAX_HOST_ENV_VAR}=<ipapi host>   (check the PYTRIBEAM_ prefix)",
+    )
+
+
 def _ipapi_checks():
     """Gates for the read-only IPAPI sweep."""
-    host = os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip()
-    run_flag = _flag(conftest.RUN_EDAX_IPAPI_ENV_VAR) or _flag(
-        conftest.RUN_HARDWARE_ENV_VAR
-    )
-    return [
-        (
-            conftest.EDAX_HOST_ENV_VAR,
-            bool(host),
-            _value(conftest.EDAX_HOST_ENV_VAR),
-            f"{conftest.EDAX_HOST_ENV_VAR}=<ipapi host>   (check the PYTRIBEAM_ prefix)",
-        ),
-        (
-            f"{conftest.RUN_EDAX_IPAPI_ENV_VAR} (or RUN_HARDWARE)",
-            run_flag,
-            _value(conftest.RUN_EDAX_IPAPI_ENV_VAR),
-            f"{conftest.RUN_EDAX_IPAPI_ENV_VAR}=1",
-        ),
-    ]
+    return [_edax_gate_check(), _host_check()]
 
 
 def _collection_checks():
@@ -149,7 +156,7 @@ def _collection_checks():
         )
     )
 
-    # 3-5. The marker gates, in the order conftest adds their skip markers.
+    # 3-4. The marker gates.
     from pytribeam.constants import Constants
 
     hardware = conftest.is_hardware_system()
@@ -161,47 +168,10 @@ def _collection_checks():
             "run on a listed PC, or add this hostname to Constants.microscope_machines",
         )
     )
-    laser = hardware and conftest.has_laser_hardware()
-    checks.append(
-        (
-            "'laser_hardware': laser API importable",
-            laser,
-            "yes" if laser else "no",
-            "run in the environment where Laser.PythonControl imports",
-        )
-    )
+    checks.append(_edax_gate_check())
 
-    run_hardware = _flag(conftest.RUN_HARDWARE_ENV_VAR)
-    checks.append(
-        (
-            f"'edax_hardware': {conftest.RUN_HARDWARE_ENV_VAR}",
-            run_hardware,
-            _value(conftest.RUN_HARDWARE_ENV_VAR),
-            f"{conftest.RUN_HARDWARE_ENV_VAR}=1   "
-            f"({conftest.RUN_EDAX_IPAPI_ENV_VAR} does not count here)",
-        )
-    )
-    declared = conftest._declared_test_oem() == "edax"
-    edax_host = conftest.is_edax_hardware_system()
-    checks.append(
-        (
-            "'edax_hardware': system declared EDAX",
-            declared or edax_host,
-            f"{conftest.TEST_OEM_ENV_VAR}={_value(conftest.TEST_OEM_ENV_VAR)}, "
-            f"EDAX hosts: {Constants.microscope_with_edax_machines}",
-            f"{conftest.TEST_OEM_ENV_VAR}=edax",
-        )
-    )
-
-    # 6. Checked by the module's fixture once the markers allow it to run.
-    checks.append(
-        (
-            conftest.EDAX_HOST_ENV_VAR,
-            bool(os.environ.get(conftest.EDAX_HOST_ENV_VAR, "").strip()),
-            _value(conftest.EDAX_HOST_ENV_VAR),
-            f"{conftest.EDAX_HOST_ENV_VAR}=localhost",
-        )
-    )
+    # 5. Checked by the module's fixture once the markers allow it to run.
+    checks.append(_host_check())
     checks.append(
         (
             MAP_FOLDER_ENV_VAR,
@@ -273,9 +243,9 @@ def main() -> int:
     print("\nIPAPI sweep  (test_edax_ipapi_hardware.py)")
     sweep = _ipapi_checks()
     sweep_ok = _report(sweep)
-    # Cross-check against the function pytest actually calls.
-    if sweep_ok != conftest.can_run_edax_ipapi():
-        print("  !! disagrees with conftest.can_run_edax_ipapi(); please report")
+    # Cross-check against the gates pytest actually applies.
+    if _edax_gate_check()[1] != conftest.marker_gates()["edax_hardware"][0]:
+        print("  !! disagrees with conftest.marker_gates(); please report")
 
     print("\nCollection  (test_edax_collection_hardware.py)")
     collection = _collection_checks()

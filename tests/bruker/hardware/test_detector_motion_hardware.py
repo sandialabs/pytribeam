@@ -4,8 +4,6 @@ from pytribeam.external_oem.bruker.detector_motion import BrukerDetectorMotionCo
 from pytribeam.external_oem.bruker.types import BrukerDetectorMotionSettings
 
 
-@pytest.mark.esprit
-@pytest.mark.hardware
 @pytest.mark.bruker_hardware
 def test_eds_detector_move_acquire_and_park(connected_bruker_hardware_session):
     controller = BrukerDetectorMotionController(connected_bruker_hardware_session)

@@ -65,8 +65,7 @@ def test_packaged_workflow_yaml_loads_and_roi_is_valid():
     assert len(settings.map.elements) >= 1
 
 
-@pytest.mark.esprit
-@pytest.mark.bruker_simulator
+@pytest.mark.bruker_hardware
 def test_small_profile_map_saves_bcf_and_bmp(connected_bruker_session, tmp_path):
     controller = BrukerEDSController(connected_bruker_session)
     settings = _make_profile_settings(tmp_path)
@@ -89,8 +88,7 @@ def test_small_profile_map_saves_bcf_and_bmp(connected_bruker_session, tmp_path)
         assert f.read(2) == b"BM"
 
 
-@pytest.mark.esprit
-@pytest.mark.bruker_simulator
+@pytest.mark.bruker_hardware
 def test_small_profile_numeric_readback_npy_if_supported(
     connected_bruker_session,
     tmp_path,

@@ -8,7 +8,7 @@ itself or from an engineering laptop on the same network, not only from the
 microscope PC. The operator opts in by naming the host::
 
     set PYTRIBEAM_EDAX_HOST=<ipapi host>
-    set PYTRIBEAM_RUN_EDAX_IPAPI=1
+    set PYTRIBEAM_TEST_OEM=edax
     pytest tests/edax/hardware -v
 
 ``PYTRIBEAM_EDAX_PORT`` overrides the default service port of 8301, and
@@ -46,7 +46,8 @@ from pytribeam.external_oem.edax.types import (
     EdaxMappingStatus,
 )
 
-pytestmark = [pytest.mark.hardware, pytest.mark.edax_ipapi]
+# Needs only the IPAPI service, not the TriBeam.
+pytestmark = pytest.mark.edax_hardware
 
 EDAX_HOST_ENV_VAR = "PYTRIBEAM_EDAX_HOST"
 EDAX_PORT_ENV_VAR = "PYTRIBEAM_EDAX_PORT"

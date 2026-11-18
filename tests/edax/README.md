@@ -27,7 +27,7 @@ cd C:\path\to\pytribeam
 # conda activate pytribeam      or      .\.venv\Scripts\Activate.ps1
 
 $env:PYTRIBEAM_EDAX_HOST = "localhost"    # "localhost" on the EDAX PC itself
-$env:PYTRIBEAM_RUN_EDAX_IPAPI = "1"
+$env:PYTRIBEAM_TEST_OEM = "edax"
 
 python -m pytest tests/edax/hardware -v
 ```
@@ -37,13 +37,13 @@ Equivalents in the other shells, since the variable syntax differs:
 ```bat
 :: Command Prompt (cmd.exe)
 set PYTRIBEAM_EDAX_HOST=localhost
-set PYTRIBEAM_RUN_EDAX_IPAPI=1
+set PYTRIBEAM_TEST_OEM=edax
 python -m pytest tests/edax/hardware -v
 ```
 
 ```bash
 # bash / zsh -- these scope to the single command
-PYTRIBEAM_EDAX_HOST=localhost PYTRIBEAM_RUN_EDAX_IPAPI=1 \
+PYTRIBEAM_EDAX_HOST=localhost PYTRIBEAM_TEST_OEM=edax \
   python -m pytest tests/edax/hardware -v
 ```
 
@@ -52,29 +52,27 @@ starts a map. It can run from a machine with no view of the chamber, so all
 detector motion lives in the collection tests below, which run under the live
 chamber CCD.
 
-The two tiers have different gates. **The run flags are not interchangeable**:
-the sweep accepts either, but the collection tests insert detectors and so
-require `PYTRIBEAM_RUN_HARDWARE` specifically.
+The two tiers share the `edax_hardware` marker; the collection tests also
+carry `hardware`, because they need the TriBeam.
 
 | Variable | Sweep | Collection | Purpose |
 |---|---|---|---|
+| `PYTRIBEAM_TEST_OEM` | `edax`* | `edax`* | Declares EDAX available (comma-separate several vendors). |
 | `PYTRIBEAM_EDAX_HOST` | required | required | Host running the IPAPI service. |
-| `PYTRIBEAM_RUN_EDAX_IPAPI` | required* | -- | Opt-in for the read-only sweep. |
-| `PYTRIBEAM_RUN_HARDWARE` | *or this | **required** | Opt-in for tests that drive the microscope. |
-| `PYTRIBEAM_TEST_OEM` | -- | `edax`** | Declares an EDAX system. |
 | `PYTRIBEAM_EDAX_ALLOW_MAPPING` | -- | required | Opt-in for inserting detectors and writing maps. |
 | `PYTRIBEAM_EDAX_MAP_FOLDER` | -- | required | Existing scratch folder on the EDAX PC for test maps. |
 | `PYTRIBEAM_EDAX_PORT` | optional | optional | Service port. Defaults to `8301`. |
 | `PYTRIBEAM_EDAX_PAUSE_S` | optional | -- | Per-command settling pause. Defaults to `0.2`, the production value. |
 | `PYTRIBEAM_EDAX_MAP_SIZE_UM` / `_STEP_UM` | -- | optional | Test scan size and step. Default 5 and 0.5. |
 
-\* Either run flag enables the sweep.
-\*\* Not needed on a PC listed in `Constants.microscope_with_edax_machines`.
+\* Or `PYTRIBEAM_RUN_HARDWARE=1` on a PC listed in
+`Constants.microscope_with_edax_machines`. The older
+`PYTRIBEAM_RUN_EDAX_IPAPI=1` still declares EDAX too.
 
-The collection tests also require a PC listed in `Constants.microscope_machines`,
-with AutoScript and the laser API importable. `python tests/edax/diagnose.py`
-checks every gate for both tiers, in the order pytest applies them, and names
-the first that fails.
+The collection tests also require a PC listed in `Constants.microscope_machines`
+(the `hardware` marker) with AutoScript importable. Native EDAX never uses
+LaserControl, so the laser API is not needed. `python tests/edax/diagnose.py`
+checks every gate for both tiers and names the first that fails.
 
 The full sweep issues roughly 150 commands, so it takes about half a minute at
 the default pause. Drop `PYTRIBEAM_EDAX_PAUSE_S` to `0.01` when iterating.
@@ -89,7 +87,7 @@ instead:
 ```ini
 # .env  -- git-ignored, per-machine
 PYTRIBEAM_EDAX_HOST=localhost
-PYTRIBEAM_RUN_EDAX_IPAPI=1
+PYTRIBEAM_TEST_OEM=edax
 ```
 
 That file is read two ways, so every runner agrees:
@@ -316,9 +314,10 @@ insert the EDS detector from APEX, with the chamber CCD on, first. Without
 ## Markers
 
 - `detached` — unit tests, always runnable.
-- `hardware` + `edax_ipapi` — needs a reachable IPAPI service. The
-  `edax_ipapi` override in `tests/conftest.py` deliberately bypasses the TFS
-  host-name and laser checks that gate `edax_hardware`, because the IPAPI does
-  not depend on either.
-- `hardware` + `laser_hardware` + `edax_hardware` — needs the TriBeam *and* EDAX
-  together (AutoScript, LaserControl, and the IPAPI): the collection tests.
+- `edax_hardware` — needs a reachable EDAX IPAPI service, but not the TriBeam:
+  the read-only sweep and the adapter checks
+  (`test_edax_ipapi_hardware.py`, `test_edax_adapter_hardware.py`).
+- `hardware` + `edax_hardware` — needs the TriBeam *and* EDAX together
+  (AutoScript and the IPAPI): the collection tests.
+
+See `tests/conftest.py` for how each marker is enabled.

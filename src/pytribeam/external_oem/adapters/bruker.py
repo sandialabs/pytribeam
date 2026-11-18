@@ -83,7 +83,15 @@ _EBSD_REQUIRED_EXPORTS = (
 
 
 def _new_session(settings: BrukerSessionSettings) -> BrukerSession:
-    session = BrukerSession(settings)
+    try:
+        # Loads the ESPRIT DLL. Off Windows, or with a wrong dll_dir, this fails
+        # with whatever ctypes / os raise, so report all of them the same way.
+        session = BrukerSession(settings)
+    except Exception as error:
+        raise DetectorError(
+            f"Could not load the Bruker ESPRIT API from '{settings.dll_dir}': "
+            f"{type(error).__name__}: {error}"
+        ) from error
     session.connect()
     return session
 

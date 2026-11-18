@@ -1,8 +1,7 @@
 import pytest
 
 
-@pytest.mark.esprit
-@pytest.mark.bruker_simulator
+@pytest.mark.bruker_hardware
 def test_session_connect_and_query_info(connected_bruker_session):
     info = connected_bruker_session.query_info()
 

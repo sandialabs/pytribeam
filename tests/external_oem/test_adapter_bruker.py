@@ -284,6 +284,19 @@ class TestSessions:
             bruker_adapter.test_connection(settings_for(tmp_path), EDS)
 
 
+def test_esprit_load_failure_is_a_detector_error(monkeypatch, tmp_path):
+    """Off Windows, or with a wrong dll_dir, loading the DLL fails variously."""
+
+    def no_dll(settings):
+        raise AttributeError("module 'os' has no attribute 'add_dll_directory'")
+
+    monkeypatch.setattr(bruker_adapter, "BrukerSession", no_dll)
+    settings = settings_for(tmp_path).Bruker_settings.session
+
+    with pytest.raises(DetectorError, match="Could not load the Bruker ESPRIT API"):
+        bruker_adapter._new_session(settings)
+
+
 class TestEdsDetector:
     @pytest.mark.parametrize(
         "position, expected",
