@@ -633,6 +633,16 @@ class ExternalBackend(Enum):
     OXFORD_AZTEC: str = "oxford_aztec"
     BRUKER_ESPRIT: str = "bruker_esprit"
 
+    @property
+    def label(self) -> str:
+        """Readable name of the interface, for messages and the GUI."""
+        return {
+            "tfs_laser": "LaserControl",
+            "edax_ipapi": "EDAX IPAPI",
+            "oxford_aztec": "Oxford AZtec",
+            "bruker_esprit": "Bruker ESPRIT",
+        }[self.value]
+
 
 class ExternalTechnique(Enum):
     """
@@ -980,6 +990,9 @@ class DeviceStatus:
     - `laser` (`RetractableDeviceState`): The status of the laser.
     - `ebsd` (`RetractableDeviceState`): The status of the EBSD detector.
     - `eds` (`RetractableDeviceState`): The status of the EDS detector.
+    - `extra_devices` (`Mapping`): Further devices (e.g. microscope detectors).
+    - `sources` (`Mapping`): For any device, the interface its status was read
+      through (e.g. `"ebsd": "EDAX IPAPI"`), shown after its name.
 
     ## Methods
 
@@ -991,6 +1004,7 @@ class DeviceStatus:
     ebsd: RetractableDeviceState
     eds: RetractableDeviceState
     extra_devices: Mapping = field(default_factory=dict)
+    sources: Mapping = field(default_factory=dict)
 
     @property
     def devices(self) -> dict:
@@ -1014,6 +1028,9 @@ class DeviceStatus:
         lines = []
         for name, state in self.devices.items():
             display_name = display_names.get(name, name)
+            source = self.sources.get(name)
+            if source:
+                display_name = f"{display_name} (via {source})"
             lines.append(f'{display_name}: "{state.value}"')
 
         return "\n".join(lines)

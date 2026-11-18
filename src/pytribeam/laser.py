@@ -281,7 +281,8 @@ def _device_connections(
     ## Returns
 
     tbt.DeviceStatus
-        The connection status of the laser, EBSD, and EDS devices.
+        The connection status of the laser, EBSD, and EDS devices, with the
+        interface each EBSD/EDS status was read through (`DeviceStatus.sources`).
 
     """
     laser_ok = laser_connected()
@@ -301,10 +302,18 @@ def _device_connections(
             return tbt.RetractableDeviceState.ERROR
 
     external = {}
+    sources = {"ebsd": "LaserControl", "eds": "LaserControl"}
     if general_settings is not None:
         import pytribeam.external_oem.dispatch as external_devices
 
         external = external_devices.external_detector_states(general_settings)
+        for name, technique in (
+            ("ebsd", tbt.ExternalTechnique.EBSD),
+            ("eds", tbt.ExternalTechnique.EDS),
+        ):
+            backend = external_devices.backend(general_settings, technique)
+            if backend is not None:
+                sources[name] = backend.label
     ebsd = external.get(tbt.DetectorType.EBSD) or laser_control_state(
         devices.connect_EBSD
     )
@@ -321,6 +330,7 @@ def _device_connections(
         ebsd=ebsd,
         eds=eds,
         extra_devices=states,
+        sources=sources,
     )
 
 

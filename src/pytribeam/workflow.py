@@ -53,7 +53,6 @@ workflow.perform_step(
 - `perform_step`: execute one configured step for one slice.
 - `perform_operation`: dispatch operation execution based on the step settings
   type.
-- `ebsd_eds_conflict_free`: validate EBSD/EDS step compatibility constraints.
 
 ## Workflow sequence
 
@@ -137,7 +136,6 @@ patterning, FIB milling, and imaging are delegated to their subsystem modules.
 
 __all__ = [
     "perform_operation",
-    "ebsd_eds_conflict_free",
     "pre_flight_check",
     "setup_experiment",
     "perform_step",
@@ -151,7 +149,6 @@ import subprocess
 from functools import singledispatch
 from pathlib import Path
 import sys
-from typing import List
 
 # 3rd party module
 # Local scripts
@@ -520,47 +517,6 @@ def _perform_laser_operation(
     )
 
 
-def ebsd_eds_conflict_free(step_sequence: List[tbt.Step]) -> bool:
-    """
-    Check if the step sequence is free of EBSD and EDS conflicts.
-
-    This function checks if the step sequence is free of EBSD and EDS conflicts.
-
-    ## Parameters
-
-    - `step_sequence` (`List[tbt.Step]`): The step sequence to check.
-
-    ## Returns
-
-    - `bool`: True if the step sequence is free of EBSD and EDS conflicts.
-
-    ## Raises
-
-    - `ValueError`: If an EBSD or EDS conflict is found in the step sequence.
-    """
-    EBSD_EDS_conflict_msg = "Due to current limitations in 3rd party EBSD/EDS integration with the TriBeam, only one of these step types is allowed as only one map can be configured for an experiment, but EDS can be configured to be included with an EBSD type step. See User Guide for more details."
-
-    found_EBSD = False
-    found_EDS = False
-
-    for step in step_sequence:
-        if step.type == tbt.StepType.EBSD:
-            if found_EDS == True:
-                raise ValueError(
-                    f"EBSD step found in sequence after EDS step was already defined. {EBSD_EDS_conflict_msg}"
-                )
-            found_EBSD = True
-
-        if step.type == tbt.StepType.EDS:
-            if found_EBSD == True:
-                raise ValueError(
-                    f"EDS step found in sequence after EBSD step was already defined. {EBSD_EDS_conflict_msg}"
-                )
-            found_EDS = True
-
-    return True
-
-
 def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
     """
     Perform a pre-flight check for the experiment.
@@ -672,9 +628,6 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
         raise ValueError(
             f"Settings not parsed correctly, expected {num_steps} but only {len(step_sequence)} have been parsed."
         )
-
-    # ensure only EBSD or EDS step type exists
-    ebsd_eds_conflict_free(step_sequence=step_sequence)
 
     # Check external detectors: connection, state, vendor readiness, and that
     # every EBSD/EDS step's parameters can be applied. Runs after the steps are

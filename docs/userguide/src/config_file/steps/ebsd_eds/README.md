@@ -2,7 +2,7 @@
 
 Settings for EBSD and EDS type steps are exactly equivalent to those for Image type steps. Settings for imaging conditions can be found [here](../image/index.html).
 
-Inserting and retracting the detectors, and starting each map with the $3^{rd}$ party vendor, are handled by these step types. How each vendor is reached, and the vendor settings blocks that configure it, are described in **[External detector control](../../general/index.html#external-detector-control)**. Users cannot create experiment pipelines that contain both EBSD and EDS type steps (only one or the other), which is enforced by validation at run time. Concurrent EDS with EBSD is supported through the **concurrent_EDS** flag below.
+Inserting and retracting the detectors, and starting each map with the $3^{rd}$ party vendor, are handled by these step types. How each vendor is reached, and the vendor settings blocks that configure it, are described in **[External detector control](../../general/index.html#external-detector-control)**. An experiment can contain both EBSD and EDS type steps, each with its own map settings. Concurrent EDS during an EBSD map is supported through the **concurrent_EDS** flag below.
 
 **EBSD** type steps have additional parameters:
 

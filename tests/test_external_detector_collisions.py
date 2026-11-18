@@ -164,20 +164,31 @@ class TestRetractAllDevices:
 
 
 class TestDeviceStatus:
-    """The GUI's connection report uses the dispatcher when settings are known."""
+    """The GUI's connection report uses the dispatcher when settings are known,
+    and says which interface each EBSD/EDS status came from."""
+
+    @staticmethod
+    def settings(ebsd_oem, eds_oem, **blocks):
+        from tests.external_oem.helpers import general_settings
+
+        return general_settings(ebsd_oem, eds_oem, **blocks)
 
     def test_configured_detectors_come_from_the_dispatcher(self, monkeypatch):
         import pytribeam.external_oem.dispatch as external_devices
         import pytribeam.laser as laser
 
-        settings = object()
+        settings = self.settings(
+            tbt.ExternalDeviceOEM.NONE,
+            tbt.ExternalDeviceOEM.OXFORD,
+            Oxford_settings=tbt.OxfordConfig(
+                connection=tbt.MicroscopeConnection(host="aztec-pc")
+            ),
+        )
         monkeypatch.setattr(laser, "laser_connected", lambda: False)
         monkeypatch.setattr(
             external_devices,
             "external_detector_states",
-            lambda general_settings: (
-                {EDS: STATE.INSERTED} if general_settings is settings else {}
-            ),
+            lambda general_settings: {EDS: STATE.INSERTED},
         )
 
         status = laser._device_connections(general_settings=settings)
@@ -185,6 +196,48 @@ class TestDeviceStatus:
         assert status.eds == STATE.INSERTED
         assert status.ebsd == STATE.ERROR  # no OEM and LaserControl is down
         assert status.laser == STATE.ERROR
+        assert status.sources == {"ebsd": "LaserControl", "eds": "Oxford AZtec"}
+        assert 'EDS Detector (via Oxford AZtec): "' in str(status)
+        assert 'EBSD Detector (via LaserControl): "' in str(status)
+
+    @pytest.mark.parametrize(
+        "oem, blocks, label",
+        [
+            (
+                tbt.ExternalDeviceOEM.EDAX,
+                {
+                    "EDAX_settings": tbt.EDAXConfig(
+                        save_directory="D:/x",
+                        project_name="p",
+                        connection=tbt.MicroscopeConnection(host="edax-pc"),
+                    )
+                },
+                "EDAX IPAPI",
+            ),
+            (tbt.ExternalDeviceOEM.EDAX, {}, "LaserControl"),
+            (
+                tbt.ExternalDeviceOEM.BRUKER,
+                {"Bruker_settings": tbt.BrukerConfig(dll_dir="C:/Esprit")},
+                "Bruker ESPRIT",
+            ),
+        ],
+    )
+    def test_each_backend_is_named(self, monkeypatch, oem, blocks, label):
+        import pytribeam.external_oem.dispatch as external_devices
+        import pytribeam.laser as laser
+
+        monkeypatch.setattr(laser, "laser_connected", lambda: False)
+        monkeypatch.setattr(
+            external_devices,
+            "external_detector_states",
+            lambda general_settings: {EBSD: STATE.RETRACTED, EDS: STATE.RETRACTED},
+        )
+
+        status = laser._device_connections(
+            general_settings=self.settings(oem, oem, **blocks)
+        )
+
+        assert status.sources == {"ebsd": label, "eds": label}
 
     def test_without_settings_laser_control_is_used(self, monkeypatch):
         import pytribeam.laser as laser
@@ -196,6 +249,23 @@ class TestDeviceStatus:
         status = laser._device_connections()
 
         assert (status.ebsd, status.eds) == (STATE.RETRACTED, STATE.INSERTED)
+        assert status.sources == {"ebsd": "LaserControl", "eds": "LaserControl"}
+
+    def test_text_without_sources_is_unchanged(self):
+        status = tbt.DeviceStatus(
+            laser=STATE.CONNECTED, ebsd=STATE.RETRACTED, eds=STATE.RETRACTED
+        )
+
+        assert "via" not in str(status)
+
+
+def test_every_backend_has_a_label():
+    assert {b.label for b in tbt.ExternalBackend} == {
+        "LaserControl",
+        "EDAX IPAPI",
+        "Oxford AZtec",
+        "Bruker ESPRIT",
+    }
 
 
 class TestStageGuard:

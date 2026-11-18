@@ -75,7 +75,7 @@ class TestLaserConnections:
         status = laser._device_connections()
         assert (
             str(status)
-            == f'Laser: "{status.laser.value}"\nEBSD Detector: "{status.ebsd.value}"\nEDS Detector: "{status.eds.value}"'
+            == f'Laser: "{status.laser.value}"\nEBSD Detector (via LaserControl): "{status.ebsd.value}"\nEDS Detector (via LaserControl): "{status.eds.value}"'
         )
 
 
