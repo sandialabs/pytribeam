@@ -14,6 +14,7 @@ from pytribeam.external_oem.core.errors import DetectorError  # noqa: E402
 from pytribeam.external_oem.edax.errors import EdaxStateError  # noqa: E402
 from pytribeam.external_oem.edax.types import (  # noqa: E402
     EdaxCameraStatus,
+    EdaxDetectorSlideStatus,
     EdaxDetectorStatus,
     EdaxEdsMapParams,
     EdaxEdsResolution,
@@ -49,6 +50,7 @@ def ipapi(monkeypatch, chamber):
         camera=EdaxCameraStatus.SLIDE_OUT,
         map_status=EdaxMappingStatus.READY,
         eds_status=EdaxDetectorStatus.READY,
+        eds_slide=EdaxDetectorSlideStatus.SLIDE_IN,
         open_clients=0,
         chamber=chamber,
     )
@@ -95,6 +97,13 @@ def ipapi(monkeypatch, chamber):
 
         def apply_map_parameters(self, params):
             state.calls.append(("apply_eds_parameters", params))
+
+        def slide_status(self):
+            return state.eds_slide
+
+        def retract_detector(self):
+            state.calls.append(("retract_detector", list(chamber.events)))
+            state.eds_slide = EdaxDetectorSlideStatus.SLIDE_OUT
 
     monkeypatch.setattr(edax_adapter, "EdaxClient", FakeClient)
     monkeypatch.setattr(edax_adapter, "EdaxEbsdController", FakeEbsd)
@@ -224,13 +233,21 @@ class TestCameraMotion:
         assert edax_adapter.retract_ebsd_camera(MICROSCOPE, SETTINGS)
         assert "retract_camera" not in commands(ipapi)
 
-    def test_eds_motion_goes_to_the_workflow(self, ipapi):
+    def test_eds_insert_goes_to_the_workflow(self, ipapi):
         assert edax_adapter.insert_eds_detector(MICROSCOPE, SETTINGS)
+        assert ipapi.calls == [("insert_eds_detector", (SETTINGS, MICROSCOPE))]
+
+    def test_eds_retract_over_the_ipapi(self, ipapi):
+        """Retracted here, so the dispatcher's CCD handling applies to it."""
         assert edax_adapter.retract_eds_detector(MICROSCOPE, SETTINGS)
-        assert ipapi.calls == [
-            ("insert_eds_detector", (SETTINGS, MICROSCOPE)),
-            ("retract_eds_detector", (SETTINGS, MICROSCOPE)),
-        ]
+        assert ("retract_detector", []) in ipapi.calls
+        assert "retract_eds_detector" not in commands(ipapi)
+
+    def test_eds_retract_is_a_no_op_when_out(self, ipapi):
+        ipapi.eds_slide = EdaxDetectorSlideStatus.SLIDE_OUT
+
+        assert edax_adapter.retract_eds_detector(MICROSCOPE, SETTINGS)
+        assert "retract_detector" not in commands(ipapi)
 
     def test_eds_collision_refusal_is_a_detector_error(self, ipapi):
         ipapi.record("insert_eds_detector", SystemError("may collide"))

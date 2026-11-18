@@ -27,6 +27,7 @@ from pytribeam.external_oem.edax.eds import EdaxEdsController
 from pytribeam.external_oem.edax.errors import EdaxStateError
 from pytribeam.external_oem.edax.types import (
     EdaxCameraStatus,
+    EdaxDetectorSlideStatus,
     EdaxDetectorStatus,
     EdaxEdsMapParams,
     EdaxEdsResolution,
@@ -215,7 +216,19 @@ def retract_eds_detector(
     microscope: tbt.Microscope,
     general_settings: tbt.GeneralSettings,
 ) -> bool:
-    return edax_workflow.retract_eds_detector(general_settings, microscope)
+    """Retract the EDS detector over the IPAPI, from any slide state.
+
+    Done here rather than through edax.workflow, whose retraction insists on
+    showing the CCD itself: the dispatcher shows it around this call, and
+    still retracts if it cannot (for example after the microscope client has
+    disconnected following an error).
+    """
+    with _client(general_settings) as client:
+        eds = EdaxEdsController(client)
+        if eds.slide_status() is EdaxDetectorSlideStatus.SLIDE_OUT:
+            return True
+        eds.retract_detector()
+    return True
 
 
 # ----------------------------------------------------------------------
