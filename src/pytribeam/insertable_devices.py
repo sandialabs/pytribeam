@@ -91,8 +91,13 @@ current_na = devices.specimen_current(microscope)
 
 `detectors_will_collide` checks requested detector insertion against known
 disallowed detector combinations defined by `Constants.detector_collisions`.
-This check includes both microscope-controlled detectors and EBSD/EDS cameras
-when the external API is available.
+This check includes both microscope-controlled detectors and the external EBSD
+and EDS detectors. External detector states come, in order of preference, from
+states passed by the caller, from the source registered with
+`set_external_detector_states` (the external OEM dispatcher registers one for
+each experiment, so native EDAX/Oxford/Bruker control is used), or from
+LaserControl. When none can report a detector's state, it is assumed it may be
+inserted, so the insertion is refused.
 
 Insertion functions raise `SystemError` if the requested device may collide with
 another detector or if the device cannot be inserted successfully.
@@ -128,6 +133,8 @@ __all__ = [
     "detector_insertable",
     "detector_state",
     "detectors_will_collide",
+    "external_detector_state",
+    "set_external_detector_states",
     "device_access",
     "insert_EBSD",
     "insert_EDS",
@@ -148,6 +155,7 @@ __all__ = [
 import time
 import warnings
 from contextlib import contextmanager
+from typing import Callable, Mapping, Optional
 
 # 3rd party module
 # Local scripts
@@ -234,9 +242,81 @@ def detector_state(
     return tbt.RetractableDeviceState(microscope.detector.state)
 
 
+#: Reports the states of the external EBSD/EDS detectors for collision checks.
+#: Registered with `set_external_detector_states`; None means LaserControl.
+ExternalStateSource = Callable[
+    [], Mapping[tbt.DetectorType, tbt.RetractableDeviceState]
+]
+_external_state_source: Optional[ExternalStateSource] = None
+
+_EXTERNAL_DETECTORS = (tbt.DetectorType.EBSD, tbt.DetectorType.EDS)
+
+
+def set_external_detector_states(source: Optional[ExternalStateSource]) -> None:
+    """
+    Register where collision checks get the external EBSD/EDS detector states.
+
+    The external OEM dispatcher registers a source for each experiment
+    (`pytribeam.external_oem.dispatch.use_for_collision_checks`), so collision
+    checks ask the vendor that actually controls each detector. Pass None to go
+    back to LaserControl.
+
+    ## Parameters
+
+    - `source` (`Callable`): Returns a mapping from `tbt.DetectorType.EBSD` /
+      `EDS` to `tbt.RetractableDeviceState`, for the detectors it controls; or
+      None.
+    """
+    global _external_state_source
+    _external_state_source = source
+
+
+def _laser_control_state(detector: tbt.DetectorType):
+    """External detector state from LaserControl, or None if unavailable."""
+    if external is None:
+        return None
+    status = (
+        external.EBSD_CameraStatus
+        if detector == tbt.DetectorType.EBSD
+        else external.EDS_CameraStatus
+    )
+    try:
+        return tbt.RetractableDeviceState(status())
+    except Exception:
+        return None
+
+
+def external_detector_state(
+    detector: tbt.DetectorType,
+    external_states: Optional[
+        Mapping[tbt.DetectorType, tbt.RetractableDeviceState]
+    ] = None,
+) -> Optional[tbt.RetractableDeviceState]:
+    """
+    Return an external EBSD/EDS detector's state, or None if nothing can tell.
+
+    Sources, in order: `external_states`, the registered source (see
+    `set_external_detector_states`), then LaserControl.
+    """
+    if external_states is not None and detector in external_states:
+        return external_states[detector]
+    if _external_state_source is not None:
+        try:
+            states = _external_state_source()
+        except Exception as error:
+            warnings.warn(f"Could not read external detector states: {error}")
+            states = {}
+        if detector in states:
+            return states[detector]
+    return _laser_control_state(detector)
+
+
 def detectors_will_collide(
     microscope: tbt.Microscope,
     detector_to_insert: tbt.DetectorType,
+    external_states: Optional[
+        Mapping[tbt.DetectorType, tbt.RetractableDeviceState]
+    ] = None,
 ) -> bool:
     """
     Determine if a collision may occur when inserting the specified detector.
@@ -247,26 +327,34 @@ def detectors_will_collide(
 
     - `microscope` (`tbt.Microscope`): The microscope object for which to check for potential collisions.
     - `detector_to_insert` (`tbt.DetectorType`): The type of the detector to insert.
+    - `external_states` (`Mapping`, optional): Known EBSD/EDS detector states,
+      used before any other source (see `external_detector_state`).
 
     ## Returns
 
-    - `bool`: True if a collision may occur, False otherwise.
+    - `bool`: True if a collision may occur, False otherwise. An external
+      detector whose state no source can report is assumed to be in the way.
     """
-    device_retracted = tbt.RetractableDeviceState.RETRACTED.value
+    device_retracted = tbt.RetractableDeviceState.RETRACTED
     for detector_combo in Constants.detector_collisions:
         if detector_to_insert in detector_combo:
             for detector in detector_combo:
                 if detector == detector_to_insert:
                     continue
-                if detector == tbt.DetectorType.EDS:
-                    if external.EDS_CameraStatus() != device_retracted:
+                if detector in _EXTERNAL_DETECTORS:
+                    state = external_detector_state(detector, external_states)
+                    if state is None:
+                        warnings.warn(
+                            f"The {detector.value} detector's state is unknown (no "
+                            "external OEM control and no LaserControl), so it is "
+                            f"assumed to block the {detector_to_insert.value}."
+                        )
                         return True
-                elif detector == tbt.DetectorType.EBSD:
-                    if external.EBSD_CameraStatus() != device_retracted:
+                    if state != device_retracted:
                         return True
                 else:
                     state = detector_state(microscope=microscope, detector=detector)
-                    if state.value != device_retracted:
+                    if state.value != device_retracted.value:
                         return True
     return False
 
@@ -530,6 +618,7 @@ def retract_all_devices(
     microscope: tbt.Microscope,
     enable_EBSD: bool,
     enable_EDS: bool,
+    general_settings: Optional[tbt.GeneralSettings] = None,
 ) -> bool:
     # TODO come up with better system for enable_EBSD_EDS
     """
@@ -548,6 +637,11 @@ def retract_all_devices(
         Whether to enable retraction of the EBSD detector.
     enable_EDS : bool
         Whether to enable retraction of the EDS detector.
+    general_settings : tbt.GeneralSettings, optional
+        Experiment settings. When given, the external EBSD/EDS detectors are
+        retracted through the external OEM dispatcher, so whichever backend
+        controls them (native vendor API or LaserControl) is used, and the
+        enable flags are ignored. Without them, LaserControl is used.
 
     Returns
     -------
@@ -560,7 +654,16 @@ def retract_all_devices(
     """
     retract_all_microscope_insertable_detectors(microscope=microscope)
 
-    # EBSD/EDS detectors:
+    if general_settings is not None:
+        import pytribeam.external_oem.dispatch as external_devices
+
+        external_devices.retract_all_external_devices(
+            microscope=microscope, general_settings=general_settings
+        )
+        print("\t\tAll available and enabled devices retracted.")
+        return True
+
+    # EBSD/EDS detectors through LaserControl:
     if external is None:
         # try:
         #     external
