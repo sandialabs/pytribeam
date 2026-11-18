@@ -25,9 +25,7 @@ from contextlib import contextmanager
 from typing import Callable, Iterator, List
 
 # Local scripts
-import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
-from pytribeam.constants import Constants
 from pytribeam.external_oem.core.errors import ConfigurationError, DetectorError
 from pytribeam.external_oem.oxford.enums import (
     AcquisitionType,
@@ -138,19 +136,6 @@ def _require_ready(session: AztecSession, acquisition_type: AcquisitionType) -> 
             )
 
 
-def _require_no_collision(
-    microscope: tbt.Microscope, detector: tbt.DetectorType
-) -> None:
-    if devices.detectors_will_collide(
-        microscope=microscope, detector_to_insert=detector
-    ):
-        raise DetectorError(
-            f"Cannot insert the {detector.value} detector, which may collide with "
-            "another detector. Disallowed combinations are: "
-            f"{Constants.detector_collisions}"
-        )
-
-
 # ----------------------------------------------------------------------
 # Connection and preflight
 # ----------------------------------------------------------------------
@@ -216,12 +201,8 @@ def get_eds_detector_state(
 
 
 def _insert(microscope, general_settings, technique: tbt.ExternalTechnique) -> bool:
-    detector_type = (
-        tbt.DetectorType.EBSD
-        if technique == tbt.ExternalTechnique.EBSD
-        else tbt.DetectorType.EDS
-    )
-    _require_no_collision(microscope, detector_type)
+    """Move a detector in. The dispatcher has checked for collisions and shows
+    the chamber CCD around this call."""
     with _session(general_settings) as session:
         detector = (
             session.ebsd if technique == tbt.ExternalTechnique.EBSD else session.eds
@@ -235,8 +216,7 @@ def _insert(microscope, general_settings, technique: tbt.ExternalTechnique) -> b
                 "be inserted. Check it in AZtec."
             )
         _require_idle(session)
-        with devices.ccd_live_view(microscope=microscope):
-            final = device_state(detector.insert())
+        final = device_state(detector.insert())
     if final != STATE.INSERTED:
         raise DetectorError(
             f"The {technique.value} detector did not insert; it is '{final.value}'."
@@ -252,8 +232,7 @@ def _retract(microscope, general_settings, technique: tbt.ExternalTechnique) -> 
         )
         if device_state(detector.insertion_state()) == STATE.RETRACTED:
             return True
-        with devices.ccd_live_view(microscope=microscope):
-            final = device_state(detector.retract())
+        final = device_state(detector.retract())
     if final != STATE.RETRACTED:
         raise DetectorError(
             f"The {technique.value} detector did not retract; it is '{final.value}'."

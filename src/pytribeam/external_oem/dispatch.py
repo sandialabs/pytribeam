@@ -38,7 +38,7 @@ There are three external OEMs, with a fallback for two of them: EDAX, Oxford, Br
 # Default python modules
 import importlib
 from types import ModuleType
-from typing import Any, Callable, List, Optional, Sequence
+from typing import Any, Callable, Dict, List, Optional, Sequence
 
 # Local scripts
 import pytribeam.log as log
@@ -70,9 +70,11 @@ from pytribeam.external_oem.core.errors import ConfigurationError, DetectorError
 # Rules for adapters:
 # - States are returned as ``tbt.RetractableDeviceState``, never vendor enums.
 # - Failures raise ``core.errors.DetectorError`` subclasses with the reason.
-# - Every insert/retract checks for collisions before inserting and runs under
-#   ``insertable_devices.ccd_live_view``. (Phase 6 moves this into the
-#   dispatcher, so it is enforced in one place.)
+# - Motion functions only move the detector (and may refuse unsafe vendor
+#   states). The dispatcher checks for collisions before every insert and runs
+#   every insert and retract under ``insertable_devices.ccd_live_view``, so
+#   motion safety is enforced in one place for every backend. (The LaserControl
+#   and EDAX EDS paths also show the CCD themselves; nesting is harmless.)
 # - Native adapters never call LaserControl.
 # - ``preflight_*`` does vendor-specific readiness and session setup only; the
 #   dispatcher runs the connection test, the state check, and the per-step
@@ -478,13 +480,148 @@ def get_eds_detector_state(
     return _get_state(general_settings, EDS)
 
 
+#: The microscope detector type of each technique's external detector.
+_DETECTOR = {EBSD: tbt.DetectorType.EBSD, EDS: tbt.DetectorType.EDS}
+
+
+def _devices():
+    """`pytribeam.insertable_devices`, imported when motion first needs it."""
+    import pytribeam.insertable_devices as devices
+
+    return devices
+
+
+def external_detector_states(
+    general_settings: tbt.GeneralSettings,
+) -> Dict[tbt.DetectorType, tbt.RetractableDeviceState]:
+    """
+    Return the state of each configured external detector, keyed by detector.
+
+    Techniques with no OEM are left out. A detector whose state cannot be read
+    is reported as `ERROR`, so collision and stage checks treat it as in the way
+    rather than assuming it is retracted.
+    """
+    states = {}
+    for technique, detector in _DETECTOR.items():
+        if backend(general_settings, technique) is None:
+            continue
+        try:
+            states[detector] = _get_state(general_settings, technique)
+        except Exception as error:
+            print(
+                f"\tWARNING: could not read the {technique.value} detector state "
+                f"({type(error).__name__}: {error}); treating it as in the way."
+            )
+            states[detector] = tbt.RetractableDeviceState.ERROR
+    return states
+
+
+def use_for_collision_checks(general_settings: tbt.GeneralSettings) -> None:
+    """
+    Make microscope collision checks ask this experiment's external backends.
+
+    `insertable_devices.detectors_will_collide`, used for every detector
+    insertion including the CBS, then reads the EBSD/EDS states through the
+    dispatcher instead of LaserControl. Called by the workflow once the
+    experiment's settings are known.
+    """
+    _devices().set_external_detector_states(
+        lambda: external_detector_states(general_settings)
+    )
+
+
+def _collides_with_external(detector: tbt.DetectorType) -> bool:
+    """Whether a detector's collision partners include an external detector."""
+    return any(
+        detector in combo
+        and any(other in _DETECTOR.values() and other != detector for other in combo)
+        for combo in Constants.detector_collisions
+    )
+
+
+def _guarded_insert(microscope, general_settings, technique, action: str) -> bool:
+    """Check for collisions, then insert under the live chamber CCD."""
+    found = _required_adapter(general_settings, technique, action)
+    devices = _devices()
+    detector = _DETECTOR[technique]
+    states = (
+        external_detector_states(general_settings)
+        if _collides_with_external(detector)
+        else None
+    )
+    if devices.detectors_will_collide(
+        microscope=microscope, detector_to_insert=detector, external_states=states
+    ):
+        raise DetectorError(
+            f"Cannot insert the {detector.value} detector, which may collide with "
+            "another detector. Disallowed combinations are: "
+            f"{Constants.detector_collisions}"
+        )
+    insert = (
+        found.insert_ebsd_camera if technique == EBSD else found.insert_eds_detector
+    )
+    with devices.ccd_live_view(microscope=microscope):
+        return insert(microscope, general_settings)
+
+
+def _guarded_retract(microscope, general_settings, technique) -> bool:
+    """Retract under the live chamber CCD; nothing to do without an OEM."""
+    found = backend(general_settings, technique)
+    if found is None:
+        return True
+    module = adapter(found)
+    retract = (
+        module.retract_ebsd_camera if technique == EBSD else module.retract_eds_detector
+    )
+    with _devices().ccd_live_view(microscope=microscope):
+        return retract(microscope, general_settings)
+
+
+def check_safe_for_stage_motion(general_settings: tbt.GeneralSettings) -> bool:
+    """
+    Refuse stage motion while a configured external detector may be in the way.
+
+    Called before each step's stage move, after the detectors were retracted,
+    so it catches a retraction that silently did not complete.
+
+    ## Returns
+
+    - `bool`: True when every configured detector reports retracted. A detector
+      whose position is indeterminate is reported but does not stop the move.
+
+    ## Raises
+
+    - `DetectorError`: If a detector reports inserted, moving, or error (an
+      unreadable state counts as error).
+    """
+    blocking = (
+        tbt.RetractableDeviceState.INSERTED,
+        tbt.RetractableDeviceState.BUSY,
+        tbt.RetractableDeviceState.ERROR,
+    )
+    problems = []
+    for detector, state in external_detector_states(general_settings).items():
+        if state in blocking:
+            problems.append(f"{detector.value} is {state.name}")
+        elif state != tbt.RetractableDeviceState.RETRACTED:
+            print(
+                f"\tWARNING: the {detector.value} detector reports {state.name}; "
+                "moving the stage anyway. Check it on the chamber CCD."
+            )
+    if problems:
+        raise DetectorError(
+            "Refusing to move the stage while an external detector may be in the "
+            "way: " + "; ".join(problems)
+        )
+    return True
+
+
 def insert_ebsd_camera(
     microscope: tbt.Microscope,
     general_settings: tbt.GeneralSettings,
 ) -> bool:
-    """Insert the EBSD camera."""
-    found = _required_adapter(general_settings, EBSD, "EBSD camera insertion")
-    return found.insert_ebsd_camera(microscope, general_settings)
+    """Insert the EBSD camera, after a collision check, under the chamber CCD."""
+    return _guarded_insert(microscope, general_settings, EBSD, "EBSD camera insertion")
 
 
 def insert_eds_detector(
@@ -497,30 +634,23 @@ def insert_eds_detector(
     Also used for concurrent EDS during an EBSD scan: detector motion follows
     the detector's own OEM, while the map follows the step type.
     """
-    found = _required_adapter(general_settings, EDS, "EDS detector insertion")
-    return found.insert_eds_detector(microscope, general_settings)
+    return _guarded_insert(microscope, general_settings, EDS, "EDS detector insertion")
 
 
 def retract_ebsd_camera(
     microscope: tbt.Microscope,
     general_settings: tbt.GeneralSettings,
 ) -> bool:
-    """Retract the EBSD camera. With no EBSD OEM there is nothing to retract."""
-    found = backend(general_settings, EBSD)
-    if found is None:
-        return True
-    return adapter(found).retract_ebsd_camera(microscope, general_settings)
+    """Retract the EBSD camera under the chamber CCD. No EBSD OEM: nothing to do."""
+    return _guarded_retract(microscope, general_settings, EBSD)
 
 
 def retract_eds_detector(
     microscope: tbt.Microscope,
     general_settings: tbt.GeneralSettings,
 ) -> bool:
-    """Retract the EDS detector. With no EDS OEM there is nothing to retract."""
-    found = backend(general_settings, EDS)
-    if found is None:
-        return True
-    return adapter(found).retract_eds_detector(microscope, general_settings)
+    """Retract the EDS detector under the chamber CCD. No EDS OEM: nothing to do."""
+    return _guarded_retract(microscope, general_settings, EDS)
 
 
 def retract_all_external_devices(

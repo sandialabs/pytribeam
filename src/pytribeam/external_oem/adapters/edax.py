@@ -17,9 +17,7 @@ See the adapter contract in `pytribeam.external_oem.dispatch`.
 from typing import Callable, List
 
 # Local scripts
-import pytribeam.insertable_devices as devices
 import pytribeam.types as tbt
-from pytribeam.constants import Constants
 from pytribeam.external_oem.core.errors import DetectorError
 from pytribeam.external_oem.edax import mapping
 from pytribeam.external_oem.edax import workflow as edax_workflow
@@ -76,19 +74,6 @@ def _client(general_settings: tbt.GeneralSettings, quiet: bool = False) -> EdaxC
         edax_workflow.connection_settings(general_settings.EDAX_settings),
         quiet=quiet,
     )
-
-
-def _require_no_collision(
-    microscope: tbt.Microscope, detector: tbt.DetectorType
-) -> None:
-    if devices.detectors_will_collide(
-        microscope=microscope, detector_to_insert=detector
-    ):
-        raise DetectorError(
-            f"Cannot insert the {detector.value} detector, which may collide with "
-            "another detector. Disallowed combinations are: "
-            f"{Constants.detector_collisions}"
-        )
 
 
 def _require_eds_ready(eds: EdaxEdsController) -> None:
@@ -175,11 +160,10 @@ def insert_ebsd_camera(
     """
     Insert the EBSD camera over the IPAPI, under the live chamber CCD.
 
-    Refuses when it could collide with another detector, while a map is
-    running, or unless the slide reports fully out (an unknown or intermediate
-    position could not be confirmed).
+    Refuses while a map is running, or unless the slide reports fully out (an
+    unknown or intermediate position could not be confirmed). The dispatcher
+    checks for collisions first and shows the chamber CCD around this call.
     """
-    _require_no_collision(microscope, tbt.DetectorType.EBSD)
     with _client(general_settings) as client:
         ebsd = EdaxEbsdController(client)
         status = ebsd.camera_status()
@@ -194,8 +178,7 @@ def insert_ebsd_camera(
             raise EdaxStateError(
                 "An EBSD map or setup is running, so the camera will not be moved."
             )
-        with devices.ccd_live_view(microscope=microscope):
-            ebsd.insert_camera()
+        ebsd.insert_camera()
     return True
 
 
@@ -222,8 +205,7 @@ def retract_ebsd_camera(
         ebsd = EdaxEbsdController(client)
         if ebsd.camera_status() is EdaxCameraStatus.SLIDE_OUT:
             return True
-        with devices.ccd_live_view(microscope=microscope):
-            ebsd.retract_camera()
+        ebsd.retract_camera()
     return True
 
 
