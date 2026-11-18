@@ -4,6 +4,7 @@
 Holding the acquisition client disables the Start buttons in the AZtec UI, so the
 controller should be released (``release()`` or session disconnect) when done.
 """
+
 from __future__ import annotations
 
 import logging
@@ -26,7 +27,12 @@ from .errors import (
     AcquisitionError,
     AcquisitionTimeoutError,
 )
-from .models import AcquisitionConfig, AcquisitionProgress, AcquisitionResult, ProfileInfo
+from .models import (
+    AcquisitionConfig,
+    AcquisitionProgress,
+    AcquisitionResult,
+    ProfileInfo,
+)
 
 log = logging.getLogger(__name__)
 
@@ -39,7 +45,12 @@ _EVENTS = ("started", "acquired", "progress", "finished")
 class AcquisitionJob:
     """Handle for one running acquisition."""
 
-    def __init__(self, controller: "AcquisitionController", config: AcquisitionConfig, name: Optional[str]):
+    def __init__(
+        self,
+        controller: "AcquisitionController",
+        config: AcquisitionConfig,
+        name: Optional[str],
+    ):
         self._ctl = controller
         self.config = config
         self.name = name
@@ -61,7 +72,8 @@ class AcquisitionJob:
         if not wait_interruptibly(self._done, timeout):
             raise AcquisitionTimeoutError(
                 "Acquisition %r did not finish within %s s (last progress: %s)"
-                % (self.name, timeout, self.progress))
+                % (self.name, timeout, self.progress)
+            )
         if not self._ids_checked:
             # Runs on the caller's thread: querying AZtec from inside the .NET
             # Finished callback could deadlock the WCF duplex channel.
@@ -78,7 +90,11 @@ class AcquisitionJob:
 
     def __repr__(self):
         return "<AcquisitionJob %s name=%r done=%s progress=%s>" % (
-            self.config.acquisition_type, self.name, self.done(), self.progress)
+            self.config.acquisition_type,
+            self.name,
+            self.done(),
+            self.progress,
+        )
 
 
 class AcquisitionController:
@@ -88,8 +104,11 @@ class AcquisitionController:
         self._session = session
         self._api = session.api
         native = session._require()
-        with translate(self._api, AcquisitionBusyError,
-                       "Get acquisition client (is another plugin client holding the acquisition lock?)"):
+        with translate(
+            self._api,
+            AcquisitionBusyError,
+            "Get acquisition client (is another plugin client holding the acquisition lock?)",
+        ):
             self._client = native.GetAcquisitionClient()
         self.settle_time_s = DEFAULT_SETTLE_S
         self._job: Optional[AcquisitionJob] = None
@@ -99,7 +118,11 @@ class AcquisitionController:
         self._unsubs = [
             subscribe(self._client, "Starting", safe(self._on_starting, "Starting")),
             subscribe(self._client, "Acquired", safe(self._on_acquired, "Acquired")),
-            subscribe(self._client, "ProgressChanged", safe(self._on_progress, "ProgressChanged")),
+            subscribe(
+                self._client,
+                "ProgressChanged",
+                safe(self._on_progress, "ProgressChanged"),
+            ),
             subscribe(self._client, "Finished", safe(self._on_finished, "Finished")),
         ]
         self._released = False
@@ -129,7 +152,9 @@ class AcquisitionController:
         if event not in self._listeners:
             raise ValueError("event must be one of %s" % (_EVENTS,))
         self._listeners[event].append(fn)
-        return lambda: self._listeners[event].remove(fn) if fn in self._listeners[event] else None
+        return lambda: (
+            self._listeners[event].remove(fn) if fn in self._listeners[event] else None
+        )
 
     def _emit(self, event, *args):
         for fn in list(self._listeners[event]):
@@ -155,7 +180,9 @@ class AcquisitionController:
 
     def _on_progress(self, sender, args):
         p = args.AcquisitionProgress
-        prog = AcquisitionProgress(int(p.ProgressPercentage), int(p.EstimatedSecondsToCompletion))
+        prog = AcquisitionProgress(
+            int(p.ProgressPercentage), int(p.EstimatedSecondsToCompletion)
+        )
         job = self._job
         if job:
             job.progress = prog
@@ -175,7 +202,11 @@ class AcquisitionController:
     def _to_result(self, status, job: Optional[AcquisitionJob]) -> AcquisitionResult:
         api = self._api
         images = {}
-        for key, attr in (("electron_image", "ElectronImage"), ("eds_map", "EdsMap"), ("ebsd_map", "EbsdMap")):
+        for key, attr in (
+            ("electron_image", "ElectronImage"),
+            ("eds_map", "EdsMap"),
+            ("ebsd_map", "EbsdMap"),
+        ):
             b = api.to_bytes(getattr(status, attr, None))
             if b:
                 images[key] = b
@@ -188,7 +219,9 @@ class AcquisitionController:
             eds_map_id=api.uuid(status.EdsMapId),
             ebsd_map_id=api.uuid(status.EbsdMapId),
             images=images,
-            acquisition_type=job.config.acquisition_type if job else AcquisitionType.NONE,
+            acquisition_type=job.config.acquisition_type
+            if job
+            else AcquisitionType.NONE,
             started_at=job.started_at if job else None,
             finished_at=time.time(),
         )
@@ -220,14 +253,20 @@ class AcquisitionController:
         """
         self._check()
         c, api = self._client, self._api
-        log.info("Sending to AZtec: type=%s region=%s site=%s project=%s specimen=%s autolock=%s "
-                 "status_images=%s master_site=%s",
-                 config.acquisition_type, config.region or "full field",
-                 "<current>" if config.use_current_site else (config.site_name or "<unchanged>"),
-                 config.project_id or "<selected>", config.specimen_id or "<selected>",
-                 config.auto_lock.name if config.auto_lock is not None else "<unchanged>",
-                 config.status_images if config.status_images is not None else "<unchanged>",
-                 config.master_site_number)
+        log.info(
+            "Sending to AZtec: type=%s region=%s site=%s project=%s specimen=%s autolock=%s "
+            "status_images=%s master_site=%s",
+            config.acquisition_type,
+            config.region or "full field",
+            "<current>"
+            if config.use_current_site
+            else (config.site_name or "<unchanged>"),
+            config.project_id or "<selected>",
+            config.specimen_id or "<selected>",
+            config.auto_lock.name if config.auto_lock is not None else "<unchanged>",
+            config.status_images if config.status_images is not None else "<unchanged>",
+            config.master_site_number,
+        )
         with translate(api, AcquisitionError, "Configure acquisition"):
             c.AcquisitionType = api.to_net(config.acquisition_type)
             c.AcquisitionRegion = api.region(config.region)  # None = full field
@@ -247,7 +286,9 @@ class AcquisitionController:
             if config.auto_increment_site_number is not None:
                 c.IsAutoIncrementSiteNumber = bool(config.auto_increment_site_number)
             if config.reset_acquisition_number_for_each_site is not None:
-                c.IsResetAcquisitionNumberForEachSite = bool(config.reset_acquisition_number_for_each_site)
+                c.IsResetAcquisitionNumberForEachSite = bool(
+                    config.reset_acquisition_number_for_each_site
+                )
             if config.site_thickness_um is not None:
                 c.SiteThickness = float(config.site_thickness_um)
             if config.auto_contrast_brightness is not None:
@@ -255,14 +296,20 @@ class AcquisitionController:
             if config.english_image_names is not None:
                 c.IsAllEnglishInImageName = bool(config.english_image_names)
 
-    def estimate_time(self, acquisition_type: Optional[AcquisitionType] = None) -> Optional[float]:
+    def estimate_time(
+        self, acquisition_type: Optional[AcquisitionType] = None
+    ) -> Optional[float]:
         """AZtec's estimated acquisition time in seconds for the given technique(s),
         or None if AZtec can't estimate it (e.g. technique not configured)."""
         native = self._session._require()
         try:
             if acquisition_type is None:
                 return self._api.seconds(native.GetAcquisitionTime())
-            return self._api.seconds(native.GetAcquisitionTime(self._api.to_net(AcquisitionType(acquisition_type))))
+            return self._api.seconds(
+                native.GetAcquisitionTime(
+                    self._api.to_net(AcquisitionType(acquisition_type))
+                )
+            )
         except Exception as e:
             log.warning("Could not estimate acquisition time: %s", self._api.message(e))
             return None
@@ -272,18 +319,24 @@ class AcquisitionController:
     def profiles(self) -> List[ProfileInfo]:
         native = self._session._require()
         with translate(self._api, AcquisitionError, "List profiles"):
-            return [ProfileInfo(str(p.Name), self._api.uuid(p.Id), p.Description or None)
-                    for p in list(native.Profiles)]
+            return [
+                ProfileInfo(str(p.Name), self._api.uuid(p.Id), p.Description or None)
+                for p in list(native.Profiles)
+            ]
 
     def _find_profile(self, profile: Union[str, uuid.UUID, ProfileInfo]) -> ProfileInfo:
         if isinstance(profile, ProfileInfo):
             return profile
         for p in self.profiles():
-            if profile in (p.name, p.id) or (isinstance(profile, str) and p.id and profile == str(p.id)):
+            if profile in (p.name, p.id) or (
+                isinstance(profile, str) and p.id and profile == str(p.id)
+            ):
                 return p
         raise AcquisitionError("No AZtec profile named %r" % (profile,))
 
-    def load_profile(self, profile: Union[str, uuid.UUID, ProfileInfo], timeout: float = 60.0) -> ProfileInfo:
+    def load_profile(
+        self, profile: Union[str, uuid.UUID, ProfileInfo], timeout: float = 60.0
+    ) -> ProfileInfo:
         """Load a saved AZtec settings profile (by name, id or ProfileInfo) and wait
         for AZtec to confirm. This is how technique parameters (step size, dwell,
         resolution, binning, pattern saving...) are switched through the plugin.
@@ -293,7 +346,9 @@ class AcquisitionController:
         don't load one.
         """
         p = self._find_profile(profile)
-        log.warning("Loading AZtec profile %r: this replaces the current AZtec settings", p.name)
+        log.warning(
+            "Loading AZtec profile %r: this replaces the current AZtec settings", p.name
+        )
         native = self._session._require()
         with EventWaiter(native, "ProfileStateChanged") as w:
             with translate(self._api, AcquisitionError, "Load profile %r" % p.name):
@@ -301,10 +356,15 @@ class AcquisitionController:
             try:
                 args = w.wait(timeout)
             except TimeoutError:
-                raise AcquisitionTimeoutError("AZtec did not confirm loading profile %r" % p.name)
+                raise AcquisitionTimeoutError(
+                    "AZtec did not confirm loading profile %r" % p.name
+                )
         state = coerce(ProfileChangeState, args.Status)
         if state != ProfileChangeState.LOADED:
-            raise AcquisitionError("Loading profile %r failed: %s %s" % (p.name, state.name, args.Message or ""))
+            raise AcquisitionError(
+                "Loading profile %r failed: %s %s"
+                % (p.name, state.name, args.Message or "")
+            )
         return p
 
     def create_profile(self, name: str):
@@ -323,7 +383,9 @@ class AcquisitionController:
     def current_job(self) -> Optional[AcquisitionJob]:
         return self._job
 
-    def start(self, config: Optional[AcquisitionConfig] = None, name: Optional[str] = None) -> AcquisitionJob:
+    def start(
+        self, config: Optional[AcquisitionConfig] = None, name: Optional[str] = None
+    ) -> AcquisitionJob:
         """Start an acquisition and return immediately with a job handle.
 
         ``name`` names the new data item in the AZtec tree (auto-named if None).
@@ -333,7 +395,9 @@ class AcquisitionController:
         config = config or AcquisitionConfig()
         with self._lock:
             if self._job is not None:
-                raise AcquisitionBusyError("An acquisition is already running: %r" % self._job)
+                raise AcquisitionBusyError(
+                    "An acquisition is already running: %r" % self._job
+                )
             wait = self.settle_time_s - (time.monotonic() - self._last_finished)
         if wait > 0:
             time.sleep(wait)
@@ -353,7 +417,11 @@ class AcquisitionController:
                 if self._job is job:
                     self._job = None
             raise
-        log.info("Started %s acquisition%s", config.acquisition_type, " %r" % name if name else "")
+        log.info(
+            "Started %s acquisition%s",
+            config.acquisition_type,
+            " %r" % name if name else "",
+        )
         return job
 
     # -- map id fallback ---------------------------------------------------------------
@@ -394,9 +462,13 @@ class AcquisitionController:
             if before is None:
                 continue
             try:
-                new = [it for it in self._session.data.items(dtype) if it.id not in before]
+                new = [
+                    it for it in self._session.data.items(dtype) if it.id not in before
+                ]
             except Exception as e:
-                log.warning("Could not look up the new %s in the data tree: %s", dtype.name, e)
+                log.warning(
+                    "Could not look up the new %s in the data tree: %s", dtype.name, e
+                )
                 continue
             if len(new) > 1 and r.item_name:
                 named = [it for it in new if r.item_name in it.label]
@@ -404,11 +476,20 @@ class AcquisitionController:
             if len(new) == 1:
                 setattr(r, attr, new[0].id)
                 r.ids_from_tree = True
-                log.warning("AZtec's status had no %s; found it in the data tree: %s (%s)",
-                            attr, new[0].label, new[0].id)
+                log.warning(
+                    "AZtec's status had no %s; found it in the data tree: %s (%s)",
+                    attr,
+                    new[0].label,
+                    new[0].id,
+                )
             elif required or new:
-                log.warning("AZtec's status had no %s and the data tree has %d new %s items; "
-                            "leaving it unset", attr, len(new), dtype.name)
+                log.warning(
+                    "AZtec's status had no %s and the data tree has %d new %s items; "
+                    "leaving it unset",
+                    attr,
+                    len(new),
+                    dtype.name,
+                )
 
     def stop(self, immediate: bool = False):
         """Stop the running acquisition. Maps stop at end of frame unless
@@ -419,9 +500,14 @@ class AcquisitionController:
             if immediate:
                 self._client.StopAcquisition()
 
-    def run(self, config: Optional[AcquisitionConfig] = None, name: Optional[str] = None,
-            timeout: Union[float, str, None] = "auto", raise_on_error: bool = True,
-            stop_on_timeout: bool = True) -> AcquisitionResult:
+    def run(
+        self,
+        config: Optional[AcquisitionConfig] = None,
+        name: Optional[str] = None,
+        timeout: Union[float, str, None] = "auto",
+        raise_on_error: bool = True,
+        stop_on_timeout: bool = True,
+    ) -> AcquisitionResult:
         """Start an acquisition and block until it finishes.
 
         ``timeout="auto"`` uses AZtec's estimate x1.5 + 5 min (no limit if AZtec can't
@@ -444,12 +530,19 @@ class AcquisitionController:
                     log.exception("Stop failed")
             raise
         if raise_on_error and not result.ok:
-            raise AcquisitionError("Acquisition finished with %s: %s %s" % (
-                result.state.name, result.message or "", result.error or ""), result)
+            raise AcquisitionError(
+                "Acquisition finished with %s: %s %s"
+                % (result.state.name, result.message or "", result.error or ""),
+                result,
+            )
         return result
 
-    def run_series(self, configs: List[AcquisitionConfig], names: Optional[List[Optional[str]]] = None,
-                   **run_kwargs) -> List[AcquisitionResult]:
+    def run_series(
+        self,
+        configs: List[AcquisitionConfig],
+        names: Optional[List[Optional[str]]] = None,
+        **run_kwargs,
+    ) -> List[AcquisitionResult]:
         """Run acquisitions back-to-back (with the settle delay between them)."""
         names = names or [None] * len(configs)
         if len(names) != len(configs):
@@ -458,13 +551,18 @@ class AcquisitionController:
 
     # -- EDS data ----------------------------------------------------------------------------
 
-    def get_ed_data(self, item_id: uuid.UUID, result_type: EdResultType = EdResultType.COUNTS):
+    def get_ed_data(
+        self, item_id: uuid.UUID, result_type: EdResultType = EdResultType.COUNTS
+    ):
         """Raw .NET IEdMapData/IEdLineData for an acquired EDS map/line id.
         Prefer :meth:`DataManager.eds_data`, which converts to numpy."""
         self._check()
         with translate(self._api, AcquisitionError, "Get EDS data"):
-            return self._api.impl(self._client.GetAcquiredEdData(self._api.guid(item_id),
-                                                                 self._api.to_net(result_type)))
+            return self._api.impl(
+                self._client.GetAcquiredEdData(
+                    self._api.guid(item_id), self._api.to_net(result_type)
+                )
+            )
 
     # -- teardown ----------------------------------------------------------------------------
 

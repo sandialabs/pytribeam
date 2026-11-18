@@ -4,6 +4,7 @@ Values are copied verbatim from the metadata of ``OINA.Plugin.AcquisitionClient.
 (v6.1.0.0) so they can be converted to/from the .NET types by integer value.
 Member names are the .NET names converted to UPPER_SNAKE_CASE.
 """
+
 from enum import IntEnum, IntFlag
 from typing import TypeVar
 
@@ -24,8 +25,10 @@ def coerce(enum_cls, value, default=0):
 
 # --- Acquisition ----------------------------------------------------------
 
+
 class AcquisitionType(IntFlag):
     """Techniques to acquire. Flags may be combined to sequence acquisitions."""
+
     NONE = 0
     ELECTRON_IMAGE = 1
     EDS_MAP = 2
@@ -34,6 +37,7 @@ class AcquisitionType(IntFlag):
 
 class StatusImageTypes(IntFlag):
     """Image types returned in the acquisition result."""
+
     NONE = 0
     ELECTRON_IMAGE = 1
     EDS_MAP = 2
@@ -42,6 +46,7 @@ class StatusImageTypes(IntFlag):
 
 class AutoLockMode(IntEnum):
     """Drift correction (AutoLock) mode."""
+
     OFF = 0
     AUTO = 1
     CUSTOM = 2
@@ -77,6 +82,7 @@ class EdMappingMode(IntEnum):
 
 
 # --- Project data -----------------------------------------------------------
+
 
 class DataType(IntEnum):
     UNKNOWN = 0
@@ -114,6 +120,7 @@ class ProfileChangeState(IntEnum):
 
 
 # --- Detector control -------------------------------------------------------
+
 
 class DeviceType(IntEnum):
     UNKNOWN = 0

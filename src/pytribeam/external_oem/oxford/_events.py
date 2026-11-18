@@ -3,6 +3,7 @@
 .NET events fire on WCF/thread-pool threads. Handlers here must never raise back
 into .NET (that can tear down the callback channel), so everything is wrapped.
 """
+
 from __future__ import annotations
 
 import logging
@@ -18,11 +19,16 @@ log = logging.getLogger(__name__)
 
 def safe(fn: Callable, label: str = "") -> Callable:
     """Wrap an event handler so exceptions are logged, not propagated into .NET."""
+
     def handler(*args):
         try:
             fn(*args)
         except Exception:  # pragma: no cover - logging path
-            log.exception("Unhandled error in %s event handler", label or getattr(fn, "__name__", "?"))
+            log.exception(
+                "Unhandled error in %s event handler",
+                label or getattr(fn, "__name__", "?"),
+            )
+
     handler.__name__ = "safe_" + getattr(fn, "__name__", "handler")
     return handler
 
@@ -40,18 +46,21 @@ def subscribe(obj, event_name: str, handler: Callable) -> Callable[[], None]:
             getattr(obj, event_name).__isub__(handler)
         except Exception:  # connection already gone
             log.debug("Failed to unsubscribe from %s", event_name, exc_info=True)
+
     return unsubscribe
 
 
 class EventWaiter:
     """Subscribe to an event *before* issuing a command, then wait for a matching firing.
 
-        with EventWaiter(pdc, "ExportFinished") as w:
-            pdc.ExportToH5OINA(...)
-            args = w.wait(timeout=600)
+    with EventWaiter(pdc, "ExportFinished") as w:
+        pdc.ExportToH5OINA(...)
+        args = w.wait(timeout=600)
     """
 
-    def __init__(self, obj, event_name: str, predicate: Optional[Callable[[Any], bool]] = None):
+    def __init__(
+        self, obj, event_name: str, predicate: Optional[Callable[[Any], bool]] = None
+    ):
         self._obj = obj
         self._name = event_name
         self._predicate = predicate
@@ -82,12 +91,16 @@ class EventWaiter:
         return self._args
 
 
-def wait_interruptibly(event: threading.Event, timeout: Optional[float], slice_s: float = 0.5) -> bool:
+def wait_interruptibly(
+    event: threading.Event, timeout: Optional[float], slice_s: float = 0.5
+) -> bool:
     """``event.wait(timeout)`` in short slices, so Ctrl+C is honoured on Windows
     (an untimed lock wait there can't be interrupted)."""
     deadline = None if timeout is None else time.monotonic() + timeout
     while True:
-        remaining = slice_s if deadline is None else min(slice_s, deadline - time.monotonic())
+        remaining = (
+            slice_s if deadline is None else min(slice_s, deadline - time.monotonic())
+        )
         if remaining <= 0:
             return event.is_set()
         if event.wait(remaining):

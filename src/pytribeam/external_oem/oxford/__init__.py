@@ -13,6 +13,7 @@ Quick start::
 
 Use ``AztecSession.simulated()`` to develop without AZtec or .NET.
 """
+
 from .acquisition import AcquisitionController, AcquisitionJob
 from .data import DataManager
 from .detectors import DetectorManager, EbsdDetector, EdsDetector

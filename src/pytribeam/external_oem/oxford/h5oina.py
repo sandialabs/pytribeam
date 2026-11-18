@@ -11,6 +11,7 @@ root datasets ``Format Version`` / ``Manufacturer`` / ``Software Version``, numb
 slice groups (``1``, ``2``...) containing technique groups (``EBSD``, ``EDS``,
 ``Electron Image``...), each with ``Data`` and ``Header`` subgroups.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,7 +40,9 @@ def is_hdf5(path: str) -> bool:
     return False
 
 
-def wait_for_stable_file(path: str, timeout: float = 60.0, settle_s: float = 1.0, poll_s: float = 0.25) -> bool:
+def wait_for_stable_file(
+    path: str, timeout: float = 60.0, settle_s: float = 1.0, poll_s: float = 0.25
+) -> bool:
     """Wait until ``path`` exists and its size stops changing for ``settle_s``.
     Returns False on timeout. Exports can report "finished" slightly before the
     writer has closed the file."""
@@ -99,14 +102,23 @@ class H5oinaSummary:
         return self.is_hdf5 and not self.problems
 
     def report(self) -> str:
-        lines = ["%s (%d bytes)" % (self.path, self.size_bytes),
-                 "  HDF5: %s | format %s | %s | software %s" % (
-                     self.is_hdf5, self.format_version, self.manufacturer, self.software_version),
-                 "  slices: %s" % (self.slices or "none")]
+        lines = [
+            "%s (%d bytes)" % (self.path, self.size_bytes),
+            "  HDF5: %s | format %s | %s | software %s"
+            % (
+                self.is_hdf5,
+                self.format_version,
+                self.manufacturer,
+                self.software_version,
+            ),
+            "  slices: %s" % (self.slices or "none"),
+        ]
         for k in sorted(self.header_values):
             lines.append("  %-45s %s" % (k, self.header_values[k]))
         if self.ebsd_indexed_fraction is not None:
-            lines.append("  EBSD indexed fraction: %.1f%%" % (100 * self.ebsd_indexed_fraction))
+            lines.append(
+                "  EBSD indexed fraction: %.1f%%" % (100 * self.ebsd_indexed_fraction)
+            )
         if self.has_ebsd:
             if self.patterns:
                 for k, v in self.patterns.items():
@@ -122,6 +134,7 @@ def _text(v):
     """Decode HDF5 scalar/array string values to str."""
     try:
         import numpy as np
+
         if isinstance(v, np.ndarray):
             if v.size == 0:
                 return ""
@@ -144,15 +157,30 @@ def _root_value(f, key):
     return None
 
 
-_HEADER_KEYS = ("X Cells", "Y Cells", "X Step", "Y Step", "Beam Voltage", "Magnification",
-                "Project File", "Site Name", "Specimen Orientation Euler", "Acquisition Speed",
-                "Pattern Height", "Pattern Width")
+_HEADER_KEYS = (
+    "X Cells",
+    "Y Cells",
+    "X Step",
+    "Y Step",
+    "Beam Voltage",
+    "Magnification",
+    "Project File",
+    "Site Name",
+    "Specimen Orientation Euler",
+    "Acquisition Speed",
+    "Pattern Height",
+    "Pattern Width",
+)
 #: Preferred pattern dataset; others matching ``_is_pattern_path`` are also reported.
 PROCESSED_PATTERNS = "Processed Patterns"
 
 
 def _is_pattern_path(path: str, info: "DatasetInfo") -> bool:
-    return "/EBSD/Data/" in path and "pattern" in path.rsplit("/", 1)[-1].lower() and len(info.shape) == 3
+    return (
+        "/EBSD/Data/" in path
+        and "pattern" in path.rsplit("/", 1)[-1].lower()
+        and len(info.shape) == 3
+    )
 
 
 def inspect_h5oina(path: str) -> H5oinaSummary:
@@ -164,19 +192,26 @@ def inspect_h5oina(path: str) -> H5oinaSummary:
     s.size_bytes = os.path.getsize(path)
     s.is_hdf5 = is_hdf5(path)
     if not s.is_hdf5:
-        s.problems.append("not an HDF5 file (no HDF5 signature) - empty, truncated, or a different format")
+        s.problems.append(
+            "not an HDF5 file (no HDF5 signature) - empty, truncated, or a different format"
+        )
         return s
     try:
         import h5py
         import numpy as np
     except ImportError:
-        s.warnings.append("h5py not installed: only the HDF5 signature was checked (pip install h5py)")
+        s.warnings.append(
+            "h5py not installed: only the HDF5 signature was checked (pip install h5py)"
+        )
         return s
 
     try:
         f = h5py.File(path, "r")
     except Exception as e:
-        s.problems.append("HDF5 file cannot be opened: %s (truncated, or still being written/locked?)" % e)
+        s.problems.append(
+            "HDF5 file cannot be opened: %s (truncated, or still being written/locked?)"
+            % e
+        )
         return s
     with f:
         s.format_version = _root_value(f, "Format Version")
@@ -200,15 +235,21 @@ def inspect_h5oina(path: str) -> H5oinaSummary:
                 if "/Header/" in p and leaf in _HEADER_KEYS and obj.size <= 16:
                     try:
                         v = obj[()]
-                        s.header_values[p] = _text(v) if obj.dtype.kind in "SOU" else (
-                            v.tolist() if hasattr(v, "tolist") else v)
+                        s.header_values[p] = (
+                            _text(v)
+                            if obj.dtype.kind in "SOU"
+                            else (v.tolist() if hasattr(v, "tolist") else v)
+                        )
                     except Exception:
                         pass
+
         f.visititems(visit)
 
         if not s.has_ebsd:
-            s.warnings.append("no EBSD group in any slice - AZtecCrystal needs EBSD data "
-                              "(is this the EDS-only export?)")
+            s.warnings.append(
+                "no EBSD group in any slice - AZtecCrystal needs EBSD data "
+                "(is this the EDS-only export?)"
+            )
         for sl, techs in s.slices.items():
             if "EBSD" not in techs:
                 continue
@@ -218,20 +259,29 @@ def inspect_h5oina(path: str) -> H5oinaSummary:
                     s.problems.append("%s/%s group missing" % (base, sub))
             data = base + "/Data"
             if data in f:
-                lengths = {k: v.shape[0] for k, v in s.datasets.items()
-                           if k.startswith(data + "/") and v.shape and not _is_pattern_path(k, v)}
+                lengths = {
+                    k: v.shape[0]
+                    for k, v in s.datasets.items()
+                    if k.startswith(data + "/")
+                    and v.shape
+                    and not _is_pattern_path(k, v)
+                }
                 if not lengths:
                     s.problems.append("%s has no datasets (empty map)" % data)
                 elif len(set(lengths.values())) > 1:
-                    s.warnings.append("EBSD datasets have differing lengths: %s" % lengths)
+                    s.warnings.append(
+                        "EBSD datasets have differing lengths: %s" % lengths
+                    )
                 xc = s.header_values.get(base + "/Header/X Cells")
                 yc = s.header_values.get(base + "/Header/Y Cells")
                 try:
                     n_expected = int(_scalar(xc)) * int(_scalar(yc))
                     n = max(lengths.values()) if lengths else 0
                     if lengths and n != n_expected:
-                        s.problems.append("EBSD has %d points but header says %s x %s = %d"
-                                          % (n, xc, yc, n_expected))
+                        s.problems.append(
+                            "EBSD has %d points but header says %s x %s = %d"
+                            % (n, xc, yc, n_expected)
+                        )
                 except (TypeError, ValueError):
                     pass
                 if data + "/Phase" in f:
@@ -239,31 +289,59 @@ def inspect_h5oina(path: str) -> H5oinaSummary:
                     if ph.size:
                         s.ebsd_indexed_fraction = float(np.count_nonzero(ph)) / ph.size
                         if s.ebsd_indexed_fraction == 0:
-                            s.warnings.append("no EBSD point is indexed (all Phase == 0) - typical of "
-                                              "simulated or unsolved data; AZtecCrystal may reject it")
+                            s.warnings.append(
+                                "no EBSD point is indexed (all Phase == 0) - typical of "
+                                "simulated or unsolved data; AZtecCrystal may reject it"
+                            )
             for p, info in s.datasets.items():
                 if p.startswith(data + "/") and _is_pattern_path(p, info):
                     s.patterns[p] = info
-                    n_pts = max((v.shape[0] for k, v in s.datasets.items()
-                                 if k.startswith(data + "/") and v.shape and k not in s.patterns), default=None)
+                    n_pts = max(
+                        (
+                            v.shape[0]
+                            for k, v in s.datasets.items()
+                            if k.startswith(data + "/")
+                            and v.shape
+                            and k not in s.patterns
+                        ),
+                        default=None,
+                    )
                     if n_pts is not None and info.shape[0] != n_pts:
-                        s.warnings.append("%s holds %d patterns but the map has %d points"
-                                          % (p, info.shape[0], n_pts))
+                        s.warnings.append(
+                            "%s holds %d patterns but the map has %d points"
+                            % (p, info.shape[0], n_pts)
+                        )
                     ph = s.header_values.get(base + "/Header/Pattern Height")
                     pw = s.header_values.get(base + "/Header/Pattern Width")
                     try:
-                        if ph is not None and pw is not None and \
-                                (int(_scalar(ph)), int(_scalar(pw))) != tuple(info.shape[1:]):
-                            s.warnings.append("%s is %sx%s but header says %sx%s"
-                                              % (p, info.shape[1], info.shape[2], _scalar(ph), _scalar(pw)))
+                        if (
+                            ph is not None
+                            and pw is not None
+                            and (int(_scalar(ph)), int(_scalar(pw)))
+                            != tuple(info.shape[1:])
+                        ):
+                            s.warnings.append(
+                                "%s is %sx%s but header says %sx%s"
+                                % (
+                                    p,
+                                    info.shape[1],
+                                    info.shape[2],
+                                    _scalar(ph),
+                                    _scalar(pw),
+                                )
+                            )
                     except (TypeError, ValueError):
                         pass
             if base + "/Header/Phases" in f and len(f[base + "/Header/Phases"]) == 0:
-                s.warnings.append("%s/Header/Phases is empty (no phases defined)" % base)
+                s.warnings.append(
+                    "%s/Header/Phases is empty (no phases defined)" % base
+                )
     return s
 
 
-def find_ebsp_files(project_file_or_dir: str, since: Optional[float] = None) -> List[Tuple[str, int, float]]:
+def find_ebsp_files(
+    project_file_or_dir: str, since: Optional[float] = None
+) -> List[Tuple[str, int, float]]:
     """Oxford binary pattern files (*.ebsp) saved under an AZtec project folder.
 
     AZtec writes these when pattern saving is on, independently of any export.
@@ -302,6 +380,7 @@ class PatternReader:
 
     def __init__(self, path: str, slice_name: str = "1", dataset: Optional[str] = None):
         import h5py
+
         self.path = path
         self._f = h5py.File(path, "r")
         base = "/%s/EBSD" % slice_name
@@ -309,14 +388,22 @@ class PatternReader:
             self._f.close()
             raise KeyError("%s has no %s group" % (path, base))
         data = self._f[base + "/Data"]
-        candidates = [k for k, v in data.items()
-                      if isinstance(v, h5py.Dataset) and v.ndim == 3 and "pattern" in k.lower()]
-        name = dataset or (PROCESSED_PATTERNS if PROCESSED_PATTERNS in candidates else
-                           (candidates[0] if candidates else None))
+        candidates = [
+            k
+            for k, v in data.items()
+            if isinstance(v, h5py.Dataset) and v.ndim == 3 and "pattern" in k.lower()
+        ]
+        name = dataset or (
+            PROCESSED_PATTERNS
+            if PROCESSED_PATTERNS in candidates
+            else (candidates[0] if candidates else None)
+        )
         if name is None or name not in data:
             self._f.close()
-            raise KeyError("%s has no EBSD pattern dataset (found: %s). Was pattern saving enabled "
-                           "in AZtec for this map?" % (path, candidates or "none"))
+            raise KeyError(
+                "%s has no EBSD pattern dataset (found: %s). Was pattern saving enabled "
+                "in AZtec for this map?" % (path, candidates or "none")
+            )
         self.dataset_name = name
         self.available = candidates
         self._ds = data[name]
@@ -352,14 +439,27 @@ class PatternReader:
         cross-checked against the X/Y datasets when they exist."""
         if self.x_cells is None:
             raise ValueError("header has no X Cells; cannot map col/row to an index")
-        if not (0 <= col < self.x_cells and (self.y_cells is None or 0 <= row < self.y_cells)):
-            raise IndexError("col/row (%d, %d) outside the %sx%s map" % (col, row, self.x_cells, self.y_cells))
+        if not (
+            0 <= col < self.x_cells
+            and (self.y_cells is None or 0 <= row < self.y_cells)
+        ):
+            raise IndexError(
+                "col/row (%d, %d) outside the %sx%s map"
+                % (col, row, self.x_cells, self.y_cells)
+            )
         # Raster order with X fastest is assumed; refuse if the X/Y datasets say otherwise.
-        if "X" in self._data and "Y" in self._data and self.x_cells > 1 and self._data["X"].shape[0] > 1:
+        if (
+            "X" in self._data
+            and "Y" in self._data
+            and self.x_cells > 1
+            and self._data["X"].shape[0] > 1
+        ):
             x, y = self._data["X"][:2], self._data["Y"][:2]
             if float(x[1]) == float(x[0]) and float(y[1]) != float(y[0]):
-                raise ValueError("points are stored Y-fastest, not raster X-fastest; "
-                                 "locate patterns via the X/Y datasets instead")
+                raise ValueError(
+                    "points are stored Y-fastest, not raster X-fastest; "
+                    "locate patterns via the X/Y datasets instead"
+                )
         return row * self.x_cells + col
 
     def at(self, col: int, row: int):
@@ -368,10 +468,11 @@ class PatternReader:
     def batches(self, size: int = 1024):
         """Yield (start_index, array[n, h, w]) blocks."""
         for start in range(0, self.count, size):
-            yield start, self._ds[start:start + size]
+            yield start, self._ds[start : start + size]
 
     def save_png(self, index: int, path: str) -> str:
         from ._png import save_gray8
+
         return save_gray8(self[index], path)
 
     def close(self):
@@ -416,18 +517,27 @@ def compare_h5oina(path: str, reference: str) -> List[str]:
     for p in sorted(set(a.datasets) & set(b.datasets)):
         da, db = a.datasets[p], b.datasets[p]
         if da.dtype != db.dtype or len(da.shape) != len(db.shape):
-            diffs.append("%s: %s %s vs reference %s %s" % (p, da.shape, da.dtype, db.shape, db.dtype))
+            diffs.append(
+                "%s: %s %s vs reference %s %s"
+                % (p, da.shape, da.dtype, db.shape, db.dtype)
+            )
     return diffs
 
 
 def _clip(items, n=25):
-    return items if len(items) <= n else items[:n] + ["... (%d more)" % (len(items) - n)]
+    return (
+        items if len(items) <= n else items[:n] + ["... (%d more)" % (len(items) - n)]
+    )
 
 
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Inspect .h5oina files; optionally compare to a reference.")
+    ap = argparse.ArgumentParser(
+        description="Inspect .h5oina files; optionally compare to a reference."
+    )
     ap.add_argument("files", nargs="+")
-    ap.add_argument("--reference", help="known-good .h5oina (e.g. exported manually from AZtec)")
+    ap.add_argument(
+        "--reference", help="known-good .h5oina (e.g. exported manually from AZtec)"
+    )
     args = ap.parse_args(argv)
     bad = 0
     for p in args.files:
@@ -436,7 +546,10 @@ def main(argv=None):
         bad += not s.looks_loadable
         if args.reference:
             diffs = compare_h5oina(p, args.reference)
-            print("  vs reference %s: %s" % (args.reference, "same structure" if not diffs else ""))
+            print(
+                "  vs reference %s: %s"
+                % (args.reference, "same structure" if not diffs else "")
+            )
             for d in diffs:
                 print("    - " + d)
         print()

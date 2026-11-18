@@ -15,6 +15,7 @@ Interop rules this module encodes (verified against the shipped v6.1 DLLs):
 * Python lists do not convert to ``IEnumerable<T>``; build a ``List[T]``.
 * ``float[]`` -> numpy is ~10x faster via ``Marshal.Copy`` than iterating.
 """
+
 from __future__ import annotations
 
 import logging
@@ -88,8 +89,11 @@ class DotNetApi:
         self._load_runtime(runtime)
         try:
             import clr  # noqa: F401  (pythonnet)
+
             if self.dll_dir not in sys.path:
-                sys.path.append(self.dll_dir)  # pythonnet resolves dependencies (log4net) from sys.path
+                sys.path.append(
+                    self.dll_dir
+                )  # pythonnet resolves dependencies (log4net) from sys.path
             clr.AddReference(MAIN_ASSEMBLY)
             import System
             from System.Runtime.InteropServices import Marshal
@@ -98,7 +102,8 @@ class DotNetApi:
             raise
         except Exception as e:  # ImportError, FileNotFoundException, BadImageFormat...
             raise DotNetUnavailableError(
-                "Failed to load %s from %s: %s" % (MAIN_ASSEMBLY, self.dll_dir, net_message(e))
+                "Failed to load %s from %s: %s"
+                % (MAIN_ASSEMBLY, self.dll_dir, net_message(e))
             ) from e
 
         self._clr = clr
@@ -110,7 +115,9 @@ class DotNetApi:
         self._LineRegion = root.LineRegion
         self._Logger = root.Logger
         self._LoggingLevel = root.LoggingLevel
-        self._enum_types = {py: self._resolve(net) for py, net in py_enums.NET_ENUM_TYPES.items()}
+        self._enum_types = {
+            py: self._resolve(net) for py, net in py_enums.NET_ENUM_TYPES.items()
+        }
         self._float_array_type = System.Array[System.Single]
         log.info("Loaded %s from %s", MAIN_ASSEMBLY, self.dll_dir)
 
@@ -137,13 +144,18 @@ class DotNetApi:
                     pythonnet.load(runtime[0], **runtime[1])
             except RuntimeError:
                 # Already loaded with some runtime; keep it.
-                log.debug("pythonnet runtime already loaded; ignoring runtime=%r", runtime)
+                log.debug(
+                    "pythonnet runtime already loaded; ignoring runtime=%r", runtime
+                )
 
     def _resolve(self, dotted):
         obj = self._root
         for part in dotted.split("."):
-            obj = getattr(obj, part) if hasattr(obj, part) else __import__(
-                "%s.%s" % (obj.__name__, part), fromlist=["*"])
+            obj = (
+                getattr(obj, part)
+                if hasattr(obj, part)
+                else __import__("%s.%s" % (obj.__name__, part), fromlist=["*"])
+            )
         return obj
 
     # -- conversions ----------------------------------------------------------
@@ -172,13 +184,22 @@ class DotNetApi:
         if region is None:
             return None
         if isinstance(region, RectangleRegion):
-            return self._RectangleRegion(float(region.x), float(region.y),
-                                         float(region.width), float(region.height))
+            return self._RectangleRegion(
+                float(region.x),
+                float(region.y),
+                float(region.width),
+                float(region.height),
+            )
         if isinstance(region, LineRegion):
             return self._LineRegion(
-                float(region.x), float(region.y), float(region.x2), float(region.y2),
-                int(region.max_points or 0), float(region.point_separation_um or 0.0),
-                self.to_net(region.definition))
+                float(region.x),
+                float(region.y),
+                float(region.x2),
+                float(region.y2),
+                int(region.max_points or 0),
+                float(region.point_separation_um or 0.0),
+                self.to_net(region.definition),
+            )
         raise TypeError("Unsupported region type: %r" % (region,))
 
     def from_region(self, net_region):
@@ -189,9 +210,15 @@ class DotNetApi:
             if hasattr(r, "Width"):
                 return RectangleRegion(r.X, r.Y, r.Width, r.Height)
             if hasattr(r, "X2"):
-                return LineRegion(r.X, r.Y, r.X2, r.Y2, int(r.MaximumNumberOfPoints) or None,
-                                  float(r.PointSeparation) or None,
-                                  py_enums.coerce(py_enums.LineDefinitionMode, r.LineDefinition, 2))
+                return LineRegion(
+                    r.X,
+                    r.Y,
+                    r.X2,
+                    r.Y2,
+                    int(r.MaximumNumberOfPoints) or None,
+                    float(r.PointSeparation) or None,
+                    py_enums.coerce(py_enums.LineDefinitionMode, r.LineDefinition, 2),
+                )
         except ValueError:
             log.debug("Region reported by AZtec failed validation: %s", r)
         return None
@@ -199,13 +226,16 @@ class DotNetApi:
     def floats(self, net_list):
         """IReadOnlyList<float> / float[] -> 1-D numpy float32 array."""
         import numpy as np
+
         if net_list is None:
             return np.empty(0, dtype=np.float32)
         arr = self.impl(net_list)
         if isinstance(arr, self._float_array_type):
             out = np.empty(arr.Length, dtype=np.float32)
             if arr.Length:
-                self._Marshal.Copy(arr, 0, self.System.IntPtr(out.ctypes.data), arr.Length)
+                self._Marshal.Copy(
+                    arr, 0, self.System.IntPtr(out.ctypes.data), arr.Length
+                )
             return out
         return np.fromiter(net_list, dtype=np.float32, count=int(net_list.Count))
 

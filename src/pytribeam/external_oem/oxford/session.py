@@ -1,4 +1,5 @@
 """Connection to an AZtec instance and entry point to all controllers."""
+
 from __future__ import annotations
 
 import logging
@@ -25,7 +26,9 @@ _CONNECT_HINT = (
 )
 
 
-def check_port(host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 2.0) -> bool:
+def check_port(
+    host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, timeout: float = 2.0
+) -> bool:
     """True if something accepts TCP connections at host:port. Pure Python; useful
     to tell 'network/AZtec down' apart from 'plugin refused us'."""
     try:
@@ -62,9 +65,17 @@ class AztecSession:
         users often want detectors left in place between scripted runs.
     """
 
-    def __init__(self, host: str = DEFAULT_HOST, port: int = DEFAULT_PORT, *, api=None,
-                 dll_dir: Optional[str] = None, interlock: Optional[Interlock] = None,
-                 retract_on_disconnect: bool = False, pythonnet_runtime=None):
+    def __init__(
+        self,
+        host: str = DEFAULT_HOST,
+        port: int = DEFAULT_PORT,
+        *,
+        api=None,
+        dll_dir: Optional[str] = None,
+        interlock: Optional[Interlock] = None,
+        retract_on_disconnect: bool = False,
+        pythonnet_runtime=None,
+    ):
         self.host = host
         self.port = int(port)
         self._api = api
@@ -82,6 +93,7 @@ class AztecSession:
     def simulated(cls, simulator=None, **kwargs) -> "AztecSession":
         """A session backed by the in-process simulator (no AZtec, no .NET)."""
         from .simulator import SimulatedApi
+
         return cls(api=SimulatedApi(simulator), **kwargs)
 
     # -- properties -----------------------------------------------------------------
@@ -94,6 +106,7 @@ class AztecSession:
     def api(self):
         if self._api is None:
             from ._dotnet import load_dotnet_api
+
             self._api = load_dotnet_api(self._dll_dir, runtime=self._runtime)
         return self._api
 
@@ -106,8 +119,11 @@ class AztecSession:
     def aztec_is_local(self) -> bool:
         """True when AZtec runs on this machine (real API, loopback address), so
         AZtec-side paths can be checked locally before sending them."""
-        return bool(getattr(self.api, "uses_network", False)) and \
-            self.host.lower() in ("127.0.0.1", "localhost", "::1")
+        return bool(getattr(self.api, "uses_network", False)) and self.host.lower() in (
+            "127.0.0.1",
+            "localhost",
+            "::1",
+        )
 
     @property
     def is_connected(self) -> bool:
@@ -134,18 +150,32 @@ class AztecSession:
                 return self
             api = self.api
             hint = _CONNECT_HINT.format(addr=self.address, port=self.port)
-            if preflight and getattr(api, "uses_network", False) and not check_port(self.host, self.port):
-                raise AztecConnectionError("Nothing is listening at %s. %s" % (self.address, hint))
+            if (
+                preflight
+                and getattr(api, "uses_network", False)
+                and not check_port(self.host, self.port)
+            ):
+                raise AztecConnectionError(
+                    "Nothing is listening at %s. %s" % (self.address, hint)
+                )
             log.info("Connecting to AZtec at %s", self.address)
             try:
                 native = api.Session.Connect(self.address)
             except Exception as e:
-                raise AztecConnectionError("Could not connect to AZtec at %s: %s. %s"
-                                           % (self.address, api.message(e), hint)) from e
+                raise AztecConnectionError(
+                    "Could not connect to AZtec at %s: %s. %s"
+                    % (self.address, api.message(e), hint)
+                ) from e
             if native is None:
-                raise AztecConnectionError("Could not connect to AZtec at %s. %s" % (self.address, hint))
+                raise AztecConnectionError(
+                    "Could not connect to AZtec at %s. %s" % (self.address, hint)
+                )
             self._native = native
-            log.info("Connected to AZtec %s (client %s)", self.server_version, self.client_version)
+            log.info(
+                "Connected to AZtec %s (client %s)",
+                self.server_version,
+                self.client_version,
+            )
             return self
 
     def disconnect(self):
@@ -163,7 +193,9 @@ class AztecSession:
                     log.exception("Retract on disconnect failed")
             if self._acquisition is not None:
                 if self._acquisition.is_running:
-                    log.warning("Disconnecting while an acquisition is running; stopping it")
+                    log.warning(
+                        "Disconnecting while an acquisition is running; stopping it"
+                    )
                     try:
                         self._acquisition.stop(immediate=True)
                     except Exception:
@@ -235,9 +267,16 @@ class AztecSession:
 
     # -- single scan (entry point for higher-level control software) -------------------------
 
-    def scan(self, description: str, config: Optional[AcquisitionConfig] = None, *,
-             item_name: Optional[str] = None, timeout="auto", require_patterns: bool = True,
-             export_timeout: float = 3600.0) -> ScanResult:
+    def scan(
+        self,
+        description: str,
+        config: Optional[AcquisitionConfig] = None,
+        *,
+        item_name: Optional[str] = None,
+        timeout="auto",
+        require_patterns: bool = True,
+        export_timeout: float = 3600.0,
+    ) -> ScanResult:
         """Acquire one scan and have AZtec export every map it produced.
 
         Files land in the current project's ``data`` folder (choose its location with
@@ -261,9 +300,12 @@ class AztecSession:
         export fails, after attempting the others; ``.scan_result`` lists what was written.
         """
         from .data import windows_safe
+
         desc = windows_safe(description or "")
         if not desc:
-            raise ValueError("description must contain at least one valid file-name character")
+            raise ValueError(
+                "description must contain at least one valid file-name character"
+            )
         config = config or AcquisitionConfig()
         result = self.acquisition.run(config, name=item_name or desc, timeout=timeout)
         out = ScanResult(description=desc, acquisition=result)
@@ -273,19 +315,35 @@ class AztecSession:
         if result.eds_map_id is not None and result.eds_map_id != result.ebsd_map_id:
             maps.append((result.eds_map_id, DataType.ED_MAP))
         if not maps:
-            raise ScanExportError("Scan %r finished but AZtec reported no EBSD/EDS map to export "
-                                  "(acquisition type %s)" % (desc, config.acquisition_type), out)
+            raise ScanExportError(
+                "Scan %r finished but AZtec reported no EBSD/EDS map to export "
+                "(acquisition type %s)" % (desc, config.acquisition_type),
+                out,
+            )
         errors = []
         for map_id, dtype in maps:
             try:
-                out.files.append(self.data.export_to_project(
-                    map_id, scan_name="{description}_{short_id}", fields={"description": desc},
-                    data_type=dtype, require_patterns=require_patterns, timeout=export_timeout))
+                out.files.append(
+                    self.data.export_to_project(
+                        map_id,
+                        scan_name="{description}_{short_id}",
+                        fields={"description": desc},
+                        data_type=dtype,
+                        require_patterns=require_patterns,
+                        timeout=export_timeout,
+                    )
+                )
             except AztecError as e:
-                errors.append("%s map %s: %s" % ("EBSD" if dtype == DataType.EBSD_MAP else "EDS", map_id, e))
+                errors.append(
+                    "%s map %s: %s"
+                    % ("EBSD" if dtype == DataType.EBSD_MAP else "EDS", map_id, e)
+                )
         if errors:
-            raise ScanExportError("Scan %r: %d of %d exports failed: %s"
-                                  % (desc, len(errors), len(maps), "; ".join(errors)), out)
+            raise ScanExportError(
+                "Scan %r: %d of %d exports failed: %s"
+                % (desc, len(errors), len(maps), "; ".join(errors)),
+                out,
+            )
         log.info("Scan %r done: %s", desc, ", ".join(out.paths))
         return out
 
@@ -311,7 +369,10 @@ class AztecSession:
         if self._native is None:
             return False
         try:
-            return bool(self._native.IsConnected) and self._native.ServerVersion is not None
+            return (
+                bool(self._native.IsConnected)
+                and self._native.ServerVersion is not None
+            )
         except Exception as e:
             log.warning("Ping failed: %s", self.api.message(e))
             return False
@@ -321,7 +382,9 @@ class AztecSession:
         native = self._require()
         try:
             s = native.GetDetectorStatus(self.api.to_net(AcquisitionType(technique)))
-            return TechniqueReadiness(bool(s.IsDetectorReady), s.StatusDescription or None)
+            return TechniqueReadiness(
+                bool(s.IsDetectorReady), s.StatusDescription or None
+            )
         except Exception as e:
             return TechniqueReadiness(None, self.api.message(e))
 
@@ -329,16 +392,23 @@ class AztecSession:
         """Gather connection, readiness and detector state. Never raises."""
         st = SystemStatus(connected=self.ping(), address=self.address)
         if not st.connected:
-            st.errors.append("not connected" if self._native is None else "connection not responding")
+            st.errors.append(
+                "not connected" if self._native is None else "connection not responding"
+            )
             return st
         st.client_version = self.client_version
         st.server_version = self.server_version
-        for attr, tech in (("eds", AcquisitionType.EDS_MAP), ("ebsd", AcquisitionType.EBSD_MAP)):
+        for attr, tech in (
+            ("eds", AcquisitionType.EDS_MAP),
+            ("ebsd", AcquisitionType.EBSD_MAP),
+        ):
             setattr(st, attr, self.technique_readiness(tech))
         if include_detectors:
             try:
                 st.detectors = self.detectors.statuses()
-                st.errors.extend("%s: %s" % (d.info.name, d.error) for d in st.detectors if d.error)
+                st.errors.extend(
+                    "%s: %s" % (d.info.name, d.error) for d in st.detectors if d.error
+                )
             except Exception as e:
                 st.errors.append("detectors: %s" % e)
         if self._acquisition is not None:
@@ -350,4 +420,7 @@ class AztecSession:
         return st
 
     def __repr__(self):
-        return "<AztecSession %s %s>" % (self.address, "connected" if self._native is not None else "disconnected")
+        return "<AztecSession %s %s>" % (
+            self.address,
+            "connected" if self._native is not None else "disconnected",
+        )

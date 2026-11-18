@@ -14,6 +14,7 @@ specification of how AZtec behaves; verify on hardware (see
         sim.ebsd.touch_at_mm = 50.0     # inject faults
         sim.fail_next_acquisition = "Please enter a valid value for the acquisition time."
 """
+
 from __future__ import annotations
 
 import math
@@ -78,16 +79,26 @@ def _png(w=8, h=8, seed=0) -> bytes:
     """Tiny valid grayscale PNG (stand-in for AZtec's status images)."""
     import numpy as np
     from ._png import encode_gray8
+
     yy, xx = np.mgrid[0:h, 0:w]
     return encode_gray8(((xx * 31 + yy * 17 + seed) % 256).astype(np.uint8))
 
 
-def write_fake_h5oina(path, techniques=("EBSD",), x_cells=16, y_cells=12, indexed=True,
-                      format_version="5.0", patterns=None, project_file=None):
+def write_fake_h5oina(
+    path,
+    techniques=("EBSD",),
+    x_cells=16,
+    y_cells=12,
+    indexed=True,
+    format_version="5.0",
+    patterns=None,
+    project_file=None,
+):
     """Write a small file with the H5OINA layout (needs h5py). Not real Oxford data;
     for exercising export verification and the inspector."""
     import h5py
     import numpy as np
+
     n = x_cells * y_cells
     with h5py.File(path, "w") as f:
         f["Format Version"] = np.bytes_(format_version)
@@ -106,12 +117,20 @@ def write_fake_h5oina(path, techniques=("EBSD",), x_cells=16, y_cells=12, indexe
             if tech == "EBSD":
                 ph = hdr.create_group("Phases")
                 ph.create_group("1")["Phase Name"] = np.bytes_("Iron bcc")
-                data["Phase"] = (np.ones(n, dtype=np.uint8) if indexed else np.zeros(n, dtype=np.uint8))
+                data["Phase"] = (
+                    np.ones(n, dtype=np.uint8)
+                    if indexed
+                    else np.zeros(n, dtype=np.uint8)
+                )
                 data["Euler"] = np.zeros((n, 3), dtype=np.float32)
                 data["Band Contrast"] = np.full(n, 120, dtype=np.uint8)
                 data["X"] = np.tile(np.arange(x_cells, dtype=np.float32) * 0.5, y_cells)
-                data["Y"] = np.repeat(np.arange(y_cells, dtype=np.float32) * 0.5, x_cells)
-                if patterns:  # (height, width): synthetic Kikuchi-ish bands, unique per point
+                data["Y"] = np.repeat(
+                    np.arange(y_cells, dtype=np.float32) * 0.5, x_cells
+                )
+                if (
+                    patterns
+                ):  # (height, width): synthetic Kikuchi-ish bands, unique per point
                     ph, pw = patterns
                     hdr["Pattern Height"] = np.array([ph], dtype=np.int32)
                     hdr["Pattern Width"] = np.array([pw], dtype=np.int32)
@@ -119,19 +138,34 @@ def write_fake_h5oina(path, techniques=("EBSD",), x_cells=16, y_cells=12, indexe
                     pats = np.empty((n, ph, pw), dtype=np.uint8)
                     for i in range(n):
                         a = 0.3 + i * 0.05
-                        pats[i] = (127 + 100 * np.cos((xx * np.cos(a) + yy * np.sin(a)) / 4.0)).astype(np.uint8)
-                    data.create_dataset("Processed Patterns", data=pats, chunks=(1, ph, pw), compression="gzip")
+                        pats[i] = (
+                            127 + 100 * np.cos((xx * np.cos(a) + yy * np.sin(a)) / 4.0)
+                        ).astype(np.uint8)
+                    data.create_dataset(
+                        "Processed Patterns",
+                        data=pats,
+                        chunks=(1, ph, pw),
+                        compression="gzip",
+                    )
             elif tech == "EDS":
-                data.create_group("Window Integral")["Fe Ka"] = np.ones(n, dtype=np.float32)
+                data.create_group("Window Integral")["Fe Ka"] = np.ones(
+                    n, dtype=np.float32
+                )
 
 
 # --- hardware --------------------------------------------------------------------------
+
 
 class _Axis:
     """1-D motion with constant speed, evaluated lazily from wall-clock time."""
 
     def __init__(self, pos, speed, lo, hi):
-        self.pos, self.speed, self.lo, self.hi = float(pos), float(speed), float(lo), float(hi)
+        self.pos, self.speed, self.lo, self.hi = (
+            float(pos),
+            float(speed),
+            float(lo),
+            float(hi),
+        )
         self.target = None
         self._t0 = self._p0 = 0.0
         self.lock = threading.RLock()
@@ -168,8 +202,14 @@ class _Axis:
 
 
 class SimEbsdHardware:
-    def __init__(self, name="Symmetry S3 (sim)", in_mm=180.0, speed_mm_s=90.0,
-                 tilt_range_mm=(0.0, 10.0), tilt_speed_mm_s=5.0):
+    def __init__(
+        self,
+        name="Symmetry S3 (sim)",
+        in_mm=180.0,
+        speed_mm_s=90.0,
+        tilt_range_mm=(0.0, 10.0),
+        tilt_speed_mm_s=5.0,
+    ):
         self.id = "EBSD-SIM-1"
         self.name = name
         self.in_mm = in_mm
@@ -195,7 +235,11 @@ class SimEbsdHardware:
     def insertion_status(self):
         pos = self.insertion.position()
         d = self.insertion.moving_direction()
-        if getattr(self, "_touch_armed", False) and d == 0 and abs(pos - self.touch_at_mm) < 1e-6:
+        if (
+            getattr(self, "_touch_armed", False)
+            and d == 0
+            and abs(pos - self.touch_at_mm) < 1e-6
+        ):
             self.touching, self._touch_armed = True, False
         if self.fault:
             state = E.InsertionPositionState.FAULT
@@ -205,12 +249,25 @@ class SimEbsdHardware:
             state = E.InsertionPositionState.OUT
         else:
             state = E.InsertionPositionState.INTERMEDIATE
-        activity = (E.InsertionActivity.MOVING_IN if d > 0 else
-                    E.InsertionActivity.MOVING_OUT if d < 0 else E.InsertionActivity.NOT_MOVING)
+        activity = (
+            E.InsertionActivity.MOVING_IN
+            if d > 0
+            else E.InsertionActivity.MOVING_OUT
+            if d < 0
+            else E.InsertionActivity.NOT_MOVING
+        )
         ok = not self.fault
-        return NS(Position=pos, Activity=activity, State=state, IsTouching=self.touching,
-                  HasTouchSensor=True, CanDriveIn=ok and state != E.InsertionPositionState.IN,
-                  CanDriveOut=state != E.InsertionPositionState.OUT, CanStop=True, CanMoveTo=ok)
+        return NS(
+            Position=pos,
+            Activity=activity,
+            State=state,
+            IsTouching=self.touching,
+            HasTouchSensor=True,
+            CanDriveIn=ok and state != E.InsertionPositionState.IN,
+            CanDriveOut=state != E.InsertionPositionState.OUT,
+            CanStop=True,
+            CanMoveTo=ok,
+        )
 
     def tilt_status(self):
         pos = self.tilt.position()
@@ -221,9 +278,22 @@ class SimEbsdHardware:
             state = E.TiltPositionState.TOP
         else:
             state = E.TiltPositionState.ABOVE_HOME_KNOWN
-        act = E.TiltActivity.TILTING_UP if d > 0 else E.TiltActivity.TILTING_DOWN if d < 0 else E.TiltActivity.NOT_MOVING
-        return NS(Position=pos, Activity=act, State=state, CanDriveUp=True, CanDriveDown=True,
-                  CanStop=True, CanMoveTo=True)
+        act = (
+            E.TiltActivity.TILTING_UP
+            if d > 0
+            else E.TiltActivity.TILTING_DOWN
+            if d < 0
+            else E.TiltActivity.NOT_MOVING
+        )
+        return NS(
+            Position=pos,
+            Activity=act,
+            State=state,
+            CanDriveUp=True,
+            CanDriveDown=True,
+            CanStop=True,
+            CanMoveTo=True,
+        )
 
 
 class SimEdsHardware:
@@ -247,18 +317,38 @@ class SimEdsHardware:
             state = E.InsertionPositionState.OUT
         else:
             state = E.InsertionPositionState.INTERMEDIATE
-        activity = (E.InsertionActivity.MOVING_IN if d > 0 else
-                    E.InsertionActivity.MOVING_OUT if d < 0 else E.InsertionActivity.NOT_MOVING)
-        return NS(Activity=activity, State=state, CanDriveIn=not self.fault and state != E.InsertionPositionState.IN,
-                  CanDriveOut=state != E.InsertionPositionState.OUT, CanStop=True)
+        activity = (
+            E.InsertionActivity.MOVING_IN
+            if d > 0
+            else E.InsertionActivity.MOVING_OUT
+            if d < 0
+            else E.InsertionActivity.NOT_MOVING
+        )
+        return NS(
+            Activity=activity,
+            State=state,
+            CanDriveIn=not self.fault and state != E.InsertionPositionState.IN,
+            CanDriveOut=state != E.InsertionPositionState.OUT,
+            CanStop=True,
+        )
 
     def thermal_status(self):
         if self.mode == E.OperatingMode.STANDBY:
             st = E.OperatingState.STANDBY
         else:
-            st = E.OperatingState.COLD if time.monotonic() >= self._cold_at else E.OperatingState.COOLING
-        return NS(OperatingMode=self.mode, OperatingState=st, VacuumState=E.VacuumState.UNDER_VACUUM,
-                  HasVacuumSensor=True, CanOperate=True, CanStandby=True)
+            st = (
+                E.OperatingState.COLD
+                if time.monotonic() >= self._cold_at
+                else E.OperatingState.COOLING
+            )
+        return NS(
+            OperatingMode=self.mode,
+            OperatingState=st,
+            VacuumState=E.VacuumState.UNDER_VACUUM,
+            HasVacuumSensor=True,
+            CanOperate=True,
+            CanStandby=True,
+        )
 
     @property
     def is_cold(self):
@@ -266,6 +356,7 @@ class SimEdsHardware:
 
 
 # --- .NET-shaped control objects -------------------------------------------------------------
+
 
 class _InsertionControl:
     def __init__(self, hw, ebsd: bool):
@@ -362,9 +453,21 @@ class _DetectorControlClient:
     def GetDevices(self, device_type=None):
         out = []
         if self._sim.ebsd is not None:
-            out.append(NS(ID=self._sim.ebsd.id, DisplayName=self._sim.ebsd.name, DeviceType=E.DeviceType.EBSD))
+            out.append(
+                NS(
+                    ID=self._sim.ebsd.id,
+                    DisplayName=self._sim.ebsd.name,
+                    DeviceType=E.DeviceType.EBSD,
+                )
+            )
         if self._sim.eds is not None:
-            out.append(NS(ID=self._sim.eds.id, DisplayName=self._sim.eds.name, DeviceType=E.DeviceType.ED))
+            out.append(
+                NS(
+                    ID=self._sim.eds.id,
+                    DisplayName=self._sim.eds.name,
+                    DeviceType=E.DeviceType.ED,
+                )
+            )
         if device_type is not None:
             out = [d for d in out if int(d.DeviceType) == int(device_type)]
         return out
@@ -373,23 +476,31 @@ class _DetectorControlClient:
         hw = self._sim.ebsd
         if hw is None or ident.ID != hw.id:
             raise SimNetError("Device type must be Ebsd")
-        return NS(DetectorId=ident, InsertionControl=_InsertionControl(hw, True),
-                  TiltControl=_TiltControl(hw) if hw.has_tilt else None,
-                  ProximityControl=_ProximityControl(hw) if hw.has_proximity else None,
-                  Dispose=lambda: None)
+        return NS(
+            DetectorId=ident,
+            InsertionControl=_InsertionControl(hw, True),
+            TiltControl=_TiltControl(hw) if hw.has_tilt else None,
+            ProximityControl=_ProximityControl(hw) if hw.has_proximity else None,
+            Dispose=lambda: None,
+        )
 
     def Ed(self, ident):
         hw = self._sim.eds
         if hw is None or ident.ID != hw.id:
             raise SimNetError("Device type must be Ed")
-        return NS(DetectorId=ident, InsertionControl=_InsertionControl(hw, False),
-                  ThermalControl=_ThermalControl(hw), Dispose=lambda: None)
+        return NS(
+            DetectorId=ident,
+            InsertionControl=_InsertionControl(hw, False),
+            ThermalControl=_ThermalControl(hw),
+            Dispose=lambda: None,
+        )
 
     def Dispose(self):
         pass
 
 
 # --- project data ---------------------------------------------------------------------------
+
 
 class _Item:
     def __init__(self, label, data_type, parent=None, **extra):
@@ -446,8 +557,12 @@ class _ProjectDataController:
         msg, sim.fail_next_export = sim.fail_next_export, None
         if sim.write_export_files and state == E.ExportState.COMPLETED:
             sim.write_export(path, item)
-        _later(sim.event_delay_s, self.ExportFinished.fire, self,
-               NS(Data=[item], State=state, ExportType=1, ErrorMessage=msg))
+        _later(
+            sim.event_delay_s,
+            self.ExportFinished.fire,
+            self,
+            NS(Data=[item], State=state, ExportType=1, ErrorMessage=msg),
+        )
 
 
 class _EdMapController:
@@ -457,13 +572,27 @@ class _EdMapController:
         self.ProcessingFinished = SimEvent()
 
     def AvailableEdMappingModes(self):
-        return [E.EdMappingMode.WINDOW_INTEGRAL, E.EdMappingMode.TRU_MAP, E.EdMappingMode.QUANT_MAP]
+        return [
+            E.EdMappingMode.WINDOW_INTEGRAL,
+            E.EdMappingMode.TRU_MAP,
+            E.EdMappingMode.QUANT_MAP,
+        ]
 
     def CreateElementMaps(self, item, mode):
         if int(mode) == 0:
             raise SimNetError("Ed mapping mode cannot be Unknown")
-        _later(self._sim.event_delay_s, self.ProcessingProgress.fire, self, NS(ProgressPercentage=50.0))
-        _later(self._sim.event_delay_s * 2, self.ProcessingFinished.fire, self, NS(Mode=mode, Data=[item]))
+        _later(
+            self._sim.event_delay_s,
+            self.ProcessingProgress.fire,
+            self,
+            NS(ProgressPercentage=50.0),
+        )
+        _later(
+            self._sim.event_delay_s * 2,
+            self.ProcessingFinished.fire,
+            self,
+            NS(Mode=mode, Data=[item]),
+        )
 
     def CancelProcessing(self, item):
         pass
@@ -476,12 +605,15 @@ class _EdSpectrumController:
         self.ExperimentFinished = SimEvent()
 
     def CreateEMSAOutput(self, item):
-        return ("#FORMAT      : EMSA/MAS Spectral Data File\n#VERSION     : 1.0\n#TITLE       : %s\n"
-                "#NPOINTS     : 4\n#SPECTRUM    :\n0.0, 1.0\n0.01, 4.0\n0.02, 9.0\n0.03, 2.0\n#ENDOFDATA   :\n"
-                % item.Label)
+        return (
+            "#FORMAT      : EMSA/MAS Spectral Data File\n#VERSION     : 1.0\n#TITLE       : %s\n"
+            "#NPOINTS     : 4\n#SPECTRUM    :\n0.0, 1.0\n0.01, 4.0\n0.02, 9.0\n0.03, 2.0\n#ENDOFDATA   :\n"
+            % item.Label
+        )
 
 
 # --- acquisition ----------------------------------------------------------------------------
+
 
 class _AcquisitionClient:
     def __init__(self, sim):
@@ -520,7 +652,9 @@ class _AcquisitionClient:
             raise SimNetError("An acquisition is already in progress")
         self._running, self._stops = True, 0
         self.started_names.append(name)
-        threading.Thread(target=self._run, args=(name, int(self.AcquisitionType)), daemon=True).start()
+        threading.Thread(
+            target=self._run, args=(name, int(self.AcquisitionType)), daemon=True
+        ).start()
 
     def StopAcquisition(self):
         if self._running:
@@ -529,10 +663,18 @@ class _AcquisitionClient:
     def _finish(self, state, message=None, **ids):
         self._running = False
         self.Acquired.fire(self, NS(AcquisitionState=state))
-        status = NS(State=state, AcquiredItemName=ids.pop("name", None), Message=message, Error=None,
-                    EdsMapId=ids.get("eds", EMPTY), EbsdMapId=ids.get("ebsd", EMPTY),
-                    EdsMap=ids.get("eds_img"), EbsdMap=ids.get("ebsd_img"),
-                    ElectronImage=ids.get("ei_img"), AcquiredRegion=self.AcquisitionRegion)
+        status = NS(
+            State=state,
+            AcquiredItemName=ids.pop("name", None),
+            Message=message,
+            Error=None,
+            EdsMapId=ids.get("eds", EMPTY),
+            EbsdMapId=ids.get("ebsd", EMPTY),
+            EdsMap=ids.get("eds_img"),
+            EbsdMap=ids.get("ebsd_img"),
+            ElectronImage=ids.get("ei_img"),
+            AcquiredRegion=self.AcquisitionRegion,
+        )
         self.Finished.fire(self, NS(AcquisitionStatus=status))
 
     def _run(self, name, atype):
@@ -540,7 +682,10 @@ class _AcquisitionClient:
         time.sleep(sim.event_delay_s)
         fail, sim.fail_next_acquisition = sim.fail_next_acquisition, None
         if fail:
-            return self._finish(E.AcquisitionState.ERROR, "Data acquisition has invalid settings(s):\n" + fail)
+            return self._finish(
+                E.AcquisitionState.ERROR,
+                "Data acquisition has invalid settings(s):\n" + fail,
+            )
         problem = sim.readiness_problem(atype)
         if problem:
             return self._finish(E.AcquisitionState.ERROR, problem)
@@ -551,8 +696,15 @@ class _AcquisitionClient:
             if self._stops >= 2:
                 break
             time.sleep(total / steps)
-            self.ProgressChanged.fire(self, NS(AcquisitionProgress=NS(
-                ProgressPercentage=int(100 * i / steps), EstimatedSecondsToCompletion=int(total * (steps - i) / steps))))
+            self.ProgressChanged.fire(
+                self,
+                NS(
+                    AcquisitionProgress=NS(
+                        ProgressPercentage=int(100 * i / steps),
+                        EstimatedSecondsToCompletion=int(total * (steps - i) / steps),
+                    )
+                ),
+            )
             if self._stops >= 1:
                 break  # end-of-frame stop
         site = sim.site_named(self.SiteName) if self.SiteName else sim.current_site
@@ -565,7 +717,14 @@ class _AcquisitionClient:
             if imgs & E.StatusImageTypes.ELECTRON_IMAGE:
                 ids["ei_img"] = _png(seed=1)
         if atype & E.AcquisitionType.EDS_MAP:
-            it = sim.add(_Item(label + " EDS", E.DataType.ED_MAP, site, region=self.AcquisitionRegion))
+            it = sim.add(
+                _Item(
+                    label + " EDS",
+                    E.DataType.ED_MAP,
+                    site,
+                    region=self.AcquisitionRegion,
+                )
+            )
             ids["eds"] = it.Id
             if imgs & E.StatusImageTypes.EDS_MAP:
                 ids["eds_img"] = _png(seed=2)
@@ -593,12 +752,27 @@ class _AcquisitionClient:
         if item is None or item.DataType not in (E.DataType.ED_MAP, E.DataType.ED_LINE):
             raise SimNetError("No EDS map or line with id %s" % guid)
         import numpy as np
+
         w, h = self._sim.map_size
         yy, xx = np.mgrid[0:h, 0:w]
-        elems = [NS(Name=el, Data=((np.sin(xx / (5.0 + k)) + np.cos(yy / (7.0 + k)) + 2) * 50).astype(np.float32).ravel())
-                 for k, el in enumerate(self._sim.elements)]
-        return NS(Id=item.Id, Name=item.Label, Width=w, Height=h, ResultType=result_type,
-                  ElementData=elems, AcquisitionRegion=getattr(item, "region", None))
+        elems = [
+            NS(
+                Name=el,
+                Data=((np.sin(xx / (5.0 + k)) + np.cos(yy / (7.0 + k)) + 2) * 50)
+                .astype(np.float32)
+                .ravel(),
+            )
+            for k, el in enumerate(self._sim.elements)
+        ]
+        return NS(
+            Id=item.Id,
+            Name=item.Label,
+            Width=w,
+            Height=h,
+            ResultType=result_type,
+            ElementData=elems,
+            AcquisitionRegion=getattr(item, "region", None),
+        )
 
     def Release(self):
         self.released = True
@@ -625,29 +799,53 @@ class _NativeSession:
 
     @property
     def Projects(self):
-        return [NS(Name=p.Label, Id=p.Id, FileName=p.file_name) for p in self._sim.of_type(E.DataType.PROJECT)]
+        return [
+            NS(Name=p.Label, Id=p.Id, FileName=p.file_name)
+            for p in self._sim.of_type(E.DataType.PROJECT)
+        ]
 
     @property
     def Specimens(self):
-        return [NS(Name=s.Label, Id=s.Id, ProjectId=s.parent.Id) for s in self._sim.of_type(E.DataType.SPECIMEN)]
+        return [
+            NS(Name=s.Label, Id=s.Id, ProjectId=s.parent.Id)
+            for s in self._sim.of_type(E.DataType.SPECIMEN)
+        ]
 
     @property
     def Profiles(self):
-        return [NS(Name=p.Name, Id=p.Id, Description=p.Description) for p in self._sim.profiles]
+        return [
+            NS(Name=p.Name, Id=p.Id, Description=p.Description)
+            for p in self._sim.profiles
+        ]
 
     def _fire_project(self, state, item, message=None):
-        info = NS(Name=item.Label, Id=item.Id, FileName=getattr(item, "file_name", None)) if item else None
-        _later(self._sim.event_delay_s, self.ProjectStateChanged.fire, self,
-               NS(Status=state, Message=message, ProjectInfo=info))
+        info = (
+            NS(Name=item.Label, Id=item.Id, FileName=getattr(item, "file_name", None))
+            if item
+            else None
+        )
+        _later(
+            self._sim.event_delay_s,
+            self.ProjectStateChanged.fire,
+            self,
+            NS(Status=state, Message=message, ProjectInfo=info),
+        )
 
     def GetDetectorStatus(self, acq_type):
         problem = self._sim.readiness_problem(int(acq_type))
-        if int(acq_type) not in (int(E.AcquisitionType.EDS_MAP), int(E.AcquisitionType.EBSD_MAP)):
-            raise SimNetError("There is no detector associated with the specified acquisition type")
+        if int(acq_type) not in (
+            int(E.AcquisitionType.EDS_MAP),
+            int(E.AcquisitionType.EBSD_MAP),
+        ):
+            raise SimNetError(
+                "There is no detector associated with the specified acquisition type"
+            )
         return NS(IsDetectorReady=problem is None, StatusDescription=problem or "Ready")
 
     def GetAcquisitionTime(self, acq_type=None):
-        return _TimeSpan(self._sim.acquisition_time(int(acq_type) if acq_type is not None else 4))
+        return _TimeSpan(
+            self._sim.acquisition_time(int(acq_type) if acq_type is not None else 4)
+        )
 
     def CreateProject(self, name, folder=None):
         # Layout observed on AZtec 6.1: <folder>\<name>\<name>.oipx
@@ -656,6 +854,7 @@ class _NativeSession:
         file_name = sep.join([folder.rstrip("\\/"), name, name + ".oipx"])
         if sep == "/" and self._sim.write_export_files:
             import os
+
             os.makedirs(os.path.join(os.path.dirname(file_name), "data"), exist_ok=True)
         p = self._sim.add(_Item(name, E.DataType.PROJECT, None, file_name=file_name))
         s = self._sim.add(_Item("Specimen 1", E.DataType.SPECIMEN, p))
@@ -672,27 +871,41 @@ class _NativeSession:
     def CloseProject(self, guid):
         p = self._sim.item(guid)
         if p is None:
-            return self._fire_project(E.ProjectChangeState.ERROR, None, "No such project")
+            return self._fire_project(
+                E.ProjectChangeState.ERROR, None, "No such project"
+            )
         self._sim.remove_tree(p)
         self._fire_project(E.ProjectChangeState.CLOSED, p)
 
     def CreateSpecimen(self, project_guid, name):
         p = self._sim.item(project_guid)
         if p is None:
-            return self._fire_project(E.ProjectChangeState.ERROR, None, "No such project")
+            return self._fire_project(
+                E.ProjectChangeState.ERROR, None, "No such project"
+            )
         self._sim.current_specimen = self._sim.add(_Item(name, E.DataType.SPECIMEN, p))
         self._fire_project(E.ProjectChangeState.SPECIMEN_ADDED, p)
 
     def CreateProfile(self, name):
-        self._sim.profiles.append(NS(Name=name, Id=uuid.uuid4(), Description="Created via plugin"))
+        self._sim.profiles.append(
+            NS(Name=name, Id=uuid.uuid4(), Description="Created via plugin")
+        )
 
     def LoadProfile(self, guid):
         prof = next((p for p in self._sim.profiles if p.Id == guid), None)
         state = E.ProfileChangeState.LOADED if prof else E.ProfileChangeState.FAILED
         if prof:
             self._sim.loaded_profile = prof.Name
-        _later(self._sim.event_delay_s, self.ProfileStateChanged.fire, self,
-               NS(Status=state, Message=None if prof else "Profile not found", ProfileInfo=prof))
+        _later(
+            self._sim.event_delay_s,
+            self.ProfileStateChanged.fire,
+            self,
+            NS(
+                Status=state,
+                Message=None if prof else "Profile not found",
+                ProfileInfo=prof,
+            ),
+        )
 
     def DeleteProfile(self, guid):
         self._sim.profiles = [p for p in self._sim.profiles if p.Id != guid]
@@ -701,11 +914,19 @@ class _NativeSession:
         self._sim.exports.append((folder, guid, -1))
         if self._sim.write_export_files:
             import os
+
             for m in self._sim.of_type(E.DataType.EBSD_MAP):
-                write_fake_h5oina(os.path.join(folder, "%s.h5oina" % m.Label.replace(" ", "_")),
-                                  ("EBSD",), patterns=self._sim.batch_export_patterns)
-        _later(self._sim.event_delay_s, self.BatchExportFinished.fire, self,
-               NS(Message="Batch export complete: %s" % folder))
+                write_fake_h5oina(
+                    os.path.join(folder, "%s.h5oina" % m.Label.replace(" ", "_")),
+                    ("EBSD",),
+                    patterns=self._sim.batch_export_patterns,
+                )
+        _later(
+            self._sim.event_delay_s,
+            self.BatchExportFinished.fire,
+            self,
+            NS(Message="Batch export complete: %s" % folder),
+        )
 
     def GetAcquisitionClient(self):
         if self._sim.acquisition_client is not None:
@@ -736,10 +957,20 @@ class _NativeSession:
 class Simulator:
     """The simulated AZtec instance. Tweak attributes to shape behaviour / inject faults."""
 
-    def __init__(self, acquisition_seconds=2.0, progress_steps=5, event_delay_s=0.02,
-                 ebsd_speed_mm_s=90.0, eds_move_s=1.0, eds_cool_s=2.0, map_size=(64, 48),
-                 elements=("Fe Ka", "Cr Ka", "Ni Ka"), with_ebsd=True, with_eds=True,
-                 require_inserted=True):
+    def __init__(
+        self,
+        acquisition_seconds=2.0,
+        progress_steps=5,
+        event_delay_s=0.02,
+        ebsd_speed_mm_s=90.0,
+        eds_move_s=1.0,
+        eds_cool_s=2.0,
+        map_size=(64, 48),
+        elements=("Fe Ka", "Cr Ka", "Ni Ka"),
+        with_ebsd=True,
+        with_eds=True,
+        require_inserted=True,
+    ):
         self.acquisition_seconds = acquisition_seconds
         self.progress_steps = progress_steps
         self.event_delay_s = event_delay_s
@@ -748,7 +979,9 @@ class Simulator:
         #: If True, acquisitions fail unless the needed detector is inserted (and EDS cold).
         self.require_inserted = require_inserted
         self.ebsd = SimEbsdHardware(speed_mm_s=ebsd_speed_mm_s) if with_ebsd else None
-        self.eds = SimEdsHardware(move_s=eds_move_s, cool_s=eds_cool_s) if with_eds else None
+        self.eds = (
+            SimEdsHardware(move_s=eds_move_s, cool_s=eds_cool_s) if with_eds else None
+        )
         self.session: Optional[_NativeSession] = None
         self.acquisition_client: Optional[_AcquisitionClient] = None
         self.refuse_connections = False
@@ -775,13 +1008,24 @@ class Simulator:
         self.ids_only_with_status_images = False
         self.acq_counter = 0
         self.loaded_profile = None
-        self.profiles = [NS(Name="EBSD 1um step", Id=uuid.uuid4(), Description="sim"),
-                         NS(Name="EDS 512px 50us", Id=uuid.uuid4(), Description="sim")]
+        self.profiles = [
+            NS(Name="EBSD 1um step", Id=uuid.uuid4(), Description="sim"),
+            NS(Name="EDS 512px 50us", Id=uuid.uuid4(), Description="sim"),
+        ]
         self.items: List[_Item] = []
         self._lock = threading.RLock()
-        proj = self.add(_Item("Sim Project", E.DataType.PROJECT, None, file_name=r"C:\AZtec\Projects\Sim Project.oip"))
+        proj = self.add(
+            _Item(
+                "Sim Project",
+                E.DataType.PROJECT,
+                None,
+                file_name=r"C:\AZtec\Projects\Sim Project.oip",
+            )
+        )
         self.current_specimen = self.add(_Item("Specimen 1", E.DataType.SPECIMEN, proj))
-        self.current_site = self.add(_Item("Site 1", E.DataType.SITE, self.current_specimen))
+        self.current_site = self.add(
+            _Item("Site 1", E.DataType.SITE, self.current_specimen)
+        )
         self.add(_Item("Spectrum 1", E.DataType.ED_SPECTRUM, self.current_site))
 
     # tree helpers
@@ -806,7 +1050,11 @@ class Simulator:
 
     def remove_tree(self, root):
         with self._lock:
-            self.items = [i for i in self.items if i is not root and not self.is_descendant(i, root.Id)]
+            self.items = [
+                i
+                for i in self.items
+                if i is not root and not self.is_descendant(i, root.Id)
+            ]
 
     def site_named(self, name):
         for s in self.of_type(E.DataType.SITE):
@@ -818,6 +1066,7 @@ class Simulator:
 
     def write_ebsp(self, map_item, site):
         import os
+
         node = site
         while node is not None and node.DataType != E.DataType.PROJECT:
             node = node.parent
@@ -831,15 +1080,23 @@ class Simulator:
 
     def write_export(self, path, item):
         dtype = int(item.DataType)
-        if dtype in (int(E.DataType.ED_MAP), int(E.DataType.ED_LINE), int(E.DataType.ED_SPECTRUM)):
+        if dtype in (
+            int(E.DataType.ED_MAP),
+            int(E.DataType.ED_LINE),
+            int(E.DataType.ED_SPECTRUM),
+        ):
             techs = ("EDS",)
         elif dtype in (int(E.DataType.EBSD_MAP), int(E.DataType.MAP_ACQUIRE)):
-            techs = ("EBSD", "EDS") if getattr(item, "includes_eds", False) else ("EBSD",)
+            techs = (
+                ("EBSD", "EDS") if getattr(item, "includes_eds", False) else ("EBSD",)
+            )
         elif dtype == int(E.DataType.SITE):
             techs = ("EBSD", "EDS")
         else:
             techs = ()
-        write_fake_h5oina(path, techs, indexed=self.export_indexed, patterns=self.export_patterns)
+        write_fake_h5oina(
+            path, techs, indexed=self.export_indexed, patterns=self.export_patterns
+        )
 
     # behaviour helpers
     def acquisition_time(self, atype: int) -> float:
@@ -873,9 +1130,11 @@ class _SessionStatics:
     def Connect(self, address):
         sim = self._sim
         if sim.refuse_connections or sim.session is not None:
-            raise SimNetError("Could not connect to AZtec Plugin. Verify the machine running AZtec is "
-                              "accessible at the given IP address and port and does not have an active "
-                              "Plugin connection.")
+            raise SimNetError(
+                "Could not connect to AZtec Plugin. Verify the machine running AZtec is "
+                "accessible at the given IP address and port and does not have an active "
+                "Plugin connection."
+            )
         sim.session = _NativeSession(sim)
         return sim.session
 
@@ -928,6 +1187,7 @@ class SimulatedApi:
     @staticmethod
     def floats(x):
         import numpy as np
+
         return np.asarray(x if x is not None else [], dtype=np.float32).ravel()
 
     @staticmethod

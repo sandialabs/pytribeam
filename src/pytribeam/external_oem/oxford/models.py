@@ -2,6 +2,7 @@
 
 Nothing in here touches .NET; conversion happens in the controller modules.
 """
+
 from __future__ import annotations
 
 import uuid
@@ -30,10 +31,13 @@ from .enums import (
 
 def _check_unit(name, value):
     if not 0.0 <= value <= 1.0:
-        raise ValueError("%s must be a normalized coordinate in [0, 1], got %r" % (name, value))
+        raise ValueError(
+            "%s must be a normalized coordinate in [0, 1], got %r" % (name, value)
+        )
 
 
 # --- Regions ---------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class RectangleRegion:
@@ -41,6 +45,7 @@ class RectangleRegion:
 
     (x, y) is the top-left corner. Pass ``None`` as the region to acquire the full field.
     """
+
     x: float
     y: float
     width: float
@@ -67,6 +72,7 @@ class LineRegion:
     ``point_separation_um`` is in micrometres. With ``definition=USE_AZTEC_SETTINGS``
     (the default) AZtec's current line settings decide the sampling.
     """
+
     x: float
     y: float
     x2: float
@@ -80,11 +86,15 @@ class LineRegion:
             _check_unit(n, getattr(self, n))
         if self.definition == LineDefinitionMode.POINTS and not self.max_points:
             raise ValueError("definition=POINTS requires max_points")
-        if self.definition == LineDefinitionMode.SEPARATION and not self.point_separation_um:
+        if (
+            self.definition == LineDefinitionMode.SEPARATION
+            and not self.point_separation_um
+        ):
             raise ValueError("definition=SEPARATION requires point_separation_um")
 
 
 # --- Acquisition --------------------------------------------------------------
+
 
 @dataclass
 class AcquisitionConfig:
@@ -97,12 +107,17 @@ class AcquisitionConfig:
     resolution are NOT part of the plugin API. AZtec uses its current settings for
     each technique; switch them with :meth:`AcquisitionController.load_profile`.
     """
+
     acquisition_type: AcquisitionType = AcquisitionType.EBSD_MAP
-    region: Optional[Any] = None              # RectangleRegion | LineRegion | None (full field)
-    site_name: Optional[str] = None           # None: keep client's current setting
-    use_current_site: bool = False            # True: acquire into the site selected in AZtec
-    project_id: Optional[uuid.UUID] = None    # None: the project selected in the AZtec data tree
-    specimen_id: Optional[uuid.UUID] = None   # None: the specimen selected in the AZtec data tree
+    region: Optional[Any] = None  # RectangleRegion | LineRegion | None (full field)
+    site_name: Optional[str] = None  # None: keep client's current setting
+    use_current_site: bool = False  # True: acquire into the site selected in AZtec
+    project_id: Optional[uuid.UUID] = (
+        None  # None: the project selected in the AZtec data tree
+    )
+    specimen_id: Optional[uuid.UUID] = (
+        None  # None: the specimen selected in the AZtec data tree
+    )
     auto_lock: Optional[AutoLockMode] = None
     status_images: Optional[StatusImageTypes] = None
     master_site_number: Optional[int] = None
@@ -118,7 +133,9 @@ class AcquisitionConfig:
             raise ValueError("acquisition_type must include at least one technique")
         if self.use_current_site and self.site_name:
             raise ValueError("use site_name or use_current_site, not both")
-        if self.region is not None and not isinstance(self.region, (RectangleRegion, LineRegion)):
+        if self.region is not None and not isinstance(
+            self.region, (RectangleRegion, LineRegion)
+        ):
             raise TypeError("region must be a RectangleRegion, LineRegion or None")
 
 
@@ -131,6 +148,7 @@ class AcquisitionProgress:
 @dataclass
 class AcquisitionResult:
     """Outcome of one plugin acquisition (from the .NET ``AcquisitionStatus``)."""
+
     state: AcquisitionState
     item_name: Optional[str] = None
     message: Optional[str] = None
@@ -158,6 +176,7 @@ class AcquisitionResult:
 
 # --- Project data --------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class ProjectInfo:
     name: str
@@ -182,6 +201,7 @@ class ProfileInfo:
 @dataclass
 class DataItem:
     """A node in the AZtec data tree (project, specimen, site, map, spectrum...)."""
+
     id: Optional[uuid.UUID]
     data_type: DataType
     label: str
@@ -208,10 +228,11 @@ class ExportResult:
 class ScanFiles:
     """Files AZtec wrote for one map, in the project's ``data`` folder (paths as seen
     by the AZtec PC). EBSD maps have a pattern file (.ebsp); EDS maps don't."""
+
     map_id: uuid.UUID
     scan: str
     patterns: Optional[str] = None
-    technique: str = "ebsd"                 # "ebsd" | "eds"
+    technique: str = "ebsd"  # "ebsd" | "eds"
     #: True/False if the .ebsp was checked from this machine; None if not visible / not EBSD.
     patterns_present: Optional[bool] = None
     patterns_size_bytes: Optional[int] = None
@@ -221,6 +242,7 @@ class ScanFiles:
 @dataclass
 class ScanResult:
     """Outcome of :meth:`AztecSession.scan`: the acquisition plus every exported map."""
+
     description: str
     acquisition: "AcquisitionResult"
     files: List[ScanFiles] = field(default_factory=list)
@@ -247,6 +269,7 @@ class ScanResult:
 @dataclass
 class EdsMapData:
     """EDS element maps. ``elements`` maps element/line name -> 2-D array (height, width)."""
+
     id: Optional[uuid.UUID]
     name: str
     width: int
@@ -259,6 +282,7 @@ class EdsMapData:
 @dataclass
 class EdsLineData:
     """EDS linescan. ``elements`` maps element name -> 1-D array; ``points`` are the sample positions."""
+
     id: Optional[uuid.UUID]
     name: str
     result_type: EdResultType
@@ -268,6 +292,7 @@ class EdsLineData:
 
 
 # --- Detectors ------------------------------------------------------------------
+
 
 @dataclass(frozen=True)
 class DetectorInfo:
@@ -322,8 +347,9 @@ class EdThermalState:
 @dataclass
 class DetectorStatus:
     """Snapshot of one detector. Fields not supported by the hardware are None."""
+
     info: DetectorInfo
-    insertion: Any = None             # EbsdInsertionState | EdInsertionState
+    insertion: Any = None  # EbsdInsertionState | EdInsertionState
     tilt: Optional[EbsdTiltState] = None
     proximity_sensor_enabled: Optional[bool] = None
     thermal: Optional[EdThermalState] = None
@@ -333,6 +359,7 @@ class DetectorStatus:
 @dataclass
 class TechniqueReadiness:
     """AZtec's own readiness report for a technique (``Session.GetDetectorStatus``)."""
+
     ready: Optional[bool]
     description: Optional[str]
 
@@ -341,6 +368,7 @@ class TechniqueReadiness:
 class SystemStatus:
     """Aggregated connection + detector status. Collecting it never raises;
     problems encountered while polling are listed in ``errors``."""
+
     connected: bool
     address: str
     client_version: Optional[str] = None
