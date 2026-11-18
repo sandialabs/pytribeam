@@ -688,6 +688,11 @@ def pre_flight_check(yml_path: Path) -> tbt.ExperimentSettings:
             general_settings=general_settings, steps=step_sequence
         )
 
+    # Collision checks for every detector insertion (including the CBS during
+    # image steps) now read the external detectors through this experiment's
+    # backends rather than LaserControl.
+    external_devices.use_for_collision_checks(general_settings)
+
     experiment_settings = tbt.ExperimentSettings(
         microscope=microscope,
         general_settings=general_settings,
