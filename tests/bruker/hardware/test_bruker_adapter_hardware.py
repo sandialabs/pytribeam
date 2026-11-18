@@ -9,8 +9,8 @@ Two tiers:
   hardware or the ESPRIT simulator; calls the simulator does not support are
   skipped.
 - ``hardware`` + ``bruker_hardware``: moves the EDS detector to acquire and
-  back to park through the adapter, on the microscope PC, with the real
-  collision check and chamber CCD. Needs the existing Bruker hardware opt-in.
+  back to park through the dispatcher (which owns the collision check and
+  chamber CCD), on the microscope PC. Needs the existing Bruker hardware opt-in.
 
 Opt in::
 
@@ -26,14 +26,15 @@ positions must be measured on the instrument first.
 """
 
 import os
+from pathlib import Path
 
 import pytest
 
 pytest.importorskip("autoscript_sdb_microscope_client")
 
+import pytribeam.external_oem.dispatch as external_devices  # noqa: E402
 import pytribeam.types as tbt  # noqa: E402
 from pytribeam.external_oem.adapters import bruker as bruker_adapter  # noqa: E402
-from pytribeam.external_oem.bruker.config import parse_bruker_settings  # noqa: E402
 from pytribeam.external_oem.core.errors import (  # noqa: E402
     APICallError,
     DetectorError,
@@ -53,22 +54,6 @@ DEFAULT_DLL_DIR = r"C:\Program Files\Bruker\Esprit API"
 @pytest.fixture(scope="module")
 def settings(tmp_path_factory) -> tbt.GeneralSettings:
     root = tmp_path_factory.mktemp("bruker_adapter")
-    block = {
-        "session": {
-            "dll_dir": os.environ.get("PYTRIBEAM_BRUKER_DLL_DIR", DEFAULT_DLL_DIR),
-            "mode": "local",
-        },
-        "eds": {
-            "output": {"root_dir": str(root / "esprit"), "run_name": "adapter_hw"},
-            "detector": {"detector_index": 1},
-            "map": {
-                "mode": "simple",
-                "width_px": 64,
-                "height_px": 48,
-                "pixel_time_us": 100,
-            },
-        },
-    }
     general_settings = tbt.GeneralSettings(
         yml_version=1.2,
         slice_thickness_um=1.0,
@@ -82,7 +67,11 @@ def settings(tmp_path_factory) -> tbt.GeneralSettings:
         exp_dir=str(root / "exp"),
         h5_log_name="log",
         step_count=1,
-        Bruker_settings=parse_bruker_settings(block),
+        Bruker_settings=tbt.BrukerConfig(
+            dll_dir=os.environ.get("PYTRIBEAM_BRUKER_DLL_DIR", DEFAULT_DLL_DIR),
+            # Only the motion test moves anything, behind its own opt-in.
+            move_detector=True,
+        ),
     )
     try:
         bruker_adapter.test_connection(general_settings, tbt.ExternalTechnique.EDS)
@@ -118,8 +107,19 @@ def test_eds_state_is_translated(settings):
     print(f"EDS detector: {state}")
 
 
+def eds_step(settings) -> tbt.EDSSettings:
+    return tbt.EDSSettings(
+        image=None,
+        bruker=tbt.BrukerEDSStepSettings(
+            output_path=Path(settings.exp_dir) / "esprit",
+            map=tbt.BrukerMapSettings(width_px=64, height_px=48, dwell_us=100),
+            run_name="adapter_hw",
+        ),
+    )
+
+
 def test_eds_preflight(settings):
-    assert _call(bruker_adapter.preflight_eds, settings, [tbt.EDSSettings(image=None)])
+    assert _call(bruker_adapter.preflight_eds, settings, [eds_step(settings)])
 
 
 # ----------------------------------------------------------------------
@@ -136,8 +136,9 @@ def test_eds_insert_and_retract(microscope, settings):
     assert bruker_adapter.get_eds_detector_state(settings) == STATE.RETRACTED
 
     try:
-        assert bruker_adapter.insert_eds_detector(microscope, settings)
+        # Through the dispatcher, which owns the collision check and CCD.
+        assert external_devices.insert_eds_detector(microscope, settings)
         assert bruker_adapter.get_eds_detector_state(settings) == STATE.INSERTED
     finally:
-        assert bruker_adapter.retract_eds_detector(microscope, settings)
+        assert external_devices.retract_eds_detector(microscope, settings)
     assert bruker_adapter.get_eds_detector_state(settings) == STATE.RETRACTED

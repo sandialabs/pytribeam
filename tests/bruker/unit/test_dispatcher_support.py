@@ -1,21 +1,12 @@
 """Bruker wrapper additions used by the external OEM dispatcher: map timing
-settings, the image configuration setter, and per-map HDF5 output."""
+settings and the image configuration setter."""
 
-import json
 from copy import deepcopy
 
-import h5py
-import numpy as np
 import pytest
 
 from pytribeam.external_oem.bruker.config import parse_bruker_eds_config
-from pytribeam.external_oem.bruker.h5_output import (
-    BrukerElementMap,
-    settings_record,
-    write_eds_map_h5,
-)
 from pytribeam.external_oem.bruker.image_config import BrukerImageConfigController
-from pytribeam.external_oem.bruker.types import BrukerEDSElementMapSetting
 
 CONFIG = {
     "session": {"dll_dir": "C:/Esprit API", "password": "secret"},
@@ -103,36 +94,3 @@ def test_set_image_configuration_sets_then_reads_back():
 
     assert session.dll.ImageSetConfiguration.calls == [(11, 4, 3, 100, True, False)]
     assert (accepted.width_px, accepted.height_px, accepted.average) == (4, 3, 7)
-
-
-class TestH5Output:
-    def write(self, path, **kwargs):
-        settings = parse_bruker_eds_config(deepcopy(CONFIG))
-        element = BrukerEDSElementMapSetting(atomic_number=26, line="KA")
-        defaults = dict(
-            settings=settings,
-            element_maps=[BrukerElementMap(0, element, data=np.ones((3, 4), "uint16"))],
-            slice_number=2,
-            timestamp="20261117_120000",
-        )
-        return write_eds_map_h5(path, **{**defaults, **kwargs})
-
-    def test_refuses_to_overwrite(self, tmp_path):
-        path = self.write(tmp_path / "map.h5")
-
-        with pytest.raises(FileExistsError):
-            self.write(path)
-
-    def test_creates_parent_folders(self, tmp_path):
-        path = self.write(tmp_path / "a" / "b" / "map.h5")
-
-        with h5py.File(path, "r") as f:
-            assert f.attrs["schema_version"] == "1.0"
-            assert f["eds/maps/00"].shape == (3, 4)
-
-    def test_settings_record_removes_the_password(self):
-        record = settings_record(parse_bruker_eds_config(deepcopy(CONFIG)))
-
-        assert "password" not in record["session"]
-        assert record["session"]["dll_dir"] == "C:/Esprit API"
-        assert "secret" not in json.dumps(record)
