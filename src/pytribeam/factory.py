@@ -803,12 +803,12 @@ def general(
         yml_version = 1.0
 
     if yml_format.version >= 1.1:
-        EDAX_settings = edax_config(general_db.get("EDAX_settings"))
+        EDAX_settings = edax_config(vendor_block(general_db, "EDAX_settings"))
         yml_version = 1.1
 
     if yml_format.version >= 1.2:
-        Oxford_settings = oxford_config(general_db.get("Oxford_settings"))
-        Bruker_settings = bruker_config(general_db.get("Bruker_settings"))
+        Oxford_settings = oxford_config(vendor_block(general_db, "Oxford_settings"))
+        Bruker_settings = bruker_config(vendor_block(general_db, "Bruker_settings"))
         yml_version = 1.2
 
     general_settings = tbt.GeneralSettings(
@@ -867,6 +867,42 @@ def test_external_connections(general_settings: tbt.GeneralSettings) -> bool:
 
 # Not a pytest test, despite the name.
 test_external_connections.__test__ = False
+
+
+def _has_value(value) -> bool:
+    """Return True if a YAML value, or anything nested in it, is filled in.
+
+    Booleans do not count: GUI checkboxes always hold True or False, so a
+    block with only its checkboxes set was still left blank.
+    """
+    if isinstance(value, dict):
+        return any(_has_value(item) for item in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_value(item) for item in value)
+    if isinstance(value, bool):
+        return False
+    return value is not None and value != ""
+
+
+def vendor_block(general_db: dict, name: str) -> dict:
+    """
+    Return a vendor settings block, or None when it is absent or left blank.
+
+    The GUI configurator writes every field it knows, so an untouched vendor
+    block arrives as a mapping of nulls. A vendor block's presence selects that
+    vendor's native API, so a blank block must count as absent.
+
+    ## Parameters
+
+    - `general_db` (`dict`): The general settings dictionary.
+    - `name` (`str`): The block's key, e.g. `"EDAX_settings"`.
+
+    ## Returns
+
+    - `dict`: The block, or None when it is missing or every value is blank.
+    """
+    block = general_db.get(name)
+    return block if _has_value(block) else None
 
 
 def edax_config(edax_db: dict) -> tbt.EDAXConfig:
@@ -932,16 +968,111 @@ def bruker_config(bruker_db: dict) -> tbt.BrukerConfig:
     ## Returns
 
     - `tbt.BrukerConfig`: The Bruker configuration, or None when `bruker_db` is None.
-
-    ## Raises
-
-    - `SchemaError`: If the block does not pass validation.
     """
     if bruker_db is None:
         return None
-    from pytribeam.external_oem.bruker.config import parse_bruker_settings
+    mode = bruker_db.get("mode")
+    detector_index = bruker_db.get("detector_index")
+    return tbt.BrukerConfig(
+        dll_dir=Path(bruker_db["dll_dir"]),
+        mode=tbt.BrukerConnectionMode(mode or tbt.BrukerConnectionMode.LOCAL.value),
+        host=bruker_db.get("host"),
+        port=bruker_db.get("port"),
+        detector_index=1 if detector_index is None else detector_index,
+        # Off unless set, matching an unticked GUI checkbox.
+        move_detector=bool(bruker_db.get("move_detector") or False),
+        ebsd_inserted_position_mm=bruker_db.get("ebsd_inserted_position_mm"),
+        ebsd_retracted_position_mm=bruker_db.get("ebsd_retracted_position_mm"),
+    )
 
-    return parse_bruker_settings(bruker_db)
+
+def _bruker_map(map_db: dict) -> tbt.BrukerMapSettings:
+    return tbt.BrukerMapSettings(
+        width_px=map_db["width_px"],
+        height_px=map_db["height_px"],
+        dwell_us=map_db["dwell_us"],
+    )
+
+
+def _validate_bruker_step(block: dict, step_name: str, ebsd: bool) -> None:
+    """Schema check for a step-level `bruker_settings` block."""
+    where = f"step '{step_name}' bruker_settings"
+    positive_int = And(int, lambda x: x > 0)
+    keys = {
+        "output_path": And(
+            str, len, error=f"{where} 'output_path' must be a non-empty string."
+        ),
+        "map": {
+            "width_px": And(
+                positive_int, error=f"{where} 'map.width_px' must be a positive int."
+            ),
+            "height_px": And(
+                positive_int, error=f"{where} 'map.height_px' must be a positive int."
+            ),
+            "dwell_us": And(
+                positive_int, error=f"{where} 'map.dwell_us' must be a positive int."
+            ),
+        },
+    }
+    if ebsd:
+        keys["profile_name"] = And(
+            str, len, error=f"{where} 'profile_name' must be a non-empty string."
+        )
+        keys[Optional("save_patterns")] = Or(
+            None, bool, error=f"{where} 'save_patterns' must be true or false."
+        )
+    try:
+        Schema(keys).validate(block)
+    except SchemaError as error:
+        raise ValueError(f"Invalid {where}: {error}") from error
+
+
+def bruker_eds_step(
+    step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion
+) -> tbt.BrukerEDSStepSettings:
+    """
+    Read an EDS step's `bruker_settings` block (v1.2+), or None if absent/blank.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if yml_format.version < 1.2:
+        return None
+    block = vendor_block(step_settings, "bruker_settings")
+    if block is None:
+        return None
+    _validate_bruker_step(block, step_name, ebsd=False)
+    return tbt.BrukerEDSStepSettings(
+        output_path=Path(block["output_path"]),
+        map=_bruker_map(block["map"]),
+        run_name=step_name,
+    )
+
+
+def bruker_ebsd_step(
+    step_settings: dict, step_name: str, yml_format: tbt.YMLFormatVersion
+) -> tbt.BrukerEBSDStepSettings:
+    """
+    Read an EBSD step's `bruker_settings` block (v1.2+), or None if absent/blank.
+
+    ## Raises
+
+    - `ValueError`: If the block does not satisfy the schema.
+    """
+    if yml_format.version < 1.2:
+        return None
+    block = vendor_block(step_settings, "bruker_settings")
+    if block is None:
+        return None
+    _validate_bruker_step(block, step_name, ebsd=True)
+    return tbt.BrukerEBSDStepSettings(
+        output_path=Path(block["output_path"]),
+        profile_name=block["profile_name"],
+        map=_bruker_map(block["map"]),
+        save_patterns=bool(block.get("save_patterns") or False),
+        run_name=step_name,
+    )
 
 
 def laser_box_pattern(settings: dict) -> tbt.LaserBoxPattern:
@@ -1532,20 +1663,19 @@ def ebsd(
     if edax_settings is not None:
         scan_db = edax_settings.get("scan_box")
         # We use brackets instead of parentheses here since grid type is the name not the value
-        grid_type = tbt.EBSDGridType[edax_settings.get("grid_type")]
+        grid_name = edax_settings.get("grid_type")
+        grid_type = None if grid_name is None else tbt.EBSDGridType[grid_name]
         save_patterns = edax_settings.get("save_patterns")
-        x_start_um = scan_db.get("x_start_um")
-        y_start_um = scan_db.get("y_start_um")
-        x_size_um = scan_db.get("x_size_um")
-        y_size_um = scan_db.get("y_size_um")
-        step_size_um = scan_db.get("step_size_um")
-        scan_box = tbt.EBSDScanBox(
-            x_start_um=x_start_um,
-            y_start_um=y_start_um,
-            x_size_um=x_size_um,
-            y_size_um=y_size_um,
-            step_size_um=step_size_um,
-        )
+        # The GUI writes an untouched scan box as nulls: that means no scan box,
+        # so the scan area set in the EDAX software is used.
+        if _has_value(scan_db):
+            scan_box = tbt.EBSDScanBox(
+                x_start_um=scan_db.get("x_start_um"),
+                y_start_um=scan_db.get("y_start_um"),
+                x_size_um=scan_db.get("x_size_um"),
+                y_size_um=scan_db.get("y_size_um"),
+                step_size_um=scan_db.get("step_size_um"),
+            )
     ebsd_settings = tbt.EBSDSettings(
         image=image_settings,
         enable_eds=enable_eds,
@@ -1553,6 +1683,7 @@ def ebsd(
         scan_box=scan_box,
         grid_type=grid_type,
         save_patterns=save_patterns,
+        bruker=bruker_ebsd_step(step_settings, step_name, yml_format),
     )
     return ebsd_settings
 
@@ -1594,6 +1725,7 @@ def eds(
     eds_settings = tbt.EDSSettings(
         image=image_settings,
         enable_eds=True,
+        bruker=bruker_eds_step(step_settings, step_name, yml_format),
     )
     return eds_settings
 
@@ -2470,6 +2602,10 @@ def validate_bruker_settings(
     """
     Perform schema checking for a `Bruker_settings` dictionary.
 
+    The block holds only instrument-level settings; map parameters are set in
+    each EDS/EBSD step's own `bruker_settings` block, and the rest of the ESPRIT
+    configuration is fixed in the Bruker adapter.
+
     ## Parameters
 
     - `bruker_settings` (`dict`): The `Bruker_settings` block.
@@ -2482,24 +2618,80 @@ def validate_bruker_settings(
 
     ## Raises
 
-    - `ValueError`: If the block is invalid, or lacks the `eds` / `ebsd`
-      section for a technique run through ESPRIT.
+    - `ValueError`: If the block does not satisfy the schema.
     """
-    from pytribeam.external_oem.bruker.config import parse_bruker_settings
-
+    if not isinstance(bruker_settings, dict):
+        raise ValueError(
+            f"'Bruker_settings' must be a mapping, not {type(bruker_settings).__name__}."
+        )
+    modes = [mode.value for mode in tbt.BrukerConnectionMode]
+    schema = Schema(
+        {
+            "dll_dir": And(
+                str, len, error="Bruker_settings 'dll_dir' must be a non-empty string."
+            ),
+            Optional("mode"): Or(
+                None,
+                And(str, lambda x: x in modes),
+                error=f"Bruker_settings 'mode' must be one of {modes}.",
+            ),
+            Optional("host"): Or(
+                None, And(str, len), error="Bruker_settings 'host' must be a string."
+            ),
+            Optional("port"): Or(
+                None,
+                And(int, lambda x: 0 < x < 65536),
+                error="Bruker_settings 'port' must be an int between 1 and 65535.",
+            ),
+            Optional("detector_index"): Or(
+                None,
+                And(int, lambda x: 1 <= x <= Constants.bruker_max_eds_detectors),
+                error=(
+                    "Bruker_settings 'detector_index' must be an int from 1 to "
+                    f"{Constants.bruker_max_eds_detectors}."
+                ),
+            ),
+            Optional("move_detector"): Or(
+                None,
+                bool,
+                error="Bruker_settings 'move_detector' must be true or false.",
+            ),
+            Optional("ebsd_inserted_position_mm"): Or(
+                None,
+                And(Or(int, float), lambda x: not isinstance(x, bool) and x >= 0),
+                error="Bruker_settings 'ebsd_inserted_position_mm' must be a number >= 0.",
+            ),
+            Optional("ebsd_retracted_position_mm"): Or(
+                None,
+                And(Or(int, float), lambda x: not isinstance(x, bool) and x >= 0),
+                error="Bruker_settings 'ebsd_retracted_position_mm' must be a number >= 0.",
+            ),
+        },
+    )
     try:
-        parsed = parse_bruker_settings(bruker_settings)
+        schema.validate(bruker_settings)
     except SchemaError as error:
         raise ValueError(f"Invalid 'Bruker_settings': {error}") from error
-
-    for technique, native, section in (
-        ("EBSD", ebsd_native, parsed.ebsd),
-        ("EDS", eds_native, parsed.eds),
+    if bruker_settings.get("mode") == tbt.BrukerConnectionMode.TCP.value and not (
+        bruker_settings.get("host")
     ):
-        if native and section is None:
+        raise ValueError("Bruker_settings 'mode: tcp' needs a 'host'.")
+
+    if ebsd_native:
+        inserted = bruker_settings.get("ebsd_inserted_position_mm")
+        retracted = bruker_settings.get("ebsd_retracted_position_mm")
+        if inserted is None or retracted is None:
             raise ValueError(
-                f"Bruker {technique} is enabled, but 'Bruker_settings' has no "
-                f"'{technique.lower()}' section."
+                "Bruker EBSD needs the camera's measured positions: set "
+                "Bruker_settings 'ebsd_inserted_position_mm' and "
+                "'ebsd_retracted_position_mm'."
+            )
+        tolerance = Constants.bruker_ebsd_position_tolerance_mm
+        if abs(inserted - retracted) <= tolerance:
+            raise ValueError(
+                "Bruker_settings 'ebsd_inserted_position_mm' and "
+                f"'ebsd_retracted_position_mm' must differ by more than {tolerance} mm, "
+                "or the two positions cannot be told apart."
             )
     return True
 
@@ -2546,10 +2738,10 @@ def validate_general_settings(
         oxford_settings = None
         bruker_settings = None
     if yml_format.version >= 1.1:
-        edax_settings = settings.get("EDAX_settings")
+        edax_settings = vendor_block(settings, "EDAX_settings")
     if yml_format.version >= 1.2:
-        oxford_settings = settings.get("Oxford_settings")
-        bruker_settings = settings.get("Bruker_settings")
+        oxford_settings = vendor_block(settings, "Oxford_settings")
+        bruker_settings = vendor_block(settings, "Bruker_settings")
 
     # Validate the non-numeric values
     # Check sectioning axis
