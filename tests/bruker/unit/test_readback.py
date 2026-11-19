@@ -1,3 +1,4 @@
+import ctypes as ct
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,24 @@ from pytribeam.external_oem.bruker.types import (
     BrukerEDSProfileMapSettings,
     BrukerRectROI,
 )
+
+#: ESPRIT's IFC_ERROR_RESULT_BUFFER_INSUFFICIENT.
+BUFFER_INSUFFICIENT = -11
+
+
+def _copy_into(buf_ptr, size_ptr, data: bytes) -> int:
+    """Answer HyMapGetElementData as ESPRIT does: copy only if `data` fits.
+
+    `size_ptr` holds the buffer's capacity on the way in. Copying more than
+    that writes past the end of a real ctypes buffer, which corrupts the heap
+    and crashes the test process later, in an unrelated test (seen on
+    Windows as "access violation" during the EDAX tests).
+    """
+    if len(data) > size_ptr._obj.value:
+        return BUFFER_INSUFFICIENT
+    ct.memmove(buf_ptr, data, len(data))
+    size_ptr._obj.value = len(data)
+    return 0
 
 
 class DummyFunc:
@@ -97,12 +116,8 @@ def test_get_element_data_bytes_success(monkeypatch):
     expected_data = b"\x01\x00\x02\x00" * 100  # 400 bytes
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
-        data_len = len(expected_data)
-        ct.memmove(buf_ptr, expected_data, data_len)
-        size_ptr._obj.value = data_len
-        return 0
+        return _copy_into(buf_ptr, size_ptr, expected_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 
@@ -124,11 +139,8 @@ def test_get_element_data_array_correct_shape(monkeypatch):
     pixel_data = np.arange(width * height, dtype=np.uint16).tobytes()
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
-        ct.memmove(buf_ptr, pixel_data, len(pixel_data))
-        size_ptr._obj.value = len(pixel_data)
-        return 0
+        return _copy_into(buf_ptr, size_ptr, pixel_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 
@@ -152,11 +164,8 @@ def test_get_element_data_array_size_mismatch(monkeypatch):
     wrong_data = b"\x00" * 100
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
-        ct.memmove(buf_ptr, wrong_data, len(wrong_data))
-        size_ptr._obj.value = len(wrong_data)
-        return 0
+        return _copy_into(buf_ptr, size_ptr, wrong_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 
@@ -170,6 +179,10 @@ def test_get_element_data_array_size_mismatch(monkeypatch):
     with pytest.raises(ValueError, match="size mismatch"):
         controller.get_element_data_array(element_index=0, width_px=8, height_px=4)
 
+    # The exact-size buffer (64 bytes) is refused, then a larger one is used.
+    sizes = [call[3]._obj.value for call in dll.HyMapGetElementData.calls]
+    assert len(sizes) == 2
+
 
 def test_read_all_element_maps_per_element_error(monkeypatch):
     """One element fails, others succeed — non-strict mode."""
@@ -179,16 +192,13 @@ def test_read_all_element_maps_per_element_error(monkeypatch):
     call_count = [0]
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
         call_count[0] += 1
         # Fail on element index 1
         if element_index == 1:
             return -1  # IFC_ERROR_IN_EXECUTION
 
-        ct.memmove(buf_ptr, good_data, len(good_data))
-        size_ptr._obj.value = len(good_data)
-        return 0
+        return _copy_into(buf_ptr, size_ptr, good_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 
@@ -252,11 +262,8 @@ def test_save_element_maps_npy_writes_files(monkeypatch, tmp_path):
     pixel_data = np.ones(width * height, dtype=np.uint16).tobytes()
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
-        ct.memmove(buf_ptr, pixel_data, len(pixel_data))
-        size_ptr._obj.value = len(pixel_data)
-        return 0
+        return _copy_into(buf_ptr, size_ptr, pixel_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 
@@ -296,11 +303,8 @@ def test_save_element_maps_npy_can_also_write_tiff(monkeypatch, tmp_path):
     pixel_data = np.arange(width * height, dtype=np.uint16).tobytes()
 
     def side_effect(cid, element_index, buf_ptr, size_ptr):
-        import ctypes as ct
 
-        ct.memmove(buf_ptr, pixel_data, len(pixel_data))
-        size_ptr._obj.value = len(pixel_data)
-        return 0
+        return _copy_into(buf_ptr, size_ptr, pixel_data)
 
     dll.HyMapGetElementData.side_effect = side_effect
 

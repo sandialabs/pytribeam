@@ -949,7 +949,9 @@ def test_eds_map_survives_the_finalization_stall(make_client, no_sleep):
 
     result = mapping.run_eds_map(
         EdaxEdsController(client),
-        _eds_plan(status_timeout_s=0.02, min_timeout_s=5.0),
+        # The start allowance must outlast the 0.3 s stall: the stalled reply
+        # is the first status, so the map is not yet seen starting.
+        _eds_plan(status_timeout_s=0.02, min_timeout_s=5.0, start_timeout_s=5.0),
         quiet=True,
     )
 
