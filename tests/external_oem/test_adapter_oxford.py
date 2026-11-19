@@ -41,9 +41,10 @@ EDS_PROFILE = "EDS 512px 50us"
 
 
 PROJECT_FOLDER = "D:/AZtec projects"
-#: The experiment's AZtec project, named after the experiment directory.
-PROJECT_FILE = "D:/AZtec projects/exp1/exp1.oipx"
-DATA_FOLDER = "D:/AZtec projects/exp1/data"
+#: The experiment's AZtec project: the configured name, not the experiment
+#: directory's ("exp1"), so nothing about the layout is a surprise.
+PROJECT_FILE = "D:/AZtec projects/sample_A/sample_A.oipx"
+DATA_FOLDER = "D:/AZtec projects/sample_A/data"
 
 SETTINGS = general_settings(
     OEM.OXFORD,
@@ -52,6 +53,7 @@ SETTINGS = general_settings(
     Oxford_settings=tbt.OxfordConfig(
         connection=tbt.MicroscopeConnection(host="aztec-pc", port=22201),
         project_folder=Path(PROJECT_FOLDER),
+        project_name="sample_A",
     ),
 )
 
@@ -443,12 +445,15 @@ class TestMaps:
         assert oxford_adapter.preflight_ebsd(settings, [ebsd_settings()])
         assert (tmp_path / "projects").is_dir()
 
-    def test_a_project_folder_is_required(self, sim):
+    @pytest.mark.parametrize(
+        "change", [{"project_folder": None}, {"project_name": None}]
+    )
+    def test_a_project_folder_and_name_are_required(self, sim, change):
         settings = SETTINGS._replace(
-            Oxford_settings=SETTINGS.Oxford_settings._replace(project_folder=None)
+            Oxford_settings=SETTINGS.Oxford_settings._replace(**change)
         )
 
-        with pytest.raises(ConfigurationError, match="project_folder"):
+        with pytest.raises(ConfigurationError, match="project_folder.*project_name"):
             oxford_adapter.preflight_eds(settings, [eds_settings()])
 
 

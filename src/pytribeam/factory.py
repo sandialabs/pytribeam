@@ -1103,6 +1103,7 @@ def oxford_config(oxford_db: dict) -> tbt.OxfordConfig:
             port=Constants.oxford_aztec_default_port if port is None else port,
         ),
         project_folder=None if not project_folder else Path(project_folder),
+        project_name=oxford_db.get("project_name") or None,
         dll_dir=None if dll_dir is None else Path(dll_dir),
     )
 
@@ -2763,18 +2764,39 @@ def validate_oxford_settings(
                 optional_str,
                 error="Oxford_settings 'project_folder' must be a non-empty string or null.",
             ),
+            Optional("project_name"): Or(
+                None,
+                And(
+                    str,
+                    lambda x: (
+                        bool(x)
+                        and x == x.strip()
+                        and x == x.rstrip(". ")
+                        and not (set(x) & set('<>:"/\\|?*'))
+                    ),
+                ),
+                error=(
+                    "Oxford_settings 'project_name' must be usable as a Windows "
+                    'folder name: no <>:"/\\|?* and no leading/trailing spaces or dots.'
+                ),
+            ),
         },
     )
     try:
         schema.validate(oxford_settings)
     except SchemaError as error:
         raise ValueError(f"Invalid 'Oxford_settings': {error}") from error
-    if (ebsd_native or eds_native) and not oxford_settings.get("project_folder"):
-        raise ValueError(
-            "Oxford_settings needs a 'project_folder' (a folder on the AZtec "
-            "computer): the experiment's AZtec project and every map's .h5oina "
-            "export are kept there."
-        )
+    if ebsd_native or eds_native:
+        for key, what in (
+            ("project_folder", "a folder on the AZtec computer"),
+            ("project_name", "the name of the experiment's AZtec project"),
+        ):
+            if not oxford_settings.get(key):
+                raise ValueError(
+                    f"Oxford_settings needs a '{key}' ({what}): AZtec keeps the "
+                    "experiment's project in <project_folder>/<project_name>/, with "
+                    "every map's .h5oina export in its data folder."
+                )
     return True
 
 

@@ -1549,15 +1549,18 @@ class OxfordConfig(NamedTuple):
     - `connection` (`MicroscopeConnection`): Host and port of the AZtec plugin
       service (default port 22201).
     - `project_folder` (`Path`): Folder, on the AZtec computer, holding the
-      experiment's AZtec project (`<project_folder>/<experiment>/`). Each map's
-      `.h5oina` export is written to the project's `data` folder, next to its
-      `.ebsp` pattern file. Required for native Oxford control.
+      experiment's AZtec project. Required for native Oxford control.
+    - `project_name` (`str`): Name of the experiment's AZtec project. AZtec
+      keeps it in `<project_folder>/<project_name>/`, with each map's `.h5oina`
+      export (and `.ebsp` patterns) in its `data` folder. Required for native
+      Oxford control.
     - `dll_dir` (`Path, optional`): Folder holding the AZtec plugin SDK DLLs.
       If None, the `AZTEC_PLUGIN_DIR` environment variable is used.
     """
 
     connection: MicroscopeConnection
     project_folder: Path = None
+    project_name: str = None
     dll_dir: Path = None
 
 

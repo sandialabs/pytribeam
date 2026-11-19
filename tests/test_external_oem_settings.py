@@ -32,6 +32,7 @@ EDAX_DB = {
 OXFORD_DB = {
     "connection": {"host": "aztec-pc", "port": None},
     "project_folder": "D:/AZtec projects",
+    "project_name": "sample_A",
 }
 
 BRUKER_DB = {"dll_dir": "C:/Program Files/Bruker/Esprit API"}
@@ -182,6 +183,7 @@ class TestVendorConfigParsing:
         )
         assert oxford.dll_dir is None
         assert oxford.project_folder == Path("D:/AZtec projects")
+        assert oxford.project_name == "sample_A"
 
     def test_oxford_explicit_port_and_dll_dir(self):
         db = deepcopy(OXFORD_DB)
@@ -327,13 +329,29 @@ class TestValidateEbsdEdsSettings:
 
     # Oxford
 
+    @pytest.mark.parametrize("key", ["project_folder", "project_name"])
     @pytest.mark.parametrize("oems", [("Oxford", None), (None, "Oxford")])
-    def test_native_oxford_needs_a_project_folder(self, laser, oems):
+    def test_native_oxford_needs_a_project_folder_and_name(self, laser, oems, key):
         db = deepcopy(OXFORD_DB)
-        del db["project_folder"]
+        del db[key]
 
-        with pytest.raises(ValueError, match="project_folder"):
+        with pytest.raises(ValueError, match=key):
             validate(*oems, oxford_settings=db)
+
+    @pytest.mark.parametrize(
+        "name", ["a/b", "a:b", 'a"b', " sample", "sample ", "sample.", "a*b"]
+    )
+    def test_project_name_must_be_a_windows_folder_name(self, laser, name):
+        """AZtec would otherwise alter it, and the folder would not match."""
+        db = {**deepcopy(OXFORD_DB), "project_name": name}
+
+        with pytest.raises(ValueError, match="project_name"):
+            validate("Oxford", "Oxford", oxford_settings=db)
+
+    @pytest.mark.parametrize("name", ["sample_A", "Sample A 2026-11-18", "x"])
+    def test_valid_project_names(self, laser, name):
+        db = {**deepcopy(OXFORD_DB), "project_name": name}
+        assert validate("Oxford", "Oxford", oxford_settings=db)
 
     @pytest.mark.parametrize("key", ["ebsd_profile", "eds_profile"])
     def test_profiles_in_the_general_block_point_to_the_steps(self, laser, key):

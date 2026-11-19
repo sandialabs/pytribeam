@@ -18,7 +18,8 @@ Opt in::
     set PYTRIBEAM_OXFORD_EBSD_PROFILE=<AZtec profile name>
     set PYTRIBEAM_OXFORD_EDS_PROFILE=<AZtec profile name>
     rem optional: PYTRIBEAM_OXFORD_PORT (default 22201), AZTEC_PLUGIN_DIR,
-    rem   PYTRIBEAM_OXFORD_PROJECT_FOLDER (default C:/pytribeam_projects)
+    rem   PYTRIBEAM_OXFORD_PROJECT_FOLDER (default C:/pytribeam_projects),
+    rem   PYTRIBEAM_OXFORD_PROJECT_NAME (default pytribeam_hardware_test)
     rem motion tier only:
     set PYTRIBEAM_ALLOW_DETECTOR_MOTION=1
     pytest tests/external_oem/test_adapter_oxford_hardware.py -v
@@ -60,6 +61,7 @@ def settings() -> tbt.GeneralSettings:
             host=host, port=int(_env("PYTRIBEAM_OXFORD_PORT", "22201"))
         ),
         project_folder=PROJECTS,
+        project_name=_env("PYTRIBEAM_OXFORD_PROJECT_NAME", "pytribeam_hardware_test"),
         dll_dir=_env("AZTEC_PLUGIN_DIR") or None,
     )
     return tbt.GeneralSettings(

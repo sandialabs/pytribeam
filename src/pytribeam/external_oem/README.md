@@ -144,7 +144,8 @@ New:
   `BRUKER_ESPRIT`.
 - `ExternalTechnique(Enum)`: `EBSD`, `EDS`.
 - `OxfordConfig(NamedTuple)`: `connection` (host, default port 22201),
-  `project_folder` (the experiment's AZtec project location) and
+  `project_folder` and `project_name` (the experiment's AZtec project,
+  `<project_folder>/<project_name>/<project_name>.oipx`) and
   `dll_dir = None`. The AZtec profile is per step: `OxfordStepSettings(profile)`
   on `EBSDSettings.oxford` and `EDSSettings.oxford`.
 - `BrukerConfig(NamedTuple)`: instrument-level Bruker settings only:
@@ -210,8 +211,9 @@ LaserControl.
   collecting.
 - **Concurrent EDS during EBSD** sets both acquisition-type flags. *Include
   EDS* must still be enabled in AZtec or in the EBSD profile.
-- **Data:** one AZtec project per experiment, `<project_folder>/<exp_dir
-  name>/` (`Oxford_settings.project_folder`, on the AZtec PC), created by
+- **Data:** one AZtec project per experiment, `<project_folder>/<project_name>/`
+  (`Oxford_settings.project_folder` and `project_name`, on the AZtec PC;
+  the name must be a valid Windows folder name), created by
   preflight or reopened (already open, or on disk) so validating, starting and
   resuming never duplicate it. Each map, named `<step>_slice_NNNN`, is acquired
   into that project (explicit project and specimen ids) and exported with

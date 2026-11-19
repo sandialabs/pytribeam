@@ -256,9 +256,20 @@ oxford_project_folder = LUTField(
     "",
     ctk.Entry,
     {"dtype": str},
-    "Folder, on the AZtec computer, for the experiment's AZtec project. Each "
-    "map's .h5oina export is written to the project's data folder, next to "
-    "its .ebsp pattern file. Required to use Oxford through AZtec.",
+    "Folder, on the AZtec computer, that holds the experiment's AZtec project "
+    "(AZtec adds a subfolder named after the project). Required to use Oxford "
+    "through AZtec.",
+    str,
+    tbt.Limit(min=1.2, max=max(VERSIONS)),
+)
+oxford_project_name = LUTField(
+    "AZtec Project Name",
+    "",
+    ctk.Entry,
+    {"dtype": str},
+    "Name of the experiment's AZtec project. AZtec keeps it in "
+    "<project folder>/<project name>/, with the .h5oina exports (and .ebsp "
+    "patterns) in its data folder. Required to use Oxford through AZtec.",
     str,
     tbt.Limit(min=1.2, max=max(VERSIONS)),
 )
@@ -278,6 +289,7 @@ oxford_connection_lut.add_entry("port", oxford_port)
 oxford_settings_lut = LUT("Oxford_settings")
 oxford_settings_lut.add_entry("connection", oxford_connection_lut)
 oxford_settings_lut.add_entry("project_folder", oxford_project_folder)
+oxford_settings_lut.add_entry("project_name", oxford_project_name)
 oxford_settings_lut.add_entry("dll_dir", oxford_dll_dir)
 
 

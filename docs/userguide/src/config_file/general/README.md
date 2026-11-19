@@ -76,7 +76,19 @@ AZtec's plugin API cannot set technique parameters (step size, dwell time, resol
 
 - **connection** / **host** (*str*): Host running AZtec and its plugin service (often `127.0.0.1`).
 - **connection** / **port** (*int*, optional): Plugin service port; blank for the default, `22201`.
-- **project_folder** (*str*): folder, **on the AZtec computer**, for the experiment's AZtec project, `<project_folder>/<experiment>/`, named after the experiment directory (**exp_dir**). Preflight creates the project, or reopens it when resuming. Every map is acquired into it and exported to `.h5oina` in the project's `data` folder, next to the `.ebsp` pattern file AZtec saves for EBSD maps, so AZtecCrystal pairs them. Required for Oxford through AZtec.
+- **project_folder** (*str*): folder, **on the AZtec computer**, that holds the experiment's AZtec project. Required for Oxford through AZtec.
+- **project_name** (*str*): name of the experiment's AZtec project. Required for Oxford through AZtec. It must be a valid Windows folder name: none of `< > : " / \ | ? *`, and no leading or trailing spaces or trailing dots.
+
+AZtec keeps the project in its own subfolder, so the files end up in:
+
+```
+<project_folder>/
+  <project_name>/
+    <project_name>.oipx      the AZtec project
+    data/                    every map's .h5oina export, and the .ebsp patterns
+```
+
+Preflight creates the project, or reopens it when the experiment is validated again or resumed, so a project name is never used twice by mistake. To start a fresh project, use a new **project_name**. Every map is acquired into the project and exported to `.h5oina` in its `data` folder, next to the `.ebsp` pattern file AZtec saves for EBSD maps, so AZtecCrystal pairs them.
 - **dll_dir** (*str*, optional): Folder holding the AZtec plugin SDK DLLs; blank to use the `AZTEC_PLUGIN_DIR` environment variable.
 
 ### Bruker_settings

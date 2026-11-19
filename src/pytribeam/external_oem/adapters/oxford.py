@@ -10,9 +10,9 @@ resolution...). Parameters are applied by loading the AZtec profile named in
 each step's `oxford_settings.profile`, so steps can differ. Loading a profile
 replaces AZtec's current settings, including unsaved GUI changes.
 
-Data: each experiment has one AZtec project, `<project_folder>/<experiment>/`
-(`Oxford_settings.project_folder`, on the AZtec computer), created or reopened
-by preflight. Every map is acquired into it and exported to `.h5oina` in the
+Data: each experiment has one AZtec project, named `Oxford_settings.project_name`,
+which AZtec keeps in `<project_folder>/<project_name>/` (on the AZtec
+computer); preflight creates or reopens it. Every map is acquired into it and exported to `.h5oina` in the
 project's `data` folder, next to the `.ebsp` pattern file AZtec saves for EBSD
 maps (when pattern saving is on in the profile), so AZtecCrystal pairs them.
 Without the export, AZtec keeps a map only in its internal `.dat` files.
@@ -155,17 +155,22 @@ def _require_ready(session: AztecSession, acquisition_type: AcquisitionType) -> 
 def _project_location(general_settings: tbt.GeneralSettings):
     """(folder, name, project file) of the experiment's AZtec project.
 
-    Named after the experiment directory; the file layout is AZtec's own
-    (`<folder>/<name>/<name>.oipx`, observed on AZtec 6.1).
+    The file layout is AZtec's own: `<folder>/<name>/<name>.oipx`, with the
+    `data` folder beside it (observed on AZtec 6.1).
     """
-    folder = general_settings.Oxford_settings.project_folder
-    if folder is None:
+    config = general_settings.Oxford_settings
+    if config.project_folder is None or not config.project_name:
         raise ConfigurationError(
             "Oxford needs Oxford_settings 'project_folder' (a folder on the AZtec "
-            "computer) for the experiment's AZtec project and exports."
+            "computer) and 'project_name' for the experiment's AZtec project and "
+            "exports."
         )
-    folder = str(folder)
-    name = windows_safe(Path(str(general_settings.exp_dir)).name) or "pytribeam"
+    folder = str(config.project_folder)
+    name = config.project_name
+    if windows_safe(name) != name:
+        raise ConfigurationError(
+            f"Oxford_settings 'project_name' {name!r} is not a valid Windows folder name."
+        )
     sep = "\\" if ("\\" in folder or ":" in folder[:3]) else "/"
     file_name = sep.join([folder.rstrip("\\/"), name, name + ".oipx"])
     return folder, name, file_name

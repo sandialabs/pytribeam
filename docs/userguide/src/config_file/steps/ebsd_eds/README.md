@@ -27,7 +27,7 @@ oxford_settings:
   profile: "EBSD 1um step"
 ```
 
-Each Oxford map is exported to `.h5oina` in the experiment's AZtec project (see **Oxford_settings** / **project_folder** in **[General Experiment Settings](../../general/index.html)**), as `<step name>_slice_<NNNN>_<map id>.h5oina` in the project's `data` folder. EBSD patterns are saved there too, as `<map id>.ebsp`, when pattern saving is on in the AZtec profile (pyTriBeam cannot switch it on). An EBSD map with concurrent EDS gives an EBSD file and an EDS file. If an export fails, the experiment stops; the map is still in the AZtec project.
+Each Oxford map is exported to `.h5oina` in the experiment's AZtec project (see **Oxford_settings** / **project_folder** and **project_name** in **[General Experiment Settings](../../general/index.html)**), as `<step name>_slice_<NNNN>_<map id>.h5oina` in `<project_folder>/<project_name>/data`. EBSD patterns are saved there too, as `<map id>.ebsp`, when pattern saving is on in the AZtec profile (pyTriBeam cannot switch it on). An EBSD map with concurrent EDS gives an EBSD file and an EDS file. If an export fails, the experiment stops; the map is still in the AZtec project.
 
 A step's vendor blocks only apply to its technique's OEM (the **EBSD_OEM** for EBSD steps, the **EDS_OEM** for EDS steps); the others are ignored.
 
