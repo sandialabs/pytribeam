@@ -31,21 +31,43 @@ class TestBeamObjectType:
 
 
 class TestExternalDeviceOEMValidation:
+    """Bruker is native only: it has no LaserControl fallback, so it needs its
+    Bruker_settings block (config file version 1.2+). Details are covered in
+    tests/test_external_oem_settings.py."""
+
+    BRUKER_SETTINGS = {
+        "dll_dir": "C:/Program Files/Bruker/Esprit API",
+        "ebsd_inserted_position_mm": 20.0,
+        "ebsd_retracted_position_mm": 0.0,
+    }
+
     @pytest.mark.simulated
     def test_validate_bruker_eds_without_ebsd(self):
         assert factory.validate_EBSD_EDS_settings(
-            yml_format=tbt.YMLFormatVersion.V_1_0,
+            yml_format=tbt.YMLFormatVersion.V_1_2,
             ebsd_oem=None,
             eds_oem="Bruker",
+            bruker_settings=self.BRUKER_SETTINGS,
         )
 
     @pytest.mark.simulated
     def test_validate_bruker_ebsd_and_eds(self):
         assert factory.validate_EBSD_EDS_settings(
-            yml_format=tbt.YMLFormatVersion.V_1_0,
+            yml_format=tbt.YMLFormatVersion.V_1_2,
             ebsd_oem="Bruker",
             eds_oem="Bruker",
+            bruker_settings=self.BRUKER_SETTINGS,
         )
+
+    @pytest.mark.simulated
+    @pytest.mark.parametrize("ebsd_oem", [None, "Bruker"])
+    def test_bruker_without_its_settings_block_is_refused(self, ebsd_oem):
+        with pytest.raises(ValueError, match="Bruker_settings"):
+            factory.validate_EBSD_EDS_settings(
+                yml_format=tbt.YMLFormatVersion.V_1_0,
+                ebsd_oem=ebsd_oem,
+                eds_oem="Bruker",
+            )
 
     @pytest.mark.simulated
     def test_validate_mixed_vendor_still_unsupported(self):
